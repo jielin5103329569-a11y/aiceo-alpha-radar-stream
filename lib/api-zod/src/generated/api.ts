@@ -119,6 +119,56 @@ export const GetRadarStatusResponse = zod.object({
   "timestamp": zod.coerce.date(),
   "side": zod.string().nullable()
 })),
+  "radar": zod.object({
+  "score": zod.number().nullable(),
+  "status": zod.enum(['neutral', 'watch', 'breakout_setup']),
+  "dataTimestamp": zod.coerce.date().nullable(),
+  "freshness": zod.enum(['fresh', 'stale', 'insufficient', 'quiet']),
+  "sampleCount": zod.number(),
+  "windowSeconds": zod.number(),
+  "momentum": zod.object({
+  "score": zod.number().nullable(),
+  "dataTimestamp": zod.coerce.date().nullable(),
+  "freshness": zod.enum(['fresh', 'stale', 'insufficient', 'quiet']),
+  "detail": zod.string()
+}).and(zod.object({
+  "changePercent": zod.number().nullable()
+})),
+  "volumeIntensity": zod.object({
+  "score": zod.number().nullable(),
+  "dataTimestamp": zod.coerce.date().nullable(),
+  "freshness": zod.enum(['fresh', 'stale', 'insufficient', 'quiet']),
+  "detail": zod.string()
+}).and(zod.object({
+  "recentVolume": zod.number().nullable(),
+  "baselineVolume": zod.number().nullable(),
+  "ratio": zod.number().nullable()
+})),
+  "pressure": zod.object({
+  "score": zod.number().nullable(),
+  "dataTimestamp": zod.coerce.date().nullable(),
+  "freshness": zod.enum(['fresh', 'stale', 'insufficient', 'quiet']),
+  "detail": zod.string()
+}).and(zod.object({
+  "buyVolume": zod.number().nullable(),
+  "sellVolume": zod.number().nullable(),
+  "classifiedTrades": zod.number()
+})),
+  "spread": zod.object({
+  "score": zod.number().nullable(),
+  "dataTimestamp": zod.coerce.date().nullable(),
+  "freshness": zod.enum(['fresh', 'stale', 'insufficient', 'quiet']),
+  "detail": zod.string()
+}).and(zod.object({
+  "spread": zod.number().nullable(),
+  "spreadBps": zod.number().nullable()
+})),
+  "activityFlags": zod.array(zod.object({
+  "type": zod.enum(['elevated_volume', 'elevated_trades', 'wide_spread', 'unbalanced_pressure', 'quiet']),
+  "label": zod.string(),
+  "detail": zod.string()
+}))
+}),
   "streams": zod.array(zod.object({
   "schema": zod.enum(['mbp-1', 'ohlcv-1s']),
   "state": zod.enum(['waiting', 'receiving', 'error']),
@@ -230,6 +280,56 @@ export const StartRadarConnectionResponse = zod.object({
   "timestamp": zod.coerce.date(),
   "side": zod.string().nullable()
 })),
+  "radar": zod.object({
+  "score": zod.number().nullable(),
+  "status": zod.enum(['neutral', 'watch', 'breakout_setup']),
+  "dataTimestamp": zod.coerce.date().nullable(),
+  "freshness": zod.enum(['fresh', 'stale', 'insufficient', 'quiet']),
+  "sampleCount": zod.number(),
+  "windowSeconds": zod.number(),
+  "momentum": zod.object({
+  "score": zod.number().nullable(),
+  "dataTimestamp": zod.coerce.date().nullable(),
+  "freshness": zod.enum(['fresh', 'stale', 'insufficient', 'quiet']),
+  "detail": zod.string()
+}).and(zod.object({
+  "changePercent": zod.number().nullable()
+})),
+  "volumeIntensity": zod.object({
+  "score": zod.number().nullable(),
+  "dataTimestamp": zod.coerce.date().nullable(),
+  "freshness": zod.enum(['fresh', 'stale', 'insufficient', 'quiet']),
+  "detail": zod.string()
+}).and(zod.object({
+  "recentVolume": zod.number().nullable(),
+  "baselineVolume": zod.number().nullable(),
+  "ratio": zod.number().nullable()
+})),
+  "pressure": zod.object({
+  "score": zod.number().nullable(),
+  "dataTimestamp": zod.coerce.date().nullable(),
+  "freshness": zod.enum(['fresh', 'stale', 'insufficient', 'quiet']),
+  "detail": zod.string()
+}).and(zod.object({
+  "buyVolume": zod.number().nullable(),
+  "sellVolume": zod.number().nullable(),
+  "classifiedTrades": zod.number()
+})),
+  "spread": zod.object({
+  "score": zod.number().nullable(),
+  "dataTimestamp": zod.coerce.date().nullable(),
+  "freshness": zod.enum(['fresh', 'stale', 'insufficient', 'quiet']),
+  "detail": zod.string()
+}).and(zod.object({
+  "spread": zod.number().nullable(),
+  "spreadBps": zod.number().nullable()
+})),
+  "activityFlags": zod.array(zod.object({
+  "type": zod.enum(['elevated_volume', 'elevated_trades', 'wide_spread', 'unbalanced_pressure', 'quiet']),
+  "label": zod.string(),
+  "detail": zod.string()
+}))
+}),
   "streams": zod.array(zod.object({
   "schema": zod.enum(['mbp-1', 'ohlcv-1s']),
   "state": zod.enum(['waiting', 'receiving', 'error']),
@@ -341,6 +441,56 @@ export const StopRadarConnectionResponse = zod.object({
   "timestamp": zod.coerce.date(),
   "side": zod.string().nullable()
 })),
+  "radar": zod.object({
+  "score": zod.number().nullable(),
+  "status": zod.enum(['neutral', 'watch', 'breakout_setup']),
+  "dataTimestamp": zod.coerce.date().nullable(),
+  "freshness": zod.enum(['fresh', 'stale', 'insufficient', 'quiet']),
+  "sampleCount": zod.number(),
+  "windowSeconds": zod.number(),
+  "momentum": zod.object({
+  "score": zod.number().nullable(),
+  "dataTimestamp": zod.coerce.date().nullable(),
+  "freshness": zod.enum(['fresh', 'stale', 'insufficient', 'quiet']),
+  "detail": zod.string()
+}).and(zod.object({
+  "changePercent": zod.number().nullable()
+})),
+  "volumeIntensity": zod.object({
+  "score": zod.number().nullable(),
+  "dataTimestamp": zod.coerce.date().nullable(),
+  "freshness": zod.enum(['fresh', 'stale', 'insufficient', 'quiet']),
+  "detail": zod.string()
+}).and(zod.object({
+  "recentVolume": zod.number().nullable(),
+  "baselineVolume": zod.number().nullable(),
+  "ratio": zod.number().nullable()
+})),
+  "pressure": zod.object({
+  "score": zod.number().nullable(),
+  "dataTimestamp": zod.coerce.date().nullable(),
+  "freshness": zod.enum(['fresh', 'stale', 'insufficient', 'quiet']),
+  "detail": zod.string()
+}).and(zod.object({
+  "buyVolume": zod.number().nullable(),
+  "sellVolume": zod.number().nullable(),
+  "classifiedTrades": zod.number()
+})),
+  "spread": zod.object({
+  "score": zod.number().nullable(),
+  "dataTimestamp": zod.coerce.date().nullable(),
+  "freshness": zod.enum(['fresh', 'stale', 'insufficient', 'quiet']),
+  "detail": zod.string()
+}).and(zod.object({
+  "spread": zod.number().nullable(),
+  "spreadBps": zod.number().nullable()
+})),
+  "activityFlags": zod.array(zod.object({
+  "type": zod.enum(['elevated_volume', 'elevated_trades', 'wide_spread', 'unbalanced_pressure', 'quiet']),
+  "label": zod.string(),
+  "detail": zod.string()
+}))
+}),
   "streams": zod.array(zod.object({
   "schema": zod.enum(['mbp-1', 'ohlcv-1s']),
   "state": zod.enum(['waiting', 'receiving', 'error']),

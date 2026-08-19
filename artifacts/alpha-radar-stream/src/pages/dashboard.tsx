@@ -5,11 +5,26 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { RadarSignalPanel } from '@/components/radar-signal-panel';
-import { Separator } from '@/components/ui/separator';
-import { formatAge, formatNumber, formatTime, cn } from '@/lib/utils';
-import { AlertCircle, Activity, Power, PowerOff, Zap, ShieldAlert, WifiOff, Radio, RefreshCw } from 'lucide-react';
+import { formatAge, formatNumber, formatPercent, formatTime, cn } from '@/lib/utils';
+import {
+  AlertCircle,
+  Activity,
+  ArrowLeftRight,
+  BarChart3,
+  CircleAlert,
+  Gauge,
+  Power,
+  PowerOff,
+  Radio,
+  RefreshCw,
+  ScanLine,
+  ShieldAlert,
+  TrendingUp,
+  WifiOff,
+  Zap,
+} from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import type { RadarConnectionState, RadarReconnectState, RadarStatus } from '@workspace/api-client-react';
+import type { RadarConnectionState, RadarReconnectState, RadarSignal, RadarSnapshot, RadarStatus } from '@workspace/api-client-react';
 
 export default function Dashboard() {
   const { status, isLoading, isError, transportState } = useRadarStream();
@@ -95,22 +110,24 @@ export default function Dashboard() {
               <ConnectionStatusBadge state={status?.connectionState} error={isError} />
               
               {isConnected ? (
-                <Button 
+                <Button
                   variant="outline" 
                   size="sm" 
                   className="gap-2"
                   onClick={handleStop}
                   disabled={stopConnection.isPending}
+                  data-testid="button-terminate-stream"
                 >
                   <PowerOff className="h-4 w-4" />
                   <span className="hidden sm:inline">Terminate Stream</span>
                 </Button>
               ) : (
-                <Button 
+                <Button
                   size="sm" 
                   className="gap-2"
                   onClick={handleStart}
                   disabled={startConnection.isPending || isConnecting}
+                  data-testid="button-engage-stream"
                 >
                   <Power className="h-4 w-4" />
                   <span className="hidden sm:inline">
@@ -162,6 +179,10 @@ export default function Dashboard() {
                   <span className="text-muted-foreground">Last Market Update</span>
                   <span>{formatTime(status?.lastUpdatedAt)}</span>
                 </div>
+                <div className="flex justify-between items-center py-1">
+                  <span className="text-muted-foreground">Radar timestamp</span>
+                  <span data-testid="text-radar-timestamp">{formatTime(status?.radar?.dataTimestamp)}</span>
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -208,6 +229,33 @@ export default function Dashboard() {
                     <span className="font-mono text-sm mt-1">{formatNumber(status?.market?.sessionVolume, 0)}</span>
                   </div>
                 </div>
+                  <div className="col-span-2 grid grid-cols-2 gap-4 border-t border-border pt-4">
+                    <div className="flex flex-col">
+                      <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Quoted Spread</span>
+                      <span className="font-mono text-sm mt-1" data-testid="text-quoted-spread">
+                        {formatNumber(status?.radar?.spread?.spread, 2)}
+                        {status?.radar?.spread?.spreadBps !== null && status?.radar?.spread?.spreadBps !== undefined
+                          ? ` · ${formatNumber(status.radar.spread.spreadBps, 1)} bps`
+                          : ''}
+                      </span>
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Window Move</span>
+                      <span
+                        className={cn(
+                          'font-mono text-sm mt-1',
+                          (status?.radar?.momentum?.changePercent ?? 0) > 0
+                            ? 'text-emerald-600 dark:text-emerald-400'
+                            : (status?.radar?.momentum?.changePercent ?? 0) < 0
+                              ? 'text-destructive'
+                              : '',
+                        )}
+                        data-testid="text-window-move"
+                      >
+                        {formatPercent(status?.radar?.momentum?.changePercent)}
+                      </span>
+                    </div>
+                  </div>
               </div>
             </CardContent>
           </Card>
@@ -221,6 +269,10 @@ export default function Dashboard() {
         <div className="lg:col-span-8 flex flex-col gap-6">
           <RadarSignalPanel alphaRadar={status?.alphaRadar} />
 
+          <RadarScoreCard radar={status?.radar ?? null} />
+
+          <RadarComponentsCard radar={status?.radar ?? null} />
+
           <Card>
             <CardHeader className="pb-4">
               <CardTitle className="text-sm font-medium uppercase tracking-widest text-muted-foreground">
@@ -231,7 +283,7 @@ export default function Dashboard() {
               {status?.streams && status.streams.length > 0 ? (
                 <div className="space-y-3">
                   {status.streams.map((stream, idx) => (
-                    <div key={idx} className="flex items-center justify-between p-3 border border-border rounded-md bg-card">
+                    <div key={idx} className="flex items-center justify-between p-3 border border-border rounded-md bg-card" data-testid={`card-channel-${stream.schema}`}>
                       <div className="flex items-center gap-3">
                         <div className={cn(
                           "h-2 w-2 rounded-full",
@@ -262,6 +314,8 @@ export default function Dashboard() {
             </CardContent>
           </Card>
 
+          <ActivityObservationsCard radar={status?.radar ?? null} />
+
           <Card className="flex-1 flex flex-col">
             <CardHeader className="pb-4 border-b border-border">
               <CardTitle className="text-sm font-medium uppercase tracking-widest text-muted-foreground">
@@ -286,7 +340,7 @@ export default function Dashboard() {
                           <td className="px-4 py-2 text-muted-foreground">{formatTime(trade.timestamp)}</td>
                           <td className="px-4 py-2 font-medium">{formatNumber(trade.price, 3)}</td>
                           <td className="px-4 py-2 text-right">{formatNumber(trade.size, 0)}</td>
-                          <td className="px-4 py-2 text-center">
+                          <td className="px-4 py-2 text-center" data-testid={`text-trade-side-${idx}`}>
                             {trade.side ? (
                               <span className={cn(
                                 "px-1.5 py-0.5 rounded text-[10px] uppercase font-bold",
@@ -390,6 +444,214 @@ function ConnectionHealthCard({
   );
 }
 
+function RadarScoreCard({ radar }: { radar: RadarSnapshot | null }) {
+  const statusLabel = radar ? radarStatusLabel(radar.status) : 'Neutral';
+  const statusTone =
+    radar?.status === 'breakout_setup'
+      ? 'border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300'
+      : radar?.status === 'watch'
+        ? 'border-primary/30 bg-primary/10 text-primary'
+        : 'border-border bg-muted/50 text-muted-foreground';
+  const score = radar?.score ?? null;
+
+  return (
+    <Card className="overflow-hidden border-primary/20">
+      <CardHeader className="pb-3 flex flex-row items-start justify-between space-y-0 bg-gradient-to-r from-primary/[0.08] to-transparent">
+        <div>
+          <CardTitle className="flex items-center gap-2 text-sm font-medium uppercase tracking-widest text-muted-foreground">
+            <Gauge className="h-4 w-4 text-primary" />
+            Alpha Radar
+          </CardTitle>
+          <CardDescription className="mt-2 text-xs">
+            A transparent, read-only summary of recent NVDA market activity.
+          </CardDescription>
+        </div>
+        <Badge className={cn('border font-mono text-[10px] uppercase tracking-wider', statusTone)} data-testid="status-radar-classification">
+          {statusLabel}
+        </Badge>
+      </CardHeader>
+      <CardContent className="grid gap-5 pt-5 sm:grid-cols-[auto_1fr] sm:items-center">
+        <div className="flex items-end gap-2">
+          <span className="font-mono text-6xl font-bold leading-none tracking-tighter" data-testid="text-alpha-radar-score">
+            {score ?? '—'}
+          </span>
+          <span className="mb-1.5 text-xs font-medium uppercase tracking-widest text-muted-foreground">/ 100</span>
+        </div>
+        <div className="space-y-2">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
+            <span className={cn('font-semibold uppercase tracking-wide', freshnessTone(radar?.freshness))} data-testid="status-radar-freshness">
+              {freshnessLabel(radar?.freshness)}
+            </span>
+            <span className="font-mono text-muted-foreground" data-testid="text-radar-age">
+              {formatAge(radar?.dataTimestamp)}
+            </span>
+            <span className="font-mono text-muted-foreground">
+              {radar?.sampleCount ?? 0} observations
+            </span>
+          </div>
+          <p className="text-xs leading-relaxed text-muted-foreground">
+            {score === null
+              ? 'The score stays unavailable until enough fresh quote and trade observations arrive.'
+              : `Calculated from momentum, volume intensity, classified buy/sell pressure, and quoted spread over the most recent ${radar?.windowSeconds ?? 60}s window.`}
+          </p>
+          <p className="text-[10px] leading-relaxed text-muted-foreground/90">
+            This is a factual activity classification, not a forecast, trade instruction, or recommendation.
+          </p>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function RadarComponentsCard({ radar }: { radar: RadarSnapshot | null }) {
+  const signals = radar
+    ? [
+        {
+          key: 'momentum',
+          title: 'Momentum',
+          icon: TrendingUp,
+          signal: radar.momentum,
+          value: formatPercent(radar.momentum.changePercent),
+          subtitle: `${radar.windowSeconds}s price movement`,
+        },
+        {
+          key: 'volume',
+          title: 'Volume intensity',
+          icon: BarChart3,
+          signal: radar.volumeIntensity,
+          value: radar.volumeIntensity.ratio === null ? '-' : `${formatNumber(radar.volumeIntensity.ratio, 1)}×`,
+          subtitle:
+            radar.volumeIntensity.recentVolume === null
+              ? 'Trade volume comparison'
+              : `${formatNumber(radar.volumeIntensity.recentVolume, 0)} recent shares`,
+        },
+        {
+          key: 'pressure',
+          title: 'Classified pressure',
+          icon: ArrowLeftRight,
+          signal: radar.pressure,
+          value: radar.pressure.score === null ? '-' : `${formatNumber(radar.pressure.score, 0)}% buy`,
+          subtitle: `${radar.pressure.classifiedTrades} classified trades`,
+        },
+        {
+          key: 'spread',
+          title: 'Quoted spread',
+          icon: ScanLine,
+          signal: radar.spread,
+          value: radar.spread.spreadBps === null ? '-' : `${formatNumber(radar.spread.spreadBps, 1)} bps`,
+          subtitle: radar.spread.spread === null ? 'Bid / ask quality' : `${formatNumber(radar.spread.spread, 2)} wide`,
+        },
+      ]
+    : [];
+
+  return (
+    <Card>
+      <CardHeader className="pb-4">
+        <CardTitle className="text-sm font-medium uppercase tracking-widest text-muted-foreground">
+          Score components
+        </CardTitle>
+        <CardDescription className="mt-1 text-xs">
+          Each component is timestamped independently so quiet or incomplete inputs remain visible.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        {radar ? (
+          <div className="grid gap-3 sm:grid-cols-2">
+            {signals.map(({ key, title, icon: Icon, signal, value, subtitle }) => (
+              <SignalCard key={key} title={title} icon={<Icon className="h-4 w-4" />} signal={signal} value={value} subtitle={subtitle} />
+            ))}
+          </div>
+        ) : (
+          <EmptyRadarState />
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function SignalCard({
+  title,
+  icon,
+  signal,
+  value,
+  subtitle,
+}: {
+  title: string;
+  icon: React.ReactNode;
+  signal: RadarSignal;
+  value: string;
+  subtitle: string;
+}) {
+  return (
+    <div className="rounded-md border border-border/70 bg-muted/20 p-3" data-testid={`card-signal-${title.toLowerCase().replaceAll(' ', '-')}`}>
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          <span className="text-primary">{icon}</span>
+          {title}
+        </div>
+        <span className={cn('text-[10px] font-semibold uppercase tracking-wide', freshnessTone(signal.freshness))}>
+          {freshnessLabel(signal.freshness)}
+        </span>
+      </div>
+      <div className="mt-4 flex items-end justify-between gap-3">
+        <div>
+          <div className="font-mono text-2xl font-semibold" data-testid={`text-signal-value-${title.toLowerCase().replaceAll(' ', '-')}`}>{value}</div>
+          <div className="mt-0.5 text-[10px] text-muted-foreground">{subtitle}</div>
+        </div>
+        <span className="rounded bg-background px-2 py-1 font-mono text-xs text-muted-foreground">
+          {signal.score === null ? '—' : `${Math.round(signal.score)}/100`}
+        </span>
+      </div>
+      <p className="mt-3 border-t border-border/60 pt-2 text-[11px] leading-relaxed text-muted-foreground">{signal.detail}</p>
+      <div className="mt-2 font-mono text-[10px] text-muted-foreground/80">
+        {formatTime(signal.dataTimestamp)} · {formatAge(signal.dataTimestamp)}
+      </div>
+    </div>
+  );
+}
+
+function ActivityObservationsCard({ radar }: { radar: RadarSnapshot | null }) {
+  return (
+    <Card>
+      <CardHeader className="pb-4 flex flex-row items-center justify-between space-y-0">
+        <div>
+          <CardTitle className="text-sm font-medium uppercase tracking-widest text-muted-foreground">
+            Factual activity observations
+          </CardTitle>
+          <CardDescription className="mt-1 text-xs">
+            Describes recent feed behavior only; it does not recommend an action.
+          </CardDescription>
+        </div>
+        <CircleAlert className="h-4 w-4 text-muted-foreground" />
+      </CardHeader>
+      <CardContent>
+        {radar?.activityFlags.length ? (
+          <div className="space-y-2">
+            {radar.activityFlags.map((flag) => (
+              <div key={flag.type} className="rounded-md border border-border/70 bg-muted/30 px-3 py-2.5" data-testid={`observation-${flag.type}`}>
+                <p className="text-xs font-semibold">{flag.label}</p>
+                <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{flag.detail}</p>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="rounded-md border border-dashed border-border px-3 py-5 text-center text-xs leading-relaxed text-muted-foreground" data-testid="text-no-activity-observations">
+            No unusual activity is currently identified from the available comparison window.
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function EmptyRadarState() {
+  return (
+    <div className="rounded-md border border-dashed border-border px-4 py-8 text-center text-sm text-muted-foreground">
+      Waiting for the first safe market-data snapshot.
+    </div>
+  );
+}
+
 function HealthRow({
   label,
   value,
@@ -476,5 +738,42 @@ function ConnectionStatusBadge({ state, error }: { state?: RadarConnectionState,
           Offline
         </Badge>
       );
+  }
+}
+
+function radarStatusLabel(status: RadarSnapshot['status']): string {
+  switch (status) {
+    case 'breakout_setup':
+      return 'Breakout Setup';
+    case 'watch':
+      return 'Watch';
+    default:
+      return 'Neutral';
+  }
+}
+
+function freshnessLabel(freshness: RadarSnapshot['freshness'] | undefined): string {
+  switch (freshness) {
+    case 'fresh':
+      return 'Fresh';
+    case 'stale':
+      return 'Stale';
+    case 'quiet':
+      return 'Quiet';
+    default:
+      return 'Insufficient data';
+  }
+}
+
+function freshnessTone(freshness: RadarSnapshot['freshness'] | undefined): string {
+  switch (freshness) {
+    case 'fresh':
+      return 'text-emerald-600 dark:text-emerald-400';
+    case 'stale':
+      return 'text-amber-600 dark:text-amber-400';
+    case 'quiet':
+      return 'text-muted-foreground';
+    default:
+      return 'text-amber-600 dark:text-amber-400';
   }
 }

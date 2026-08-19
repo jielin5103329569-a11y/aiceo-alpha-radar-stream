@@ -124,6 +124,96 @@ export interface RadarTrade {
   side: string | null;
 }
 
+export type RadarFreshness = typeof RadarFreshness[keyof typeof RadarFreshness];
+
+
+export const RadarFreshness = {
+  fresh: 'fresh',
+  stale: 'stale',
+  insufficient: 'insufficient',
+  quiet: 'quiet',
+} as const;
+
+export interface RadarSignal {
+  /** @nullable */
+  score: number | null;
+  /** @nullable */
+  dataTimestamp: string | null;
+  freshness: RadarFreshness;
+  detail: string;
+}
+
+export type RadarMomentumSignal = RadarSignal & ({
+  /** @nullable */
+  changePercent: number | null;
+});
+
+export type RadarVolumeSignal = RadarSignal & ({
+  /** @nullable */
+  recentVolume: number | null;
+  /** @nullable */
+  baselineVolume: number | null;
+  /** @nullable */
+  ratio: number | null;
+});
+
+export type RadarPressureSignal = RadarSignal & ({
+  /** @nullable */
+  buyVolume: number | null;
+  /** @nullable */
+  sellVolume: number | null;
+  classifiedTrades: number;
+});
+
+export type RadarSpreadSignal = RadarSignal & ({
+  /** @nullable */
+  spread: number | null;
+  /** @nullable */
+  spreadBps: number | null;
+});
+
+export type RadarActivityFlagType = typeof RadarActivityFlagType[keyof typeof RadarActivityFlagType];
+
+
+export const RadarActivityFlagType = {
+  elevated_volume: 'elevated_volume',
+  elevated_trades: 'elevated_trades',
+  wide_spread: 'wide_spread',
+  unbalanced_pressure: 'unbalanced_pressure',
+  quiet: 'quiet',
+} as const;
+
+export interface RadarActivityFlag {
+  type: RadarActivityFlagType;
+  label: string;
+  detail: string;
+}
+
+export type RadarSnapshotStatus = typeof RadarSnapshotStatus[keyof typeof RadarSnapshotStatus];
+
+
+export const RadarSnapshotStatus = {
+  neutral: 'neutral',
+  watch: 'watch',
+  breakout_setup: 'breakout_setup',
+} as const;
+
+export interface RadarSnapshot {
+  /** @nullable */
+  score: number | null;
+  status: RadarSnapshotStatus;
+  /** @nullable */
+  dataTimestamp: string | null;
+  freshness: RadarFreshness;
+  sampleCount: number;
+  windowSeconds: number;
+  momentum: RadarMomentumSignal;
+  volumeIntensity: RadarVolumeSignal;
+  pressure: RadarPressureSignal;
+  spread: RadarSpreadSignal;
+  activityFlags: RadarActivityFlag[];
+}
+
 export type RadarStreamSchema = typeof RadarStreamSchema[keyof typeof RadarStreamSchema];
 
 
@@ -170,6 +260,7 @@ export interface RadarStatus {
   error: string | null;
   market: RadarMarketSnapshot;
   recentTrades: RadarTrade[];
+  radar: RadarSnapshot;
   streams: RadarStream[];
 }
 

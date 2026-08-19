@@ -221,6 +221,116 @@ components:
         side:
           type: [string, "null"]
       required: [price, size, timestamp, side]
+    RadarFreshness:
+      type: string
+      enum: [fresh, stale, insufficient, quiet]
+    RadarSignal:
+      type: object
+      properties:
+        score:
+          type: [number, "null"]
+        dataTimestamp:
+          type: ["string", "null"]
+          format: date-time
+        freshness:
+          $ref: "#/components/schemas/RadarFreshness"
+        detail:
+          type: string
+      required: [score, dataTimestamp, freshness, detail]
+    RadarMomentumSignal:
+      allOf:
+        - $ref: "#/components/schemas/RadarSignal"
+        - type: object
+          properties:
+            changePercent:
+              type: [number, "null"]
+          required: [changePercent]
+    RadarVolumeSignal:
+      allOf:
+        - $ref: "#/components/schemas/RadarSignal"
+        - type: object
+          properties:
+            recentVolume:
+              type: [number, "null"]
+            baselineVolume:
+              type: [number, "null"]
+            ratio:
+              type: [number, "null"]
+          required: [recentVolume, baselineVolume, ratio]
+    RadarPressureSignal:
+      allOf:
+        - $ref: "#/components/schemas/RadarSignal"
+        - type: object
+          properties:
+            buyVolume:
+              type: [number, "null"]
+            sellVolume:
+              type: [number, "null"]
+            classifiedTrades:
+              type: number
+          required: [buyVolume, sellVolume, classifiedTrades]
+    RadarSpreadSignal:
+      allOf:
+        - $ref: "#/components/schemas/RadarSignal"
+        - type: object
+          properties:
+            spread:
+              type: [number, "null"]
+            spreadBps:
+              type: [number, "null"]
+          required: [spread, spreadBps]
+    RadarActivityFlag:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: [elevated_volume, elevated_trades, wide_spread, unbalanced_pressure, quiet]
+        label:
+          type: string
+        detail:
+          type: string
+      required: [type, label, detail]
+    RadarSnapshot:
+      type: object
+      properties:
+        score:
+          type: [number, "null"]
+        status:
+          type: string
+          enum: [neutral, watch, breakout_setup]
+        dataTimestamp:
+          type: ["string", "null"]
+          format: date-time
+        freshness:
+          $ref: "#/components/schemas/RadarFreshness"
+        sampleCount:
+          type: number
+        windowSeconds:
+          type: number
+        momentum:
+          $ref: "#/components/schemas/RadarMomentumSignal"
+        volumeIntensity:
+          $ref: "#/components/schemas/RadarVolumeSignal"
+        pressure:
+          $ref: "#/components/schemas/RadarPressureSignal"
+        spread:
+          $ref: "#/components/schemas/RadarSpreadSignal"
+        activityFlags:
+          type: array
+          items:
+            $ref: "#/components/schemas/RadarActivityFlag"
+      required:
+        - score
+        - status
+        - dataTimestamp
+        - freshness
+        - sampleCount
+        - windowSeconds
+        - momentum
+        - volumeIntensity
+        - pressure
+        - spread
+        - activityFlags
     RadarStream:
       type: object
       properties:
@@ -275,6 +385,8 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/RadarTrade"
+        radar:
+          $ref: "#/components/schemas/RadarSnapshot"
         streams:
           type: array
           items:
@@ -295,5 +407,5 @@ components:
         - error
         - market
         - recentTrades
+        - radar
         - streams
-

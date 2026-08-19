@@ -36,3 +36,9 @@ export function formatAge(isoStr: string | null | undefined): string {
   if (elapsedMinutes < 60) return `${elapsedMinutes}m ago`;
   return `${Math.floor(elapsedMinutes / 60)}h ago`;
 }
+
+export function formatPercent(val: number | null | undefined, decimals = 2): string {
+  if (val === null || val === undefined) return '-';
+  const prefix = val > 0 ? '+' : '';
+  return `${prefix}${formatNumber(val, decimals)}%`;
+}

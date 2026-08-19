@@ -87,6 +87,15 @@ def event_time(record: Any) -> str:
     return timestamp_iso(field(record, "ts_event", "ts_recv") or field(header, "ts_event", "ts_recv"))
 
 
+def trade_side(record: Any) -> str | None:
+    raw_side = str(getattr(record, "side", "")).upper()
+    if raw_side in {"B", "BID", "SIDE.BID"}:
+        return "B"
+    if raw_side in {"A", "ASK", "SIDE.ASK"}:
+        return "A"
+    return raw_side or None
+
+
 def handle_mbp(record: Any) -> None:
     levels = getattr(record, "levels", None)
     level = levels[0] if levels else record
@@ -101,12 +110,11 @@ def handle_mbp(record: Any) -> None:
     trade_size = size(field(record, "size"))
     trade = None
     if is_trade and trade_price is not None and trade_size is not None:
-        side = str(getattr(record, "side", "")).upper() or None
         trade = {
             "price": trade_price,
             "size": trade_size,
             "timestamp": event_time(record),
-            "side": side,
+            "side": trade_side(record),
         }
 
     write_event(

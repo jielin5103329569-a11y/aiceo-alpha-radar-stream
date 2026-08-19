@@ -9,6 +9,7 @@ import type { AlphaRadarSnapshot } from './alphaRadarSnapshot';
 import type { RadarConnectionState } from './radarConnectionState';
 import type { RadarMarketSnapshot } from './radarMarketSnapshot';
 import type { RadarReconnectState } from './radarReconnectState';
+import type { RadarSnapshot } from './radarSnapshot';
 import type { RadarStream } from './radarStream';
 import type { RadarTrade } from './radarTrade';
 
@@ -33,5 +34,6 @@ export interface RadarStatus {
   error: string | null;
   market: RadarMarketSnapshot;
   recentTrades: RadarTrade[];
+  radar: RadarSnapshot;
   streams: RadarStream[];
 }
