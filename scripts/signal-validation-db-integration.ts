@@ -20,6 +20,8 @@ import {
 } from "../artifacts/api-server/src/lib/signalValidationCore";
 import type {
   ArchivedSignalHistory,
+  ArchivedPriceHistory,
+  ArchivedPriceObservation,
   SignalHistoryArchive,
 } from "../artifacts/api-server/src/lib/signalHistoryArchive";
 import { SignalValidationOutbox } from "../artifacts/api-server/src/lib/signalValidationOutbox";
@@ -48,6 +50,7 @@ async function waitFor<T>(
 
 class MemorySignalHistoryArchive implements SignalHistoryArchive {
   readonly records = new Map<string, ImmutableSignalRecord>();
+  readonly priceObservations = new Map<string, ArchivedPriceObservation>();
 
   async store(record: ImmutableSignalRecord): Promise<void> {
     const existing = this.records.get(record.eventKey);
@@ -60,6 +63,27 @@ class MemorySignalHistoryArchive implements SignalHistoryArchive {
   async list(): Promise<ArchivedSignalHistory> {
     return {
       records: [...this.records.values()],
+      invalidRecordCount: 0,
+    };
+  }
+
+  async storePriceObservation(observation: ArchivedPriceObservation): Promise<void> {
+    const existing = this.priceObservations.get(observation.observationKey);
+    if (
+      existing
+      && (
+        existing.price !== observation.price
+        || existing.observedAt.getTime() !== observation.observedAt.getTime()
+      )
+    ) {
+      throw new Error("Price archive idempotency conflict.");
+    }
+    this.priceObservations.set(observation.observationKey, observation);
+  }
+
+  async listPriceObservations(): Promise<ArchivedPriceHistory> {
+    return {
+      observations: [...this.priceObservations.values()],
       invalidRecordCount: 0,
     };
   }
@@ -163,6 +187,11 @@ try {
   assert.equal(completed?.hit, true);
   assert.equal(completed?.rawReturnPercent, 3);
   assert.equal(completed?.favorableReturnPercent, 3);
+  assert.equal(
+    archive.priceObservations.size,
+    1,
+    "the fresh post-signal price used for the checkpoint must have an independent archive copy",
+  );
 
   const dashboard = await service.getDashboard({
     sector,
@@ -211,9 +240,28 @@ try {
     "verified",
     "a host replacement must restore the exact archived immutable trigger",
   );
+  const restoredOutcomes = await waitFor(
+    "cross-host price observation recovery",
+    () => db
+      .select()
+      .from(radarSignalOutcomeEventsTable)
+      .where(eq(radarSignalOutcomeEventsTable.signalId, restoredSignals[0]!.id)),
+    (rows) => rows.some((row) => (
+      row.horizonDays === 1
+      && row.checkpointStatus === "complete"
+      && row.observedPrice === 103
+    )),
+  );
+  assert.equal(
+    restoredOutcomes.find((row) => (
+      row.horizonDays === 1 && row.checkpointStatus === "complete"
+    ))?.favorableReturnPercent,
+    3,
+    "a recovered checkpoint must use the archived post-signal observation, not a fabricated replacement price",
+  );
 
   console.log(
-    "Signal validation PostgreSQL integration passed: migration, immutable trigger, checkpoint, dashboard, audit, and cross-host archive recovery.",
+    "Signal validation PostgreSQL integration passed: migration, immutable trigger, checkpoint, dashboard, audit, and cross-host trigger-plus-price archive recovery.",
   );
 } finally {
   await pool.end();

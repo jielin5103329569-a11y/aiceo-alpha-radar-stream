@@ -14,3 +14,9 @@ Cross-host signal evidence uses an immutable object archive as a second durabili
 **Why:** A database plus local fsync-backed files still loses the only copy during simultaneous database failure and host replacement. The sidecar credential path is an environment-specific requirement for the persistent archive to work inside Replit.
 
 **How to apply:** Keep archive objects keyed by the immutable event key and verify record hashes on precondition conflicts. On startup, replay archive records idempotently into PostgreSQL; never delete the archive copy after database acknowledgement.
+
+Outcome checkpoints require their fresh post-signal price observations to survive the same replacement boundary as the trigger. Archive only observations for symbols with validation signals, replay them after trigger recovery, and withhold metrics while either price archival or replay is pending.
+
+**Why:** Restoring a trigger without the observed prices that produced its drawdown, hit, and lead-time outcome leaves an apparently complete but materially incomplete audit trail.
+
+**How to apply:** Keep observation objects append-only under deterministic observation keys, preserve their original timestamps/source/freshness, and never synthesize a replacement price during replay.
