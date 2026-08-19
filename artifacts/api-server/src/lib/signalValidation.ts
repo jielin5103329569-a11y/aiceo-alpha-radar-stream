@@ -129,6 +129,13 @@ export type SignalValidationDashboard = {
   signals: PersistedSignalView[];
 };
 
+export type SignalCaptureReceipt = {
+  eventKey: string;
+  recordHash: string;
+  durableAcceptance: "accepted" | "not_accepted";
+  reason: string;
+};
+
 export type SignalValidationAudit = {
   generatedAt: Date;
   integrity: "verified" | "failed";
@@ -269,6 +276,7 @@ export class SignalValidationService {
   private readonly pendingOutboxWrites = new Map<string, ImmutableSignalRecord>();
   private readonly failedTriggerRecords = new Map<string, ImmutableSignalRecord>();
   private readonly pendingArchiveWrites = new Map<string, ImmutableSignalRecord>();
+  private readonly pendingArchiveAcceptance = new Map<string, Promise<boolean>>();
   private readonly failedArchiveRecords = new Map<string, ImmutableSignalRecord>();
   private readonly pendingArchivePriceWrites = new Map<string, ArchivedPriceObservation>();
   private readonly failedArchivePriceWrites = new Map<string, ArchivedPriceObservation>();
@@ -276,7 +284,7 @@ export class SignalValidationService {
   private readonly trackedValidationSymbols = new Set<string>();
   private recoveredPriceObservations: ArchivedPriceObservation[] = [];
   private replayingRecoveredPrices = false;
-  private readonly archivedEventKeys = new Set<string>();
+  private readonly archivedRecordHashes = new Map<string, string>();
   private archiveRecoveryState: "recovering" | "available" | "unavailable" = "recovering";
   private archiveRecoveryError: string | null = null;
   private archiveInvalidRecordCount = 0;
@@ -295,17 +303,43 @@ export class SignalValidationService {
     void this.recoverArchivedSignals();
   }
 
-  captureSignal(input: SignalTriggerInput): void {
+  /**
+   * Schedules persistence without awaiting it on the live scoring path.
+   *
+   * A trigger becomes durably accepted only after the independent cross-host
+   * archive acknowledges the immutable event key and hash. Callers that do not
+   * await this receipt (the live radar does not) remain non-blocking; callers
+   * that do await it can distinguish an accepted record from an interrupted
+   * in-memory attempt that never crossed the durable boundary.
+   */
+  captureSignal(input: SignalTriggerInput): Promise<SignalCaptureReceipt | null> {
     if (
       !input.dataFresh
       || !Number.isFinite(input.triggerPrice)
       || input.triggerPrice <= 0
     ) {
-      return;
+      return Promise.resolve(null);
     }
     const record = buildImmutableSignalRecord(input);
     this.trackedValidationSymbols.add(record.symbol);
-    this.archiveSignalRecord(record);
+    const durableAcceptance = this.archiveSignalRecord(record);
+    void durableAcceptance.then((accepted) => {
+      if (accepted) {
+        this.queueAcceptedTriggerForReplay(record);
+      }
+    });
+    return durableAcceptance.then((accepted) => ({
+      eventKey: record.eventKey,
+      recordHash: record.recordHash,
+      durableAcceptance: accepted ? "accepted" as const : "not_accepted" as const,
+      reason: accepted
+        ? "The immutable trigger is durably accepted by the independent cross-host history archive."
+        : "The immutable trigger did not receive cross-host archive acknowledgement and is not durably accepted.",
+    }));
+  }
+
+  private queueAcceptedTriggerForReplay(record: ImmutableSignalRecord): void {
+    if (!this.hasArchiveProof(record) || this.pendingOutboxWrites.has(record.eventKey)) return;
     this.pendingOutboxWrites.set(record.eventKey, record);
     void this.triggerOutbox.store(record)
       .then(() => {
@@ -321,10 +355,10 @@ export class SignalValidationService {
         logger.error(
           {
             error: message,
-            symbol: input.symbol,
+            symbol: record.symbol,
             eventKey: record.eventKey,
           },
-          "Signal trigger could not be written to the durable outbox; validation persistence is unavailable but live radar is unaffected",
+          "Accepted immutable signal could not be written to the durable outbox; the cross-host archive remains the recovery source and live radar is unaffected",
         );
       });
   }
@@ -590,13 +624,9 @@ export class SignalValidationService {
           // The independent archive may still protect and replay this record.
         }
       }
-      for (const [eventKey, record] of this.failedArchiveRecords) {
-        try {
-          await this.signalHistoryArchive.store(record);
-          this.archivedEventKeys.add(eventKey);
-          this.failedArchiveRecords.delete(eventKey);
-        } catch {
-          // Preserve the record in the retry set without blocking live radar.
+      for (const record of this.failedArchiveRecords.values()) {
+        if (await this.archiveSignalRecord(record)) {
+          this.queueAcceptedTriggerForReplay(record);
         }
       }
       if (this.failedTriggerRecords.size === 0) this.outboxWriteFailure = null;
@@ -610,7 +640,7 @@ export class SignalValidationService {
       for (const record of this.triggerOutbox.list()) candidates.set(record.eventKey, record);
       for (const record of this.failedTriggerRecords.values()) candidates.set(record.eventKey, record);
       for (const record of candidates.values()) {
-        if (!this.archivedEventKeys.has(record.eventKey)) continue;
+        if (!this.hasArchiveProof(record)) continue;
         await this.persistSignalRecord(record);
         if (this.triggerOutbox.list().some((queued) => queued.eventKey === record.eventKey)) {
           acknowledged.push(record.eventKey);
@@ -623,20 +653,43 @@ export class SignalValidationService {
     }
   }
 
-  private archiveSignalRecord(record: ImmutableSignalRecord): void {
-    if (
-      this.archivedEventKeys.has(record.eventKey)
-      || this.pendingArchiveWrites.has(record.eventKey)
-    ) {
-      return;
+  private archiveSignalRecord(record: ImmutableSignalRecord): Promise<boolean> {
+    const archivedHash = this.archivedRecordHashes.get(record.eventKey);
+    if (archivedHash) {
+      if (archivedHash === record.recordHash) return Promise.resolve(true);
+      logger.error(
+        {
+          eventKey: record.eventKey,
+          archivedHash,
+          attemptedHash: record.recordHash,
+        },
+        "Immutable signal archive conflict rejected before durable acceptance",
+      );
+      return Promise.resolve(false);
     }
+    const pendingAcceptance = this.pendingArchiveAcceptance.get(record.eventKey);
+    if (pendingAcceptance) {
+      const pendingRecord = this.pendingArchiveWrites.get(record.eventKey);
+      if (pendingRecord?.recordHash === record.recordHash) return pendingAcceptance;
+      logger.error(
+        {
+          eventKey: record.eventKey,
+          pendingHash: pendingRecord?.recordHash,
+          attemptedHash: record.recordHash,
+        },
+        "Concurrent immutable signal archive conflict rejected before durable acceptance",
+      );
+      return Promise.resolve(false);
+    }
+
     this.pendingArchiveWrites.set(record.eventKey, record);
-    void this.signalHistoryArchive.store(record)
+    const acceptance = this.signalHistoryArchive.store(record)
       .then(() => {
-        this.archivedEventKeys.add(record.eventKey);
+        this.archivedRecordHashes.set(record.eventKey, record.recordHash);
         this.failedArchiveRecords.delete(record.eventKey);
         this.pendingArchiveWrites.delete(record.eventKey);
         this.scheduleTriggerFlush(0);
+        return true;
       })
       .catch((error: unknown) => {
         const message = error instanceof Error ? error.message : String(error);
@@ -648,7 +701,13 @@ export class SignalValidationService {
           { error: message, eventKey: record.eventKey, symbol: record.symbol },
           "Immutable signal could not be copied to the independent cross-host history archive",
         );
+        return false;
+      })
+      .finally(() => {
+        this.pendingArchiveAcceptance.delete(record.eventKey);
       });
+    this.pendingArchiveAcceptance.set(record.eventKey, acceptance);
+    return acceptance;
   }
 
   private archivePriceObservation(observation: ArchivedPriceObservation): void {
@@ -690,7 +749,9 @@ export class SignalValidationService {
         this.signalHistoryArchive.listPriceObservations(),
       ]);
       this.archiveInvalidRecordCount = archived.invalidRecordCount + archivedPrices.invalidRecordCount;
-      for (const record of archived.records) this.archivedEventKeys.add(record.eventKey);
+      for (const record of archived.records) {
+        this.archivedRecordHashes.set(record.eventKey, record.recordHash);
+      }
       for (const record of archived.records) this.trackedValidationSymbols.add(record.symbol);
       for (const observation of archivedPrices.observations) {
         this.archivedPriceKeys.add(observation.observationKey);
@@ -702,7 +763,20 @@ export class SignalValidationService {
       );
       for (const record of localRecords.values()) this.archiveSignalRecord(record);
       for (const record of archived.records) {
-        if (localRecords.has(record.eventKey)) continue;
+        const localRecord = localRecords.get(record.eventKey);
+        if (localRecord?.recordHash === record.recordHash) continue;
+        if (localRecord) {
+          logger.error(
+            {
+              eventKey: record.eventKey,
+              archivedHash: record.recordHash,
+              localHash: localRecord.recordHash,
+            },
+            "Discarding conflicting local outbox record in favor of the durably accepted archive record",
+          );
+          await this.triggerOutbox.acknowledge([record.eventKey]);
+          localRecords.delete(record.eventKey);
+        }
         try {
           await this.triggerOutbox.store(record);
         } catch {
@@ -784,18 +858,22 @@ export class SignalValidationService {
   }
 
   private allPendingSignalsHaveArchiveProof(): boolean {
-    return this.triggerOutbox.list().every((record) => this.archivedEventKeys.has(record.eventKey))
+    return this.triggerOutbox.list().every((record) => this.hasArchiveProof(record))
       && [...this.failedTriggerRecords.values()]
-        .every((record) => this.archivedEventKeys.has(record.eventKey));
+        .every((record) => this.hasArchiveProof(record));
   }
 
   private hasTriggerPersistenceWork(): boolean {
     return this.failedTriggerRecords.size > 0
       || this.failedArchiveRecords.size > 0
       || this.triggerOutbox.list()
-        .some((record) => this.archivedEventKeys.has(record.eventKey))
+        .some((record) => this.hasArchiveProof(record))
       || [...this.failedTriggerRecords.values()]
-        .some((record) => this.archivedEventKeys.has(record.eventKey));
+        .some((record) => this.hasArchiveProof(record));
+  }
+
+  private hasArchiveProof(record: ImmutableSignalRecord): boolean {
+    return this.archivedRecordHashes.get(record.eventKey) === record.recordHash;
   }
 
   private async persistSignalRecord(record: ImmutableSignalRecord): Promise<void> {

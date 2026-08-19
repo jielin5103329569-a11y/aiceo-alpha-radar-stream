@@ -36,6 +36,11 @@ export type ArchivedPriceHistory = {
 };
 
 export interface SignalHistoryArchive {
+  /**
+   * Resolves only after this immutable trigger is durably committed to storage
+   * that survives an API process or host replacement. Callers use this
+   * acknowledgement as the validation layer's durable-acceptance boundary.
+   */
   store(record: ImmutableSignalRecord): Promise<void>;
   list(): Promise<ArchivedSignalHistory>;
   storePriceObservation(observation: ArchivedPriceObservation): Promise<void>;

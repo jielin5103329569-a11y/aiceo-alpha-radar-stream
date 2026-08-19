@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -89,10 +89,60 @@ class MemorySignalHistoryArchive implements SignalHistoryArchive {
   }
 }
 
+class DeferredMemorySignalHistoryArchive extends MemorySignalHistoryArchive {
+  private pendingStore: {
+    record: ImmutableSignalRecord;
+    resolve: () => void;
+    reject: (error: Error) => void;
+  } | null = null;
+
+  store(record: ImmutableSignalRecord): Promise<void> {
+    return new Promise((resolve, reject) => {
+      this.pendingStore = {
+        record,
+        resolve,
+        reject,
+      };
+    });
+  }
+
+  rejectPendingStore(reason: string): void {
+    const pending = this.pendingStore;
+    this.pendingStore = null;
+    pending?.reject(new Error(reason));
+  }
+
+  commitPendingStore(): void {
+    const pending = this.pendingStore;
+    if (!pending) throw new Error("No pending archive write to commit.");
+    this.pendingStore = null;
+    this.records.set(pending.record.eventKey, pending.record);
+    pending.resolve();
+  }
+}
+
+function failingOutbox(directory: string): SignalValidationOutbox {
+  const primary = join(directory, "unavailable-primary");
+  const fallback = join(directory, "unavailable-fallback");
+  mkdirSync(primary);
+  mkdirSync(fallback);
+  return new SignalValidationOutbox(primary, fallback);
+}
+
+async function nextTurn(): Promise<void> {
+  await new Promise((resolve) => setTimeout(resolve, 0));
+}
+
 const suffix = `${process.pid}-${Date.now()}`;
 const symbol = `IT${process.pid}`.slice(0, 20);
 const sector = `db-integration-${suffix}`;
 const outboxDirectory = mkdtempSync(join(tmpdir(), "signal-validation-db-"));
+const durabilityDirectories: string[] = [];
+function durabilityDirectory(prefix: string): string {
+  const directory = mkdtempSync(join(tmpdir(), prefix));
+  durabilityDirectories.push(directory);
+  return directory;
+}
 const outbox = new SignalValidationOutbox(
   join(outboxDirectory, "primary.jsonl"),
   join(outboxDirectory, "fallback.jsonl"),
@@ -147,6 +197,16 @@ const trigger: SignalTriggerInput = {
   catalystStatus: "unavailable",
 };
 const immutableRecord = buildImmutableSignalRecord(trigger);
+  const durableTrigger: SignalTriggerInput = {
+    ...trigger,
+    occurredAt: new Date("2026-07-02T14:30:00.000Z"),
+    sector: `${sector}-durability`,
+  };
+  const interruptedRecord = buildImmutableSignalRecord({
+    ...durableTrigger,
+    occurredAt: new Date("2026-07-03T14:30:00.000Z"),
+  });
+  const durableRecord = buildImmutableSignalRecord(durableTrigger);
 
 try {
   service.captureSignal(trigger);
@@ -260,10 +320,153 @@ try {
     "a recovered checkpoint must use the archived post-signal observation, not a fabricated replacement price",
   );
 
+  // The acceptance boundary is the independent archive acknowledgement, not
+  // the in-memory live-capture call. Both local outbox paths are deliberately
+  // unavailable in this scenario.
+  const interruptedArchive = new DeferredMemorySignalHistoryArchive();
+  const interruptedOutboxDirectory = durabilityDirectory("signal-validation-interrupted-");
+  const interruptedService = new SignalValidationService(
+    failingOutbox(interruptedOutboxDirectory),
+    interruptedArchive,
+  );
+  const interruptedReceiptPromise = interruptedService.captureSignal({
+    ...durableTrigger,
+    occurredAt: interruptedRecord.occurredAt,
+  });
+  assert.ok(interruptedReceiptPromise);
+  const pendingConflictReceipt = await interruptedService.captureSignal({
+    ...durableTrigger,
+    occurredAt: interruptedRecord.occurredAt,
+    triggerPrice: 101,
+  });
+  assert.equal(
+    pendingConflictReceipt?.durableAcceptance,
+    "not_accepted",
+    "a conflicting hash must not reuse an in-flight archive acknowledgement",
+  );
+  let interruptedSettled = false;
+  void interruptedReceiptPromise.then(() => {
+    interruptedSettled = true;
+  });
+  await nextTurn();
+  assert.equal(
+    interruptedSettled,
+    false,
+    "a pending archive write must not be reported as durably accepted",
+  );
+  assert.equal(interruptedArchive.records.size, 0);
+  interruptedArchive.rejectPendingStore(
+    "Simulated abrupt host replacement before archive commit.",
+  );
+  const interruptedReceipt = await interruptedReceiptPromise;
+  assert.equal(interruptedReceipt?.durableAcceptance, "not_accepted");
+  assert.equal(
+    (await db
+      .select()
+      .from(radarSignalEventsTable)
+      .where(eq(radarSignalEventsTable.eventKey, interruptedRecord.eventKey))).length,
+    0,
+    "an unacknowledged in-memory attempt must not be fabricated as a persisted signal after replacement",
+  );
+
+  // Simulate database failure plus primary/fallback outbox failure. Once the
+  // external archive acknowledges, a replacement host must recover exactly one
+  // immutable record without depending on the prior process's memory or disk.
+  const durableArchive = new MemorySignalHistoryArchive();
+  const failedHostOutboxDirectory = durabilityDirectory("signal-validation-failed-host-");
+  const failedHostService = new SignalValidationService(
+    failingOutbox(failedHostOutboxDirectory),
+    durableArchive,
+  );
+  (failedHostService as unknown as {
+    persistSignalRecord: (record: ImmutableSignalRecord) => Promise<void>;
+  }).persistSignalRecord = async () => {
+    throw new Error("Simulated database outage before host replacement.");
+  };
+  const durableReceipt = await failedHostService.captureSignal(durableTrigger);
+  assert.equal(
+    durableReceipt?.durableAcceptance,
+    "accepted",
+    "archive acknowledgement is the durable acceptance boundary when database and both local outboxes are unavailable",
+  );
+  assert.equal(durableReceipt?.eventKey, durableRecord.eventKey);
+  assert.equal(durableReceipt?.recordHash, durableRecord.recordHash);
+  assert.equal(durableArchive.records.size, 1);
+  const archivedConflictReceipt = await failedHostService.captureSignal({
+    ...durableTrigger,
+    triggerPrice: 101,
+  });
+  assert.equal(
+    archivedConflictReceipt?.durableAcceptance,
+    "not_accepted",
+    "a conflicting hash must not reuse an existing archive acknowledgement",
+  );
+  assert.equal(
+    durableArchive.records.get(durableRecord.eventKey)?.recordHash,
+    durableRecord.recordHash,
+    "an immutable archive conflict must preserve the original accepted hash",
+  );
+
+  const recoveryOutboxDirectory = durabilityDirectory("signal-validation-replacement-");
+  const recoveredHost = new SignalValidationService(
+    new SignalValidationOutbox(
+      join(recoveryOutboxDirectory, "primary.jsonl"),
+      join(recoveryOutboxDirectory, "fallback.jsonl"),
+    ),
+    durableArchive,
+  );
+  const recoveredDurableSignals = await waitFor(
+    "durably accepted trigger recovery after host replacement",
+    () => db
+      .select()
+      .from(radarSignalEventsTable)
+      .where(eq(radarSignalEventsTable.eventKey, durableRecord.eventKey)),
+    (rows) => rows.length === 1,
+  );
+  assert.equal(recoveredDurableSignals[0]?.recordHash, durableRecord.recordHash);
+
+  // A second reconstructed host replays the same external archive. The unique
+  // immutable event key/hash must keep the database at exactly one record.
+  const duplicateRecoveryOutboxDirectory = durabilityDirectory("signal-validation-duplicate-recovery-");
+  const duplicateRecoveryHost = new SignalValidationService(
+    new SignalValidationOutbox(
+      join(duplicateRecoveryOutboxDirectory, "primary.jsonl"),
+      join(duplicateRecoveryOutboxDirectory, "fallback.jsonl"),
+    ),
+    durableArchive,
+  );
+  await waitFor(
+    "first replacement outbox acknowledgement",
+    async () => new SignalValidationOutbox(
+      join(recoveryOutboxDirectory, "primary.jsonl"),
+      join(recoveryOutboxDirectory, "fallback.jsonl"),
+    ).size,
+    (size) => size === 0,
+  );
+  await waitFor(
+    "second replacement outbox acknowledgement",
+    async () => new SignalValidationOutbox(
+      join(duplicateRecoveryOutboxDirectory, "primary.jsonl"),
+      join(duplicateRecoveryOutboxDirectory, "fallback.jsonl"),
+    ).size,
+    (size) => size === 0,
+  );
+  const replayedDurableSignals = await db
+    .select()
+    .from(radarSignalEventsTable)
+    .where(eq(radarSignalEventsTable.eventKey, durableRecord.eventKey));
+  assert.equal(replayedDurableSignals.length, 1, "two host recoveries must produce zero duplicate immutable triggers");
+  assert.equal(replayedDurableSignals[0]?.recordHash, durableRecord.recordHash);
+  assert.ok(recoveredHost);
+  assert.ok(duplicateRecoveryHost);
+
   console.log(
-    "Signal validation PostgreSQL integration passed: migration, immutable trigger, checkpoint, dashboard, audit, and cross-host trigger-plus-price archive recovery.",
+    "Signal validation PostgreSQL integration passed: migration, immutable trigger, checkpoint, dashboard, audit, durable acceptance boundary, double-outbox failure, abrupt termination semantics, and zero-loss/zero-duplicate host recovery.",
   );
 } finally {
   await pool.end();
   rmSync(outboxDirectory, { recursive: true, force: true });
+  for (const directory of durabilityDirectories) {
+    rmSync(directory, { recursive: true, force: true });
+  }
 }

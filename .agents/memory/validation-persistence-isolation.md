@@ -15,6 +15,12 @@ Cross-host signal evidence uses an immutable object archive as a second durabili
 
 **How to apply:** Keep archive objects keyed by the immutable event key and verify record hashes on precondition conflicts. On startup, replay archive records idempotently into PostgreSQL; never delete the archive copy after database acknowledgement.
 
+Durable acceptance occurs only after the independent archive acknowledges the exact `(eventKey, recordHash)` pair. A capture that is merely in memory, still writing, or conflicts with an accepted/pending hash is not accepted and must never enter the local replay queue. During recovery, the archive-backed matching hash wins over any conflicting local outbox record.
+
+**Why:** Event-key-only deduplication can make a conflicting snapshot appear accepted or allow it to mask the only durable original during host reconstruction.
+
+**How to apply:** Keep pending and completed archive proof hash-bound, enqueue local replay only after exact archive proof, and reconcile legacy local conflicts by discarding the mismatched queue record before replaying the archive copy.
+
 Outcome checkpoints require their fresh post-signal price observations to survive the same replacement boundary as the trigger. Archive only observations for symbols with validation signals, replay them after trigger recovery, and withhold metrics while either price archival or replay is pending.
 
 **Why:** Restoring a trigger without the observed prices that produced its drawdown, hit, and lead-time outcome leaves an apparently complete but materially incomplete audit trail.
