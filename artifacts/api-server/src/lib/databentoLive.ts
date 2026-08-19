@@ -8,6 +8,7 @@ import {
   createEmptyAlphaRadar,
   type AlphaRadarSnapshot,
 } from "./alphaRadar";
+import { marketFeedStateFor, type MarketFeedState } from "./marketFeed";
 import { logger } from "./logger";
 
 export type RadarConnectionState =
@@ -58,6 +59,7 @@ export type RadarSnapshot = {
 export type RadarStatus = {
   configured: boolean;
   connectionState: RadarConnectionState;
+  marketFeedState: MarketFeedState;
   provider: string;
   dataset: string;
   symbol: string;
@@ -174,6 +176,7 @@ function blankStatus(): RadarStatus {
   return {
     configured,
     connectionState: configured ? "stopped" : "not_configured",
+    marketFeedState: "offline",
     provider: "Databento",
     dataset: "EQUS.MINI",
     symbol: "NVDA",
@@ -297,6 +300,11 @@ export class DatabentoLiveService extends EventEmitter {
     const now = new Date();
     return {
       ...this.status,
+      marketFeedState: marketFeedStateFor(
+        this.status.connectionState,
+        this.status.lastUpdatedAt,
+        now,
+      ),
       alphaRadar: calculateAlphaRadar({
         now,
         connectionState: this.status.connectionState,

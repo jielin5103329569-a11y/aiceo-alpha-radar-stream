@@ -24,7 +24,7 @@ import {
   Zap,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import type { RadarConnectionState, RadarReconnectState, RadarSignal, RadarSnapshot, RadarStatus } from '@workspace/api-client-react';
+import type { MarketFeedState, RadarConnectionState, RadarReconnectState, RadarSignal, RadarSnapshot, RadarStatus } from '@workspace/api-client-react';
 
 export default function Dashboard() {
   const { status, isLoading, isError, transportState } = useRadarStream();
@@ -107,7 +107,7 @@ export default function Dashboard() {
             </div>
             
             <div className="flex items-center gap-4">
-              <ConnectionStatusBadge state={status?.connectionState} error={isError} />
+              <MarketFeedStatusBadge state={status?.marketFeedState} error={isError} />
               
               {isConnected ? (
                 <Button
@@ -390,11 +390,16 @@ function ConnectionHealthCard({
         ? 'Recovering · REST fallback active'
         : 'Opening SSE link';
   const hasFailure = isError || Boolean(status?.error);
+  const marketIsStale = status?.marketFeedState === 'stale';
 
   return (
     <Card className={cn(
       'border-l-4',
-      hasFailure ? 'border-l-destructive' : transportState === 'reconnecting' ? 'border-l-amber-500' : 'border-l-primary',
+      hasFailure
+        ? 'border-l-destructive'
+        : marketIsStale || transportState === 'reconnecting'
+          ? 'border-l-amber-500'
+          : 'border-l-primary',
     )}>
       <CardHeader className="pb-4 flex flex-row items-center justify-between space-y-0">
         <div>
@@ -409,9 +414,14 @@ function ConnectionHealthCard({
       </CardHeader>
       <CardContent className="space-y-3 font-mono text-sm">
         <div className="flex items-center justify-between rounded-md bg-muted/50 px-3 py-2">
-          <span className="text-muted-foreground">Feed state</span>
-          <ConnectionStatusBadge state={status?.connectionState} error={isError} />
+          <span className="text-muted-foreground">Market data</span>
+          <MarketFeedStatusBadge state={status?.marketFeedState} error={isError} />
         </div>
+        <HealthRow
+          label="Databento transport"
+          value={connectionTransportLabel(status?.connectionState)}
+          detail="Connection health only; it does not confirm a current market event."
+        />
         <HealthRow
           label="Last heartbeat"
           value={formatTime(status?.lastHeartbeatAt)}
@@ -694,50 +704,49 @@ function describeReconnect(
   }
 }
 
-function ConnectionStatusBadge({ state, error }: { state?: RadarConnectionState, error: boolean }) {
-  if (error || state === 'error') {
+function MarketFeedStatusBadge({ state, error }: { state?: MarketFeedState, error: boolean }) {
+  if (error || state === 'offline') {
     return (
       <Badge variant="destructive" className="gap-1.5 py-1 px-2.5 bg-destructive/10 text-destructive hover:bg-destructive/20 font-mono text-[11px] uppercase tracking-wider">
         <AlertCircle className="h-3 w-3" />
-        Connection Lost
+        Offline
       </Badge>
     );
   }
 
+  if (state === 'streaming') {
+    return (
+      <Badge variant="default" className="gap-1.5 py-1 px-2.5 font-mono text-[11px] uppercase tracking-wider bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20">
+        <span className="relative flex h-2 w-2">
+          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+          <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
+        </span>
+        Streaming
+      </Badge>
+    );
+  }
+
+  return (
+    <Badge variant="outline" className="gap-1.5 py-1 px-2.5 font-mono text-[11px] uppercase tracking-wider border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300">
+      <CircleAlert className="h-3 w-3" />
+      Stale
+    </Badge>
+  );
+}
+
+function connectionTransportLabel(state: RadarConnectionState | undefined): string {
   switch (state) {
     case 'streaming':
-      return (
-        <Badge variant="default" className="gap-1.5 py-1 px-2.5 font-mono text-[11px] uppercase tracking-wider bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20">
-          <span className="relative flex h-2 w-2">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
-          </span>
-          Streaming
-        </Badge>
-      );
     case 'connected':
-      return (
-        <Badge variant="secondary" className="gap-1.5 py-1 px-2.5 font-mono text-[11px] uppercase tracking-wider">
-          <div className="h-2 w-2 rounded-full bg-blue-500" />
-          Connected
-        </Badge>
-      );
+      return 'Connected';
     case 'connecting':
-      return (
-        <Badge variant="secondary" className="gap-1.5 py-1 px-2.5 font-mono text-[11px] uppercase tracking-wider animate-pulse">
-          <div className="h-2 w-2 rounded-full bg-amber-500" />
-          Connecting...
-        </Badge>
-      );
+      return 'Connecting';
+    case 'error':
+      return 'Error';
     case 'stopped':
-    case 'not_configured':
+      return 'Stopped';
     default:
-      return (
-        <Badge variant="outline" className="gap-1.5 py-1 px-2.5 font-mono text-[11px] uppercase tracking-wider text-muted-foreground border-dashed">
-          <div className="h-2 w-2 rounded-full bg-muted-foreground/30" />
-          Offline
-        </Badge>
-      );
+      return 'Offline';
   }
 }
 

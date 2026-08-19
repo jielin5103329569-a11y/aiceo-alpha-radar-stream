@@ -10,6 +10,7 @@ export * from './alphaRadarSignalState';
 export * from './alphaRadarSnapshot';
 export * from './alphaRadarSnapshotUnusualActivity';
 export * from './healthStatus';
+export * from './marketFeedState';
 export * from './radarActivityFlag';
 export * from './radarActivityFlagType';
 export * from './radarConnectionState';

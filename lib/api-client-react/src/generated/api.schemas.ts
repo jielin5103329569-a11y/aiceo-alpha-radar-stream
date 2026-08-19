@@ -21,6 +21,15 @@ export const RadarConnectionState = {
   stopped: 'stopped',
 } as const;
 
+export type MarketFeedState = typeof MarketFeedState[keyof typeof MarketFeedState];
+
+
+export const MarketFeedState = {
+  streaming: 'streaming',
+  stale: 'stale',
+  offline: 'offline',
+} as const;
+
 export type RadarReconnectState = typeof RadarReconnectState[keyof typeof RadarReconnectState];
 
 
@@ -242,6 +251,7 @@ export interface RadarStream {
 export interface RadarStatus {
   configured: boolean;
   connectionState: RadarConnectionState;
+  marketFeedState: MarketFeedState;
   provider: string;
   dataset: string;
   symbol: string;

@@ -7,7 +7,8 @@
     "build": "pnpm run typecheck && pnpm -r --if-present run build",
     "typecheck:libs": "tsc --build",
     "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./artifacts/**\" --filter \"./scripts\" --if-present run typecheck",
-    "test:alpha-radar": "node scripts/test-alpha-radar.mjs"
+    "test:alpha-radar": "node scripts/test-alpha-radar.mjs",
+    "test:market-feed": "node scripts/test-market-feed.mjs"
   },
   "private": true,
   "dependencies": {

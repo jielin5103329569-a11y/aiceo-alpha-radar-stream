@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { AlphaRadarSnapshot } from './alphaRadarSnapshot';
+import type { MarketFeedState } from './marketFeedState';
 import type { RadarConnectionState } from './radarConnectionState';
 import type { RadarMarketSnapshot } from './radarMarketSnapshot';
 import type { RadarReconnectState } from './radarReconnectState';
@@ -16,6 +17,7 @@ import type { RadarTrade } from './radarTrade';
 export interface RadarStatus {
   configured: boolean;
   connectionState: RadarConnectionState;
+  marketFeedState: MarketFeedState;
   provider: string;
   dataset: string;
   symbol: string;

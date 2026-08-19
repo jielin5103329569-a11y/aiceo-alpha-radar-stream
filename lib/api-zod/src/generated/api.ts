@@ -23,6 +23,7 @@ export const HealthCheckResponse = zod.object({
 export const GetRadarStatusResponse = zod.object({
   "configured": zod.boolean(),
   "connectionState": zod.enum(['not_configured', 'connecting', 'connected', 'streaming', 'error', 'stopped']),
+  "marketFeedState": zod.enum(['streaming', 'stale', 'offline']),
   "provider": zod.string(),
   "dataset": zod.string(),
   "symbol": zod.string(),
@@ -184,6 +185,7 @@ export const GetRadarStatusResponse = zod.object({
 export const StartRadarConnectionResponse = zod.object({
   "configured": zod.boolean(),
   "connectionState": zod.enum(['not_configured', 'connecting', 'connected', 'streaming', 'error', 'stopped']),
+  "marketFeedState": zod.enum(['streaming', 'stale', 'offline']),
   "provider": zod.string(),
   "dataset": zod.string(),
   "symbol": zod.string(),
@@ -345,6 +347,7 @@ export const StartRadarConnectionResponse = zod.object({
 export const StopRadarConnectionResponse = zod.object({
   "configured": zod.boolean(),
   "connectionState": zod.enum(['not_configured', 'connecting', 'connected', 'streaming', 'error', 'stopped']),
+  "marketFeedState": zod.enum(['streaming', 'stale', 'offline']),
   "provider": zod.string(),
   "dataset": zod.string(),
   "symbol": zod.string(),
