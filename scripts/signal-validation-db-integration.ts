@@ -15,8 +15,13 @@ import { SignalValidationService } from "../artifacts/api-server/src/lib/signalV
 import {
   buildImmutableSignalRecord,
   targetAtForHorizon,
+  type ImmutableSignalRecord,
   type SignalTriggerInput,
 } from "../artifacts/api-server/src/lib/signalValidationCore";
+import type {
+  ArchivedSignalHistory,
+  SignalHistoryArchive,
+} from "../artifacts/api-server/src/lib/signalHistoryArchive";
 import { SignalValidationOutbox } from "../artifacts/api-server/src/lib/signalValidationOutbox";
 
 async function waitFor<T>(
@@ -41,6 +46,25 @@ async function waitFor<T>(
   );
 }
 
+class MemorySignalHistoryArchive implements SignalHistoryArchive {
+  readonly records = new Map<string, ImmutableSignalRecord>();
+
+  async store(record: ImmutableSignalRecord): Promise<void> {
+    const existing = this.records.get(record.eventKey);
+    if (existing && existing.recordHash !== record.recordHash) {
+      throw new Error("Archive idempotency conflict.");
+    }
+    this.records.set(record.eventKey, record);
+  }
+
+  async list(): Promise<ArchivedSignalHistory> {
+    return {
+      records: [...this.records.values()],
+      invalidRecordCount: 0,
+    };
+  }
+}
+
 const suffix = `${process.pid}-${Date.now()}`;
 const symbol = `IT${process.pid}`.slice(0, 20);
 const sector = `db-integration-${suffix}`;
@@ -49,7 +73,8 @@ const outbox = new SignalValidationOutbox(
   join(outboxDirectory, "primary.jsonl"),
   join(outboxDirectory, "fallback.jsonl"),
 );
-const service = new SignalValidationService(outbox);
+const archive = new MemorySignalHistoryArchive();
+const service = new SignalValidationService(outbox, archive);
 const trigger: SignalTriggerInput = {
   symbol,
   occurredAt: new Date("2026-07-01T14:30:00.000Z"),
@@ -159,9 +184,36 @@ try {
   const audit = await service.getAudit(persistedSignals[0]!.id);
   assert.equal(audit?.integrity, "verified");
   assert.equal(audit?.signal.catalystStatus, "unavailable");
+  assert.equal(archive.records.size, 1, "the immutable trigger must have an independent archive copy");
+
+  await db
+    .delete(radarSignalOutcomeEventsTable)
+    .where(eq(radarSignalOutcomeEventsTable.signalId, persistedSignals[0]!.id));
+  await db
+    .delete(radarSignalEventsTable)
+    .where(eq(radarSignalEventsTable.id, persistedSignals[0]!.id));
+  const replacementOutbox = new SignalValidationOutbox(
+    join(outboxDirectory, "replacement-primary.jsonl"),
+    join(outboxDirectory, "replacement-fallback.jsonl"),
+  );
+  const replacementService = new SignalValidationService(replacementOutbox, archive);
+  const restoredSignals = await waitFor(
+    "cross-host archive recovery",
+    () => db
+      .select()
+      .from(radarSignalEventsTable)
+      .where(eq(radarSignalEventsTable.eventKey, immutableRecord.eventKey)),
+    (rows) => rows.length === 1,
+  );
+  assert.equal(restoredSignals[0]?.recordHash, immutableRecord.recordHash);
+  assert.equal(
+    (await replacementService.getAudit(restoredSignals[0]!.id))?.integrity,
+    "verified",
+    "a host replacement must restore the exact archived immutable trigger",
+  );
 
   console.log(
-    "Signal validation PostgreSQL integration passed: migration, immutable trigger, checkpoint, dashboard, and audit.",
+    "Signal validation PostgreSQL integration passed: migration, immutable trigger, checkpoint, dashboard, audit, and cross-host archive recovery.",
   );
 } finally {
   await pool.end();

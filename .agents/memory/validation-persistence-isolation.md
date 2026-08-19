@@ -8,3 +8,9 @@ Signal validation is a sidecar, not an input to live scoring. Any pending, faile
 **Why:** Dropped triggers bias outcome metrics toward periods when storage was healthy, while synchronous durability work can alter the live behavior the validation layer is supposed to measure. Simultaneously guaranteeing zero loss after database failure, all local durable paths failing, and immediate host replacement requires an independent durable queue; it cannot be achieved by blocking live radar without violating isolation.
 
 **How to apply:** Treat any persistence backlog or integrity fault as validation unavailable and return null accuracy values. Keep price observations bounded/coalesced, but preserve trigger records through an idempotent outbox. If host-replacement durability must cover total local-storage failure, add an independent write-ahead service rather than awaiting persistence on the live scan path.
+
+Cross-host signal evidence uses an immutable object archive as a second durability tier; the API must initialize the Replit App Storage client with the local sidecar external-account credentials rather than default Google application credentials. Archive recovery must finish before validation is marked caught up, and archive errors must withhold accuracy.
+
+**Why:** A database plus local fsync-backed files still loses the only copy during simultaneous database failure and host replacement. The sidecar credential path is an environment-specific requirement for the persistent archive to work inside Replit.
+
+**How to apply:** Keep archive objects keyed by the immutable event key and verify record hashes on precondition conflicts. On startup, replay archive records idempotently into PostgreSQL; never delete the archive copy after database acknowledgement.

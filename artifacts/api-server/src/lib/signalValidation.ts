@@ -33,6 +33,10 @@ import {
   type ValidationSignalState,
   type ValidationSignalType,
 } from "./signalValidationCore";
+import {
+  GoogleCloudSignalHistoryArchive,
+  type SignalHistoryArchive,
+} from "./signalHistoryArchive";
 import { SignalValidationOutbox } from "./signalValidationOutbox";
 
 export type SignalValidationQuery = {
@@ -257,20 +261,30 @@ export class SignalValidationService {
   private readonly lastQueuedPriceAt = new Map<string, number>();
   private triggerFlushRunning = false;
   private triggerRetryTimer: NodeJS.Timeout | null = null;
+  private archiveRecoveryTimer: NodeJS.Timeout | null = null;
   private triggerRetryDelayMs = TRIGGER_RETRY_INITIAL_MS;
   private migrationPromise: Promise<void> | null = null;
   private readonly pendingOutboxWrites = new Map<string, ImmutableSignalRecord>();
   private readonly failedTriggerRecords = new Map<string, ImmutableSignalRecord>();
+  private readonly pendingArchiveWrites = new Map<string, ImmutableSignalRecord>();
+  private readonly failedArchiveRecords = new Map<string, ImmutableSignalRecord>();
+  private readonly archivedEventKeys = new Set<string>();
+  private archiveRecoveryState: "recovering" | "available" | "unavailable" = "recovering";
+  private archiveRecoveryError: string | null = null;
+  private archiveInvalidRecordCount = 0;
   private outboxWriteFailure: string | null = null;
 
-  constructor(private readonly triggerOutbox = new SignalValidationOutbox()) {
+  constructor(
+    private readonly triggerOutbox = new SignalValidationOutbox(),
+    private readonly signalHistoryArchive: SignalHistoryArchive = new GoogleCloudSignalHistoryArchive(),
+  ) {
     if (triggerOutbox.invalidLineCount > 0) {
       logger.error(
         { invalidLineCount: triggerOutbox.invalidLineCount },
         "Signal trigger outbox contains invalid records that will not be replayed",
       );
     }
-    if (triggerOutbox.size > 0) this.scheduleTriggerFlush(0);
+    void this.recoverArchivedSignals();
   }
 
   captureSignal(input: SignalTriggerInput): void {
@@ -282,6 +296,7 @@ export class SignalValidationService {
       return;
     }
     const record = buildImmutableSignalRecord(input);
+    this.archiveSignalRecord(record);
     this.pendingOutboxWrites.set(record.eventKey, record);
     void this.triggerOutbox.store(record)
       .then(() => {
@@ -391,6 +406,11 @@ export class SignalValidationService {
       const validationCaughtUp = pendingTriggerCount === 0
         && this.pendingOutboxWrites.size === 0
         && this.failedTriggerRecords.size === 0
+        && this.pendingArchiveWrites.size === 0
+        && this.failedArchiveRecords.size === 0
+        && this.archiveRecoveryState === "available"
+        && this.archiveInvalidRecordCount === 0
+        && this.allPendingSignalsHaveArchiveProof()
         && this.outboxWriteFailure === null
         && this.triggerOutbox.invalidLineCount === 0;
       const publishedMetrics = validationCaughtUp
@@ -409,6 +429,16 @@ export class SignalValidationService {
         persistenceState: validationCaughtUp ? "available" : "unavailable",
         reason: this.pendingOutboxWrites.size > 0
           ? `${this.pendingOutboxWrites.size} immutable trigger record${this.pendingOutboxWrites.size === 1 ? " is" : "s are"} being written to the durable outbox. Accuracy is withheld; live Alpha Radar is unaffected.`
+          : this.archiveRecoveryState === "recovering"
+          ? "Cross-host immutable history is reconciling before validation metrics are published. Live Alpha Radar is unaffected."
+          : this.archiveRecoveryState === "unavailable"
+          ? `Cross-host immutable history cannot be verified${this.archiveRecoveryError ? `: ${this.archiveRecoveryError}` : ""}. Accuracy is withheld; live Alpha Radar is unaffected.`
+          : this.pendingArchiveWrites.size > 0
+          ? `${this.pendingArchiveWrites.size} immutable trigger record${this.pendingArchiveWrites.size === 1 ? " is" : "s are"} being copied to the independent cross-host history archive. Accuracy is withheld; live Alpha Radar is unaffected.`
+          : this.failedArchiveRecords.size > 0
+          ? `The independent cross-host history archive is unavailable and ${this.failedArchiveRecords.size} immutable trigger record${this.failedArchiveRecords.size === 1 ? " is" : "s are"} awaiting archival retry. Accuracy is withheld; live Alpha Radar is unaffected.`
+          : this.archiveInvalidRecordCount > 0
+          ? "The cross-host immutable history archive contains invalid records. Accuracy is withheld; live Alpha Radar is unaffected."
           : this.outboxWriteFailure
           ? `The durable trigger outbox is unavailable and ${this.failedTriggerRecords.size} trigger record${this.failedTriggerRecords.size === 1 ? " is" : "s are"} awaiting retry. Accuracy is withheld; live Alpha Radar is unaffected.`
           : pendingTriggerCount > 0
@@ -436,6 +466,14 @@ export class SignalValidationService {
       return unavailableDashboard(
         this.pendingOutboxWrites.size > 0
           ? `Persistent validation storage is unavailable and ${this.pendingOutboxWrites.size} immutable trigger record${this.pendingOutboxWrites.size === 1 ? " is" : "s are"} still being written to the durable outbox. Accuracy is withheld and live Alpha Radar remains unaffected.`
+          : this.archiveRecoveryState === "recovering"
+          ? "Persistent validation storage is unavailable while cross-host immutable history is reconciling. Accuracy is withheld and live Alpha Radar remains unaffected."
+          : this.archiveRecoveryState === "unavailable"
+          ? `Persistent validation storage is unavailable and cross-host immutable history cannot be verified${this.archiveRecoveryError ? `: ${this.archiveRecoveryError}` : ""}. Accuracy is withheld and live Alpha Radar remains unaffected.`
+          : this.pendingArchiveWrites.size > 0
+          ? `Persistent validation storage is unavailable while ${this.pendingArchiveWrites.size} immutable trigger record${this.pendingArchiveWrites.size === 1 ? " is" : "s are"} being copied to the independent cross-host history archive. Accuracy is withheld and live Alpha Radar remains unaffected.`
+          : this.failedArchiveRecords.size > 0
+          ? `Persistent validation storage and the independent cross-host history archive are unavailable. ${this.failedArchiveRecords.size} trigger record${this.failedArchiveRecords.size === 1 ? " is" : "s are"} awaiting archival retry. Accuracy is withheld and live Alpha Radar remains unaffected.`
           : this.outboxWriteFailure
           ? `Persistent validation storage and the durable trigger outbox are unavailable. ${this.failedTriggerRecords.size} trigger record${this.failedTriggerRecords.size === 1 ? " is" : "s are"} awaiting retry in this process. Accuracy is withheld and live Alpha Radar remains unaffected.`
           : this.triggerOutbox.size > 0
@@ -478,7 +516,7 @@ export class SignalValidationService {
 
   private scheduleTriggerFlush(delayMs: number): void {
     if (
-      (this.triggerOutbox.size === 0 && this.failedTriggerRecords.size === 0)
+      !this.hasTriggerPersistenceWork()
       || this.triggerFlushRunning
       || this.triggerRetryTimer
     ) {
@@ -507,7 +545,7 @@ export class SignalValidationService {
         })
         .finally(() => {
           this.triggerFlushRunning = false;
-          if (this.triggerOutbox.size > 0 || this.failedTriggerRecords.size > 0) {
+          if (this.hasTriggerPersistenceWork()) {
             this.scheduleTriggerFlush(this.triggerRetryDelayMs);
           }
         });
@@ -519,17 +557,132 @@ export class SignalValidationService {
     const acknowledged: string[] = [];
     try {
       for (const [eventKey, record] of this.failedTriggerRecords) {
-        await this.triggerOutbox.store(record);
-        this.failedTriggerRecords.delete(eventKey);
+        try {
+          await this.triggerOutbox.store(record);
+          this.failedTriggerRecords.delete(eventKey);
+        } catch {
+          // The independent archive may still protect and replay this record.
+        }
+      }
+      for (const [eventKey, record] of this.failedArchiveRecords) {
+        try {
+          await this.signalHistoryArchive.store(record);
+          this.archivedEventKeys.add(eventKey);
+          this.failedArchiveRecords.delete(eventKey);
+        } catch {
+          // Preserve the record in the retry set without blocking live radar.
+        }
       }
       if (this.failedTriggerRecords.size === 0) this.outboxWriteFailure = null;
-      for (const record of this.triggerOutbox.list()) {
+      if (
+        this.failedArchiveRecords.size === 0
+        && this.archiveRecoveryState === "available"
+      ) {
+        this.archiveRecoveryError = null;
+      }
+      const candidates = new Map<string, ImmutableSignalRecord>();
+      for (const record of this.triggerOutbox.list()) candidates.set(record.eventKey, record);
+      for (const record of this.failedTriggerRecords.values()) candidates.set(record.eventKey, record);
+      for (const record of candidates.values()) {
+        if (!this.archivedEventKeys.has(record.eventKey)) continue;
         await this.persistSignalRecord(record);
-        acknowledged.push(record.eventKey);
+        if (this.triggerOutbox.list().some((queued) => queued.eventKey === record.eventKey)) {
+          acknowledged.push(record.eventKey);
+        }
+        this.failedTriggerRecords.delete(record.eventKey);
       }
     } finally {
       await this.triggerOutbox.acknowledge(acknowledged);
     }
+  }
+
+  private archiveSignalRecord(record: ImmutableSignalRecord): void {
+    if (
+      this.archivedEventKeys.has(record.eventKey)
+      || this.pendingArchiveWrites.has(record.eventKey)
+    ) {
+      return;
+    }
+    this.pendingArchiveWrites.set(record.eventKey, record);
+    void this.signalHistoryArchive.store(record)
+      .then(() => {
+        this.archivedEventKeys.add(record.eventKey);
+        this.failedArchiveRecords.delete(record.eventKey);
+        this.pendingArchiveWrites.delete(record.eventKey);
+        this.scheduleTriggerFlush(0);
+      })
+      .catch((error: unknown) => {
+        const message = error instanceof Error ? error.message : String(error);
+        this.pendingArchiveWrites.delete(record.eventKey);
+        this.failedArchiveRecords.set(record.eventKey, record);
+        this.archiveRecoveryError = message;
+        this.scheduleTriggerFlush(this.triggerRetryDelayMs);
+        logger.error(
+          { error: message, eventKey: record.eventKey, symbol: record.symbol },
+          "Immutable signal could not be copied to the independent cross-host history archive",
+        );
+      });
+  }
+
+  private async recoverArchivedSignals(): Promise<void> {
+    try {
+      this.archiveRecoveryState = "recovering";
+      const archived = await this.signalHistoryArchive.list();
+      this.archiveInvalidRecordCount = archived.invalidRecordCount;
+      for (const record of archived.records) this.archivedEventKeys.add(record.eventKey);
+      const localRecords = new Map(
+        this.triggerOutbox.list().map((record) => [record.eventKey, record]),
+      );
+      for (const record of localRecords.values()) this.archiveSignalRecord(record);
+      for (const record of archived.records) {
+        if (localRecords.has(record.eventKey)) continue;
+        try {
+          await this.triggerOutbox.store(record);
+        } catch {
+          this.failedTriggerRecords.set(record.eventKey, record);
+        }
+      }
+      this.archiveRecoveryState = this.archiveInvalidRecordCount === 0
+        ? "available"
+        : "unavailable";
+      this.archiveRecoveryError = this.archiveInvalidRecordCount === 0
+        ? null
+        : `${this.archiveInvalidRecordCount} invalid archive record${this.archiveInvalidRecordCount === 1 ? "" : "s"} detected`;
+      this.scheduleTriggerFlush(0);
+    } catch (error) {
+      this.archiveRecoveryState = "unavailable";
+      this.archiveRecoveryError = error instanceof Error ? error.message : String(error);
+      for (const record of this.triggerOutbox.list()) this.archiveSignalRecord(record);
+      this.scheduleArchiveRecovery(this.triggerRetryDelayMs);
+      logger.error(
+        { error: this.archiveRecoveryError },
+        "Cross-host immutable signal history recovery is unavailable; validation metrics are withheld",
+      );
+    }
+  }
+
+  private scheduleArchiveRecovery(delayMs: number): void {
+    if (this.archiveRecoveryTimer) return;
+    this.archiveRecoveryTimer = setTimeout(() => {
+      this.archiveRecoveryTimer = null;
+      void this.recoverArchivedSignals();
+    }, delayMs);
+    this.archiveRecoveryTimer.unref();
+  }
+
+  private allPendingSignalsHaveArchiveProof(): boolean {
+    return this.triggerOutbox.list().every((record) => this.archivedEventKeys.has(record.eventKey))
+      && [...this.failedTriggerRecords.values()]
+        .every((record) => this.archivedEventKeys.has(record.eventKey));
+  }
+
+  private hasTriggerPersistenceWork(): boolean {
+    return this.failedTriggerRecords.size > 0
+      || this.failedArchiveRecords.size > 0
+      || this.triggerOutbox.list()
+        .some((record) => this.archivedEventKeys.has(record.eventKey))
+      || [...this.failedTriggerRecords.values()]
+        .some((record) => this.archivedEventKeys.has(record.eventKey));
   }
 
   private async persistSignalRecord(record: ImmutableSignalRecord): Promise<void> {

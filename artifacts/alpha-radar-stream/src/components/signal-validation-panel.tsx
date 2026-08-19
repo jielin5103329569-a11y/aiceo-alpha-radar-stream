@@ -67,7 +67,7 @@ export function SignalValidationPanel() {
     );
   }
 
-  const { metrics, metricDefinitions, persistenceState, totalSignals, signals } = data;
+   const { metrics, metricDefinitions, persistenceState, reason, totalSignals, signals } = data;
   const isInsufficient = metrics.sampleState === 'insufficient_sample';
 
   return (
@@ -91,7 +91,7 @@ export function SignalValidationPanel() {
                  </Badge>
                ) : (
                  <Badge variant="outline" className="border-primary/40 text-primary text-[10px] font-mono tracking-wider bg-primary/5">
-                   Database Active
+                    History Protected
                  </Badge>
                )}
             </div>
@@ -104,7 +104,7 @@ export function SignalValidationPanel() {
                <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
                <div>
                   <div className="font-semibold uppercase tracking-wider text-[10px]">Warning</div>
-                  <div className="mt-1 opacity-90 leading-relaxed">The historical database is unreachable. Live radar functionality is completely unaffected and continues to process streaming data.</div>
+                   <div className="mt-1 opacity-90 leading-relaxed">{reason}</div>
                </div>
             </div>
           )}

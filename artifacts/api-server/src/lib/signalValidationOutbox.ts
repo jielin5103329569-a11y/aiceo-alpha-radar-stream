@@ -16,18 +16,18 @@ import {
   type ImmutableSignalRecord,
 } from "./signalValidationCore";
 
-type SerializedSignalRecord = Omit<ImmutableSignalRecord, "occurredAt"> & {
+export type SerializedSignalRecord = Omit<ImmutableSignalRecord, "occurredAt"> & {
   occurredAt: string;
 };
 
-function serialize(record: ImmutableSignalRecord): SerializedSignalRecord {
+export function serializeSignalRecord(record: ImmutableSignalRecord): SerializedSignalRecord {
   return {
     ...record,
     occurredAt: record.occurredAt.toISOString(),
   };
 }
 
-function deserialize(value: unknown): ImmutableSignalRecord | null {
+export function deserializeSignalRecord(value: unknown): ImmutableSignalRecord | null {
   if (!value || typeof value !== "object") return null;
   const serialized = value as Partial<SerializedSignalRecord>;
   if (typeof serialized.occurredAt !== "string") return null;
@@ -117,7 +117,7 @@ export class SignalValidationOutbox {
       for (const line of lines) {
         if (!line.trim()) continue;
         try {
-          const record = deserialize(JSON.parse(line));
+          const record = deserializeSignalRecord(JSON.parse(line));
           if (!record) {
             invalidLineCount += 1;
             continue;
@@ -161,7 +161,7 @@ export class SignalValidationOutbox {
         }
         return;
       }
-      const line = `${JSON.stringify(serialize(record))}\n`;
+      const line = `${JSON.stringify(serializeSignalRecord(record))}\n`;
       try {
         await appendDurably(this.filePath, line);
       } catch (primaryError) {
@@ -189,7 +189,7 @@ export class SignalValidationOutbox {
           .filter((line) => {
             if (!line.trim()) return false;
             try {
-              const record = deserialize(JSON.parse(line));
+              const record = deserializeSignalRecord(JSON.parse(line));
               return !record || !acknowledged.has(record.eventKey);
             } catch {
               return true;
