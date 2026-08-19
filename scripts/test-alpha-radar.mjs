@@ -22,7 +22,11 @@ try {
   writeFileSync(outputPath, output);
 
   const require = createRequire(import.meta.url);
-  const { addAlphaRadarDynamics, calculateAlphaRadar } = require(outputPath);
+  const {
+    addAlphaRadarDynamics,
+    calculateAlphaRadar,
+    updatePreBreakoutDetection,
+  } = require(outputPath);
   const now = new Date("2026-08-19T14:30:00.000Z");
 
   const timestamps = [
@@ -115,6 +119,86 @@ try {
   assert.equal(dynamicActive.preBreakoutWatch, true, "multiple improving fresh components should enable the advisory watch");
   assert.equal(dynamicActive.scan.scanMode, "opening", "scan metadata should retain the adaptive opening mode");
   assert.equal(dynamicActive.scan.eventTriggered, true, "scan metadata should retain the event trigger");
+
+  const stronglyImproving = {
+    ...dynamicActive,
+    score: 78,
+    alphaVelocity: { ...dynamicActive.alphaVelocity, rate30s: 18 },
+    changeIndicators: {
+      momentumAcceleration: 18,
+      volumeAcceleration: 16,
+      orderFlowShift: 14,
+      spreadTightening: 12,
+    },
+  };
+  let machine = {
+    state: "unavailable",
+    pendingState: null,
+    pendingCount: 0,
+    lastTransitionAt: null,
+  };
+  let detected = updatePreBreakoutDetection(stronglyImproving, machine, now);
+  machine = detected.machine;
+  assert.equal(detected.snapshot.preBreakout.state, "watch", "the first valid scan establishes WATCH without skipping levels");
+  for (const expectedState of ["accelerating", "pre_breakout", "confirmed"]) {
+    detected = updatePreBreakoutDetection(
+      stronglyImproving,
+      machine,
+      new Date(now.getTime() + (expectedState === "accelerating" ? 2 : expectedState === "pre_breakout" ? 4 : 6) * 1_000),
+    );
+    machine = detected.machine;
+    detected = updatePreBreakoutDetection(
+      stronglyImproving,
+      machine,
+      new Date(now.getTime() + (expectedState === "accelerating" ? 3 : expectedState === "pre_breakout" ? 5 : 7) * 1_000),
+    );
+    machine = detected.machine;
+    assert.equal(detected.snapshot.preBreakout.state, expectedState, `two confirming scans should promote ${expectedState}`);
+  }
+  assert.equal(detected.snapshot.preBreakout.evidenceCount, 4, "confirmed detection must count only direct independent evidence");
+  assert.equal(detected.snapshot.preBreakoutWatch, true, "pre-breakout and confirmed states retain the advisory flag");
+
+  const twoDirectSignals = {
+    ...stronglyImproving,
+    changeIndicators: {
+      momentumAcceleration: 18,
+      volumeAcceleration: 16,
+      orderFlowShift: 0,
+      spreadTightening: 0,
+    },
+  };
+  let twoSignalMachine = {
+    state: "unavailable",
+    pendingState: null,
+    pendingCount: 0,
+    lastTransitionAt: null,
+  };
+  for (let scan = 0; scan < 8; scan += 1) {
+    const result = updatePreBreakoutDetection(
+      twoDirectSignals,
+      twoSignalMachine,
+      new Date(now.getTime() + 20_000 + scan * 1_000),
+    );
+    twoSignalMachine = result.machine;
+    assert.notEqual(
+      result.snapshot.preBreakout.state,
+      "pre_breakout",
+      "two direct components plus derived Alpha Velocity must not reach pre-breakout",
+    );
+    assert.notEqual(
+      result.snapshot.preBreakout.state,
+      "confirmed",
+      "two direct components plus derived Alpha Velocity must not reach confirmed",
+    );
+  }
+
+  const unavailableDetection = updatePreBreakoutDetection(
+    { ...detected.snapshot, scoreState: "stale", score: null, dataQuality: "stale" },
+    machine,
+    new Date(now.getTime() + 8_000),
+  );
+  assert.equal(unavailableDetection.snapshot.preBreakout.state, "unavailable", "stale data must revoke the real-time detection state");
+  assert.equal(unavailableDetection.snapshot.preBreakoutWatch, false, "stale data must not retain the advisory flag");
 
   const minimumFreshWindow = calculateAlphaRadar({
     now,

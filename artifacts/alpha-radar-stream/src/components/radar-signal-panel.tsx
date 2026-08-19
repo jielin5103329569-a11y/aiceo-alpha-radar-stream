@@ -156,23 +156,16 @@ export function RadarSignalPanel({ alphaRadar }: RadarSignalPanelProps) {
             <div className="text-[10px] uppercase tracking-wider text-muted-foreground">
               Component change speed
             </div>
-            {alphaRadar.preBreakoutWatch ? (
-              <Badge className="border border-amber-500/45 bg-amber-500/10 font-mono text-[9px] uppercase tracking-wide text-amber-700 dark:text-amber-300" data-testid="status-pre-breakout-watch">
-                Pre-Breakout Watch · advisory
-              </Badge>
-            ) : null}
           </div>
-          <div className="mt-3 grid gap-3 sm:grid-cols-3">
+          <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <ChangeIndicator label="Momentum acceleration" value={alphaRadar.changeIndicators.momentumAcceleration} />
             <ChangeIndicator label="Volume acceleration" value={alphaRadar.changeIndicators.volumeAcceleration} />
             <ChangeIndicator label="Order-flow shift" value={alphaRadar.changeIndicators.orderFlowShift} />
+            <ChangeIndicator label="Spread tightening" value={alphaRadar.changeIndicators.spreadTightening} />
           </div>
-          {alphaRadar.preBreakoutWatch ? (
-            <p className="mt-3 border-t border-amber-500/20 pt-2 text-[11px] leading-relaxed text-muted-foreground">
-              Multiple fresh core components are improving together. This is a factual monitoring state, not a buy or trading instruction.
-            </p>
-          ) : null}
         </div>
+
+        <PreBreakoutDetectionCard alphaRadar={alphaRadar} />
 
         <div className="grid gap-3 sm:grid-cols-2">
           <SignalMetricCard icon={<Activity className="h-4 w-4" />} label="Price momentum" metric={alphaRadar.momentum} />
@@ -251,6 +244,96 @@ function ChangeIndicator({ label, value }: { label: string; value: number | null
 function formatSignedValue(value: number | null, suffix: string): string {
   if (value === null) return '—';
   return `${value >= 0 ? '+' : ''}${formatNumber(value, 1)}${suffix}`;
+}
+
+function PreBreakoutDetectionCard({ alphaRadar }: { alphaRadar: AlphaRadarSnapshot }) {
+  const detection = alphaRadar.preBreakout;
+  return (
+    <div className="rounded-lg border border-border/70 bg-card p-3" data-testid="pre-breakout-detection">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-2 text-[10px] uppercase tracking-wider text-muted-foreground">
+          <Zap className="h-3.5 w-3.5 text-primary" />
+          Pre-Breakout Detection
+        </div>
+        <Badge className={cn('border font-mono text-[9px] uppercase tracking-wide', preBreakoutStateStyle(detection.state))}>
+          {preBreakoutStateLabel(detection.state)}
+        </Badge>
+      </div>
+      <div className="mt-3 grid gap-3 text-xs sm:grid-cols-4">
+        <DetectionValue label="Independent evidence" value={`${detection.evidenceCount} signals`} />
+        <DetectionValue label="Velocity gate" value={detection.velocityGateSatisfied ? 'Positive / met' : 'Not met'} />
+        <DetectionValue label="Data window" value={detection.dataFresh ? 'Fresh / eligible' : 'Unavailable'} />
+        <DetectionValue label="Last transition" value={formatTime(detection.lastTransitionAt)} />
+      </div>
+      {detection.transitionReasons.length > 0 ? (
+        <div className="mt-3 border-t border-border/60 pt-2">
+          <p className="text-[9px] uppercase tracking-wide text-muted-foreground">
+            Latest transition · {detection.transitionEvidenceCount} independent signals
+          </p>
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {detection.transitionReasons.map((reason) => (
+              <Badge key={`transition-${reason}`} variant="outline" className="border-amber-500/30 bg-amber-500/5 text-[10px] text-amber-700 dark:text-amber-300">
+                {reason}
+              </Badge>
+            ))}
+          </div>
+        </div>
+      ) : null}
+      {detection.reasons.length > 0 ? (
+        <div className="mt-3 border-t border-border/60 pt-2">
+          <p className="text-[9px] uppercase tracking-wide text-muted-foreground">Current confirming evidence</p>
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {detection.reasons.map((reason) => (
+              <Badge key={reason} variant="outline" className="border-primary/30 bg-primary/5 text-[10px] text-primary">
+                {reason}
+              </Badge>
+            ))}
+          </div>
+        </div>
+      ) : null}
+      {detection.deteriorationReasons.length > 0 ? (
+        <p className="mt-3 border-t border-destructive/20 pt-2 text-[11px] leading-relaxed text-destructive">
+          {detection.deteriorationReasons.join(' · ')}
+        </p>
+      ) : null}
+      {detection.cooldownRemainingMs !== null ? (
+        <p className="mt-3 text-[10px] text-muted-foreground">
+          Cooldown active · {formatNumber(detection.cooldownRemainingMs / 1000, 1)}s before a downgrade can be confirmed.
+        </p>
+      ) : null}
+      {detection.state === 'unavailable' ? (
+        <p className="mt-3 border-t border-border/60 pt-2 text-[11px] leading-relaxed text-muted-foreground">
+          Detection is unavailable until the current live window is complete, fresh, and score-eligible. Historical observations cannot create a state.
+        </p>
+      ) : null}
+      {alphaRadar.preBreakoutWatch ? (
+        <p className="mt-3 border-t border-amber-500/20 pt-2 text-[11px] leading-relaxed text-muted-foreground" data-testid="status-pre-breakout-watch">
+          The state uses multiple fresh, independent signals and confirmation scans. It is a factual monitoring state, not a buy or trading instruction.
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+function preBreakoutStateLabel(state: AlphaRadarSnapshot['preBreakout']['state']): string {
+  return state.replaceAll('_', ' ');
+}
+
+function preBreakoutStateStyle(state: AlphaRadarSnapshot['preBreakout']['state']): string {
+  if (state === 'confirmed') return 'border-primary/50 bg-primary/15 text-primary';
+  if (state === 'pre_breakout') return 'border-amber-500/45 bg-amber-500/10 text-amber-700 dark:text-amber-300';
+  if (state === 'accelerating') return 'border-sky-500/35 bg-sky-500/10 text-sky-700 dark:text-sky-300';
+  if (state === 'watch') return 'border-border bg-muted text-muted-foreground';
+  return 'border-border text-muted-foreground';
+}
+
+function DetectionValue({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <p className="text-[9px] uppercase tracking-wide text-muted-foreground">{label}</p>
+      <p className="mt-1 font-mono text-[11px] font-semibold text-foreground">{value}</p>
+    </div>
+  );
 }
 
 function SignalMetricCard({

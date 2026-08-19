@@ -24,7 +24,7 @@ import {
   Zap,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import type { MarketFeedState, RadarConnectionState, RadarReconnectState, RadarSignal, RadarSnapshot, RadarStatus } from '@workspace/api-client-react';
+import type { MarketFeedState, RadarConnectionState, RadarReconnectState, RadarSignal, RadarSnapshot, RadarStatus, RadarSymbolStatus } from '@workspace/api-client-react';
 
 export default function Dashboard() {
   const { status, isLoading, isError, transportState } = useRadarStream();
@@ -269,6 +269,11 @@ export default function Dashboard() {
         <div className="lg:col-span-8 flex flex-col gap-6">
           <RadarSignalPanel alphaRadar={status?.alphaRadar} />
 
+          <RadarUniverseCard
+            symbols={status?.symbolRadars ?? []}
+            leader={status?.preBreakoutLeader ?? null}
+          />
+
           <RadarScoreCard radar={status?.radar ?? null} />
 
           <RadarComponentsCard radar={status?.radar ?? null} />
@@ -371,6 +376,97 @@ export default function Dashboard() {
       </main>
     </div>
   );
+}
+
+function RadarUniverseCard({
+  symbols,
+  leader,
+}: {
+  symbols: RadarSymbolStatus[];
+  leader: RadarStatus['preBreakoutLeader'];
+}) {
+  return (
+    <Card data-testid="radar-universe">
+      <CardHeader className="pb-4">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <CardTitle className="flex items-center gap-2 text-sm font-medium uppercase tracking-widest text-muted-foreground">
+              <ScanLine className="h-4 w-4 text-primary" />
+              Live Pre-Breakout Scan Universe
+            </CardTitle>
+            <CardDescription className="mt-1">
+              Independent Databento live windows for NVDA, MU, VRT, CRDO, and AMD. States require fresh, converging evidence.
+            </CardDescription>
+          </div>
+          {leader ? (
+            <Badge className="border border-primary/40 bg-primary/10 font-mono text-[10px] text-primary">
+              Velocity leader · {leader.symbol}
+            </Badge>
+          ) : (
+            <Badge variant="outline" className="font-mono text-[10px] text-muted-foreground">
+              Building live windows
+            </Badge>
+          )}
+        </div>
+      </CardHeader>
+      <CardContent>
+        <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
+          {symbols.map((symbol) => {
+            const detection = symbol.alphaRadar.preBreakout;
+            const active = symbol.marketFeedState === 'streaming' && detection.dataFresh;
+            return (
+              <div
+                key={symbol.symbol}
+                className={cn(
+                  'rounded-md border p-3',
+                  active ? 'border-border/80 bg-card' : 'border-border/60 bg-muted/30',
+                )}
+                data-testid={`radar-symbol-${symbol.symbol}`}
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-mono text-sm font-bold text-foreground">{symbol.symbol}</span>
+                  <span className={cn('h-2 w-2 rounded-full', active ? 'bg-primary animate-pulse' : 'bg-muted-foreground')} />
+                </div>
+                <p className="mt-2 text-[9px] uppercase tracking-wide text-muted-foreground">Detection state</p>
+                <p className={cn('mt-1 font-mono text-[11px] font-semibold uppercase', detectionStateColor(detection.state))}>
+                  {detection.state.replaceAll('_', ' ')}
+                </p>
+                <div className="mt-3 border-t border-border/60 pt-2 font-mono text-[10px] text-muted-foreground">
+                  <div className="flex justify-between gap-2">
+                    <span>Velocity</span>
+                    <span className={cn((symbol.alphaRadar.alphaVelocity.rate30s ?? 0) > 0 ? 'text-primary' : 'text-foreground')}>
+                      {signedRate(symbol.alphaRadar.alphaVelocity.rate30s)}
+                    </span>
+                  </div>
+                  <div className="mt-1 flex justify-between gap-2">
+                    <span>Evidence</span>
+                    <span className="text-foreground">{detection.evidenceCount}</span>
+                  </div>
+                  <div className="mt-1 flex justify-between gap-2">
+                    <span>Freshness</span>
+                    <span className={active ? 'text-primary' : 'text-muted-foreground'}>
+                      {active ? 'fresh' : symbol.marketFeedState}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function detectionStateColor(state: RadarSymbolStatus['alphaRadar']['preBreakout']['state']): string {
+  if (state === 'confirmed') return 'text-primary';
+  if (state === 'pre_breakout') return 'text-amber-600 dark:text-amber-300';
+  if (state === 'accelerating') return 'text-sky-600 dark:text-sky-300';
+  return 'text-muted-foreground';
+}
+
+function signedRate(value: number | null): string {
+  return value === null ? '—' : `${value >= 0 ? '+' : ''}${formatNumber(value, 1)}/min`;
 }
 
 function ConnectionHealthCard({

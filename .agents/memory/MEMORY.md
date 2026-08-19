@@ -1,3 +1,4 @@
 - [Databento live bridge](databento-live-bridge.md) — The official Python client begins streaming on iteration; do not call `start()` before consuming records.
 - [Market data recovery](market-data-recovery.md) — Keep feed heartbeats separate from market-event freshness and use bounded retry backoff for provider recovery.
 - [Signal integrity](signal-integrity.md) — Never preserve directional scores or setup labels when a live feed is interrupted, stale, or materially incomplete.
+- [Pre-breakout evidence](pre-breakout-evidence.md) — Count only direct component changes as independent evidence; composite Alpha Velocity is a gate, not another vote.

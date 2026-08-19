@@ -68,6 +68,37 @@ export type AlphaChangeIndicators = {
   momentumAcceleration: number | null;
   volumeAcceleration: number | null;
   orderFlowShift: number | null;
+  spreadTightening: number | null;
+};
+
+export type PreBreakoutDetectionState =
+  | "unavailable"
+  | "watch"
+  | "accelerating"
+  | "pre_breakout"
+  | "confirmed";
+
+export type PreBreakoutDetection = {
+  state: PreBreakoutDetectionState;
+  evidenceCount: number;
+  velocityGateSatisfied: boolean;
+  reasons: string[];
+  deteriorationReasons: string[];
+  transitionEvidenceCount: number;
+  transitionReasons: string[];
+  lastTransitionAt: Date | null;
+  lastEvaluatedAt: Date;
+  dataFresh: boolean;
+  cooldownRemainingMs: number | null;
+};
+
+export type PreBreakoutStateMachine = {
+  state: PreBreakoutDetectionState;
+  pendingState: PreBreakoutDetectionState | null;
+  pendingCount: number;
+  lastTransitionAt: Date | null;
+  lastTransitionEvidenceCount: number;
+  lastTransitionReasons: string[];
 };
 
 export type AlphaRadarSnapshot = {
@@ -83,6 +114,7 @@ export type AlphaRadarSnapshot = {
   alphaVelocity: AlphaVelocity;
   changeIndicators: AlphaChangeIndicators;
   preBreakoutWatch: boolean;
+  preBreakout: PreBreakoutDetection;
   momentum: RadarSignalMetric;
   spread: RadarSignalMetric;
   volumeIntensity: RadarSignalMetric;
@@ -104,6 +136,7 @@ export type AlphaRadarHistoryPoint = {
   momentumScore: number;
   volumeScore: number;
   orderFlowScore: number;
+  spreadScore: number;
 };
 
 export type AlphaRadarScanContext = {
@@ -113,6 +146,9 @@ export type AlphaRadarScanContext = {
   triggerReason: string;
   eventTriggered: boolean;
 };
+
+const PRE_BREAKOUT_CONFIRMATION_SCANS = 2;
+const PRE_BREAKOUT_COOLDOWN_MS = 10_000;
 
 const SHORT_WINDOW_MS = 30_000;
 const BASELINE_WINDOW_MS = 300_000;
@@ -240,6 +276,23 @@ function emptyChangeIndicators(): AlphaChangeIndicators {
     momentumAcceleration: null,
     volumeAcceleration: null,
     orderFlowShift: null,
+    spreadTightening: null,
+  };
+}
+
+function unavailablePreBreakout(now: Date): PreBreakoutDetection {
+  return {
+    state: "unavailable",
+    evidenceCount: 0,
+    velocityGateSatisfied: false,
+    reasons: [],
+    deteriorationReasons: [],
+    transitionEvidenceCount: 0,
+    transitionReasons: [],
+    lastTransitionAt: null,
+    lastEvaluatedAt: now,
+    dataFresh: false,
+    cooldownRemainingMs: null,
   };
 }
 
@@ -274,6 +327,7 @@ export function addAlphaRadarDynamics(
     alphaVelocity: emptyAlphaVelocity(),
     changeIndicators: emptyChangeIndicators(),
     preBreakoutWatch: false,
+    preBreakout: unavailablePreBreakout(context.lastScannedAt),
   };
 
   if (
@@ -294,6 +348,7 @@ export function addAlphaRadarDynamics(
     momentumScore: snapshot.momentum.score ?? 0,
     volumeScore: snapshot.volumeIntensity.score ?? 0,
     orderFlowScore: snapshot.orderFlowPressure.score ?? 0,
+    spreadScore: snapshot.spread.score ?? 0,
   };
   const baseline30 = historyPointAtOrBefore(history, nowMs - 30_000);
   const baseline60 = historyPointAtOrBefore(history, nowMs - 60_000);
@@ -318,6 +373,9 @@ export function addAlphaRadarDynamics(
     orderFlowShift: previous
       ? changeRate(current.orderFlowScore, previous.orderFlowScore, nowMs - previous.generatedAt.getTime())
       : null,
+    spreadTightening: previous
+      ? changeRate(current.spreadScore, previous.spreadScore, nowMs - previous.generatedAt.getTime())
+      : null,
   };
   const improvingComponents = [
     indicators.momentumAcceleration,
@@ -336,6 +394,196 @@ export function addAlphaRadarDynamics(
     alphaVelocity: velocity,
     changeIndicators: indicators,
     preBreakoutWatch,
+    preBreakout: {
+      state: preBreakoutWatch ? "pre_breakout" : "watch",
+      evidenceCount: improvingComponents,
+      velocityGateSatisfied: velocity.rate30s !== null && velocity.rate30s > 0,
+      reasons: [],
+      deteriorationReasons: [],
+      transitionEvidenceCount: 0,
+      transitionReasons: [],
+      lastTransitionAt: null,
+      lastEvaluatedAt: context.lastScannedAt,
+      dataFresh: true,
+      cooldownRemainingMs: null,
+    },
+  };
+}
+
+function detectionRank(state: PreBreakoutDetectionState): number {
+  switch (state) {
+    case "watch":
+      return 0;
+    case "accelerating":
+      return 1;
+    case "pre_breakout":
+      return 2;
+    case "confirmed":
+      return 3;
+    default:
+      return -1;
+  }
+}
+
+function stateAtRank(rank: number): Exclude<PreBreakoutDetectionState, "unavailable"> {
+  return (["watch", "accelerating", "pre_breakout", "confirmed"] as const)[rank] ?? "watch";
+}
+
+function positiveEvidence(snapshot: AlphaRadarSnapshot): string[] {
+  const { changeIndicators } = snapshot;
+  return [
+    changeIndicators.momentumAcceleration !== null && changeIndicators.momentumAcceleration >= 10
+      ? "Momentum is accelerating"
+      : null,
+    changeIndicators.volumeAcceleration !== null && changeIndicators.volumeAcceleration >= 10
+      ? "Volume intensity is accelerating"
+      : null,
+    changeIndicators.orderFlowShift !== null && changeIndicators.orderFlowShift >= 10
+      ? "Order-flow pressure is improving"
+      : null,
+    changeIndicators.spreadTightening !== null && changeIndicators.spreadTightening >= 8
+      ? "Quoted spread is tightening"
+      : null,
+  ].filter((reason): reason is string => reason !== null);
+}
+
+function deteriorationEvidence(snapshot: AlphaRadarSnapshot): string[] {
+  const { changeIndicators } = snapshot;
+  return [
+    changeIndicators.momentumAcceleration !== null && changeIndicators.momentumAcceleration <= -10
+      ? "Momentum is weakening"
+      : null,
+    changeIndicators.volumeAcceleration !== null && changeIndicators.volumeAcceleration <= -10
+      ? "Volume intensity is weakening"
+      : null,
+    changeIndicators.orderFlowShift !== null && changeIndicators.orderFlowShift <= -10
+      ? "Order-flow pressure is weakening"
+      : null,
+    changeIndicators.spreadTightening !== null && changeIndicators.spreadTightening <= -8
+      ? "Quoted spread is widening"
+      : null,
+  ].filter((reason): reason is string => reason !== null);
+}
+
+function candidateDetectionState(snapshot: AlphaRadarSnapshot, evidenceCount: number): PreBreakoutDetectionState {
+  const velocity = snapshot.alphaVelocity.rate30s ?? Number.NEGATIVE_INFINITY;
+  const score = snapshot.score ?? Number.NEGATIVE_INFINITY;
+  if (evidenceCount >= 4 && velocity >= 12 && score >= 70) return "confirmed";
+  if (evidenceCount >= 3 && velocity >= 6 && score >= 55) return "pre_breakout";
+  if (evidenceCount >= 2 && velocity >= 3) return "accelerating";
+  return "watch";
+}
+
+export function updatePreBreakoutDetection(
+  snapshot: AlphaRadarSnapshot,
+  machine: PreBreakoutStateMachine,
+  now: Date,
+): { snapshot: AlphaRadarSnapshot; machine: PreBreakoutStateMachine } {
+  const isValid =
+    snapshot.scoreState === "available"
+    && snapshot.dataQuality === "good"
+    && snapshot.score !== null
+    && snapshot.momentum.scoreEligible
+    && snapshot.volumeIntensity.scoreEligible
+    && snapshot.orderFlowPressure.scoreEligible
+    && snapshot.spread.scoreEligible;
+  if (!isValid) {
+    return {
+      snapshot: {
+        ...snapshot,
+        preBreakoutWatch: false,
+        preBreakout: unavailablePreBreakout(now),
+      },
+      machine: {
+        state: "unavailable",
+        pendingState: null,
+        pendingCount: 0,
+        lastTransitionAt: null,
+        lastTransitionEvidenceCount: 0,
+        lastTransitionReasons: [],
+      },
+    };
+  }
+
+  const reasons = positiveEvidence(snapshot);
+  const deteriorationReasons = deteriorationEvidence(snapshot);
+  const candidate = candidateDetectionState(snapshot, reasons.length);
+  const priorState = machine.state === "unavailable" ? "watch" : machine.state;
+  const priorRank = detectionRank(priorState);
+  const candidateRank = detectionRank(candidate);
+  const elapsedSinceTransition = machine.lastTransitionAt
+    ? now.getTime() - machine.lastTransitionAt.getTime()
+    : Number.POSITIVE_INFINITY;
+  let nextState: Exclude<PreBreakoutDetectionState, "unavailable"> = priorState;
+  let pendingState: PreBreakoutDetectionState | null = null;
+  let pendingCount = 0;
+  let lastTransitionAt = machine.lastTransitionAt;
+  let lastTransitionEvidenceCount = machine.lastTransitionEvidenceCount;
+  let lastTransitionReasons = machine.lastTransitionReasons;
+  let cooldownRemainingMs: number | null = null;
+
+  if (machine.state === "unavailable") {
+    nextState = "watch";
+    lastTransitionAt = now;
+    lastTransitionEvidenceCount = reasons.length;
+    lastTransitionReasons = reasons;
+  } else if (candidateRank > priorRank) {
+    const oneStepCandidate = stateAtRank(Math.min(priorRank + 1, candidateRank));
+    pendingState = machine.pendingState === oneStepCandidate ? oneStepCandidate : oneStepCandidate;
+    pendingCount = machine.pendingState === oneStepCandidate ? machine.pendingCount + 1 : 1;
+    if (pendingCount >= PRE_BREAKOUT_CONFIRMATION_SCANS) {
+      nextState = oneStepCandidate;
+      pendingState = null;
+      pendingCount = 0;
+      lastTransitionAt = now;
+      lastTransitionEvidenceCount = reasons.length;
+      lastTransitionReasons = reasons;
+    }
+  } else if (candidateRank < priorRank) {
+    if (elapsedSinceTransition < PRE_BREAKOUT_COOLDOWN_MS) {
+      cooldownRemainingMs = PRE_BREAKOUT_COOLDOWN_MS - elapsedSinceTransition;
+    } else {
+      const oneStepCandidate = stateAtRank(Math.max(priorRank - 1, candidateRank));
+      pendingState = oneStepCandidate;
+      pendingCount = machine.pendingState === oneStepCandidate ? machine.pendingCount + 1 : 1;
+      if (pendingCount >= PRE_BREAKOUT_CONFIRMATION_SCANS) {
+        nextState = oneStepCandidate;
+        pendingState = null;
+        pendingCount = 0;
+        lastTransitionAt = now;
+        lastTransitionEvidenceCount = deteriorationReasons.length;
+        lastTransitionReasons = deteriorationReasons;
+      }
+    }
+  }
+
+  const detection: PreBreakoutDetection = {
+    state: nextState,
+    evidenceCount: reasons.length,
+    velocityGateSatisfied: (snapshot.alphaVelocity.rate30s ?? Number.NEGATIVE_INFINITY) >= 3,
+    reasons,
+    deteriorationReasons,
+    transitionEvidenceCount: lastTransitionEvidenceCount,
+    transitionReasons: lastTransitionReasons,
+    lastTransitionAt,
+    lastEvaluatedAt: now,
+    dataFresh: true,
+    cooldownRemainingMs,
+  };
+  return {
+    snapshot: {
+      ...snapshot,
+      preBreakoutWatch: nextState === "pre_breakout" || nextState === "confirmed",
+      preBreakout: detection,
+    },
+    machine: {
+      state: nextState,
+      pendingState,
+      pendingCount,
+      lastTransitionAt,
+      lastTransitionEvidenceCount,
+      lastTransitionReasons,
+    },
   };
 }
 
@@ -725,6 +973,7 @@ export function createEmptyAlphaRadar(now: Date): AlphaRadarSnapshot {
     alphaVelocity: emptyAlphaVelocity(),
     changeIndicators: emptyChangeIndicators(),
     preBreakoutWatch: false,
+    preBreakout: unavailablePreBreakout(now),
     momentum: { ...unavailable, unit: "%" },
     spread: { ...unavailable, unit: "bps" },
     volumeIntensity: { ...unavailable, unit: "x baseline" },
@@ -853,6 +1102,7 @@ export function calculateAlphaRadar(input: AlphaRadarInput): AlphaRadarSnapshot 
     alphaVelocity: emptyAlphaVelocity(),
     changeIndicators: emptyChangeIndicators(),
     preBreakoutWatch: false,
+    preBreakout: unavailablePreBreakout(input.now),
     momentum,
     spread,
     volumeIntensity,

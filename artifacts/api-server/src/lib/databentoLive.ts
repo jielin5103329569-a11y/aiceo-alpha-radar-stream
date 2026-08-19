@@ -7,9 +7,11 @@ import {
   addAlphaRadarDynamics,
   calculateAlphaRadar,
   createEmptyAlphaRadar,
+  updatePreBreakoutDetection,
   type AlphaRadarHistoryPoint,
   type AlphaRadarScanMode,
   type AlphaRadarSnapshot,
+  type PreBreakoutStateMachine,
 } from "./alphaRadar";
 import {
   marketEventIsFresh,
@@ -102,6 +104,22 @@ export type RadarStatus = {
     eventCount: number;
     lastEventAt: Date | null;
   }>;
+  symbolRadars?: RadarSymbolStatus[];
+  preBreakoutLeader?: {
+    symbol: string;
+    state: AlphaRadarSnapshot["preBreakout"]["state"];
+    alphaVelocity: number | null;
+  } | null;
+};
+
+export type RadarSymbolStatus = {
+  symbol: string;
+  connectionState: RadarConnectionState;
+  marketFeedState: MarketFeedState;
+  lastUpdatedAt: Date | null;
+  alphaRadar: AlphaRadarSnapshot;
+  market: RadarStatus["market"];
+  error: string | null;
 };
 
 type BridgeEvent =
@@ -193,7 +211,7 @@ function redactMessage(message: string): string {
   return withoutKey.replace(/db-[a-z0-9_-]{16,}/gi, "[redacted]").slice(0, 320);
 }
 
-function blankStatus(): RadarStatus {
+function blankStatus(symbol = "NVDA"): RadarStatus {
   const configured = Boolean(process.env.DATABENTO_API_KEY);
   return {
     configured,
@@ -201,7 +219,7 @@ function blankStatus(): RadarStatus {
     marketFeedState: "offline",
     provider: "Databento",
     dataset: "EQUS.MINI",
-    symbol: "NVDA",
+    symbol,
     startedAt: null,
     lastUpdatedAt: null,
     lastHeartbeatAt: null,
@@ -353,13 +371,18 @@ function quoteDepthPressure(quote: QuoteObservation): number | null {
 }
 
 export class DatabentoLiveService extends EventEmitter {
+  constructor(private readonly configuredSymbol = "NVDA") {
+    super();
+    this.status = blankStatus(configuredSymbol);
+  }
+
   private child: ChildProcess | null = null;
   private outputBuffer = "";
   private stopping = false;
   private heartbeatTimer: NodeJS.Timeout | null = null;
   private reconnectTimer: NodeJS.Timeout | null = null;
   private scanTimer: NodeJS.Timeout | null = null;
-  private status = blankStatus();
+  private status: RadarStatus;
   private quotes: QuoteObservation[] = [];
   private trades: TradeObservation[] = [];
   private bars: BarObservation[] = [];
@@ -370,6 +393,14 @@ export class DatabentoLiveService extends EventEmitter {
   private scanSchedulerActive = false;
   private lastAlphaScanAt: Date | null = null;
   private alphaHistory: AlphaRadarHistoryPoint[] = [];
+  private preBreakoutMachine: PreBreakoutStateMachine = {
+    state: "unavailable",
+    pendingState: null,
+    pendingCount: 0,
+    lastTransitionAt: null,
+    lastTransitionEvidenceCount: 0,
+    lastTransitionReasons: [],
+  };
   private pendingScanReason = "scheduled_scan";
   private pendingScanEventTriggered = false;
 
@@ -442,7 +473,7 @@ export class DatabentoLiveService extends EventEmitter {
     if (!process.env.DATABENTO_API_KEY) {
       this.clearReconnectTimer();
       this.clearHeartbeatTimer();
-      this.status = { ...blankStatus() };
+      this.status = { ...blankStatus(this.configuredSymbol) };
       this.publish();
       return this.status;
     }
@@ -468,7 +499,7 @@ export class DatabentoLiveService extends EventEmitter {
           streams: this.status.streams.map((stream) => ({ ...stream, state: "waiting" as const })),
         }
       : {
-          ...blankStatus(),
+          ...blankStatus(this.configuredSymbol),
           configured: true,
           connectionState: "connecting",
           startedAt: now,
@@ -840,13 +871,20 @@ export class DatabentoLiveService extends EventEmitter {
       trades: this.trades,
       bars: this.bars,
     });
-    const alphaRadar = addAlphaRadarDynamics(calculated, this.alphaHistory, {
+    const dynamicSnapshot = addAlphaRadarDynamics(calculated, this.alphaHistory, {
       lastScannedAt: now,
       scanIntervalMs: profile.scanIntervalMs,
       scanMode: profile.scanMode,
       triggerReason,
       eventTriggered,
     });
+    const detection = updatePreBreakoutDetection(
+      dynamicSnapshot,
+      this.preBreakoutMachine,
+      now,
+    );
+    const alphaRadar = detection.snapshot;
+    this.preBreakoutMachine = detection.machine;
     if (
       alphaRadar.scoreState === "available"
       && alphaRadar.dataQuality === "good"
@@ -854,6 +892,7 @@ export class DatabentoLiveService extends EventEmitter {
       && alphaRadar.momentum.score !== null
       && alphaRadar.volumeIntensity.score !== null
       && alphaRadar.orderFlowPressure.score !== null
+      && alphaRadar.spread.score !== null
     ) {
       this.alphaHistory = [
         ...this.alphaHistory,
@@ -863,6 +902,7 @@ export class DatabentoLiveService extends EventEmitter {
           momentumScore: alphaRadar.momentum.score,
           volumeScore: alphaRadar.volumeIntensity.score,
           orderFlowScore: alphaRadar.orderFlowPressure.score,
+          spreadScore: alphaRadar.spread.score,
         },
       ].filter((point) => point.generatedAt.getTime() >= now.getTime() - ALPHA_HISTORY_WINDOW_MS);
     } else {
@@ -1006,6 +1046,14 @@ export class DatabentoLiveService extends EventEmitter {
     this.analysisWindowStartedAt = null;
     this.alphaHistory = [];
     this.lastAlphaScanAt = null;
+    this.preBreakoutMachine = {
+      state: "unavailable",
+      pendingState: null,
+      pendingCount: 0,
+      lastTransitionAt: null,
+      lastTransitionEvidenceCount: 0,
+      lastTransitionReasons: [],
+    };
     this.status = {
       ...this.status,
       alphaRadar: createEmptyAlphaRadar(new Date()),
@@ -1287,4 +1335,82 @@ export class DatabentoLiveService extends EventEmitter {
   }
 }
 
-export const databentoLive = new DatabentoLiveService();
+export const MONITORED_SYMBOLS = ["NVDA", "MU", "VRT", "CRDO", "AMD"] as const;
+
+function toSymbolStatus(status: RadarStatus): RadarSymbolStatus {
+  return {
+    symbol: status.symbol,
+    connectionState: status.connectionState,
+    marketFeedState: status.marketFeedState,
+    lastUpdatedAt: status.lastUpdatedAt,
+    alphaRadar: status.alphaRadar,
+    market: status.market,
+    error: status.error,
+  };
+}
+
+function preBreakoutRank(state: AlphaRadarSnapshot["preBreakout"]["state"]): number {
+  return {
+    unavailable: 0,
+    watch: 1,
+    accelerating: 2,
+    pre_breakout: 3,
+    confirmed: 4,
+  }[state];
+}
+
+export class DatabentoUniverseService extends EventEmitter {
+  private readonly services = MONITORED_SYMBOLS.map((symbol) => new DatabentoLiveService(symbol));
+
+  constructor() {
+    super();
+    this.services.forEach((service) => {
+      service.on("status", () => this.emit("status", this.getStatus()));
+    });
+  }
+
+  getStatus(): RadarStatus {
+    const statuses = this.services.map((service) => service.getStatus());
+    const primary = statuses.find((status) => status.symbol === "NVDA") ?? statuses[0];
+    const symbolRadars = statuses.map(toSymbolStatus);
+    const ranked = [...symbolRadars]
+      .filter(
+        (status) =>
+          status.alphaRadar.preBreakout.state !== "unavailable"
+          && (status.alphaRadar.alphaVelocity.rate30s ?? 0) > 0,
+      )
+      .sort((left, right) => {
+        const stateDifference =
+          preBreakoutRank(right.alphaRadar.preBreakout.state)
+          - preBreakoutRank(left.alphaRadar.preBreakout.state);
+        if (stateDifference !== 0) return stateDifference;
+        return (right.alphaRadar.alphaVelocity.rate30s ?? Number.NEGATIVE_INFINITY)
+          - (left.alphaRadar.alphaVelocity.rate30s ?? Number.NEGATIVE_INFINITY);
+      });
+    const leader = ranked[0];
+
+    return {
+      ...primary,
+      symbolRadars,
+      preBreakoutLeader: leader
+        ? {
+            symbol: leader.symbol,
+            state: leader.alphaRadar.preBreakout.state,
+            alphaVelocity: leader.alphaRadar.alphaVelocity.rate30s,
+          }
+        : null,
+    };
+  }
+
+  start(): RadarStatus {
+    this.services.forEach((service) => service.start());
+    return this.getStatus();
+  }
+
+  stop(): RadarStatus {
+    this.services.forEach((service) => service.stop());
+    return this.getStatus();
+  }
+}
+
+export const databentoLive = new DatabentoUniverseService();

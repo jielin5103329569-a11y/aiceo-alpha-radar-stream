@@ -82,7 +82,12 @@ try {
   writeFileSync(join(outputDirectory, "package.json"), '{"type":"commonjs"}');
 
   const require = createRequire(import.meta.url);
-  const { DatabentoLiveService, scanProfileAt } = require(join(outputDirectory, "databentoLive.js"));
+  const {
+    DatabentoLiveService,
+    DatabentoUniverseService,
+    MONITORED_SYMBOLS,
+    scanProfileAt,
+  } = require(join(outputDirectory, "databentoLive.js"));
   assert.deepEqual(
     scanProfileAt(new Date("2026-08-17T13:27:00.000Z")),
     { scanMode: "pre_open", scanIntervalMs: 3_000 },
@@ -97,6 +102,22 @@ try {
     scanProfileAt(new Date("2026-08-17T14:05:00.000Z")),
     { scanMode: "normal", scanIntervalMs: 5_000 },
     "normal session time should retain the bounded five-second cadence",
+  );
+  const universe = new DatabentoUniverseService();
+  const universeStatus = universe.getStatus();
+  assert.deepEqual(
+    universeStatus.symbolRadars.map((radar) => radar.symbol),
+    [...MONITORED_SYMBOLS],
+    "the scan universe must expose independent NVDA, MU, VRT, CRDO, and AMD radar windows",
+  );
+  const muService = new DatabentoLiveService("MU");
+  muService.applyEvent({ type: "ready" });
+  muService.applyEvent(marketEvent(new Date(), 100, "B"));
+  assert.equal(muService.getStatus().symbol, "MU", "a symbol-specific service must retain its own configured symbol");
+  assert.equal(
+    universe.getStatus().symbolRadars.find((radar) => radar.symbol === "MU")?.lastUpdatedAt,
+    null,
+    "events in an isolated symbol service must not contaminate the universe MU window",
   );
   const now = new Date();
   const incompleteService = new DatabentoLiveService();
@@ -264,7 +285,7 @@ try {
   assert.equal(staleNestedTrade.radar.score, null, "a stale nested trade must not restore the secondary score");
   assert.equal(staleNestedTrade.alphaRadar.score, null, "a stale nested trade must not restore Alpha Radar");
 
-  console.log("Databento live service tests passed: adaptive scans, interruption gating, heartbeat-only stale state, and recovery-window reset.");
+  console.log("Databento live service tests passed: multi-symbol isolation, adaptive scans, interruption gating, heartbeat-only stale state, and recovery-window reset.");
 } finally {
   rmSync(outputDirectory, { recursive: true, force: true });
 }

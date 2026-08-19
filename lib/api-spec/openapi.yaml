@@ -178,7 +178,61 @@ components:
         orderFlowShift:
           type: [number, "null"]
           description: Order-flow score-point change per minute between valid scans.
-      required: [momentumAcceleration, volumeAcceleration, orderFlowShift]
+        spreadTightening:
+          type: [number, "null"]
+          description: Spread score-point change per minute; positive values indicate tightening.
+      required: [momentumAcceleration, volumeAcceleration, orderFlowShift, spreadTightening]
+    PreBreakoutDetectionState:
+      type: string
+      enum: [unavailable, watch, accelerating, pre_breakout, confirmed]
+    PreBreakoutDetection:
+      type: object
+      properties:
+        state:
+          $ref: "#/components/schemas/PreBreakoutDetectionState"
+        evidenceCount:
+          type: number
+          minimum: 0
+        velocityGateSatisfied:
+          type: boolean
+        reasons:
+          type: array
+          items:
+            type: string
+        deteriorationReasons:
+          type: array
+          items:
+            type: string
+        transitionEvidenceCount:
+          type: number
+          minimum: 0
+        transitionReasons:
+          type: array
+          items:
+            type: string
+        lastTransitionAt:
+          type: ["string", "null"]
+          format: date-time
+        lastEvaluatedAt:
+          type: string
+          format: date-time
+        dataFresh:
+          type: boolean
+        cooldownRemainingMs:
+          type: [number, "null"]
+          minimum: 0
+      required:
+        - state
+        - evidenceCount
+        - velocityGateSatisfied
+        - reasons
+        - deteriorationReasons
+        - transitionEvidenceCount
+        - transitionReasons
+        - lastTransitionAt
+        - lastEvaluatedAt
+        - dataFresh
+        - cooldownRemainingMs
     RadarSignalMetric:
       type: object
       properties:
@@ -249,6 +303,8 @@ components:
           $ref: "#/components/schemas/AlphaChangeIndicators"
         preBreakoutWatch:
           type: boolean
+        preBreakout:
+          $ref: "#/components/schemas/PreBreakoutDetection"
         momentum:
           $ref: "#/components/schemas/RadarSignalMetric"
         spread:
@@ -278,6 +334,7 @@ components:
         - alphaVelocity
         - changeIndicators
         - preBreakoutWatch
+        - preBreakout
         - momentum
         - spread
         - volumeIntensity
@@ -312,6 +369,32 @@ components:
         - lastTradeSize
         - sessionVolume
         - lastTradeAt
+    RadarSymbolStatus:
+      type: object
+      properties:
+        symbol:
+          type: string
+        connectionState:
+          $ref: "#/components/schemas/RadarConnectionState"
+        marketFeedState:
+          $ref: "#/components/schemas/MarketFeedState"
+        lastUpdatedAt:
+          type: ["string", "null"]
+          format: date-time
+        alphaRadar:
+          $ref: "#/components/schemas/AlphaRadarSnapshot"
+        market:
+          $ref: "#/components/schemas/RadarMarketSnapshot"
+        error:
+          type: [string, "null"]
+      required:
+        - symbol
+        - connectionState
+        - marketFeedState
+        - lastUpdatedAt
+        - alphaRadar
+        - market
+        - error
     RadarTrade:
       type: object
       properties:
@@ -497,6 +580,20 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/RadarStream"
+        symbolRadars:
+          type: array
+          items:
+            $ref: "#/components/schemas/RadarSymbolStatus"
+        preBreakoutLeader:
+          type: [object, "null"]
+          properties:
+            symbol:
+              type: string
+            state:
+              $ref: "#/components/schemas/PreBreakoutDetectionState"
+            alphaVelocity:
+              type: [number, "null"]
+          required: [symbol, state, alphaVelocity]
       required:
         - configured
         - connectionState
@@ -516,3 +613,5 @@ components:
         - recentTrades
         - radar
         - streams
+        - symbolRadars
+        - preBreakoutLeader

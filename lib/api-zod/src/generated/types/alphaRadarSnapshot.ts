@@ -12,6 +12,7 @@ import type { AlphaRadarScoreState } from './alphaRadarScoreState';
 import type { AlphaRadarSignalState } from './alphaRadarSignalState';
 import type { AlphaRadarSnapshotUnusualActivity } from './alphaRadarSnapshotUnusualActivity';
 import type { AlphaVelocity } from './alphaVelocity';
+import type { PreBreakoutDetection } from './preBreakoutDetection';
 import type { RadarSignalDataQuality } from './radarSignalDataQuality';
 import type { RadarSignalMetric } from './radarSignalMetric';
 
@@ -29,6 +30,7 @@ export interface AlphaRadarSnapshot {
   alphaVelocity: AlphaVelocity;
   changeIndicators: AlphaChangeIndicators;
   preBreakoutWatch: boolean;
+  preBreakout: PreBreakoutDetection;
   momentum: RadarSignalMetric;
   spread: RadarSignalMetric;
   volumeIntensity: RadarSignalMetric;

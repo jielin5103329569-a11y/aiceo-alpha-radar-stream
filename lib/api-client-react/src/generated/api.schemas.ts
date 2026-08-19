@@ -145,6 +145,43 @@ export interface AlphaChangeIndicators {
      * @nullable
      */
   orderFlowShift: number | null;
+  /**
+     * Spread score-point change per minute; positive values indicate tightening.
+     * @nullable
+     */
+  spreadTightening: number | null;
+}
+
+export type PreBreakoutDetectionState = typeof PreBreakoutDetectionState[keyof typeof PreBreakoutDetectionState];
+
+
+export const PreBreakoutDetectionState = {
+  unavailable: 'unavailable',
+  watch: 'watch',
+  accelerating: 'accelerating',
+  pre_breakout: 'pre_breakout',
+  confirmed: 'confirmed',
+} as const;
+
+export interface PreBreakoutDetection {
+  state: PreBreakoutDetectionState;
+  /** @minimum 0 */
+  evidenceCount: number;
+  velocityGateSatisfied: boolean;
+  reasons: string[];
+  deteriorationReasons: string[];
+  /** @minimum 0 */
+  transitionEvidenceCount: number;
+  transitionReasons: string[];
+  /** @nullable */
+  lastTransitionAt: string | null;
+  lastEvaluatedAt: string;
+  dataFresh: boolean;
+  /**
+     * @minimum 0
+     * @nullable
+     */
+  cooldownRemainingMs: number | null;
 }
 
 export interface RadarSignalMetric {
@@ -185,6 +222,7 @@ export interface AlphaRadarSnapshot {
   alphaVelocity: AlphaVelocity;
   changeIndicators: AlphaChangeIndicators;
   preBreakoutWatch: boolean;
+  preBreakout: PreBreakoutDetection;
   momentum: RadarSignalMetric;
   spread: RadarSignalMetric;
   volumeIntensity: RadarSignalMetric;
@@ -209,6 +247,18 @@ export interface RadarMarketSnapshot {
   sessionVolume: number | null;
   /** @nullable */
   lastTradeAt: string | null;
+}
+
+export interface RadarSymbolStatus {
+  symbol: string;
+  connectionState: RadarConnectionState;
+  marketFeedState: MarketFeedState;
+  /** @nullable */
+  lastUpdatedAt: string | null;
+  alphaRadar: AlphaRadarSnapshot;
+  market: RadarMarketSnapshot;
+  /** @nullable */
+  error: string | null;
 }
 
 export interface RadarTrade {
@@ -336,6 +386,16 @@ export interface RadarStream {
   lastEventAt: string | null;
 }
 
+/**
+ * @nullable
+ */
+export type RadarStatusPreBreakoutLeader = {
+  symbol: string;
+  state: PreBreakoutDetectionState;
+  /** @nullable */
+  alphaVelocity: number | null;
+} | null;
+
 export interface RadarStatus {
   configured: boolean;
   connectionState: RadarConnectionState;
@@ -360,5 +420,8 @@ export interface RadarStatus {
   recentTrades: RadarTrade[];
   radar: RadarSnapshot;
   streams: RadarStream[];
+  symbolRadars: RadarSymbolStatus[];
+  /** @nullable */
+  preBreakoutLeader: RadarStatusPreBreakoutLeader;
 }
 

@@ -22,4 +22,9 @@ export interface AlphaChangeIndicators {
      * @nullable
      */
   orderFlowShift: number | null;
+  /**
+     * Spread score-point change per minute; positive values indicate tightening.
+     * @nullable
+     */
+  spreadTightening: number | null;
 }

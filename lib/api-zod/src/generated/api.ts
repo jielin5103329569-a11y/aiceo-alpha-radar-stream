@@ -28,6 +28,26 @@ export const getRadarStatusResponseAlphaRadarDiagnosticsFreshPricesMin = 0;
 
 export const getRadarStatusResponseAlphaRadarDiagnosticsFreshVolumeMin = 0;
 
+export const getRadarStatusResponseAlphaRadarPreBreakoutEvidenceCountMin = 0;
+
+export const getRadarStatusResponseAlphaRadarPreBreakoutTransitionEvidenceCountMin = 0;
+
+export const getRadarStatusResponseAlphaRadarPreBreakoutCooldownRemainingMsMin = 0;
+
+export const getRadarStatusResponseSymbolRadarsItemAlphaRadarDiagnosticsFreshQuotesMin = 0;
+
+export const getRadarStatusResponseSymbolRadarsItemAlphaRadarDiagnosticsFreshTradesMin = 0;
+
+export const getRadarStatusResponseSymbolRadarsItemAlphaRadarDiagnosticsFreshPricesMin = 0;
+
+export const getRadarStatusResponseSymbolRadarsItemAlphaRadarDiagnosticsFreshVolumeMin = 0;
+
+export const getRadarStatusResponseSymbolRadarsItemAlphaRadarPreBreakoutEvidenceCountMin = 0;
+
+export const getRadarStatusResponseSymbolRadarsItemAlphaRadarPreBreakoutTransitionEvidenceCountMin = 0;
+
+export const getRadarStatusResponseSymbolRadarsItemAlphaRadarPreBreakoutCooldownRemainingMsMin = 0;
+
 
 
 export const GetRadarStatusResponse = zod.object({
@@ -75,9 +95,23 @@ export const GetRadarStatusResponse = zod.object({
   "changeIndicators": zod.object({
   "momentumAcceleration": zod.number().nullable().describe('Momentum score-point change per minute between valid scans.'),
   "volumeAcceleration": zod.number().nullable().describe('Volume intensity score-point change per minute between valid scans.'),
-  "orderFlowShift": zod.number().nullable().describe('Order-flow score-point change per minute between valid scans.')
+  "orderFlowShift": zod.number().nullable().describe('Order-flow score-point change per minute between valid scans.'),
+  "spreadTightening": zod.number().nullable().describe('Spread score-point change per minute; positive values indicate tightening.')
 }),
   "preBreakoutWatch": zod.boolean(),
+  "preBreakout": zod.object({
+  "state": zod.enum(['unavailable', 'watch', 'accelerating', 'pre_breakout', 'confirmed']),
+  "evidenceCount": zod.number().min(getRadarStatusResponseAlphaRadarPreBreakoutEvidenceCountMin),
+  "velocityGateSatisfied": zod.boolean(),
+  "reasons": zod.array(zod.string()),
+  "deteriorationReasons": zod.array(zod.string()),
+  "transitionEvidenceCount": zod.number().min(getRadarStatusResponseAlphaRadarPreBreakoutTransitionEvidenceCountMin),
+  "transitionReasons": zod.array(zod.string()),
+  "lastTransitionAt": zod.coerce.date().nullable(),
+  "lastEvaluatedAt": zod.coerce.date(),
+  "dataFresh": zod.boolean(),
+  "cooldownRemainingMs": zod.number().min(getRadarStatusResponseAlphaRadarPreBreakoutCooldownRemainingMsMin).nullable()
+}),
   "momentum": zod.object({
   "value": zod.number().nullable(),
   "unit": zod.string(),
@@ -218,7 +252,146 @@ export const GetRadarStatusResponse = zod.object({
   "state": zod.enum(['waiting', 'receiving', 'error']),
   "eventCount": zod.number(),
   "lastEventAt": zod.coerce.date().nullable()
+})),
+  "symbolRadars": zod.array(zod.object({
+  "symbol": zod.string(),
+  "connectionState": zod.enum(['not_configured', 'connecting', 'connected', 'streaming', 'error', 'stopped']),
+  "marketFeedState": zod.enum(['streaming', 'stale', 'offline']),
+  "lastUpdatedAt": zod.coerce.date().nullable(),
+  "alphaRadar": zod.object({
+  "score": zod.number().nullable(),
+  "status": zod.union([zod.enum(['Neutral', 'Watch', 'Breakout Setup']),zod.null()]),
+  "scoreState": zod.enum(['available', 'stale', 'insufficient']),
+  "confidence": zod.number(),
+  "dataQuality": zod.enum(['good', 'degraded', 'stale', 'missing']),
+  "generatedAt": zod.coerce.date(),
+  "warnings": zod.array(zod.string()),
+  "diagnostics": zod.object({
+  "fresh_quotes": zod.number().min(getRadarStatusResponseSymbolRadarsItemAlphaRadarDiagnosticsFreshQuotesMin),
+  "fresh_trades": zod.number().min(getRadarStatusResponseSymbolRadarsItemAlphaRadarDiagnosticsFreshTradesMin),
+  "fresh_prices": zod.number().min(getRadarStatusResponseSymbolRadarsItemAlphaRadarDiagnosticsFreshPricesMin),
+  "fresh_volume": zod.number().min(getRadarStatusResponseSymbolRadarsItemAlphaRadarDiagnosticsFreshVolumeMin),
+  "valid_window_age": zod.number().nullable().describe('Age in seconds of the active, real-observation scoring window.'),
+  "scoring_gate_reason": zod.string()
+}),
+  "scan": zod.object({
+  "lastScannedAt": zod.coerce.date(),
+  "scanIntervalMs": zod.number(),
+  "scanMode": zod.enum(['normal', 'pre_open', 'opening']),
+  "triggerReason": zod.string(),
+  "eventTriggered": zod.boolean()
+}),
+  "alphaVelocity": zod.object({
+  "delta30s": zod.number().nullable(),
+  "delta60s": zod.number().nullable(),
+  "rate30s": zod.number().nullable().describe('Alpha score points per minute using the latest valid 30-second comparison.'),
+  "rate60s": zod.number().nullable().describe('Alpha score points per minute using the latest valid 60-second comparison.')
+}),
+  "changeIndicators": zod.object({
+  "momentumAcceleration": zod.number().nullable().describe('Momentum score-point change per minute between valid scans.'),
+  "volumeAcceleration": zod.number().nullable().describe('Volume intensity score-point change per minute between valid scans.'),
+  "orderFlowShift": zod.number().nullable().describe('Order-flow score-point change per minute between valid scans.'),
+  "spreadTightening": zod.number().nullable().describe('Spread score-point change per minute; positive values indicate tightening.')
+}),
+  "preBreakoutWatch": zod.boolean(),
+  "preBreakout": zod.object({
+  "state": zod.enum(['unavailable', 'watch', 'accelerating', 'pre_breakout', 'confirmed']),
+  "evidenceCount": zod.number().min(getRadarStatusResponseSymbolRadarsItemAlphaRadarPreBreakoutEvidenceCountMin),
+  "velocityGateSatisfied": zod.boolean(),
+  "reasons": zod.array(zod.string()),
+  "deteriorationReasons": zod.array(zod.string()),
+  "transitionEvidenceCount": zod.number().min(getRadarStatusResponseSymbolRadarsItemAlphaRadarPreBreakoutTransitionEvidenceCountMin),
+  "transitionReasons": zod.array(zod.string()),
+  "lastTransitionAt": zod.coerce.date().nullable(),
+  "lastEvaluatedAt": zod.coerce.date(),
+  "dataFresh": zod.boolean(),
+  "cooldownRemainingMs": zod.number().min(getRadarStatusResponseSymbolRadarsItemAlphaRadarPreBreakoutCooldownRemainingMsMin).nullable()
+}),
+  "momentum": zod.object({
+  "value": zod.number().nullable(),
+  "unit": zod.string(),
+  "score": zod.number().nullable(),
+  "observedAt": zod.coerce.date().nullable(),
+  "freshnessMs": zod.number().nullable(),
+  "freshness": zod.enum(['fresh', 'delayed', 'stale', 'missing']),
+  "available": zod.boolean(),
+  "scoreEligible": zod.boolean(),
+  "referenceValue": zod.number().nullable(),
+  "referenceLabel": zod.string().nullable(),
+  "source": zod.string()
+}),
+  "spread": zod.object({
+  "value": zod.number().nullable(),
+  "unit": zod.string(),
+  "score": zod.number().nullable(),
+  "observedAt": zod.coerce.date().nullable(),
+  "freshnessMs": zod.number().nullable(),
+  "freshness": zod.enum(['fresh', 'delayed', 'stale', 'missing']),
+  "available": zod.boolean(),
+  "scoreEligible": zod.boolean(),
+  "referenceValue": zod.number().nullable(),
+  "referenceLabel": zod.string().nullable(),
+  "source": zod.string()
+}),
+  "volumeIntensity": zod.object({
+  "value": zod.number().nullable(),
+  "unit": zod.string(),
+  "score": zod.number().nullable(),
+  "observedAt": zod.coerce.date().nullable(),
+  "freshnessMs": zod.number().nullable(),
+  "freshness": zod.enum(['fresh', 'delayed', 'stale', 'missing']),
+  "available": zod.boolean(),
+  "scoreEligible": zod.boolean(),
+  "referenceValue": zod.number().nullable(),
+  "referenceLabel": zod.string().nullable(),
+  "source": zod.string()
+}),
+  "orderFlowPressure": zod.object({
+  "value": zod.number().nullable(),
+  "unit": zod.string(),
+  "score": zod.number().nullable(),
+  "observedAt": zod.coerce.date().nullable(),
+  "freshnessMs": zod.number().nullable(),
+  "freshness": zod.enum(['fresh', 'delayed', 'stale', 'missing']),
+  "available": zod.boolean(),
+  "scoreEligible": zod.boolean(),
+  "referenceValue": zod.number().nullable(),
+  "referenceLabel": zod.string().nullable(),
+  "source": zod.string()
+}),
+  "unusualActivity": zod.object({
+  "value": zod.number().nullable(),
+  "unit": zod.string(),
+  "score": zod.number().nullable(),
+  "observedAt": zod.coerce.date().nullable(),
+  "freshnessMs": zod.number().nullable(),
+  "freshness": zod.enum(['fresh', 'delayed', 'stale', 'missing']),
+  "available": zod.boolean(),
+  "scoreEligible": zod.boolean(),
+  "referenceValue": zod.number().nullable(),
+  "referenceLabel": zod.string().nullable(),
+  "source": zod.string()
+}).and(zod.object({
+  "detected": zod.boolean()
 }))
+}),
+  "market": zod.object({
+  "latestPrice": zod.number().nullable(),
+  "bidPrice": zod.number().nullable(),
+  "askPrice": zod.number().nullable(),
+  "bidSize": zod.number().nullable(),
+  "askSize": zod.number().nullable(),
+  "lastTradeSize": zod.number().nullable(),
+  "sessionVolume": zod.number().nullable(),
+  "lastTradeAt": zod.coerce.date().nullable()
+}),
+  "error": zod.string().nullable()
+})),
+  "preBreakoutLeader": zod.object({
+  "symbol": zod.string(),
+  "state": zod.enum(['unavailable', 'watch', 'accelerating', 'pre_breakout', 'confirmed']),
+  "alphaVelocity": zod.number().nullable()
+}).nullable()
 })
 
 
@@ -232,6 +405,26 @@ export const startRadarConnectionResponseAlphaRadarDiagnosticsFreshTradesMin = 0
 export const startRadarConnectionResponseAlphaRadarDiagnosticsFreshPricesMin = 0;
 
 export const startRadarConnectionResponseAlphaRadarDiagnosticsFreshVolumeMin = 0;
+
+export const startRadarConnectionResponseAlphaRadarPreBreakoutEvidenceCountMin = 0;
+
+export const startRadarConnectionResponseAlphaRadarPreBreakoutTransitionEvidenceCountMin = 0;
+
+export const startRadarConnectionResponseAlphaRadarPreBreakoutCooldownRemainingMsMin = 0;
+
+export const startRadarConnectionResponseSymbolRadarsItemAlphaRadarDiagnosticsFreshQuotesMin = 0;
+
+export const startRadarConnectionResponseSymbolRadarsItemAlphaRadarDiagnosticsFreshTradesMin = 0;
+
+export const startRadarConnectionResponseSymbolRadarsItemAlphaRadarDiagnosticsFreshPricesMin = 0;
+
+export const startRadarConnectionResponseSymbolRadarsItemAlphaRadarDiagnosticsFreshVolumeMin = 0;
+
+export const startRadarConnectionResponseSymbolRadarsItemAlphaRadarPreBreakoutEvidenceCountMin = 0;
+
+export const startRadarConnectionResponseSymbolRadarsItemAlphaRadarPreBreakoutTransitionEvidenceCountMin = 0;
+
+export const startRadarConnectionResponseSymbolRadarsItemAlphaRadarPreBreakoutCooldownRemainingMsMin = 0;
 
 
 
@@ -280,9 +473,23 @@ export const StartRadarConnectionResponse = zod.object({
   "changeIndicators": zod.object({
   "momentumAcceleration": zod.number().nullable().describe('Momentum score-point change per minute between valid scans.'),
   "volumeAcceleration": zod.number().nullable().describe('Volume intensity score-point change per minute between valid scans.'),
-  "orderFlowShift": zod.number().nullable().describe('Order-flow score-point change per minute between valid scans.')
+  "orderFlowShift": zod.number().nullable().describe('Order-flow score-point change per minute between valid scans.'),
+  "spreadTightening": zod.number().nullable().describe('Spread score-point change per minute; positive values indicate tightening.')
 }),
   "preBreakoutWatch": zod.boolean(),
+  "preBreakout": zod.object({
+  "state": zod.enum(['unavailable', 'watch', 'accelerating', 'pre_breakout', 'confirmed']),
+  "evidenceCount": zod.number().min(startRadarConnectionResponseAlphaRadarPreBreakoutEvidenceCountMin),
+  "velocityGateSatisfied": zod.boolean(),
+  "reasons": zod.array(zod.string()),
+  "deteriorationReasons": zod.array(zod.string()),
+  "transitionEvidenceCount": zod.number().min(startRadarConnectionResponseAlphaRadarPreBreakoutTransitionEvidenceCountMin),
+  "transitionReasons": zod.array(zod.string()),
+  "lastTransitionAt": zod.coerce.date().nullable(),
+  "lastEvaluatedAt": zod.coerce.date(),
+  "dataFresh": zod.boolean(),
+  "cooldownRemainingMs": zod.number().min(startRadarConnectionResponseAlphaRadarPreBreakoutCooldownRemainingMsMin).nullable()
+}),
   "momentum": zod.object({
   "value": zod.number().nullable(),
   "unit": zod.string(),
@@ -423,7 +630,146 @@ export const StartRadarConnectionResponse = zod.object({
   "state": zod.enum(['waiting', 'receiving', 'error']),
   "eventCount": zod.number(),
   "lastEventAt": zod.coerce.date().nullable()
+})),
+  "symbolRadars": zod.array(zod.object({
+  "symbol": zod.string(),
+  "connectionState": zod.enum(['not_configured', 'connecting', 'connected', 'streaming', 'error', 'stopped']),
+  "marketFeedState": zod.enum(['streaming', 'stale', 'offline']),
+  "lastUpdatedAt": zod.coerce.date().nullable(),
+  "alphaRadar": zod.object({
+  "score": zod.number().nullable(),
+  "status": zod.union([zod.enum(['Neutral', 'Watch', 'Breakout Setup']),zod.null()]),
+  "scoreState": zod.enum(['available', 'stale', 'insufficient']),
+  "confidence": zod.number(),
+  "dataQuality": zod.enum(['good', 'degraded', 'stale', 'missing']),
+  "generatedAt": zod.coerce.date(),
+  "warnings": zod.array(zod.string()),
+  "diagnostics": zod.object({
+  "fresh_quotes": zod.number().min(startRadarConnectionResponseSymbolRadarsItemAlphaRadarDiagnosticsFreshQuotesMin),
+  "fresh_trades": zod.number().min(startRadarConnectionResponseSymbolRadarsItemAlphaRadarDiagnosticsFreshTradesMin),
+  "fresh_prices": zod.number().min(startRadarConnectionResponseSymbolRadarsItemAlphaRadarDiagnosticsFreshPricesMin),
+  "fresh_volume": zod.number().min(startRadarConnectionResponseSymbolRadarsItemAlphaRadarDiagnosticsFreshVolumeMin),
+  "valid_window_age": zod.number().nullable().describe('Age in seconds of the active, real-observation scoring window.'),
+  "scoring_gate_reason": zod.string()
+}),
+  "scan": zod.object({
+  "lastScannedAt": zod.coerce.date(),
+  "scanIntervalMs": zod.number(),
+  "scanMode": zod.enum(['normal', 'pre_open', 'opening']),
+  "triggerReason": zod.string(),
+  "eventTriggered": zod.boolean()
+}),
+  "alphaVelocity": zod.object({
+  "delta30s": zod.number().nullable(),
+  "delta60s": zod.number().nullable(),
+  "rate30s": zod.number().nullable().describe('Alpha score points per minute using the latest valid 30-second comparison.'),
+  "rate60s": zod.number().nullable().describe('Alpha score points per minute using the latest valid 60-second comparison.')
+}),
+  "changeIndicators": zod.object({
+  "momentumAcceleration": zod.number().nullable().describe('Momentum score-point change per minute between valid scans.'),
+  "volumeAcceleration": zod.number().nullable().describe('Volume intensity score-point change per minute between valid scans.'),
+  "orderFlowShift": zod.number().nullable().describe('Order-flow score-point change per minute between valid scans.'),
+  "spreadTightening": zod.number().nullable().describe('Spread score-point change per minute; positive values indicate tightening.')
+}),
+  "preBreakoutWatch": zod.boolean(),
+  "preBreakout": zod.object({
+  "state": zod.enum(['unavailable', 'watch', 'accelerating', 'pre_breakout', 'confirmed']),
+  "evidenceCount": zod.number().min(startRadarConnectionResponseSymbolRadarsItemAlphaRadarPreBreakoutEvidenceCountMin),
+  "velocityGateSatisfied": zod.boolean(),
+  "reasons": zod.array(zod.string()),
+  "deteriorationReasons": zod.array(zod.string()),
+  "transitionEvidenceCount": zod.number().min(startRadarConnectionResponseSymbolRadarsItemAlphaRadarPreBreakoutTransitionEvidenceCountMin),
+  "transitionReasons": zod.array(zod.string()),
+  "lastTransitionAt": zod.coerce.date().nullable(),
+  "lastEvaluatedAt": zod.coerce.date(),
+  "dataFresh": zod.boolean(),
+  "cooldownRemainingMs": zod.number().min(startRadarConnectionResponseSymbolRadarsItemAlphaRadarPreBreakoutCooldownRemainingMsMin).nullable()
+}),
+  "momentum": zod.object({
+  "value": zod.number().nullable(),
+  "unit": zod.string(),
+  "score": zod.number().nullable(),
+  "observedAt": zod.coerce.date().nullable(),
+  "freshnessMs": zod.number().nullable(),
+  "freshness": zod.enum(['fresh', 'delayed', 'stale', 'missing']),
+  "available": zod.boolean(),
+  "scoreEligible": zod.boolean(),
+  "referenceValue": zod.number().nullable(),
+  "referenceLabel": zod.string().nullable(),
+  "source": zod.string()
+}),
+  "spread": zod.object({
+  "value": zod.number().nullable(),
+  "unit": zod.string(),
+  "score": zod.number().nullable(),
+  "observedAt": zod.coerce.date().nullable(),
+  "freshnessMs": zod.number().nullable(),
+  "freshness": zod.enum(['fresh', 'delayed', 'stale', 'missing']),
+  "available": zod.boolean(),
+  "scoreEligible": zod.boolean(),
+  "referenceValue": zod.number().nullable(),
+  "referenceLabel": zod.string().nullable(),
+  "source": zod.string()
+}),
+  "volumeIntensity": zod.object({
+  "value": zod.number().nullable(),
+  "unit": zod.string(),
+  "score": zod.number().nullable(),
+  "observedAt": zod.coerce.date().nullable(),
+  "freshnessMs": zod.number().nullable(),
+  "freshness": zod.enum(['fresh', 'delayed', 'stale', 'missing']),
+  "available": zod.boolean(),
+  "scoreEligible": zod.boolean(),
+  "referenceValue": zod.number().nullable(),
+  "referenceLabel": zod.string().nullable(),
+  "source": zod.string()
+}),
+  "orderFlowPressure": zod.object({
+  "value": zod.number().nullable(),
+  "unit": zod.string(),
+  "score": zod.number().nullable(),
+  "observedAt": zod.coerce.date().nullable(),
+  "freshnessMs": zod.number().nullable(),
+  "freshness": zod.enum(['fresh', 'delayed', 'stale', 'missing']),
+  "available": zod.boolean(),
+  "scoreEligible": zod.boolean(),
+  "referenceValue": zod.number().nullable(),
+  "referenceLabel": zod.string().nullable(),
+  "source": zod.string()
+}),
+  "unusualActivity": zod.object({
+  "value": zod.number().nullable(),
+  "unit": zod.string(),
+  "score": zod.number().nullable(),
+  "observedAt": zod.coerce.date().nullable(),
+  "freshnessMs": zod.number().nullable(),
+  "freshness": zod.enum(['fresh', 'delayed', 'stale', 'missing']),
+  "available": zod.boolean(),
+  "scoreEligible": zod.boolean(),
+  "referenceValue": zod.number().nullable(),
+  "referenceLabel": zod.string().nullable(),
+  "source": zod.string()
+}).and(zod.object({
+  "detected": zod.boolean()
 }))
+}),
+  "market": zod.object({
+  "latestPrice": zod.number().nullable(),
+  "bidPrice": zod.number().nullable(),
+  "askPrice": zod.number().nullable(),
+  "bidSize": zod.number().nullable(),
+  "askSize": zod.number().nullable(),
+  "lastTradeSize": zod.number().nullable(),
+  "sessionVolume": zod.number().nullable(),
+  "lastTradeAt": zod.coerce.date().nullable()
+}),
+  "error": zod.string().nullable()
+})),
+  "preBreakoutLeader": zod.object({
+  "symbol": zod.string(),
+  "state": zod.enum(['unavailable', 'watch', 'accelerating', 'pre_breakout', 'confirmed']),
+  "alphaVelocity": zod.number().nullable()
+}).nullable()
 })
 
 
@@ -437,6 +783,26 @@ export const stopRadarConnectionResponseAlphaRadarDiagnosticsFreshTradesMin = 0;
 export const stopRadarConnectionResponseAlphaRadarDiagnosticsFreshPricesMin = 0;
 
 export const stopRadarConnectionResponseAlphaRadarDiagnosticsFreshVolumeMin = 0;
+
+export const stopRadarConnectionResponseAlphaRadarPreBreakoutEvidenceCountMin = 0;
+
+export const stopRadarConnectionResponseAlphaRadarPreBreakoutTransitionEvidenceCountMin = 0;
+
+export const stopRadarConnectionResponseAlphaRadarPreBreakoutCooldownRemainingMsMin = 0;
+
+export const stopRadarConnectionResponseSymbolRadarsItemAlphaRadarDiagnosticsFreshQuotesMin = 0;
+
+export const stopRadarConnectionResponseSymbolRadarsItemAlphaRadarDiagnosticsFreshTradesMin = 0;
+
+export const stopRadarConnectionResponseSymbolRadarsItemAlphaRadarDiagnosticsFreshPricesMin = 0;
+
+export const stopRadarConnectionResponseSymbolRadarsItemAlphaRadarDiagnosticsFreshVolumeMin = 0;
+
+export const stopRadarConnectionResponseSymbolRadarsItemAlphaRadarPreBreakoutEvidenceCountMin = 0;
+
+export const stopRadarConnectionResponseSymbolRadarsItemAlphaRadarPreBreakoutTransitionEvidenceCountMin = 0;
+
+export const stopRadarConnectionResponseSymbolRadarsItemAlphaRadarPreBreakoutCooldownRemainingMsMin = 0;
 
 
 
@@ -485,9 +851,23 @@ export const StopRadarConnectionResponse = zod.object({
   "changeIndicators": zod.object({
   "momentumAcceleration": zod.number().nullable().describe('Momentum score-point change per minute between valid scans.'),
   "volumeAcceleration": zod.number().nullable().describe('Volume intensity score-point change per minute between valid scans.'),
-  "orderFlowShift": zod.number().nullable().describe('Order-flow score-point change per minute between valid scans.')
+  "orderFlowShift": zod.number().nullable().describe('Order-flow score-point change per minute between valid scans.'),
+  "spreadTightening": zod.number().nullable().describe('Spread score-point change per minute; positive values indicate tightening.')
 }),
   "preBreakoutWatch": zod.boolean(),
+  "preBreakout": zod.object({
+  "state": zod.enum(['unavailable', 'watch', 'accelerating', 'pre_breakout', 'confirmed']),
+  "evidenceCount": zod.number().min(stopRadarConnectionResponseAlphaRadarPreBreakoutEvidenceCountMin),
+  "velocityGateSatisfied": zod.boolean(),
+  "reasons": zod.array(zod.string()),
+  "deteriorationReasons": zod.array(zod.string()),
+  "transitionEvidenceCount": zod.number().min(stopRadarConnectionResponseAlphaRadarPreBreakoutTransitionEvidenceCountMin),
+  "transitionReasons": zod.array(zod.string()),
+  "lastTransitionAt": zod.coerce.date().nullable(),
+  "lastEvaluatedAt": zod.coerce.date(),
+  "dataFresh": zod.boolean(),
+  "cooldownRemainingMs": zod.number().min(stopRadarConnectionResponseAlphaRadarPreBreakoutCooldownRemainingMsMin).nullable()
+}),
   "momentum": zod.object({
   "value": zod.number().nullable(),
   "unit": zod.string(),
@@ -628,7 +1008,146 @@ export const StopRadarConnectionResponse = zod.object({
   "state": zod.enum(['waiting', 'receiving', 'error']),
   "eventCount": zod.number(),
   "lastEventAt": zod.coerce.date().nullable()
+})),
+  "symbolRadars": zod.array(zod.object({
+  "symbol": zod.string(),
+  "connectionState": zod.enum(['not_configured', 'connecting', 'connected', 'streaming', 'error', 'stopped']),
+  "marketFeedState": zod.enum(['streaming', 'stale', 'offline']),
+  "lastUpdatedAt": zod.coerce.date().nullable(),
+  "alphaRadar": zod.object({
+  "score": zod.number().nullable(),
+  "status": zod.union([zod.enum(['Neutral', 'Watch', 'Breakout Setup']),zod.null()]),
+  "scoreState": zod.enum(['available', 'stale', 'insufficient']),
+  "confidence": zod.number(),
+  "dataQuality": zod.enum(['good', 'degraded', 'stale', 'missing']),
+  "generatedAt": zod.coerce.date(),
+  "warnings": zod.array(zod.string()),
+  "diagnostics": zod.object({
+  "fresh_quotes": zod.number().min(stopRadarConnectionResponseSymbolRadarsItemAlphaRadarDiagnosticsFreshQuotesMin),
+  "fresh_trades": zod.number().min(stopRadarConnectionResponseSymbolRadarsItemAlphaRadarDiagnosticsFreshTradesMin),
+  "fresh_prices": zod.number().min(stopRadarConnectionResponseSymbolRadarsItemAlphaRadarDiagnosticsFreshPricesMin),
+  "fresh_volume": zod.number().min(stopRadarConnectionResponseSymbolRadarsItemAlphaRadarDiagnosticsFreshVolumeMin),
+  "valid_window_age": zod.number().nullable().describe('Age in seconds of the active, real-observation scoring window.'),
+  "scoring_gate_reason": zod.string()
+}),
+  "scan": zod.object({
+  "lastScannedAt": zod.coerce.date(),
+  "scanIntervalMs": zod.number(),
+  "scanMode": zod.enum(['normal', 'pre_open', 'opening']),
+  "triggerReason": zod.string(),
+  "eventTriggered": zod.boolean()
+}),
+  "alphaVelocity": zod.object({
+  "delta30s": zod.number().nullable(),
+  "delta60s": zod.number().nullable(),
+  "rate30s": zod.number().nullable().describe('Alpha score points per minute using the latest valid 30-second comparison.'),
+  "rate60s": zod.number().nullable().describe('Alpha score points per minute using the latest valid 60-second comparison.')
+}),
+  "changeIndicators": zod.object({
+  "momentumAcceleration": zod.number().nullable().describe('Momentum score-point change per minute between valid scans.'),
+  "volumeAcceleration": zod.number().nullable().describe('Volume intensity score-point change per minute between valid scans.'),
+  "orderFlowShift": zod.number().nullable().describe('Order-flow score-point change per minute between valid scans.'),
+  "spreadTightening": zod.number().nullable().describe('Spread score-point change per minute; positive values indicate tightening.')
+}),
+  "preBreakoutWatch": zod.boolean(),
+  "preBreakout": zod.object({
+  "state": zod.enum(['unavailable', 'watch', 'accelerating', 'pre_breakout', 'confirmed']),
+  "evidenceCount": zod.number().min(stopRadarConnectionResponseSymbolRadarsItemAlphaRadarPreBreakoutEvidenceCountMin),
+  "velocityGateSatisfied": zod.boolean(),
+  "reasons": zod.array(zod.string()),
+  "deteriorationReasons": zod.array(zod.string()),
+  "transitionEvidenceCount": zod.number().min(stopRadarConnectionResponseSymbolRadarsItemAlphaRadarPreBreakoutTransitionEvidenceCountMin),
+  "transitionReasons": zod.array(zod.string()),
+  "lastTransitionAt": zod.coerce.date().nullable(),
+  "lastEvaluatedAt": zod.coerce.date(),
+  "dataFresh": zod.boolean(),
+  "cooldownRemainingMs": zod.number().min(stopRadarConnectionResponseSymbolRadarsItemAlphaRadarPreBreakoutCooldownRemainingMsMin).nullable()
+}),
+  "momentum": zod.object({
+  "value": zod.number().nullable(),
+  "unit": zod.string(),
+  "score": zod.number().nullable(),
+  "observedAt": zod.coerce.date().nullable(),
+  "freshnessMs": zod.number().nullable(),
+  "freshness": zod.enum(['fresh', 'delayed', 'stale', 'missing']),
+  "available": zod.boolean(),
+  "scoreEligible": zod.boolean(),
+  "referenceValue": zod.number().nullable(),
+  "referenceLabel": zod.string().nullable(),
+  "source": zod.string()
+}),
+  "spread": zod.object({
+  "value": zod.number().nullable(),
+  "unit": zod.string(),
+  "score": zod.number().nullable(),
+  "observedAt": zod.coerce.date().nullable(),
+  "freshnessMs": zod.number().nullable(),
+  "freshness": zod.enum(['fresh', 'delayed', 'stale', 'missing']),
+  "available": zod.boolean(),
+  "scoreEligible": zod.boolean(),
+  "referenceValue": zod.number().nullable(),
+  "referenceLabel": zod.string().nullable(),
+  "source": zod.string()
+}),
+  "volumeIntensity": zod.object({
+  "value": zod.number().nullable(),
+  "unit": zod.string(),
+  "score": zod.number().nullable(),
+  "observedAt": zod.coerce.date().nullable(),
+  "freshnessMs": zod.number().nullable(),
+  "freshness": zod.enum(['fresh', 'delayed', 'stale', 'missing']),
+  "available": zod.boolean(),
+  "scoreEligible": zod.boolean(),
+  "referenceValue": zod.number().nullable(),
+  "referenceLabel": zod.string().nullable(),
+  "source": zod.string()
+}),
+  "orderFlowPressure": zod.object({
+  "value": zod.number().nullable(),
+  "unit": zod.string(),
+  "score": zod.number().nullable(),
+  "observedAt": zod.coerce.date().nullable(),
+  "freshnessMs": zod.number().nullable(),
+  "freshness": zod.enum(['fresh', 'delayed', 'stale', 'missing']),
+  "available": zod.boolean(),
+  "scoreEligible": zod.boolean(),
+  "referenceValue": zod.number().nullable(),
+  "referenceLabel": zod.string().nullable(),
+  "source": zod.string()
+}),
+  "unusualActivity": zod.object({
+  "value": zod.number().nullable(),
+  "unit": zod.string(),
+  "score": zod.number().nullable(),
+  "observedAt": zod.coerce.date().nullable(),
+  "freshnessMs": zod.number().nullable(),
+  "freshness": zod.enum(['fresh', 'delayed', 'stale', 'missing']),
+  "available": zod.boolean(),
+  "scoreEligible": zod.boolean(),
+  "referenceValue": zod.number().nullable(),
+  "referenceLabel": zod.string().nullable(),
+  "source": zod.string()
+}).and(zod.object({
+  "detected": zod.boolean()
 }))
+}),
+  "market": zod.object({
+  "latestPrice": zod.number().nullable(),
+  "bidPrice": zod.number().nullable(),
+  "askPrice": zod.number().nullable(),
+  "bidSize": zod.number().nullable(),
+  "askSize": zod.number().nullable(),
+  "lastTradeSize": zod.number().nullable(),
+  "sessionVolume": zod.number().nullable(),
+  "lastTradeAt": zod.coerce.date().nullable()
+}),
+  "error": zod.string().nullable()
+})),
+  "preBreakoutLeader": zod.object({
+  "symbol": zod.string(),
+  "state": zod.enum(['unavailable', 'watch', 'accelerating', 'pre_breakout', 'confirmed']),
+  "alphaVelocity": zod.number().nullable()
+}).nullable()
 })
 
 

@@ -11,7 +11,9 @@ import type { RadarConnectionState } from './radarConnectionState';
 import type { RadarMarketSnapshot } from './radarMarketSnapshot';
 import type { RadarReconnectState } from './radarReconnectState';
 import type { RadarSnapshot } from './radarSnapshot';
+import type { RadarStatusPreBreakoutLeader } from './radarStatusPreBreakoutLeader';
 import type { RadarStream } from './radarStream';
+import type { RadarSymbolStatus } from './radarSymbolStatus';
 import type { RadarTrade } from './radarTrade';
 
 export interface RadarStatus {
@@ -38,4 +40,7 @@ export interface RadarStatus {
   recentTrades: RadarTrade[];
   radar: RadarSnapshot;
   streams: RadarStream[];
+  symbolRadars: RadarSymbolStatus[];
+  /** @nullable */
+  preBreakoutLeader: RadarStatusPreBreakoutLeader;
 }
