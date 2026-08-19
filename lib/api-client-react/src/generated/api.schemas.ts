@@ -31,6 +31,72 @@ export const RadarReconnectState = {
   exhausted: 'exhausted',
 } as const;
 
+export type RadarSignalFreshness = typeof RadarSignalFreshness[keyof typeof RadarSignalFreshness];
+
+
+export const RadarSignalFreshness = {
+  fresh: 'fresh',
+  delayed: 'delayed',
+  stale: 'stale',
+  missing: 'missing',
+} as const;
+
+export type RadarSignalDataQuality = typeof RadarSignalDataQuality[keyof typeof RadarSignalDataQuality];
+
+
+export const RadarSignalDataQuality = {
+  good: 'good',
+  degraded: 'degraded',
+  stale: 'stale',
+  missing: 'missing',
+} as const;
+
+export type AlphaRadarSignalState = typeof AlphaRadarSignalState[keyof typeof AlphaRadarSignalState];
+
+
+export const AlphaRadarSignalState = {
+  Neutral: 'Neutral',
+  Watch: 'Watch',
+  Breakout_Setup: 'Breakout Setup',
+} as const;
+
+export interface RadarSignalMetric {
+  /** @nullable */
+  value: number | null;
+  unit: string;
+  /** @nullable */
+  score: number | null;
+  /** @nullable */
+  observedAt: string | null;
+  /** @nullable */
+  freshnessMs: number | null;
+  freshness: RadarSignalFreshness;
+  available: boolean;
+  /** @nullable */
+  referenceValue: number | null;
+  /** @nullable */
+  referenceLabel: string | null;
+  source: string;
+}
+
+export type AlphaRadarSnapshotUnusualActivity = RadarSignalMetric & {
+  detected: boolean;
+};
+
+export interface AlphaRadarSnapshot {
+  score: number;
+  status: AlphaRadarSignalState;
+  confidence: number;
+  dataQuality: RadarSignalDataQuality;
+  generatedAt: string;
+  warnings: string[];
+  momentum: RadarSignalMetric;
+  spread: RadarSignalMetric;
+  volumeIntensity: RadarSignalMetric;
+  orderFlowPressure: RadarSignalMetric;
+  unusualActivity: AlphaRadarSnapshotUnusualActivity;
+}
+
 export interface RadarMarketSnapshot {
   /** @nullable */
   latestPrice: number | null;
@@ -99,6 +165,7 @@ export interface RadarStatus {
   reconnectAttempt: number;
   /** @nullable */
   nextReconnectAt: string | null;
+  alphaRadar: AlphaRadarSnapshot;
   /** @nullable */
   error: string | null;
   market: RadarMarketSnapshot;

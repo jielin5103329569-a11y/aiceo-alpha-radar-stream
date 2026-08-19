@@ -32,6 +32,76 @@ export const GetRadarStatusResponse = zod.object({
   "reconnectState": zod.enum(['idle', 'scheduled', 'reconnecting', 'exhausted']),
   "reconnectAttempt": zod.number(),
   "nextReconnectAt": zod.coerce.date().nullable(),
+  "alphaRadar": zod.object({
+  "score": zod.number(),
+  "status": zod.enum(['Neutral', 'Watch', 'Breakout Setup']),
+  "confidence": zod.number(),
+  "dataQuality": zod.enum(['good', 'degraded', 'stale', 'missing']),
+  "generatedAt": zod.coerce.date(),
+  "warnings": zod.array(zod.string()),
+  "momentum": zod.object({
+  "value": zod.number().nullable(),
+  "unit": zod.string(),
+  "score": zod.number().nullable(),
+  "observedAt": zod.coerce.date().nullable(),
+  "freshnessMs": zod.number().nullable(),
+  "freshness": zod.enum(['fresh', 'delayed', 'stale', 'missing']),
+  "available": zod.boolean(),
+  "referenceValue": zod.number().nullable(),
+  "referenceLabel": zod.string().nullable(),
+  "source": zod.string()
+}),
+  "spread": zod.object({
+  "value": zod.number().nullable(),
+  "unit": zod.string(),
+  "score": zod.number().nullable(),
+  "observedAt": zod.coerce.date().nullable(),
+  "freshnessMs": zod.number().nullable(),
+  "freshness": zod.enum(['fresh', 'delayed', 'stale', 'missing']),
+  "available": zod.boolean(),
+  "referenceValue": zod.number().nullable(),
+  "referenceLabel": zod.string().nullable(),
+  "source": zod.string()
+}),
+  "volumeIntensity": zod.object({
+  "value": zod.number().nullable(),
+  "unit": zod.string(),
+  "score": zod.number().nullable(),
+  "observedAt": zod.coerce.date().nullable(),
+  "freshnessMs": zod.number().nullable(),
+  "freshness": zod.enum(['fresh', 'delayed', 'stale', 'missing']),
+  "available": zod.boolean(),
+  "referenceValue": zod.number().nullable(),
+  "referenceLabel": zod.string().nullable(),
+  "source": zod.string()
+}),
+  "orderFlowPressure": zod.object({
+  "value": zod.number().nullable(),
+  "unit": zod.string(),
+  "score": zod.number().nullable(),
+  "observedAt": zod.coerce.date().nullable(),
+  "freshnessMs": zod.number().nullable(),
+  "freshness": zod.enum(['fresh', 'delayed', 'stale', 'missing']),
+  "available": zod.boolean(),
+  "referenceValue": zod.number().nullable(),
+  "referenceLabel": zod.string().nullable(),
+  "source": zod.string()
+}),
+  "unusualActivity": zod.object({
+  "value": zod.number().nullable(),
+  "unit": zod.string(),
+  "score": zod.number().nullable(),
+  "observedAt": zod.coerce.date().nullable(),
+  "freshnessMs": zod.number().nullable(),
+  "freshness": zod.enum(['fresh', 'delayed', 'stale', 'missing']),
+  "available": zod.boolean(),
+  "referenceValue": zod.number().nullable(),
+  "referenceLabel": zod.string().nullable(),
+  "source": zod.string()
+}).and(zod.object({
+  "detected": zod.boolean()
+}))
+}),
   "error": zod.string().nullable(),
   "market": zod.object({
   "latestPrice": zod.number().nullable(),
@@ -73,6 +143,76 @@ export const StartRadarConnectionResponse = zod.object({
   "reconnectState": zod.enum(['idle', 'scheduled', 'reconnecting', 'exhausted']),
   "reconnectAttempt": zod.number(),
   "nextReconnectAt": zod.coerce.date().nullable(),
+  "alphaRadar": zod.object({
+  "score": zod.number(),
+  "status": zod.enum(['Neutral', 'Watch', 'Breakout Setup']),
+  "confidence": zod.number(),
+  "dataQuality": zod.enum(['good', 'degraded', 'stale', 'missing']),
+  "generatedAt": zod.coerce.date(),
+  "warnings": zod.array(zod.string()),
+  "momentum": zod.object({
+  "value": zod.number().nullable(),
+  "unit": zod.string(),
+  "score": zod.number().nullable(),
+  "observedAt": zod.coerce.date().nullable(),
+  "freshnessMs": zod.number().nullable(),
+  "freshness": zod.enum(['fresh', 'delayed', 'stale', 'missing']),
+  "available": zod.boolean(),
+  "referenceValue": zod.number().nullable(),
+  "referenceLabel": zod.string().nullable(),
+  "source": zod.string()
+}),
+  "spread": zod.object({
+  "value": zod.number().nullable(),
+  "unit": zod.string(),
+  "score": zod.number().nullable(),
+  "observedAt": zod.coerce.date().nullable(),
+  "freshnessMs": zod.number().nullable(),
+  "freshness": zod.enum(['fresh', 'delayed', 'stale', 'missing']),
+  "available": zod.boolean(),
+  "referenceValue": zod.number().nullable(),
+  "referenceLabel": zod.string().nullable(),
+  "source": zod.string()
+}),
+  "volumeIntensity": zod.object({
+  "value": zod.number().nullable(),
+  "unit": zod.string(),
+  "score": zod.number().nullable(),
+  "observedAt": zod.coerce.date().nullable(),
+  "freshnessMs": zod.number().nullable(),
+  "freshness": zod.enum(['fresh', 'delayed', 'stale', 'missing']),
+  "available": zod.boolean(),
+  "referenceValue": zod.number().nullable(),
+  "referenceLabel": zod.string().nullable(),
+  "source": zod.string()
+}),
+  "orderFlowPressure": zod.object({
+  "value": zod.number().nullable(),
+  "unit": zod.string(),
+  "score": zod.number().nullable(),
+  "observedAt": zod.coerce.date().nullable(),
+  "freshnessMs": zod.number().nullable(),
+  "freshness": zod.enum(['fresh', 'delayed', 'stale', 'missing']),
+  "available": zod.boolean(),
+  "referenceValue": zod.number().nullable(),
+  "referenceLabel": zod.string().nullable(),
+  "source": zod.string()
+}),
+  "unusualActivity": zod.object({
+  "value": zod.number().nullable(),
+  "unit": zod.string(),
+  "score": zod.number().nullable(),
+  "observedAt": zod.coerce.date().nullable(),
+  "freshnessMs": zod.number().nullable(),
+  "freshness": zod.enum(['fresh', 'delayed', 'stale', 'missing']),
+  "available": zod.boolean(),
+  "referenceValue": zod.number().nullable(),
+  "referenceLabel": zod.string().nullable(),
+  "source": zod.string()
+}).and(zod.object({
+  "detected": zod.boolean()
+}))
+}),
   "error": zod.string().nullable(),
   "market": zod.object({
   "latestPrice": zod.number().nullable(),
@@ -114,6 +254,76 @@ export const StopRadarConnectionResponse = zod.object({
   "reconnectState": zod.enum(['idle', 'scheduled', 'reconnecting', 'exhausted']),
   "reconnectAttempt": zod.number(),
   "nextReconnectAt": zod.coerce.date().nullable(),
+  "alphaRadar": zod.object({
+  "score": zod.number(),
+  "status": zod.enum(['Neutral', 'Watch', 'Breakout Setup']),
+  "confidence": zod.number(),
+  "dataQuality": zod.enum(['good', 'degraded', 'stale', 'missing']),
+  "generatedAt": zod.coerce.date(),
+  "warnings": zod.array(zod.string()),
+  "momentum": zod.object({
+  "value": zod.number().nullable(),
+  "unit": zod.string(),
+  "score": zod.number().nullable(),
+  "observedAt": zod.coerce.date().nullable(),
+  "freshnessMs": zod.number().nullable(),
+  "freshness": zod.enum(['fresh', 'delayed', 'stale', 'missing']),
+  "available": zod.boolean(),
+  "referenceValue": zod.number().nullable(),
+  "referenceLabel": zod.string().nullable(),
+  "source": zod.string()
+}),
+  "spread": zod.object({
+  "value": zod.number().nullable(),
+  "unit": zod.string(),
+  "score": zod.number().nullable(),
+  "observedAt": zod.coerce.date().nullable(),
+  "freshnessMs": zod.number().nullable(),
+  "freshness": zod.enum(['fresh', 'delayed', 'stale', 'missing']),
+  "available": zod.boolean(),
+  "referenceValue": zod.number().nullable(),
+  "referenceLabel": zod.string().nullable(),
+  "source": zod.string()
+}),
+  "volumeIntensity": zod.object({
+  "value": zod.number().nullable(),
+  "unit": zod.string(),
+  "score": zod.number().nullable(),
+  "observedAt": zod.coerce.date().nullable(),
+  "freshnessMs": zod.number().nullable(),
+  "freshness": zod.enum(['fresh', 'delayed', 'stale', 'missing']),
+  "available": zod.boolean(),
+  "referenceValue": zod.number().nullable(),
+  "referenceLabel": zod.string().nullable(),
+  "source": zod.string()
+}),
+  "orderFlowPressure": zod.object({
+  "value": zod.number().nullable(),
+  "unit": zod.string(),
+  "score": zod.number().nullable(),
+  "observedAt": zod.coerce.date().nullable(),
+  "freshnessMs": zod.number().nullable(),
+  "freshness": zod.enum(['fresh', 'delayed', 'stale', 'missing']),
+  "available": zod.boolean(),
+  "referenceValue": zod.number().nullable(),
+  "referenceLabel": zod.string().nullable(),
+  "source": zod.string()
+}),
+  "unusualActivity": zod.object({
+  "value": zod.number().nullable(),
+  "unit": zod.string(),
+  "score": zod.number().nullable(),
+  "observedAt": zod.coerce.date().nullable(),
+  "freshnessMs": zod.number().nullable(),
+  "freshness": zod.enum(['fresh', 'delayed', 'stale', 'missing']),
+  "available": zod.boolean(),
+  "referenceValue": zod.number().nullable(),
+  "referenceLabel": zod.string().nullable(),
+  "source": zod.string()
+}).and(zod.object({
+  "detected": zod.boolean()
+}))
+}),
   "error": zod.string().nullable(),
   "market": zod.object({
   "latestPrice": zod.number().nullable(),

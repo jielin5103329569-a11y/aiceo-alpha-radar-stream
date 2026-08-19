@@ -89,6 +89,96 @@ components:
     RadarReconnectState:
       type: string
       enum: [idle, scheduled, reconnecting, exhausted]
+    RadarSignalFreshness:
+      type: string
+      enum: [fresh, delayed, stale, missing]
+    RadarSignalDataQuality:
+      type: string
+      enum: [good, degraded, stale, missing]
+    AlphaRadarSignalState:
+      type: string
+      enum: [Neutral, Watch, Breakout Setup]
+    RadarSignalMetric:
+      type: object
+      properties:
+        value:
+          type: [number, "null"]
+        unit:
+          type: string
+        score:
+          type: [number, "null"]
+        observedAt:
+          type: ["string", "null"]
+          format: date-time
+        freshnessMs:
+          type: [number, "null"]
+        freshness:
+          $ref: "#/components/schemas/RadarSignalFreshness"
+        available:
+          type: boolean
+        referenceValue:
+          type: [number, "null"]
+        referenceLabel:
+          type: [string, "null"]
+        source:
+          type: string
+      required:
+        - value
+        - unit
+        - score
+        - observedAt
+        - freshnessMs
+        - freshness
+        - available
+        - referenceValue
+        - referenceLabel
+        - source
+    AlphaRadarSnapshot:
+      type: object
+      properties:
+        score:
+          type: number
+        status:
+          $ref: "#/components/schemas/AlphaRadarSignalState"
+        confidence:
+          type: number
+        dataQuality:
+          $ref: "#/components/schemas/RadarSignalDataQuality"
+        generatedAt:
+          type: string
+          format: date-time
+        warnings:
+          type: array
+          items:
+            type: string
+        momentum:
+          $ref: "#/components/schemas/RadarSignalMetric"
+        spread:
+          $ref: "#/components/schemas/RadarSignalMetric"
+        volumeIntensity:
+          $ref: "#/components/schemas/RadarSignalMetric"
+        orderFlowPressure:
+          $ref: "#/components/schemas/RadarSignalMetric"
+        unusualActivity:
+          allOf:
+            - $ref: "#/components/schemas/RadarSignalMetric"
+            - type: object
+              properties:
+                detected:
+                  type: boolean
+              required: [detected]
+      required:
+        - score
+        - status
+        - confidence
+        - dataQuality
+        - generatedAt
+        - warnings
+        - momentum
+        - spread
+        - volumeIntensity
+        - orderFlowPressure
+        - unusualActivity
     RadarMarketSnapshot:
       type: object
       properties:
@@ -175,6 +265,8 @@ components:
         nextReconnectAt:
           type: ["string", "null"]
           format: date-time
+        alphaRadar:
+          $ref: "#/components/schemas/AlphaRadarSnapshot"
         error:
           type: ["string", "null"]
         market:
@@ -199,6 +291,7 @@ components:
         - reconnectState
         - reconnectAttempt
         - nextReconnectAt
+        - alphaRadar
         - error
         - market
         - recentTrades

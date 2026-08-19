@@ -4,6 +4,7 @@ import { useRadarStream } from '@/hooks/use-radar-stream';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { RadarSignalPanel } from '@/components/radar-signal-panel';
 import { Separator } from '@/components/ui/separator';
 import { formatAge, formatNumber, formatTime, cn } from '@/lib/utils';
 import { AlertCircle, Activity, Power, PowerOff, Zap, ShieldAlert, WifiOff, Radio, RefreshCw } from 'lucide-react';
@@ -218,6 +219,8 @@ export default function Dashboard() {
 
         {/* Right Column - Streams & Tape */}
         <div className="lg:col-span-8 flex flex-col gap-6">
+          <RadarSignalPanel alphaRadar={status?.alphaRadar} />
+
           <Card>
             <CardHeader className="pb-4">
               <CardTitle className="text-sm font-medium uppercase tracking-widest text-muted-foreground">

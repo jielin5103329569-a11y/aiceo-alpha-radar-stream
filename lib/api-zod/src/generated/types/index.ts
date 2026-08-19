@@ -6,10 +6,16 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from './alphaRadarSignalState';
+export * from './alphaRadarSnapshot';
+export * from './alphaRadarSnapshotUnusualActivity';
 export * from './healthStatus';
 export * from './radarConnectionState';
 export * from './radarMarketSnapshot';
 export * from './radarReconnectState';
+export * from './radarSignalDataQuality';
+export * from './radarSignalFreshness';
+export * from './radarSignalMetric';
 export * from './radarStatus';
 export * from './radarStream';
 export * from './radarStreamSchema';

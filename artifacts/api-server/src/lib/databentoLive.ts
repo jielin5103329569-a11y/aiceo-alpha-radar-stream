@@ -3,6 +3,14 @@ import { spawn, type ChildProcess } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import {
+  calculateAlphaRadar,
+  createEmptyAlphaRadar,
+  type AlphaRadarSnapshot,
+  type BarObservation,
+  type QuoteObservation,
+  type TradeObservation,
+} from "./alphaRadar";
 import { logger } from "./logger";
 
 export type RadarConnectionState =
@@ -27,6 +35,7 @@ export type RadarStatus = {
   reconnectState: RadarReconnectState;
   reconnectAttempt: number;
   nextReconnectAt: Date | null;
+  alphaRadar: AlphaRadarSnapshot;
   error: string | null;
   market: {
     latestPrice: number | null;
@@ -78,6 +87,8 @@ const bridgePath = path.join(currentDir, "databento_live_bridge.py");
 const HEARTBEAT_INTERVAL_MS = 5_000;
 const MAX_RECONNECT_ATTEMPTS = 5;
 const MAX_RECONNECT_DELAY_MS = 30_000;
+const OBSERVATION_RETENTION_MS = 10 * 60_000;
+const MAX_OBSERVATIONS = 2_000;
 
 function redactMessage(message: string): string {
   const key = process.env.DATABENTO_API_KEY;
@@ -99,6 +110,7 @@ function blankStatus(): RadarStatus {
     reconnectState: "idle",
     reconnectAttempt: 0,
     nextReconnectAt: null,
+    alphaRadar: createEmptyAlphaRadar(new Date()),
     error: configured ? null : "DATABENTO_API_KEY is not configured.",
     market: {
       latestPrice: null,
@@ -125,9 +137,21 @@ export class DatabentoLiveService extends EventEmitter {
   private heartbeatTimer: NodeJS.Timeout | null = null;
   private reconnectTimer: NodeJS.Timeout | null = null;
   private status = blankStatus();
+  private quotes: QuoteObservation[] = [];
+  private trades: TradeObservation[] = [];
+  private bars: BarObservation[] = [];
 
   getStatus(): RadarStatus {
-    return this.status;
+    return {
+      ...this.status,
+      alphaRadar: calculateAlphaRadar({
+        now: new Date(),
+        connectionState: this.status.connectionState,
+        quotes: this.quotes,
+        trades: this.trades,
+        bars: this.bars,
+      }),
+    };
   }
 
   start(): RadarStatus {
@@ -152,12 +176,12 @@ export class DatabentoLiveService extends EventEmitter {
       streams: this.status.streams.map((stream) => ({ ...stream, state: "waiting" as const })),
     };
     this.publish();
-    return this.status;
+    return this.getStatus();
   }
 
   private launch(isReconnect: boolean): RadarStatus {
     if (this.child || this.status.connectionState === "connecting") {
-      return this.status;
+      return this.getStatus();
     }
 
     if (!process.env.DATABENTO_API_KEY) {
@@ -165,12 +189,15 @@ export class DatabentoLiveService extends EventEmitter {
       this.clearHeartbeatTimer();
       this.status = { ...blankStatus() };
       this.publish();
-      return this.status;
+      return this.getStatus();
     }
 
     this.stopping = false;
     this.clearReconnectTimer();
     const now = new Date();
+    if (!isReconnect) {
+      this.resetObservations();
+    }
     this.status = isReconnect
       ? {
           ...this.status,
@@ -231,7 +258,7 @@ export class DatabentoLiveService extends EventEmitter {
       }
     });
 
-    return this.status;
+    return this.getStatus();
   }
 
   private consumeOutput(chunk: string): void {
@@ -283,14 +310,25 @@ export class DatabentoLiveService extends EventEmitter {
     );
 
     if (event.type === "mbp") {
+      const eventTimestamp = safeEventTimestamp(event.timestamp, now);
       const trade = event.trade
         ? {
             price: event.trade.price,
             size: event.trade.size,
-            timestamp: new Date(event.trade.timestamp),
+            timestamp: safeEventTimestamp(event.trade.timestamp, now),
             side: event.trade.side,
           }
         : null;
+      this.recordQuote({
+        timestamp: eventTimestamp,
+        bidPrice: event.bidPrice,
+        askPrice: event.askPrice,
+        bidSize: event.bidSize,
+        askSize: event.askSize,
+      });
+      if (trade) {
+        this.recordTrade(trade);
+      }
       this.status = {
         ...this.status,
         connectionState: "streaming",
@@ -311,6 +349,12 @@ export class DatabentoLiveService extends EventEmitter {
         recentTrades: trade ? [trade, ...this.status.recentTrades].slice(0, 12) : this.status.recentTrades,
       };
     } else {
+      const eventTimestamp = safeEventTimestamp(event.timestamp, now);
+      this.recordBar({
+        timestamp: eventTimestamp,
+        close: event.close,
+        volume: event.volume,
+      });
       this.status = {
         ...this.status,
         connectionState: "streaming",
@@ -413,9 +457,39 @@ export class DatabentoLiveService extends EventEmitter {
     }
   }
 
+  private resetObservations(): void {
+    this.quotes = [];
+    this.trades = [];
+    this.bars = [];
+  }
+
+  private recordQuote(observation: QuoteObservation): void {
+    this.quotes = retainObservations([...this.quotes, observation]);
+  }
+
+  private recordTrade(observation: TradeObservation): void {
+    this.trades = retainObservations([...this.trades, observation]);
+  }
+
+  private recordBar(observation: BarObservation): void {
+    this.bars = retainObservations([...this.bars, observation]);
+  }
+
   private publish(): void {
-    this.emit("status", this.status);
+    this.emit("status", this.getStatus());
   }
 }
 
 export const databentoLive = new DatabentoLiveService();
+
+function safeEventTimestamp(value: string, fallback: Date): Date {
+  const timestamp = new Date(value);
+  return Number.isNaN(timestamp.getTime()) ? fallback : timestamp;
+}
+
+function retainObservations<T extends { timestamp: Date }>(observations: T[]): T[] {
+  const cutoff = Date.now() - OBSERVATION_RETENTION_MS;
+  return observations
+    .filter((observation) => observation.timestamp.getTime() >= cutoff)
+    .slice(-MAX_OBSERVATIONS);
+}

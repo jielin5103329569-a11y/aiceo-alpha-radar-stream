@@ -5,6 +5,7 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { AlphaRadarSnapshot } from './alphaRadarSnapshot';
 import type { RadarConnectionState } from './radarConnectionState';
 import type { RadarMarketSnapshot } from './radarMarketSnapshot';
 import type { RadarReconnectState } from './radarReconnectState';
@@ -27,6 +28,7 @@ export interface RadarStatus {
   reconnectAttempt: number;
   /** @nullable */
   nextReconnectAt: Date | null;
+  alphaRadar: AlphaRadarSnapshot;
   /** @nullable */
   error: string | null;
   market: RadarMarketSnapshot;
