@@ -20,7 +20,9 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  GetMarketUniverseParams,
   HealthStatus,
+  MarketUniverseResult,
   RadarStatus
 } from './api.schemas';
 
@@ -413,6 +415,90 @@ export function useStreamRadarEvents<TData = Awaited<ReturnType<typeof streamRad
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getStreamRadarEventsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetMarketUniverseUrl = (params?: GetMarketUniverseParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/radar/universe?${stringifiedParams}` : `/api/radar/universe`
+}
+
+/**
+ * @summary Query the low-frequency U.S. equity reference universe
+ */
+export const getMarketUniverse = async (params?: GetMarketUniverseParams, options?: Parameters<typeof customFetch>[1]): Promise<MarketUniverseResult> => {
+
+  return customFetch<MarketUniverseResult>(getGetMarketUniverseUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetMarketUniverseQueryKey = (params?: GetMarketUniverseParams,) => {
+    return [
+    `/api/radar/universe`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetMarketUniverseQueryOptions = <TData = Awaited<ReturnType<typeof getMarketUniverse>>, TError = ErrorType<unknown>>(params?: GetMarketUniverseParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getMarketUniverse>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetMarketUniverseQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getMarketUniverse>>> = ({ signal }) => getMarketUniverse(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getMarketUniverse>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetMarketUniverseQueryResult = NonNullable<Awaited<ReturnType<typeof getMarketUniverse>>>
+export type GetMarketUniverseQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Query the low-frequency U.S. equity reference universe
+ */
+
+export function useGetMarketUniverse<TData = Awaited<ReturnType<typeof getMarketUniverse>>, TError = ErrorType<unknown>>(
+ params?: GetMarketUniverseParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getMarketUniverse>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetMarketUniverseQueryOptions(params,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

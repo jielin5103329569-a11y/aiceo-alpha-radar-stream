@@ -39,6 +39,26 @@ export const getRadarStatusResponseAlphaRadarPreBreakoutConfirmationPersistenceS
 
 export const getRadarStatusResponseSignalHistoryItemEvidenceCountMin = 0;
 
+export const getRadarStatusResponseMarketUniverseTotalCountMin = 0;
+
+export const getRadarStatusResponseMarketUniverseEligibleCountMin = 0;
+
+export const getRadarStatusResponseMarketUniverseIneligibleCountMin = 0;
+
+export const getRadarStatusResponseMarketUniverseCommonEquityVerifiedCountMin = 0;
+
+export const getRadarStatusResponseMarketUniverseClassificationCoverageCountMin = 0;
+
+export const getRadarStatusResponseMarketUniverseLifecycleCountsActiveMin = 0;
+
+export const getRadarStatusResponseMarketUniverseLifecycleCountsHaltedMin = 0;
+
+export const getRadarStatusResponseMarketUniverseLifecycleCountsInactiveMin = 0;
+
+export const getRadarStatusResponseMarketUniverseLifecycleCountsDelistedMin = 0;
+
+export const getRadarStatusResponseMarketUniverseLifecycleCountsUnknownMin = 0;
+
 export const getRadarStatusResponseSymbolRadarsItemAlphaRadarDiagnosticsFreshQuotesMin = 0;
 
 export const getRadarStatusResponseSymbolRadarsItemAlphaRadarDiagnosticsFreshTradesMin = 0;
@@ -314,6 +334,33 @@ export const GetRadarStatusResponse = zod.object({
   "eventCount": zod.number(),
   "lastEventAt": zod.coerce.date().nullable()
 })),
+  "marketUniverse": zod.object({
+  "provider": zod.enum(['Databento']),
+  "dataset": zod.string(),
+  "source": zod.string(),
+  "deliveryMode": zod.enum(['reference_only']),
+  "refreshState": zod.enum(['idle', 'refreshing', 'ready', 'degraded', 'unavailable']),
+  "lastAttemptAt": zod.coerce.date().nullable(),
+  "refreshedAt": zod.coerce.date().nullable(),
+  "sourceTimestamp": zod.coerce.date().nullable(),
+  "expiresAt": zod.coerce.date().nullable(),
+  "freshness": zod.enum(['fresh', 'stale', 'missing']),
+  "dataQuality": zod.enum(['good', 'degraded', 'unavailable']),
+  "reason": zod.string(),
+  "totalCount": zod.number().min(getRadarStatusResponseMarketUniverseTotalCountMin),
+  "eligibleCount": zod.number().min(getRadarStatusResponseMarketUniverseEligibleCountMin),
+  "ineligibleCount": zod.number().min(getRadarStatusResponseMarketUniverseIneligibleCountMin),
+  "commonEquityVerifiedCount": zod.number().min(getRadarStatusResponseMarketUniverseCommonEquityVerifiedCountMin),
+  "classificationCoverageCount": zod.number().min(getRadarStatusResponseMarketUniverseClassificationCoverageCountMin),
+  "lifecycleCounts": zod.object({
+  "active": zod.number().min(getRadarStatusResponseMarketUniverseLifecycleCountsActiveMin),
+  "halted": zod.number().min(getRadarStatusResponseMarketUniverseLifecycleCountsHaltedMin),
+  "inactive": zod.number().min(getRadarStatusResponseMarketUniverseLifecycleCountsInactiveMin),
+  "delisted": zod.number().min(getRadarStatusResponseMarketUniverseLifecycleCountsDelistedMin),
+  "unknown": zod.number().min(getRadarStatusResponseMarketUniverseLifecycleCountsUnknownMin)
+}),
+  "eligibleSample": zod.array(zod.string())
+}),
   "symbolRadars": zod.array(zod.object({
   "symbol": zod.string(),
   "connectionState": zod.enum(['not_configured', 'connecting', 'connected', 'streaming', 'error', 'stopped']),
@@ -536,6 +583,26 @@ export const startRadarConnectionResponseAlphaRadarPreBreakoutConfirmationPersis
 
 
 export const startRadarConnectionResponseSignalHistoryItemEvidenceCountMin = 0;
+
+export const startRadarConnectionResponseMarketUniverseTotalCountMin = 0;
+
+export const startRadarConnectionResponseMarketUniverseEligibleCountMin = 0;
+
+export const startRadarConnectionResponseMarketUniverseIneligibleCountMin = 0;
+
+export const startRadarConnectionResponseMarketUniverseCommonEquityVerifiedCountMin = 0;
+
+export const startRadarConnectionResponseMarketUniverseClassificationCoverageCountMin = 0;
+
+export const startRadarConnectionResponseMarketUniverseLifecycleCountsActiveMin = 0;
+
+export const startRadarConnectionResponseMarketUniverseLifecycleCountsHaltedMin = 0;
+
+export const startRadarConnectionResponseMarketUniverseLifecycleCountsInactiveMin = 0;
+
+export const startRadarConnectionResponseMarketUniverseLifecycleCountsDelistedMin = 0;
+
+export const startRadarConnectionResponseMarketUniverseLifecycleCountsUnknownMin = 0;
 
 export const startRadarConnectionResponseSymbolRadarsItemAlphaRadarDiagnosticsFreshQuotesMin = 0;
 
@@ -812,6 +879,33 @@ export const StartRadarConnectionResponse = zod.object({
   "eventCount": zod.number(),
   "lastEventAt": zod.coerce.date().nullable()
 })),
+  "marketUniverse": zod.object({
+  "provider": zod.enum(['Databento']),
+  "dataset": zod.string(),
+  "source": zod.string(),
+  "deliveryMode": zod.enum(['reference_only']),
+  "refreshState": zod.enum(['idle', 'refreshing', 'ready', 'degraded', 'unavailable']),
+  "lastAttemptAt": zod.coerce.date().nullable(),
+  "refreshedAt": zod.coerce.date().nullable(),
+  "sourceTimestamp": zod.coerce.date().nullable(),
+  "expiresAt": zod.coerce.date().nullable(),
+  "freshness": zod.enum(['fresh', 'stale', 'missing']),
+  "dataQuality": zod.enum(['good', 'degraded', 'unavailable']),
+  "reason": zod.string(),
+  "totalCount": zod.number().min(startRadarConnectionResponseMarketUniverseTotalCountMin),
+  "eligibleCount": zod.number().min(startRadarConnectionResponseMarketUniverseEligibleCountMin),
+  "ineligibleCount": zod.number().min(startRadarConnectionResponseMarketUniverseIneligibleCountMin),
+  "commonEquityVerifiedCount": zod.number().min(startRadarConnectionResponseMarketUniverseCommonEquityVerifiedCountMin),
+  "classificationCoverageCount": zod.number().min(startRadarConnectionResponseMarketUniverseClassificationCoverageCountMin),
+  "lifecycleCounts": zod.object({
+  "active": zod.number().min(startRadarConnectionResponseMarketUniverseLifecycleCountsActiveMin),
+  "halted": zod.number().min(startRadarConnectionResponseMarketUniverseLifecycleCountsHaltedMin),
+  "inactive": zod.number().min(startRadarConnectionResponseMarketUniverseLifecycleCountsInactiveMin),
+  "delisted": zod.number().min(startRadarConnectionResponseMarketUniverseLifecycleCountsDelistedMin),
+  "unknown": zod.number().min(startRadarConnectionResponseMarketUniverseLifecycleCountsUnknownMin)
+}),
+  "eligibleSample": zod.array(zod.string())
+}),
   "symbolRadars": zod.array(zod.object({
   "symbol": zod.string(),
   "connectionState": zod.enum(['not_configured', 'connecting', 'connected', 'streaming', 'error', 'stopped']),
@@ -1034,6 +1128,26 @@ export const stopRadarConnectionResponseAlphaRadarPreBreakoutConfirmationPersist
 
 
 export const stopRadarConnectionResponseSignalHistoryItemEvidenceCountMin = 0;
+
+export const stopRadarConnectionResponseMarketUniverseTotalCountMin = 0;
+
+export const stopRadarConnectionResponseMarketUniverseEligibleCountMin = 0;
+
+export const stopRadarConnectionResponseMarketUniverseIneligibleCountMin = 0;
+
+export const stopRadarConnectionResponseMarketUniverseCommonEquityVerifiedCountMin = 0;
+
+export const stopRadarConnectionResponseMarketUniverseClassificationCoverageCountMin = 0;
+
+export const stopRadarConnectionResponseMarketUniverseLifecycleCountsActiveMin = 0;
+
+export const stopRadarConnectionResponseMarketUniverseLifecycleCountsHaltedMin = 0;
+
+export const stopRadarConnectionResponseMarketUniverseLifecycleCountsInactiveMin = 0;
+
+export const stopRadarConnectionResponseMarketUniverseLifecycleCountsDelistedMin = 0;
+
+export const stopRadarConnectionResponseMarketUniverseLifecycleCountsUnknownMin = 0;
 
 export const stopRadarConnectionResponseSymbolRadarsItemAlphaRadarDiagnosticsFreshQuotesMin = 0;
 
@@ -1310,6 +1424,33 @@ export const StopRadarConnectionResponse = zod.object({
   "eventCount": zod.number(),
   "lastEventAt": zod.coerce.date().nullable()
 })),
+  "marketUniverse": zod.object({
+  "provider": zod.enum(['Databento']),
+  "dataset": zod.string(),
+  "source": zod.string(),
+  "deliveryMode": zod.enum(['reference_only']),
+  "refreshState": zod.enum(['idle', 'refreshing', 'ready', 'degraded', 'unavailable']),
+  "lastAttemptAt": zod.coerce.date().nullable(),
+  "refreshedAt": zod.coerce.date().nullable(),
+  "sourceTimestamp": zod.coerce.date().nullable(),
+  "expiresAt": zod.coerce.date().nullable(),
+  "freshness": zod.enum(['fresh', 'stale', 'missing']),
+  "dataQuality": zod.enum(['good', 'degraded', 'unavailable']),
+  "reason": zod.string(),
+  "totalCount": zod.number().min(stopRadarConnectionResponseMarketUniverseTotalCountMin),
+  "eligibleCount": zod.number().min(stopRadarConnectionResponseMarketUniverseEligibleCountMin),
+  "ineligibleCount": zod.number().min(stopRadarConnectionResponseMarketUniverseIneligibleCountMin),
+  "commonEquityVerifiedCount": zod.number().min(stopRadarConnectionResponseMarketUniverseCommonEquityVerifiedCountMin),
+  "classificationCoverageCount": zod.number().min(stopRadarConnectionResponseMarketUniverseClassificationCoverageCountMin),
+  "lifecycleCounts": zod.object({
+  "active": zod.number().min(stopRadarConnectionResponseMarketUniverseLifecycleCountsActiveMin),
+  "halted": zod.number().min(stopRadarConnectionResponseMarketUniverseLifecycleCountsHaltedMin),
+  "inactive": zod.number().min(stopRadarConnectionResponseMarketUniverseLifecycleCountsInactiveMin),
+  "delisted": zod.number().min(stopRadarConnectionResponseMarketUniverseLifecycleCountsDelistedMin),
+  "unknown": zod.number().min(stopRadarConnectionResponseMarketUniverseLifecycleCountsUnknownMin)
+}),
+  "eligibleSample": zod.array(zod.string())
+}),
   "symbolRadars": zod.array(zod.object({
   "symbol": zod.string(),
   "connectionState": zod.enum(['not_configured', 'connecting', 'connected', 'streaming', 'error', 'stopped']),
@@ -1515,5 +1656,110 @@ export const StopRadarConnectionResponse = zod.object({
  * @summary Receive safe radar status updates as server-sent events
  */
 export const StreamRadarEventsResponse = zod.unknown()
+
+
+/**
+ * @summary Query the low-frequency U.S. equity reference universe
+ */
+export const getMarketUniverseQuerySearchMax = 64;
+
+export const getMarketUniverseQueryEligibilityDefault = `eligible`;
+export const getMarketUniverseQueryLifecycleDefault = `all`;
+export const getMarketUniverseQueryLimitDefault = 50;
+export const getMarketUniverseQueryLimitMax = 200;
+
+export const getMarketUniverseQueryOffsetDefault = 0;
+export const getMarketUniverseQueryOffsetMin = 0;
+
+
+
+export const GetMarketUniverseQueryParams = zod.object({
+  "search": zod.coerce.string().max(getMarketUniverseQuerySearchMax).optional(),
+  "eligibility": zod.enum(['eligible', 'ineligible', 'all']).default(getMarketUniverseQueryEligibilityDefault),
+  "lifecycle": zod.union([zod.enum(['active', 'halted', 'inactive', 'delisted', 'unknown']),zod.enum(['all'])]).default(getMarketUniverseQueryLifecycleDefault),
+  "limit": zod.coerce.number().min(1).max(getMarketUniverseQueryLimitMax).default(getMarketUniverseQueryLimitDefault),
+  "offset": zod.coerce.number().min(getMarketUniverseQueryOffsetMin).default(getMarketUniverseQueryOffsetDefault)
+})
+
+export const getMarketUniverseResponseSummaryTotalCountMin = 0;
+
+export const getMarketUniverseResponseSummaryEligibleCountMin = 0;
+
+export const getMarketUniverseResponseSummaryIneligibleCountMin = 0;
+
+export const getMarketUniverseResponseSummaryCommonEquityVerifiedCountMin = 0;
+
+export const getMarketUniverseResponseSummaryClassificationCoverageCountMin = 0;
+
+export const getMarketUniverseResponseSummaryLifecycleCountsActiveMin = 0;
+
+export const getMarketUniverseResponseSummaryLifecycleCountsHaltedMin = 0;
+
+export const getMarketUniverseResponseSummaryLifecycleCountsInactiveMin = 0;
+
+export const getMarketUniverseResponseSummaryLifecycleCountsDelistedMin = 0;
+
+export const getMarketUniverseResponseSummaryLifecycleCountsUnknownMin = 0;
+
+export const getMarketUniverseResponseTotalMin = 0;
+
+
+export const getMarketUniverseResponseOffsetMin = 0;
+
+
+
+export const GetMarketUniverseResponse = zod.object({
+  "summary": zod.object({
+  "provider": zod.enum(['Databento']),
+  "dataset": zod.string(),
+  "source": zod.string(),
+  "deliveryMode": zod.enum(['reference_only']),
+  "refreshState": zod.enum(['idle', 'refreshing', 'ready', 'degraded', 'unavailable']),
+  "lastAttemptAt": zod.coerce.date().nullable(),
+  "refreshedAt": zod.coerce.date().nullable(),
+  "sourceTimestamp": zod.coerce.date().nullable(),
+  "expiresAt": zod.coerce.date().nullable(),
+  "freshness": zod.enum(['fresh', 'stale', 'missing']),
+  "dataQuality": zod.enum(['good', 'degraded', 'unavailable']),
+  "reason": zod.string(),
+  "totalCount": zod.number().min(getMarketUniverseResponseSummaryTotalCountMin),
+  "eligibleCount": zod.number().min(getMarketUniverseResponseSummaryEligibleCountMin),
+  "ineligibleCount": zod.number().min(getMarketUniverseResponseSummaryIneligibleCountMin),
+  "commonEquityVerifiedCount": zod.number().min(getMarketUniverseResponseSummaryCommonEquityVerifiedCountMin),
+  "classificationCoverageCount": zod.number().min(getMarketUniverseResponseSummaryClassificationCoverageCountMin),
+  "lifecycleCounts": zod.object({
+  "active": zod.number().min(getMarketUniverseResponseSummaryLifecycleCountsActiveMin),
+  "halted": zod.number().min(getMarketUniverseResponseSummaryLifecycleCountsHaltedMin),
+  "inactive": zod.number().min(getMarketUniverseResponseSummaryLifecycleCountsInactiveMin),
+  "delisted": zod.number().min(getMarketUniverseResponseSummaryLifecycleCountsDelistedMin),
+  "unknown": zod.number().min(getMarketUniverseResponseSummaryLifecycleCountsUnknownMin)
+}),
+  "eligibleSample": zod.array(zod.string())
+}),
+  "items": zod.array(zod.object({
+  "symbol": zod.string(),
+  "providerSymbol": zod.string(),
+  "instrumentId": zod.string().nullable(),
+  "listingId": zod.string().nullable(),
+  "issuerName": zod.string().nullable(),
+  "listingExchange": zod.string().nullable(),
+  "primaryExchange": zod.string().nullable(),
+  "securityType": zod.enum(['common_stock', 'fund', 'adr', 'preferred', 'warrant', 'unit', 'right', 'other', 'unknown']),
+  "providerSecurityType": zod.string().nullable(),
+  "instrumentClass": zod.string().nullable(),
+  "lifecycleStatus": zod.enum(['active', 'halted', 'inactive', 'delisted', 'unknown']),
+  "lifecycleReason": zod.string(),
+  "eligibility": zod.enum(['eligible', 'ineligible']),
+  "eligibilityReasons": zod.array(zod.string()),
+  "sector": zod.string().nullable(),
+  "industryGroup": zod.string().nullable(),
+  "industry": zod.string().nullable(),
+  "classificationSource": zod.string().nullable(),
+  "referenceUpdatedAt": zod.coerce.date()
+})),
+  "total": zod.number().min(getMarketUniverseResponseTotalMin),
+  "limit": zod.number().min(1),
+  "offset": zod.number().min(getMarketUniverseResponseOffsetMin)
+})
 
 

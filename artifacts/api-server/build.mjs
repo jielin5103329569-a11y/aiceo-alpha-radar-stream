@@ -123,6 +123,10 @@ globalThis.__dirname = __bannerPath.dirname(globalThis.__filename);
     path.resolve(artifactDir, "src/lib/databento_live_bridge.py"),
     path.resolve(distDir, "databento_live_bridge.py"),
   );
+  await copyFile(
+    path.resolve(artifactDir, "src/lib/databento_reference_bridge.py"),
+    path.resolve(distDir, "databento_reference_bridge.py"),
+  );
 }
 
 buildAll().catch((err) => {

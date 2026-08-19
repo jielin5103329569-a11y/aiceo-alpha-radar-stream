@@ -40,6 +40,171 @@ export const RadarReconnectState = {
   exhausted: 'exhausted',
 } as const;
 
+export type MarketUniverseRefreshState = typeof MarketUniverseRefreshState[keyof typeof MarketUniverseRefreshState];
+
+
+export const MarketUniverseRefreshState = {
+  idle: 'idle',
+  refreshing: 'refreshing',
+  ready: 'ready',
+  degraded: 'degraded',
+  unavailable: 'unavailable',
+} as const;
+
+export type ReferenceFreshness = typeof ReferenceFreshness[keyof typeof ReferenceFreshness];
+
+
+export const ReferenceFreshness = {
+  fresh: 'fresh',
+  stale: 'stale',
+  missing: 'missing',
+} as const;
+
+export type ReferenceDataQuality = typeof ReferenceDataQuality[keyof typeof ReferenceDataQuality];
+
+
+export const ReferenceDataQuality = {
+  good: 'good',
+  degraded: 'degraded',
+  unavailable: 'unavailable',
+} as const;
+
+export type SecurityLifecycleStatus = typeof SecurityLifecycleStatus[keyof typeof SecurityLifecycleStatus];
+
+
+export const SecurityLifecycleStatus = {
+  active: 'active',
+  halted: 'halted',
+  inactive: 'inactive',
+  delisted: 'delisted',
+  unknown: 'unknown',
+} as const;
+
+export type SecurityEligibility = typeof SecurityEligibility[keyof typeof SecurityEligibility];
+
+
+export const SecurityEligibility = {
+  eligible: 'eligible',
+  ineligible: 'ineligible',
+} as const;
+
+export type NormalizedSecurityType = typeof NormalizedSecurityType[keyof typeof NormalizedSecurityType];
+
+
+export const NormalizedSecurityType = {
+  common_stock: 'common_stock',
+  fund: 'fund',
+  adr: 'adr',
+  preferred: 'preferred',
+  warrant: 'warrant',
+  unit: 'unit',
+  right: 'right',
+  other: 'other',
+  unknown: 'unknown',
+} as const;
+
+export interface SecurityReference {
+  symbol: string;
+  providerSymbol: string;
+  /** @nullable */
+  instrumentId: string | null;
+  /** @nullable */
+  listingId: string | null;
+  /** @nullable */
+  issuerName: string | null;
+  /** @nullable */
+  listingExchange: string | null;
+  /** @nullable */
+  primaryExchange: string | null;
+  securityType: NormalizedSecurityType;
+  /** @nullable */
+  providerSecurityType: string | null;
+  /** @nullable */
+  instrumentClass: string | null;
+  lifecycleStatus: SecurityLifecycleStatus;
+  lifecycleReason: string;
+  eligibility: SecurityEligibility;
+  eligibilityReasons: string[];
+  /** @nullable */
+  sector: string | null;
+  /** @nullable */
+  industryGroup: string | null;
+  /** @nullable */
+  industry: string | null;
+  /** @nullable */
+  classificationSource: string | null;
+  referenceUpdatedAt: string;
+}
+
+export interface MarketUniverseLifecycleCounts {
+  /** @minimum 0 */
+  active: number;
+  /** @minimum 0 */
+  halted: number;
+  /** @minimum 0 */
+  inactive: number;
+  /** @minimum 0 */
+  delisted: number;
+  /** @minimum 0 */
+  unknown: number;
+}
+
+export type MarketUniverseSummaryProvider = typeof MarketUniverseSummaryProvider[keyof typeof MarketUniverseSummaryProvider];
+
+
+export const MarketUniverseSummaryProvider = {
+  Databento: 'Databento',
+} as const;
+
+export type MarketUniverseSummaryDeliveryMode = typeof MarketUniverseSummaryDeliveryMode[keyof typeof MarketUniverseSummaryDeliveryMode];
+
+
+export const MarketUniverseSummaryDeliveryMode = {
+  reference_only: 'reference_only',
+} as const;
+
+export interface MarketUniverseSummary {
+  provider: MarketUniverseSummaryProvider;
+  dataset: string;
+  source: string;
+  deliveryMode: MarketUniverseSummaryDeliveryMode;
+  refreshState: MarketUniverseRefreshState;
+  /** @nullable */
+  lastAttemptAt: string | null;
+  /** @nullable */
+  refreshedAt: string | null;
+  /** @nullable */
+  sourceTimestamp: string | null;
+  /** @nullable */
+  expiresAt: string | null;
+  freshness: ReferenceFreshness;
+  dataQuality: ReferenceDataQuality;
+  reason: string;
+  /** @minimum 0 */
+  totalCount: number;
+  /** @minimum 0 */
+  eligibleCount: number;
+  /** @minimum 0 */
+  ineligibleCount: number;
+  /** @minimum 0 */
+  commonEquityVerifiedCount: number;
+  /** @minimum 0 */
+  classificationCoverageCount: number;
+  lifecycleCounts: MarketUniverseLifecycleCounts;
+  eligibleSample: string[];
+}
+
+export interface MarketUniverseResult {
+  summary: MarketUniverseSummary;
+  items: SecurityReference[];
+  /** @minimum 0 */
+  total: number;
+  /** @minimum 1 */
+  limit: number;
+  /** @minimum 0 */
+  offset: number;
+}
+
 export type RadarSignalFreshness = typeof RadarSignalFreshness[keyof typeof RadarSignalFreshness];
 
 
@@ -572,9 +737,39 @@ export interface RadarStatus {
   recentTrades: RadarTrade[];
   radar: RadarSnapshot;
   streams: RadarStream[];
+  marketUniverse: MarketUniverseSummary;
   symbolRadars: RadarSymbolStatus[];
   alphaRanking: AlphaRadarRankingSnapshot;
   /** @nullable */
   preBreakoutLeader: RadarStatusPreBreakoutLeader;
 }
 
+export type GetMarketUniverseParams = {
+/**
+ * @maxLength 64
+ */
+search?: string;
+eligibility?: GetMarketUniverseEligibility;
+lifecycle?: typeof GetMarketUniverseLifecycle[keyof typeof GetMarketUniverseLifecycle];
+/**
+ * @minimum 1
+ * @maximum 200
+ */
+limit?: number;
+/**
+ * @minimum 0
+ */
+offset?: number;
+};
+
+export type GetMarketUniverseEligibility = typeof GetMarketUniverseEligibility[keyof typeof GetMarketUniverseEligibility];
+
+
+export const GetMarketUniverseEligibility = {
+  eligible: 'eligible',
+  ineligible: 'ineligible',
+  all: 'all',
+} as const;
+
+export const GetMarketUniverseLifecycle = {...SecurityLifecycleStatus,  all: 'all',
+} as const

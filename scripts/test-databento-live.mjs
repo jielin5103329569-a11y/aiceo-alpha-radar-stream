@@ -68,6 +68,14 @@ try {
   transpile("artifacts/api-server/src/lib/alphaRadar.ts", "alphaRadar.js");
   transpile("artifacts/api-server/src/lib/marketFeed.ts", "marketFeed.js");
   transpile(
+    "artifacts/api-server/src/lib/marketUniverse.ts",
+    "marketUniverse.js",
+    (source) => source.replace(
+      'const currentDir = path.dirname(fileURLToPath(import.meta.url));',
+      'const currentDir = ".";',
+    ),
+  );
+  transpile(
     "artifacts/api-server/src/lib/databentoLive.ts",
     "databentoLive.js",
     (source) => source.replace(
@@ -89,6 +97,143 @@ try {
     scanProfileAt,
     updateAlphaRadarRanking,
   } = require(join(outputDirectory, "databentoLive.js"));
+  const {
+    MarketUniverseRegistry,
+    normalizeLifecycle,
+    normalizeReferenceSymbol,
+    normalizeSecurityType,
+  } = require(join(outputDirectory, "marketUniverse.js"));
+  assert.equal(normalizeReferenceSymbol(" nvda "), "NVDA", "reference symbols must be normalized");
+  assert.equal(normalizeReferenceSymbol("not a symbol"), null, "invalid reference symbols must be rejected");
+  assert.equal(
+    normalizeSecurityType("CS", null),
+    "common_stock",
+    "verified common-stock source types must normalize to common_stock",
+  );
+  assert.equal(
+    normalizeLifecycle("D", null, null).status,
+    "delisted",
+    "definition delete actions must map to an explicit delisted lifecycle",
+  );
+  assert.equal(
+    normalizeLifecycle(null, "H", null).status,
+    "halted",
+    "reference listing halts must map to an explicit halted lifecycle",
+  );
+  const referenceAt = new Date("2026-08-19T12:00:00.000Z");
+  const referenceRegistry = new MarketUniverseRegistry();
+  referenceRegistry.replace(
+    [
+      {
+        providerSymbol: "ACME",
+        instrumentId: "101",
+        providerSecurityType: "CS",
+        listingStatus: "A",
+        listingExchange: "XNAS",
+        primaryExchange: "XNAS",
+        sector: "Information Technology",
+        industryGroup: "Software",
+        industry: "Application Software",
+        classificationSource: "Deterministic fixture",
+        referenceUpdatedAt: referenceAt.toISOString(),
+        primaryListing: true,
+      },
+      {
+        providerSymbol: "ACME",
+        instrumentId: "101-secondary",
+        providerSecurityType: "CS",
+        listingStatus: "A",
+        listingExchange: "XNYS",
+        referenceUpdatedAt: new Date(referenceAt.getTime() + 1_000).toISOString(),
+        primaryListing: false,
+      },
+      {
+        providerSymbol: "HALT",
+        instrumentId: "102",
+        providerSecurityType: "CS",
+        listingStatus: "H",
+        referenceUpdatedAt: referenceAt.toISOString(),
+      },
+      {
+        providerSymbol: "ETFQ",
+        instrumentId: "103",
+        providerSecurityType: "ETF",
+        listingStatus: "A",
+        referenceUpdatedAt: referenceAt.toISOString(),
+      },
+      {
+        providerSymbol: "UNVERIFIED",
+        instrumentId: "104",
+        instrumentClass: "K",
+        securityUpdateAction: "A",
+        tradingStatus: "17",
+        referenceUpdatedAt: referenceAt.toISOString(),
+      },
+    ],
+    {
+      dataset: "Fixture",
+      source: "Deterministic reference fixture",
+      sourceKind: "security_master",
+      sourceTimestamp: referenceAt,
+      maxAgeMs: 60_000,
+      reason: "Deterministic reference fixture.",
+    },
+    referenceAt,
+  );
+  const freshReference = referenceRegistry.getSummary(new Date(referenceAt.getTime() + 10_000));
+  assert.equal(freshReference.totalCount, 4, "primary-listing deduplication must retain one record per normalized symbol");
+  assert.equal(freshReference.eligibleCount, 1, "only an active verified common stock may be a candidate");
+  assert.equal(freshReference.classificationCoverageCount, 1, "complete supplied sector hierarchy must be counted");
+  assert.equal(
+    referenceRegistry.query({}, new Date(referenceAt.getTime() + 10_000)).items[0]?.symbol,
+    "ACME",
+    "default discovery must return only currently eligible common-equity candidates",
+  );
+  assert.equal(
+    referenceRegistry.query({ eligibility: "ineligible" }, new Date(referenceAt.getTime() + 10_000)).total,
+    3,
+    "inactive, non-common, and unverified records must remain inspectable but ineligible",
+  );
+  const staleReference = referenceRegistry.getSummary(new Date(referenceAt.getTime() + 61_000));
+  assert.equal(staleReference.freshness, "stale", "expired reference snapshots must report stale freshness");
+  assert.equal(staleReference.eligibleCount, 0, "stale reference data must clear every candidate immediately");
+  assert.equal(
+    referenceRegistry.query({}, new Date(referenceAt.getTime() + 61_000)).total,
+    0,
+    "stale reference data must never be returned by default candidate discovery",
+  );
+  assert.deepEqual(
+    staleReference.eligibleSample,
+    [],
+    "stale reference summaries must not advertise an obsolete candidate sample",
+  );
+  const definitionsOnlyRegistry = new MarketUniverseRegistry();
+  definitionsOnlyRegistry.replace(
+    [
+      {
+        providerSymbol: "DEFINITIONONLY",
+        instrumentId: "200",
+        providerSecurityType: "CS",
+        cfi: "ESVUFR",
+        securityUpdateAction: "A",
+        tradingStatus: "17",
+        referenceUpdatedAt: referenceAt.toISOString(),
+      },
+    ],
+    {
+      dataset: "EQUS.MINI",
+      source: "Databento EQUS.MINI instrument definitions",
+      sourceKind: "definitions",
+      sourceTimestamp: referenceAt,
+      reason: "Definitions only.",
+    },
+    referenceAt,
+  );
+  assert.equal(
+    definitionsOnlyRegistry.getSummary(referenceAt).eligibleCount,
+    0,
+    "definition-only fallback records must remain ineligible even when a CFI resembles common equity",
+  );
   assert.deepEqual(
     scanProfileAt(new Date("2026-08-17T13:27:00.000Z")),
     { scanMode: "pre_open", scanIntervalMs: 3_000 },
@@ -110,6 +255,11 @@ try {
     universeStatus.symbolRadars.map((radar) => radar.symbol),
     [...MONITORED_SYMBOLS],
     "the scan universe must expose independent NVDA, MU, VRT, CRDO, and AMD radar windows",
+  );
+  assert.equal(
+    universeStatus.marketUniverse?.deliveryMode,
+    "reference_only",
+    "the broad reference registry must be visible without creating broad live subscriptions",
   );
   assert.ok(
     universeStatus.symbolRadars.every((radar) => Array.isArray(radar.signalHistory)),

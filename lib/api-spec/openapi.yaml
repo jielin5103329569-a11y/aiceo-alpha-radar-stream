@@ -74,6 +74,51 @@ paths:
             text/event-stream:
               schema:
                 type: string
+  /radar/universe:
+    get:
+      operationId: getMarketUniverse
+      tags: [radar]
+      summary: Query the low-frequency U.S. equity reference universe
+      parameters:
+        - in: query
+          name: search
+          schema:
+            type: string
+            maxLength: 64
+        - in: query
+          name: eligibility
+          schema:
+            type: string
+            enum: [eligible, ineligible, all]
+            default: eligible
+        - in: query
+          name: lifecycle
+          schema:
+            anyOf:
+              - $ref: "#/components/schemas/SecurityLifecycleStatus"
+              - type: string
+                enum: [all]
+            default: all
+        - in: query
+          name: limit
+          schema:
+            type: number
+            minimum: 1
+            maximum: 200
+            default: 50
+        - in: query
+          name: offset
+          schema:
+            type: number
+            minimum: 0
+            default: 0
+      responses:
+        "200":
+          description: Bounded reference-universe results and quality summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MarketUniverseResult"
 components:
   schemas:
     HealthStatus:
@@ -92,6 +137,200 @@ components:
     RadarReconnectState:
       type: string
       enum: [idle, scheduled, reconnecting, exhausted]
+    MarketUniverseRefreshState:
+      type: string
+      enum: [idle, refreshing, ready, degraded, unavailable]
+    ReferenceFreshness:
+      type: string
+      enum: [fresh, stale, missing]
+    ReferenceDataQuality:
+      type: string
+      enum: [good, degraded, unavailable]
+    SecurityLifecycleStatus:
+      type: string
+      enum: [active, halted, inactive, delisted, unknown]
+    SecurityEligibility:
+      type: string
+      enum: [eligible, ineligible]
+    NormalizedSecurityType:
+      type: string
+      enum: [common_stock, fund, adr, preferred, warrant, unit, right, other, unknown]
+    SecurityReference:
+      type: object
+      properties:
+        symbol:
+          type: string
+        providerSymbol:
+          type: string
+        instrumentId:
+          type: [string, "null"]
+        listingId:
+          type: [string, "null"]
+        issuerName:
+          type: [string, "null"]
+        listingExchange:
+          type: [string, "null"]
+        primaryExchange:
+          type: [string, "null"]
+        securityType:
+          $ref: "#/components/schemas/NormalizedSecurityType"
+        providerSecurityType:
+          type: [string, "null"]
+        instrumentClass:
+          type: [string, "null"]
+        lifecycleStatus:
+          $ref: "#/components/schemas/SecurityLifecycleStatus"
+        lifecycleReason:
+          type: string
+        eligibility:
+          $ref: "#/components/schemas/SecurityEligibility"
+        eligibilityReasons:
+          type: array
+          items:
+            type: string
+        sector:
+          type: [string, "null"]
+        industryGroup:
+          type: [string, "null"]
+        industry:
+          type: [string, "null"]
+        classificationSource:
+          type: [string, "null"]
+        referenceUpdatedAt:
+          type: string
+          format: date-time
+      required:
+        - symbol
+        - providerSymbol
+        - instrumentId
+        - listingId
+        - issuerName
+        - listingExchange
+        - primaryExchange
+        - securityType
+        - providerSecurityType
+        - instrumentClass
+        - lifecycleStatus
+        - lifecycleReason
+        - eligibility
+        - eligibilityReasons
+        - sector
+        - industryGroup
+        - industry
+        - classificationSource
+        - referenceUpdatedAt
+    MarketUniverseLifecycleCounts:
+      type: object
+      properties:
+        active:
+          type: number
+          minimum: 0
+        halted:
+          type: number
+          minimum: 0
+        inactive:
+          type: number
+          minimum: 0
+        delisted:
+          type: number
+          minimum: 0
+        unknown:
+          type: number
+          minimum: 0
+      required: [active, halted, inactive, delisted, unknown]
+    MarketUniverseSummary:
+      type: object
+      properties:
+        provider:
+          type: string
+          enum: [Databento]
+        dataset:
+          type: string
+        source:
+          type: string
+        deliveryMode:
+          type: string
+          enum: [reference_only]
+        refreshState:
+          $ref: "#/components/schemas/MarketUniverseRefreshState"
+        lastAttemptAt:
+          type: ["string", "null"]
+          format: date-time
+        refreshedAt:
+          type: ["string", "null"]
+          format: date-time
+        sourceTimestamp:
+          type: ["string", "null"]
+          format: date-time
+        expiresAt:
+          type: ["string", "null"]
+          format: date-time
+        freshness:
+          $ref: "#/components/schemas/ReferenceFreshness"
+        dataQuality:
+          $ref: "#/components/schemas/ReferenceDataQuality"
+        reason:
+          type: string
+        totalCount:
+          type: number
+          minimum: 0
+        eligibleCount:
+          type: number
+          minimum: 0
+        ineligibleCount:
+          type: number
+          minimum: 0
+        commonEquityVerifiedCount:
+          type: number
+          minimum: 0
+        classificationCoverageCount:
+          type: number
+          minimum: 0
+        lifecycleCounts:
+          $ref: "#/components/schemas/MarketUniverseLifecycleCounts"
+        eligibleSample:
+          type: array
+          items:
+            type: string
+      required:
+        - provider
+        - dataset
+        - source
+        - deliveryMode
+        - refreshState
+        - lastAttemptAt
+        - refreshedAt
+        - sourceTimestamp
+        - expiresAt
+        - freshness
+        - dataQuality
+        - reason
+        - totalCount
+        - eligibleCount
+        - ineligibleCount
+        - commonEquityVerifiedCount
+        - classificationCoverageCount
+        - lifecycleCounts
+        - eligibleSample
+    MarketUniverseResult:
+      type: object
+      properties:
+        summary:
+          $ref: "#/components/schemas/MarketUniverseSummary"
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/SecurityReference"
+        total:
+          type: number
+          minimum: 0
+        limit:
+          type: number
+          minimum: 1
+        offset:
+          type: number
+          minimum: 0
+      required: [summary, items, total, limit, offset]
     RadarSignalFreshness:
       type: string
       enum: [fresh, delayed, stale, missing]
@@ -816,6 +1055,8 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/RadarStream"
+        marketUniverse:
+          $ref: "#/components/schemas/MarketUniverseSummary"
         symbolRadars:
           type: array
           items:
@@ -854,6 +1095,7 @@ components:
         - recentTrades
         - radar
         - streams
+        - marketUniverse
         - symbolRadars
         - alphaRanking
         - preBreakoutLeader

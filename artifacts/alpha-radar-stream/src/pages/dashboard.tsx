@@ -12,6 +12,7 @@ import {
   ArrowLeftRight,
   BarChart3,
   CircleAlert,
+  Database,
   Gauge,
   Power,
   PowerOff,
@@ -24,7 +25,7 @@ import {
   Zap,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import type { MarketFeedState, RadarConnectionState, RadarReconnectState, RadarSignal, RadarSnapshot, RadarStatus, RadarSymbolStatus, AlphaRadarRankingSnapshot } from '@workspace/api-client-react';
+import type { MarketFeedState, MarketUniverseSummary, RadarConnectionState, RadarReconnectState, RadarSignal, RadarSnapshot, RadarStatus, RadarSymbolStatus, AlphaRadarRankingSnapshot } from '@workspace/api-client-react';
 
 export default function Dashboard() {
   const { status, isLoading, isError, transportState } = useRadarStream();
@@ -274,6 +275,11 @@ export default function Dashboard() {
             ranking={status?.alphaRanking ?? null}
           />
 
+          <MarketUniverseFoundationCard
+            summary={status?.marketUniverse ?? null}
+            liveSymbolCount={status?.symbolRadars?.length ?? 0}
+          />
+
           <RadarScoreCard radar={status?.radar ?? null} />
 
           <RadarComponentsCard radar={status?.radar ?? null} />
@@ -374,6 +380,118 @@ export default function Dashboard() {
           </Card>
         </div>
       </main>
+    </div>
+  );
+}
+
+function MarketUniverseFoundationCard({
+  summary,
+  liveSymbolCount,
+}: {
+  summary: MarketUniverseSummary | null;
+  liveSymbolCount: number;
+}) {
+  const freshnessStyle = summary?.freshness === 'fresh'
+    ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
+    : summary?.freshness === 'stale'
+      ? 'border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300'
+      : 'border-muted-foreground/30 bg-muted/50 text-muted-foreground';
+  const qualityStyle = summary?.dataQuality === 'good'
+    ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
+    : summary?.dataQuality === 'degraded'
+      ? 'border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300'
+      : 'border-destructive/30 bg-destructive/10 text-destructive';
+
+  return (
+    <Card className="scroll-mt-20" data-testid="market-universe-foundation">
+      <CardHeader className="pb-4">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <CardTitle className="flex items-center gap-2 text-sm font-medium uppercase tracking-widest text-muted-foreground">
+              <Database className="h-4 w-4 text-primary" />
+              Broad Market Reference Foundation
+            </CardTitle>
+            <CardDescription className="mt-1">
+              Low-frequency security reference only. Discovery does not subscribe symbols to live microstructure data.
+            </CardDescription>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Badge variant="outline" className={`font-mono text-[10px] ${freshnessStyle}`} data-testid="market-universe-freshness">
+              {summary?.freshness ?? 'missing'} reference
+            </Badge>
+            <Badge variant="outline" className={`font-mono text-[10px] ${qualityStyle}`} data-testid="market-universe-quality">
+              {summary?.dataQuality ?? 'unavailable'} quality
+            </Badge>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <UniverseMetric label="Discovered" value={formatNumber(summary?.totalCount, 0)} />
+          <UniverseMetric label="Verified candidates" value={formatNumber(summary?.eligibleCount, 0)} />
+          <UniverseMetric label="Classified" value={formatNumber(summary?.classificationCoverageCount, 0)} />
+          <UniverseMetric label="Live deep scans" value={formatNumber(liveSymbolCount, 0)} emphasize />
+        </div>
+
+        <div className="grid gap-3 rounded-md border border-border/60 bg-muted/20 p-3 text-xs sm:grid-cols-2">
+          <div className="space-y-1.5">
+            <p className="font-medium text-foreground">Reference source</p>
+            <p className="font-mono text-[11px] text-muted-foreground break-words">
+              {summary?.source ?? 'Awaiting server reference refresh'}
+            </p>
+            <p className="text-muted-foreground">
+              Snapshot: {formatTime(summary?.sourceTimestamp)} · refreshed {formatTime(summary?.refreshedAt)}
+            </p>
+          </div>
+          <div className="space-y-1.5">
+            <p className="font-medium text-foreground">Lifecycle coverage</p>
+            <p className="font-mono text-[11px] text-muted-foreground">
+              Active {formatNumber(summary?.lifecycleCounts?.active, 0)}
+              {' · '}halted {formatNumber(summary?.lifecycleCounts?.halted, 0)}
+              {' · '}inactive {formatNumber(summary?.lifecycleCounts?.inactive, 0)}
+              {' · '}delisted {formatNumber(summary?.lifecycleCounts?.delisted, 0)}
+            </p>
+            <p className="text-muted-foreground">
+              {summary?.deliveryMode === 'reference_only'
+                ? 'No broad-market high-frequency channels are open.'
+                : 'Reference-only delivery is required.'}
+            </p>
+          </div>
+        </div>
+
+        <div className="rounded-md border border-dashed border-border bg-background/50 p-3">
+          <div className="flex items-start gap-2">
+            <CircleAlert className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+            <div className="min-w-0">
+              <p className="text-xs leading-relaxed text-muted-foreground" data-testid="market-universe-reason">
+                {summary?.reason ?? 'The server has not completed its first reference refresh.'}
+              </p>
+              {summary?.eligibleSample && summary.eligibleSample.length > 0 && (
+                <p className="mt-2 font-mono text-[11px] text-primary">
+                  Candidate sample: {summary.eligibleSample.join(' · ')}
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function UniverseMetric({
+  label,
+  value,
+  emphasize = false,
+}: {
+  label: string;
+  value: string;
+  emphasize?: boolean;
+}) {
+  return (
+    <div className="rounded-md border border-border/60 bg-card p-3">
+      <p className="text-[9px] uppercase tracking-wider text-muted-foreground">{label}</p>
+      <p className={cn('mt-1 font-mono text-lg font-semibold', emphasize ? 'text-primary' : 'text-foreground')}>{value}</p>
     </div>
   );
 }

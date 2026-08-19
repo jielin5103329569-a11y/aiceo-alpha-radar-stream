@@ -22,6 +22,7 @@ import {
   type MarketFeedState,
 } from "./marketFeed";
 import { logger } from "./logger";
+import { marketUniverse, type MarketUniverseSummary } from "./marketUniverse";
 
 export type RadarConnectionState =
   | "not_configured"
@@ -115,6 +116,7 @@ export type RadarStatus = {
     confirmationStatus: AlphaRadarSnapshot["preBreakout"]["confirmation"]["status"];
     alphaVelocity: number | null;
   } | null;
+  marketUniverse?: MarketUniverseSummary;
 };
 
 export type RadarSymbolStatus = {
@@ -1809,6 +1811,7 @@ export class DatabentoUniverseService extends EventEmitter {
     this.services.forEach((service) => {
       service.on("status", () => this.emit("status", this.getStatus()));
     });
+    marketUniverse.on("status", () => this.emit("status", this.getStatus()));
   }
 
   getStatus(): RadarStatus {
@@ -1825,6 +1828,7 @@ export class DatabentoUniverseService extends EventEmitter {
       ...primary,
       symbolRadars,
       alphaRanking: rankingResult.snapshot,
+      marketUniverse: marketUniverse.getSummary(),
       preBreakoutLeader: leader
         ? {
             symbol: leader.symbol,

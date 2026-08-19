@@ -1,16 +1,28 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import {
+  GetMarketUniverseQueryParams,
+  GetMarketUniverseResponse,
   GetRadarStatusResponse,
   StartRadarConnectionResponse,
   StopRadarConnectionResponse,
 } from "@workspace/api-zod";
 
 import { databentoLive } from "../lib/databentoLive";
+import { marketUniverse } from "../lib/marketUniverse";
 
 const router: IRouter = Router();
 
 router.get("/radar/status", (_req: Request, res: Response): void => {
   res.json(GetRadarStatusResponse.parse(databentoLive.getStatus()));
+});
+
+router.get("/radar/universe", (req: Request, res: Response): void => {
+  const parsed = GetMarketUniverseQueryParams.safeParse(req.query);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+  res.json(GetMarketUniverseResponse.parse(marketUniverse.query(parsed.data)));
 });
 
 router.post("/radar/connect", (req: Request, res: Response): void => {
