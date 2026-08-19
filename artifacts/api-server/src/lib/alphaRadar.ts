@@ -38,6 +38,15 @@ export type RadarSignalMetric = {
   source: string;
 };
 
+export type AlphaRadarDiagnostics = {
+  fresh_quotes: number;
+  fresh_trades: number;
+  fresh_prices: number;
+  fresh_volume: number;
+  valid_window_age: number | null;
+  scoring_gate_reason: string;
+};
+
 export type AlphaRadarSnapshot = {
   score: number | null;
   status: AlphaRadarSignalState | null;
@@ -46,6 +55,7 @@ export type AlphaRadarSnapshot = {
   dataQuality: SignalDataQuality;
   generatedAt: Date;
   warnings: string[];
+  diagnostics: AlphaRadarDiagnostics;
   momentum: RadarSignalMetric;
   spread: RadarSignalMetric;
   volumeIntensity: RadarSignalMetric;
@@ -65,6 +75,7 @@ const SHORT_WINDOW_MS = 30_000;
 const BASELINE_WINDOW_MS = 300_000;
 const FRESH_MS = 15_000;
 const DELAYED_MS = 60_000;
+const MIN_VOLUME_OBSERVATIONS = 2;
 
 function clamp(value: number, minimum = 0, maximum = 100): number {
   return Math.min(maximum, Math.max(minimum, value));
@@ -83,6 +94,18 @@ function sortedRecent<T extends { timestamp: Date }>(items: T[]): T[] {
   return items
     .filter((item) => validDate(item.timestamp))
     .sort((left, right) => left.timestamp.getTime() - right.timestamp.getTime());
+}
+
+function observationIsFresh(timestamp: Date, now: Date): boolean {
+  if (!validDate(timestamp)) return false;
+  const ageMs = now.getTime() - timestamp.getTime();
+  return ageMs >= 0 && ageMs <= FRESH_MS;
+}
+
+function observationIsInRollingWindow(timestamp: Date, now: Date): boolean {
+  if (!validDate(timestamp)) return false;
+  const ageMs = now.getTime() - timestamp.getTime();
+  return ageMs >= 0 && ageMs <= BASELINE_WINDOW_MS;
 }
 
 function metricFreshness(observedAt: Date | null, now: Date): Pick<RadarSignalMetric, "freshness" | "freshnessMs"> {
@@ -165,26 +188,39 @@ function calculateMomentum(input: AlphaRadarInput): RadarSignalMetric {
     ...sortedRecent(input.quotes)
       .map((quote) => ({ timestamp: quote.timestamp, price: quoteMidpoint(quote), source: "quote midpoint" }))
       .filter((point): point is { timestamp: Date; price: number; source: string } => point.price !== null),
-    ...sortedRecent(input.trades).map((trade) => ({ timestamp: trade.timestamp, price: trade.price, source: "trade price" })),
+    ...sortedRecent(input.trades)
+      .map((trade) => ({ timestamp: trade.timestamp, price: trade.price, source: "trade price" })),
     ...sortedRecent(input.bars)
       .map((bar) => ({ timestamp: bar.timestamp, price: bar.close, source: "OHLCV close" }))
       .filter((point): point is { timestamp: Date; price: number; source: string } => point.price !== null),
   ].sort((left, right) => left.timestamp.getTime() - right.timestamp.getTime());
 
-  const latest = points.at(-1);
-  if (!latest || points.length < 2) {
+  const freshPoints = points.filter((point) => observationIsFresh(point.timestamp, input.now));
+  const latestFreshPoint = freshPoints.at(-1);
+  const hasFreshReference = Boolean(
+    latestFreshPoint
+    && freshPoints.some((point) => point.timestamp.getTime() < latestFreshPoint.timestamp.getTime()),
+  );
+  const scoringPoints = hasFreshReference ? freshPoints : points;
+  const latest = scoringPoints.at(-1);
+  const priorPoints = latest
+    ? scoringPoints.filter((point) => point.timestamp.getTime() < latest.timestamp.getTime())
+    : [];
+  if (!latest || priorPoints.length === 0) {
     return unavailableMetric("%", "Requires at least two live quote, trade, or bar prices.", input.now);
   }
 
   const targetTime = latest.timestamp.getTime() - SHORT_WINDOW_MS;
-  const reference = [...points].reverse().find((point) => point.timestamp.getTime() <= targetTime) ?? points[0];
-  if (!reference || reference.price <= 0 || reference.timestamp.getTime() === latest.timestamp.getTime()) {
+  const reference =
+    [...priorPoints].reverse().find((point) => point.timestamp.getTime() <= targetTime)
+    ?? priorPoints[0];
+  if (!reference || reference.price <= 0) {
     return unavailableMetric("%", "Requires a prior price observation.", input.now);
   }
 
   const changePercent = ((latest.price - reference.price) / reference.price) * 100;
   const score = 50 + clamp((changePercent / 0.25) * 50, -50, 50);
-  return makeMetric(
+  const metric = makeMetric(
     changePercent,
     "%",
     score,
@@ -194,10 +230,21 @@ function calculateMomentum(input: AlphaRadarInput): RadarSignalMetric {
     reference.price,
     "window start price",
   );
+  return hasFreshReference
+    ? metric
+    : withoutCurrentScore({
+      ...metric,
+      source:
+        metric.freshness === "fresh"
+          ? "Historical price reference retained for diagnosis; excluded from live momentum scoring"
+          : metric.source,
+    });
 }
 
 function calculateSpread(input: AlphaRadarInput): RadarSignalMetric {
-  const quote = [...sortedRecent(input.quotes)].reverse().find((item) => quoteMidpoint(item) !== null);
+  const quote = [...sortedRecent(input.quotes)]
+    .reverse()
+    .find((item) => observationIsFresh(item.timestamp, input.now) && quoteMidpoint(item) !== null);
   if (!quote) {
     return unavailableMetric("bps", "Requires a live bid and ask quote.", input.now);
   }
@@ -213,9 +260,20 @@ function calculateSpread(input: AlphaRadarInput): RadarSignalMetric {
 
 function calculateVolumeIntensity(input: AlphaRadarInput): RadarSignalMetric {
   const nowMs = input.now.getTime();
-  const bars = sortedRecent(input.bars).filter((bar) => bar.volume !== null && bar.volume >= 0);
-  const trades = sortedRecent(input.trades).filter((trade) => trade.size >= 0);
-  const useBars = bars.length > 0;
+  const bars = sortedRecent(input.bars).filter(
+    (bar) =>
+      observationIsInRollingWindow(bar.timestamp, input.now)
+      && bar.volume !== null
+      && bar.volume >= 0,
+  );
+  const trades = sortedRecent(input.trades).filter(
+    (trade) => observationIsInRollingWindow(trade.timestamp, input.now) && trade.size >= 0,
+  );
+  const barVolume = sum(bars.map((bar) => bar.volume ?? 0));
+  const tradeVolume = sum(trades.map((trade) => trade.size));
+  const barsCanBaseline = bars.length >= MIN_VOLUME_OBSERVATIONS && barVolume > 0;
+  const tradesCanBaseline = trades.length >= MIN_VOLUME_OBSERVATIONS && tradeVolume > 0;
+  const useBars = barsCanBaseline || (!tradesCanBaseline && bars.length > 0);
   const observations = useBars ? bars : trades;
 
   if (observations.length === 0) {
@@ -230,14 +288,19 @@ function calculateVolumeIntensity(input: AlphaRadarInput): RadarSignalMetric {
   const recentVolume = sum(recent.map(getVolume));
   const latest = observations.at(-1) ?? null;
   const earliest = observations[0];
+  const distinctTimestamps = new Set(observations.map((item) => item.timestamp.getTime()));
 
-  if (!latest || earliest.timestamp.getTime() > nowMs - BASELINE_WINDOW_MS) {
+  if (
+    !latest
+    || observations.length < MIN_VOLUME_OBSERVATIONS
+    || distinctTimestamps.size < MIN_VOLUME_OBSERVATIONS
+  ) {
     return makeMetric(
       null,
       "x baseline",
       null,
       latest?.timestamp ?? null,
-      "Collecting a five-minute rolling volume baseline",
+      "Collecting a rolling volume baseline from live observations",
       input.now,
       recentVolume,
       "recent 30s volume",
@@ -245,7 +308,12 @@ function calculateVolumeIntensity(input: AlphaRadarInput): RadarSignalMetric {
   }
 
   const baselineBuckets: number[] = [];
-  for (let bucket = 1; bucket <= BASELINE_WINDOW_MS / SHORT_WINDOW_MS; bucket += 1) {
+  const observedWindowAgeMs = Math.max(1, nowMs - earliest.timestamp.getTime());
+  const observedBucketCount = Math.min(
+    BASELINE_WINDOW_MS / SHORT_WINDOW_MS,
+    Math.max(1, Math.ceil(observedWindowAgeMs / SHORT_WINDOW_MS)),
+  );
+  for (let bucket = 1; bucket <= observedBucketCount; bucket += 1) {
     const bucketEnd = nowMs - (bucket - 1) * SHORT_WINDOW_MS;
     const bucketStart = bucketEnd - SHORT_WINDOW_MS;
     baselineBuckets.push(sum(observations
@@ -276,7 +344,7 @@ function calculateVolumeIntensity(input: AlphaRadarInput): RadarSignalMetric {
 
 function calculateOrderFlowPressure(input: AlphaRadarInput): RadarSignalMetric {
   const nowMs = input.now.getTime();
-  const windowTrades = getWindow(sortedRecent(input.trades), nowMs - SHORT_WINDOW_MS, nowMs);
+  const windowTrades = getWindow(sortedRecent(input.trades), nowMs - FRESH_MS, nowMs);
   const classifiedTrades = windowTrades.filter((trade) => trade.side === "B" || trade.side === "A");
   const latestClassifiedTrade = classifiedTrades.at(-1);
 
@@ -299,7 +367,14 @@ function calculateOrderFlowPressure(input: AlphaRadarInput): RadarSignalMetric {
     }
   }
 
-  const quote = [...sortedRecent(input.quotes)].reverse().find((item) => item.bidSize !== null && item.askSize !== null);
+  const quote = [...sortedRecent(input.quotes)]
+    .reverse()
+    .find(
+      (item) =>
+        observationIsFresh(item.timestamp, input.now)
+        && item.bidSize !== null
+        && item.askSize !== null,
+    );
   if (quote && quote.bidSize !== null && quote.askSize !== null && quote.bidSize + quote.askSize > 0) {
     const pressurePercent = ((quote.bidSize - quote.askSize) / (quote.bidSize + quote.askSize)) * 100;
     return makeMetric(
@@ -377,6 +452,87 @@ function dataQualityFrom(metrics: RadarSignalMetric[], connectionState: string):
   return "good";
 }
 
+function diagnosticsFrom(input: AlphaRadarInput): Omit<AlphaRadarDiagnostics, "scoring_gate_reason"> {
+  const freshQuotes = input.quotes.filter(
+    (quote) =>
+      observationIsFresh(quote.timestamp, input.now)
+      && (
+        quoteMidpoint(quote) !== null
+        || (quote.bidSize !== null && quote.askSize !== null)
+      ),
+  );
+  const freshTrades = input.trades.filter(
+    (trade) => observationIsFresh(trade.timestamp, input.now),
+  );
+  const freshBars = input.bars.filter(
+    (bar) => observationIsFresh(bar.timestamp, input.now),
+  );
+  const priceTimestamps = new Set<number>();
+  for (const quote of freshQuotes) {
+    if (quoteMidpoint(quote) !== null) priceTimestamps.add(quote.timestamp.getTime());
+  }
+  for (const trade of freshTrades) {
+    if (trade.price > 0) priceTimestamps.add(trade.timestamp.getTime());
+  }
+  for (const bar of freshBars) {
+    if (bar.close !== null && bar.close > 0) priceTimestamps.add(bar.timestamp.getTime());
+  }
+  const freshVolume =
+    freshTrades.filter((trade) => trade.size > 0).length
+    + freshBars.filter((bar) => bar.volume !== null && bar.volume > 0).length;
+  const rollingTimestamps = [
+    ...input.quotes.map((quote) => quote.timestamp),
+    ...input.trades.map((trade) => trade.timestamp),
+    ...input.bars.map((bar) => bar.timestamp),
+  ]
+    .filter((timestamp) => observationIsInRollingWindow(timestamp, input.now))
+    .map((timestamp) => timestamp.getTime());
+  const hasFreshObservation =
+    freshQuotes.length > 0
+    || freshTrades.length > 0
+    || freshBars.length > 0;
+  const earliestTimestamp = rollingTimestamps.length > 0
+    ? Math.min(...rollingTimestamps)
+    : null;
+
+  return {
+    fresh_quotes: freshQuotes.length,
+    fresh_trades: freshTrades.length,
+    fresh_prices: priceTimestamps.size,
+    fresh_volume: freshVolume,
+    valid_window_age:
+      hasFreshObservation && earliestTimestamp !== null
+        ? round((input.now.getTime() - earliestTimestamp) / 1_000, 1)
+        : null,
+  };
+}
+
+function scoringGateReason(
+  input: AlphaRadarInput,
+  diagnostics: Omit<AlphaRadarDiagnostics, "scoring_gate_reason">,
+  scoringAvailable: boolean,
+  momentum: RadarSignalMetric,
+  spread: RadarSignalMetric,
+  volumeIntensity: RadarSignalMetric,
+  orderFlowPressure: RadarSignalMetric,
+): string {
+  if (scoringAvailable) return "ready";
+  if (input.connectionState !== "streaming") return "feed_not_streaming";
+  if (
+    diagnostics.fresh_quotes === 0
+    && diagnostics.fresh_trades === 0
+    && diagnostics.fresh_prices === 0
+    && diagnostics.fresh_volume === 0
+  ) {
+    return "no_fresh_market_observations";
+  }
+  if (!momentum.scoreEligible) return "waiting_for_two_fresh_prices";
+  if (!spread.scoreEligible) return "waiting_for_fresh_bid_ask";
+  if (!volumeIntensity.scoreEligible) return "building_volume_baseline";
+  if (!orderFlowPressure.scoreEligible) return "waiting_for_order_flow";
+  return "incomplete_scoring_window";
+}
+
 function withoutCurrentScore(metric: RadarSignalMetric): RadarSignalMetric {
   return {
     ...metric,
@@ -395,6 +551,14 @@ export function createEmptyAlphaRadar(now: Date): AlphaRadarSnapshot {
     dataQuality: "missing",
     generatedAt: now,
     warnings: ["Waiting for live NVDA market observations. No Alpha Radar score is available."],
+    diagnostics: {
+      fresh_quotes: 0,
+      fresh_trades: 0,
+      fresh_prices: 0,
+      fresh_volume: 0,
+      valid_window_age: null,
+      scoring_gate_reason: "waiting_for_live_market_observations",
+    },
     momentum: { ...unavailable, unit: "%" },
     spread: { ...unavailable, unit: "bps" },
     volumeIntensity: { ...unavailable, unit: "x baseline" },
@@ -433,7 +597,10 @@ export function calculateAlphaRadar(input: AlphaRadarInput): AlphaRadarSnapshot 
   const weightedScore = scoringAvailable
     ? sum(eligibleComponents.map(({ metric, weight }) => (metric.score ?? 0) * weight)) / availableWeight
     : null;
-  const confidence = scoringAvailable ? Math.round(availableWeight * 100) : 0;
+  const confidence =
+    input.connectionState === "streaming"
+      ? Math.round(availableWeight * 100)
+      : 0;
   const score = weightedScore === null ? null : Math.round(clamp(weightedScore));
   const hasHistoricalObservation = components.some(({ metric }) => metric.observedAt !== null);
   const scoreState: AlphaRadarScoreState = scoringAvailable
@@ -469,6 +636,19 @@ export function calculateAlphaRadar(input: AlphaRadarInput): AlphaRadarSnapshot 
         ...withoutCurrentScore(calculatedUnusualActivity),
         detected: false,
       };
+  const diagnosticCounts = diagnosticsFrom(input);
+  const diagnostics: AlphaRadarDiagnostics = {
+    ...diagnosticCounts,
+    scoring_gate_reason: scoringGateReason(
+      input,
+      diagnosticCounts,
+      scoringAvailable,
+      calculatedMomentum,
+      calculatedSpread,
+      calculatedVolumeIntensity,
+      calculatedOrderFlowPressure,
+    ),
+  };
 
   const warnings: string[] = [];
   if (input.connectionState !== "streaming") {
@@ -481,10 +661,10 @@ export function calculateAlphaRadar(input: AlphaRadarInput): AlphaRadarSnapshot 
   } else if (dataQuality === "degraded") {
     warnings.push("Market observations are delayed or incomplete; no score is available until a valid window is rebuilt.");
   }
-  if (volumeIntensity.score === null) {
+  if (!calculatedVolumeIntensity.scoreEligible) {
     warnings.push("Volume intensity is collecting a rolling baseline.");
   }
-  if (momentum.score === null) {
+  if (!calculatedMomentum.scoreEligible) {
     warnings.push("Momentum is waiting for at least two price observations.");
   }
 
@@ -496,6 +676,7 @@ export function calculateAlphaRadar(input: AlphaRadarInput): AlphaRadarSnapshot 
     dataQuality,
     generatedAt: input.now,
     warnings,
+    diagnostics,
     momentum,
     spread,
     volumeIntensity,

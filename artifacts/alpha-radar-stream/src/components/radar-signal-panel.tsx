@@ -29,6 +29,7 @@ export function RadarSignalPanel({ alphaRadar }: RadarSignalPanelProps) {
   }
   const scoreAvailable = alphaRadar.scoreState === 'available' && alphaRadar.score !== null;
   const unusualActivityIsLive = scoreAvailable && alphaRadar.unusualActivity.detected;
+  const diagnostics = alphaRadar.diagnostics;
 
   return (
     <Card className="border-primary/20">
@@ -81,6 +82,29 @@ export function RadarSignalPanel({ alphaRadar }: RadarSignalPanelProps) {
           </div>
         </div>
 
+        <div className="rounded-lg border border-border/70 bg-card p-3" data-testid="alpha-radar-diagnostics">
+          <div className="mb-2 flex items-center justify-between gap-3 text-[10px] uppercase tracking-wider text-muted-foreground">
+            <span>Scoring window diagnostics</span>
+            <span className="font-mono text-foreground" data-testid="text-scoring-gate-reason">
+              {formatGateReason(diagnostics.scoring_gate_reason)}
+            </span>
+          </div>
+          <div className="grid grid-cols-2 gap-x-4 gap-y-2 font-mono text-[11px] sm:grid-cols-5">
+            <DiagnosticValue label="fresh_quotes" value={diagnostics.fresh_quotes} />
+            <DiagnosticValue label="fresh_trades" value={diagnostics.fresh_trades} />
+            <DiagnosticValue label="fresh_prices" value={diagnostics.fresh_prices} />
+            <DiagnosticValue label="fresh_volume" value={diagnostics.fresh_volume} />
+            <DiagnosticValue
+              label="valid_window_age"
+              value={
+                diagnostics.valid_window_age === null
+                  ? '—'
+                  : `${formatNumber(diagnostics.valid_window_age, 1)}s`
+              }
+            />
+          </div>
+        </div>
+
         <div className="grid gap-3 sm:grid-cols-2">
           <SignalMetricCard icon={<Activity className="h-4 w-4" />} label="Price momentum" metric={alphaRadar.momentum} />
           <SignalMetricCard icon={<Waves className="h-4 w-4" />} label="Bid / ask spread" metric={alphaRadar.spread} invertScore />
@@ -108,6 +132,19 @@ export function RadarSignalPanel({ alphaRadar }: RadarSignalPanelProps) {
       </CardContent>
     </Card>
   );
+}
+
+function DiagnosticValue({ label, value }: { label: string; value: number | string }) {
+  return (
+    <div className="flex min-w-0 items-center justify-between gap-2 sm:flex-col sm:items-start">
+      <span className="truncate text-[9px] uppercase tracking-wide text-muted-foreground">{label}</span>
+      <span className="font-semibold text-foreground">{value}</span>
+    </div>
+  );
+}
+
+function formatGateReason(reason: string): string {
+  return reason.replaceAll('_', ' ');
 }
 
 function SignalMetricCard({

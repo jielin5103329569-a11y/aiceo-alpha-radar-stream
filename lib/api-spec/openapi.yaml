@@ -104,6 +104,33 @@ components:
     AlphaRadarScoreState:
       type: string
       enum: [available, stale, insufficient]
+    AlphaRadarDiagnostics:
+      type: object
+      properties:
+        fresh_quotes:
+          type: number
+          minimum: 0
+        fresh_trades:
+          type: number
+          minimum: 0
+        fresh_prices:
+          type: number
+          minimum: 0
+        fresh_volume:
+          type: number
+          minimum: 0
+        valid_window_age:
+          type: [number, "null"]
+          description: Age in seconds of the active, real-observation scoring window.
+        scoring_gate_reason:
+          type: string
+      required:
+        - fresh_quotes
+        - fresh_trades
+        - fresh_prices
+        - fresh_volume
+        - valid_window_age
+        - scoring_gate_reason
     RadarSignalMetric:
       type: object
       properties:
@@ -164,6 +191,8 @@ components:
           type: array
           items:
             type: string
+        diagnostics:
+          $ref: "#/components/schemas/AlphaRadarDiagnostics"
         momentum:
           $ref: "#/components/schemas/RadarSignalMetric"
         spread:
@@ -188,6 +217,7 @@ components:
         - dataQuality
         - generatedAt
         - warnings
+        - diagnostics
         - momentum
         - spread
         - volumeIntensity

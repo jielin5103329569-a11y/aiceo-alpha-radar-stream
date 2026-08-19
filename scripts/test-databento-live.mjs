@@ -95,6 +95,27 @@ try {
   assert.equal(incomplete.radar.volumeIntensity.score, null, "incomplete evidence must not publish volume");
   assert.deepEqual(incomplete.radar.activityFlags, [], "incomplete evidence must not publish activity alerts");
 
+  const freshAlphaService = new DatabentoLiveService();
+  const freshAlphaNow = new Date();
+  freshAlphaService.applyEvent({ type: "ready" });
+  freshAlphaService.applyEvent(marketEvent(new Date(freshAlphaNow.getTime() - 8_000), 100, null));
+  freshAlphaService.applyEvent(marketEvent(new Date(freshAlphaNow.getTime() - 4_000), 100.1, null));
+  freshAlphaService.applyEvent(marketEvent(freshAlphaNow, 100.2, null));
+  const freshAlpha = freshAlphaService.getStatus().alphaRadar;
+  assert.equal(freshAlpha.scoreState, "available", "fresh incoming MBP events must establish an Alpha Radar window");
+  assert.equal(typeof freshAlpha.score, "number", "a valid fresh service window must publish an Alpha Radar score");
+  assert.equal(freshAlpha.confidence, 100, "complete fresh service evidence must report full confidence");
+  assert.equal(freshAlpha.diagnostics.scoring_gate_reason, "ready", "the service must expose a ready scoring gate");
+  assert.ok(freshAlpha.diagnostics.fresh_quotes >= 2, "the service must count fresh quote observations");
+  assert.ok(freshAlpha.diagnostics.fresh_trades >= 2, "the service must count fresh trade observations");
+  assert.ok(freshAlpha.diagnostics.fresh_prices >= 2, "the service must count fresh price timestamps");
+  assert.ok(freshAlpha.diagnostics.fresh_volume >= 2, "the service must count fresh volume observations");
+  assert.equal(
+    freshAlpha.orderFlowPressure.source,
+    "Quote-depth proxy because classified trade sides are unavailable",
+    "unclassified live trades must use the fresh quote-depth proxy",
+  );
+
   const quietMixedService = new DatabentoLiveService();
   const quietMixedNow = new Date();
   const quietTimestamp = new Date(quietMixedNow.getTime() - 70_000);

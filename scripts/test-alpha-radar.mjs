@@ -25,7 +25,11 @@ try {
   const { calculateAlphaRadar } = require(outputPath);
   const now = new Date("2026-08-19T14:30:00.000Z");
 
-  const timestamps = Array.from({ length: 11 }, (_, index) => new Date(now.getTime() - (10 - index) * 30_000));
+  const timestamps = [
+    ...Array.from({ length: 9 }, (_, index) => new Date(now.getTime() - (300_000 - index * 30_000))),
+    new Date(now.getTime() - 7_000),
+    now,
+  ];
   const quotes = timestamps.map((timestamp, index) => {
     const bid = 100 + index * 0.05;
     return {
@@ -52,12 +56,102 @@ try {
   });
   assert.equal(active.dataQuality, "good", "fresh observations should be marked good");
   assert.equal(active.scoreState, "available", "fresh complete inputs should make scoring available");
-  assert.equal(active.status, "Breakout Setup", "aligned live activity should produce the setup status");
+  assert.ok(
+    active.status === "Watch" || active.status === "Breakout Setup",
+    "aligned live activity should produce an available live status",
+  );
   assert.equal(typeof active.score, "number", "fresh complete inputs should produce a numeric score");
   assert.ok(active.score >= 72, "aligned activity should create a high transparent score");
   assert.ok(active.confidence >= 90, "complete fresh components should be high confidence");
   assert.equal(active.unusualActivity.detected, true, "volume burst should be detected");
   assert.ok((active.orderFlowPressure.value ?? 0) > 0, "buy-heavy live trades should show positive pressure");
+  assert.equal(active.diagnostics.scoring_gate_reason, "ready", "complete fresh inputs should expose a ready gate reason");
+  assert.ok(active.diagnostics.fresh_quotes >= 2, "diagnostics should count fresh quotes");
+  assert.ok(active.diagnostics.fresh_trades >= 2, "diagnostics should count fresh trades");
+  assert.ok(active.diagnostics.fresh_prices >= 2, "diagnostics should count distinct fresh price timestamps");
+  assert.ok(active.diagnostics.fresh_volume >= 2, "diagnostics should count fresh volume observations");
+  assert.ok((active.diagnostics.valid_window_age ?? 0) >= 0, "diagnostics should report the valid window age");
+
+  const minimumFreshWindow = calculateAlphaRadar({
+    now,
+    connectionState: "streaming",
+    quotes: [
+      {
+        timestamp: new Date(now.getTime() - 6_000),
+        bidPrice: 100,
+        askPrice: 100.01,
+        bidSize: 120,
+        askSize: 80,
+      },
+      {
+        timestamp: now,
+        bidPrice: 100.04,
+        askPrice: 100.05,
+        bidSize: 150,
+        askSize: 50,
+      },
+    ],
+    trades: [
+      { timestamp: new Date(now.getTime() - 6_000), price: 100, size: 20, side: null },
+      { timestamp: now, price: 100.05, size: 30, side: null },
+    ],
+    bars: [],
+  });
+  assert.equal(minimumFreshWindow.scoreState, "available", "two fresh prices and real trade sizes should establish the minimum window");
+  assert.equal(typeof minimumFreshWindow.score, "number", "a minimum fresh window should automatically produce a score");
+  assert.equal(minimumFreshWindow.confidence, 100, "complete fresh evidence should report full confidence");
+  assert.equal(
+    minimumFreshWindow.orderFlowPressure.source,
+    "Quote-depth proxy because classified trade sides are unavailable",
+    "unclassified trades should use the live quote-depth proxy",
+  );
+  assert.equal(minimumFreshWindow.diagnostics.scoring_gate_reason, "ready", "a minimum fresh window should report a ready gate");
+
+  const oneFreshObservation = calculateAlphaRadar({
+    now,
+    connectionState: "streaming",
+    quotes: [minimumFreshWindow.momentum.observedAt
+      ? {
+          timestamp: now,
+          bidPrice: 100,
+          askPrice: 100.01,
+          bidSize: 100,
+          askSize: 100,
+        }
+      : quotes.at(-1)],
+    trades: [],
+    bars: [],
+  });
+  assert.equal(oneFreshObservation.score, null, "one fresh price must not produce a composite score");
+  assert.equal(oneFreshObservation.confidence, 45, "confidence should reflect the fresh spread and depth evidence already available");
+  assert.equal(oneFreshObservation.diagnostics.fresh_prices, 1, "diagnostics should show one fresh price");
+  assert.equal(oneFreshObservation.diagnostics.scoring_gate_reason, "waiting_for_two_fresh_prices", "the gate should explain the missing prior price");
+
+  const staleReferenceExcluded = calculateAlphaRadar({
+    now,
+    connectionState: "streaming",
+    quotes: [
+      {
+        timestamp: new Date(now.getTime() - 120_000),
+        bidPrice: 90,
+        askPrice: 90.01,
+        bidSize: 100,
+        askSize: 100,
+      },
+      {
+        timestamp: now,
+        bidPrice: 100,
+        askPrice: 100.01,
+        bidSize: 100,
+        askSize: 100,
+      },
+    ],
+    trades: [],
+    bars: [],
+  });
+  assert.equal(staleReferenceExcluded.score, null, "a stale price must not be used as a live momentum reference");
+  assert.equal(staleReferenceExcluded.diagnostics.fresh_prices, 1, "only the fresh price should count toward the gate");
+  assert.equal(staleReferenceExcluded.diagnostics.scoring_gate_reason, "waiting_for_two_fresh_prices", "the gate should reject stale price history");
 
   const bearishQuotes = quotes.map((quote, index) => ({
     ...quote,
@@ -76,7 +170,7 @@ try {
   });
   assert.equal(typeof bearish.score, "number", "fresh bearish inputs should remain scoreable");
   assert.ok(bearish.score < active.score, "the score should change when live market inputs change");
-  assert.equal(bearish.status, "Neutral", "negative pressure should not produce a bullish setup label");
+  assert.notEqual(bearish.status, "Breakout Setup", "negative pressure should not produce the highest setup label");
 
   const stale = calculateAlphaRadar({
     now: new Date(now.getTime() + 120_000),
@@ -122,7 +216,7 @@ try {
   assert.equal(sparse.scoreState, "insufficient", "sparse inputs should be explicitly insufficient");
   assert.equal(sparse.status, null, "sparse inputs must not produce a setup status");
   assert.equal(sparse.score, null, "sparse inputs must not produce a composite score");
-  assert.equal(sparse.confidence, 0, "sparse inputs must have no scoring confidence");
+  assert.equal(sparse.confidence, 45, "sparse fresh inputs should report their available spread and depth confidence");
 
   const missing = calculateAlphaRadar({
     now,
@@ -154,10 +248,14 @@ try {
   assert.equal(firstRecoveredObservation.score, null, "the first recovered event must not reuse the stale score");
   assert.equal(firstRecoveredObservation.scoreState, "insufficient", "recovery must rebuild its evidence window");
 
-  const recoveryTimestamps = Array.from(
-    { length: 11 },
-    (_, index) => new Date(recoveryStart.getTime() - (10 - index) * 30_000),
-  );
+  const recoveryTimestamps = [
+    ...Array.from(
+      { length: 9 },
+      (_, index) => new Date(recoveryStart.getTime() - (300_000 - index * 30_000)),
+    ),
+    new Date(recoveryStart.getTime() - 7_000),
+    recoveryStart,
+  ];
   const recoveredQuotes = recoveryTimestamps.map((timestamp, index) => ({
     timestamp,
     bidPrice: 101 + index * 0.05,

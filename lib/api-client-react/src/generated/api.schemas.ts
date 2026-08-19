@@ -78,6 +78,23 @@ export const AlphaRadarScoreState = {
   insufficient: 'insufficient',
 } as const;
 
+export interface AlphaRadarDiagnostics {
+  /** @minimum 0 */
+  fresh_quotes: number;
+  /** @minimum 0 */
+  fresh_trades: number;
+  /** @minimum 0 */
+  fresh_prices: number;
+  /** @minimum 0 */
+  fresh_volume: number;
+  /**
+     * Age in seconds of the active, real-observation scoring window.
+     * @nullable
+     */
+  valid_window_age: number | null;
+  scoring_gate_reason: string;
+}
+
 export interface RadarSignalMetric {
   /** @nullable */
   value: number | null;
@@ -111,6 +128,7 @@ export interface AlphaRadarSnapshot {
   dataQuality: RadarSignalDataQuality;
   generatedAt: string;
   warnings: string[];
+  diagnostics: AlphaRadarDiagnostics;
   momentum: RadarSignalMetric;
   spread: RadarSignalMetric;
   volumeIntensity: RadarSignalMetric;

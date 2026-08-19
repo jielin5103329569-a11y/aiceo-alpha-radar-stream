@@ -5,6 +5,7 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { AlphaRadarDiagnostics } from './alphaRadarDiagnostics';
 import type { AlphaRadarScoreState } from './alphaRadarScoreState';
 import type { AlphaRadarSignalState } from './alphaRadarSignalState';
 import type { AlphaRadarSnapshotUnusualActivity } from './alphaRadarSnapshotUnusualActivity';
@@ -20,6 +21,7 @@ export interface AlphaRadarSnapshot {
   dataQuality: RadarSignalDataQuality;
   generatedAt: Date;
   warnings: string[];
+  diagnostics: AlphaRadarDiagnostics;
   momentum: RadarSignalMetric;
   spread: RadarSignalMetric;
   volumeIntensity: RadarSignalMetric;

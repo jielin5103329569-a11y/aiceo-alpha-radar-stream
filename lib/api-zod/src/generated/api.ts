@@ -20,6 +20,16 @@ export const HealthCheckResponse = zod.object({
 /**
  * @summary Get the current safe market-data stream status
  */
+export const getRadarStatusResponseAlphaRadarDiagnosticsFreshQuotesMin = 0;
+
+export const getRadarStatusResponseAlphaRadarDiagnosticsFreshTradesMin = 0;
+
+export const getRadarStatusResponseAlphaRadarDiagnosticsFreshPricesMin = 0;
+
+export const getRadarStatusResponseAlphaRadarDiagnosticsFreshVolumeMin = 0;
+
+
+
 export const GetRadarStatusResponse = zod.object({
   "configured": zod.boolean(),
   "connectionState": zod.enum(['not_configured', 'connecting', 'connected', 'streaming', 'error', 'stopped']),
@@ -41,6 +51,14 @@ export const GetRadarStatusResponse = zod.object({
   "dataQuality": zod.enum(['good', 'degraded', 'stale', 'missing']),
   "generatedAt": zod.coerce.date(),
   "warnings": zod.array(zod.string()),
+  "diagnostics": zod.object({
+  "fresh_quotes": zod.number().min(getRadarStatusResponseAlphaRadarDiagnosticsFreshQuotesMin),
+  "fresh_trades": zod.number().min(getRadarStatusResponseAlphaRadarDiagnosticsFreshTradesMin),
+  "fresh_prices": zod.number().min(getRadarStatusResponseAlphaRadarDiagnosticsFreshPricesMin),
+  "fresh_volume": zod.number().min(getRadarStatusResponseAlphaRadarDiagnosticsFreshVolumeMin),
+  "valid_window_age": zod.number().nullable().describe('Age in seconds of the active, real-observation scoring window.'),
+  "scoring_gate_reason": zod.string()
+}),
   "momentum": zod.object({
   "value": zod.number().nullable(),
   "unit": zod.string(),
@@ -188,6 +206,16 @@ export const GetRadarStatusResponse = zod.object({
 /**
  * @summary Start the server-side Databento live connection
  */
+export const startRadarConnectionResponseAlphaRadarDiagnosticsFreshQuotesMin = 0;
+
+export const startRadarConnectionResponseAlphaRadarDiagnosticsFreshTradesMin = 0;
+
+export const startRadarConnectionResponseAlphaRadarDiagnosticsFreshPricesMin = 0;
+
+export const startRadarConnectionResponseAlphaRadarDiagnosticsFreshVolumeMin = 0;
+
+
+
 export const StartRadarConnectionResponse = zod.object({
   "configured": zod.boolean(),
   "connectionState": zod.enum(['not_configured', 'connecting', 'connected', 'streaming', 'error', 'stopped']),
@@ -209,6 +237,14 @@ export const StartRadarConnectionResponse = zod.object({
   "dataQuality": zod.enum(['good', 'degraded', 'stale', 'missing']),
   "generatedAt": zod.coerce.date(),
   "warnings": zod.array(zod.string()),
+  "diagnostics": zod.object({
+  "fresh_quotes": zod.number().min(startRadarConnectionResponseAlphaRadarDiagnosticsFreshQuotesMin),
+  "fresh_trades": zod.number().min(startRadarConnectionResponseAlphaRadarDiagnosticsFreshTradesMin),
+  "fresh_prices": zod.number().min(startRadarConnectionResponseAlphaRadarDiagnosticsFreshPricesMin),
+  "fresh_volume": zod.number().min(startRadarConnectionResponseAlphaRadarDiagnosticsFreshVolumeMin),
+  "valid_window_age": zod.number().nullable().describe('Age in seconds of the active, real-observation scoring window.'),
+  "scoring_gate_reason": zod.string()
+}),
   "momentum": zod.object({
   "value": zod.number().nullable(),
   "unit": zod.string(),
@@ -356,6 +392,16 @@ export const StartRadarConnectionResponse = zod.object({
 /**
  * @summary Stop the server-side Databento live connection
  */
+export const stopRadarConnectionResponseAlphaRadarDiagnosticsFreshQuotesMin = 0;
+
+export const stopRadarConnectionResponseAlphaRadarDiagnosticsFreshTradesMin = 0;
+
+export const stopRadarConnectionResponseAlphaRadarDiagnosticsFreshPricesMin = 0;
+
+export const stopRadarConnectionResponseAlphaRadarDiagnosticsFreshVolumeMin = 0;
+
+
+
 export const StopRadarConnectionResponse = zod.object({
   "configured": zod.boolean(),
   "connectionState": zod.enum(['not_configured', 'connecting', 'connected', 'streaming', 'error', 'stopped']),
@@ -377,6 +423,14 @@ export const StopRadarConnectionResponse = zod.object({
   "dataQuality": zod.enum(['good', 'degraded', 'stale', 'missing']),
   "generatedAt": zod.coerce.date(),
   "warnings": zod.array(zod.string()),
+  "diagnostics": zod.object({
+  "fresh_quotes": zod.number().min(stopRadarConnectionResponseAlphaRadarDiagnosticsFreshQuotesMin),
+  "fresh_trades": zod.number().min(stopRadarConnectionResponseAlphaRadarDiagnosticsFreshTradesMin),
+  "fresh_prices": zod.number().min(stopRadarConnectionResponseAlphaRadarDiagnosticsFreshPricesMin),
+  "fresh_volume": zod.number().min(stopRadarConnectionResponseAlphaRadarDiagnosticsFreshVolumeMin),
+  "valid_window_age": zod.number().nullable().describe('Age in seconds of the active, real-observation scoring window.'),
+  "scoring_gate_reason": zod.string()
+}),
   "momentum": zod.object({
   "value": zod.number().nullable(),
   "unit": zod.string(),
