@@ -2,6 +2,7 @@ import { Router, type IRouter, type Request, type Response } from "express";
 import {
   GetMarketUniverseQueryParams,
   GetMarketUniverseResponse,
+  GetFocusedScanStatusResponse,
   GetRadarStatusResponse,
   GetSignalValidationAuditParams,
   GetSignalValidationAuditResponse,
@@ -29,6 +30,10 @@ router.get("/radar/universe", (req: Request, res: Response): void => {
     return;
   }
   res.json(GetMarketUniverseResponse.parse(marketUniverse.query(parsed.data)));
+});
+
+router.get("/radar/focused-scans", (_req: Request, res: Response): void => {
+  res.json(GetFocusedScanStatusResponse.parse(databentoLive.getFocusedScanStatus()));
 });
 
 router.get("/radar/validation", async (req: Request, res: Response): Promise<void> => {

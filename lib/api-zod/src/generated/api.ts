@@ -75,6 +75,17 @@ export const getRadarStatusResponseMarketUniverseLifecycleCountsDelistedMin = 0;
 
 export const getRadarStatusResponseMarketUniverseLifecycleCountsUnknownMin = 0;
 
+export const getRadarStatusResponseFocusedScansReferenceEligibleCountMin = 0;
+
+
+export const getRadarStatusResponseFocusedScansCapacityActiveMin = 0;
+
+export const getRadarStatusResponseFocusedScansCapacityAvailableMin = 0;
+
+export const getRadarStatusResponseFocusedScansActiveScansItemIndependentEvidenceCountMin = 0;
+
+export const getRadarStatusResponseFocusedScansCandidatesItemIndependentEvidenceCountMin = 0;
+
 export const getRadarStatusResponseSymbolRadarsItemAlphaRadarDiagnosticsFreshQuotesMin = 0;
 
 export const getRadarStatusResponseSymbolRadarsItemAlphaRadarDiagnosticsFreshTradesMin = 0;
@@ -465,6 +476,49 @@ export const GetRadarStatusResponse = zod.object({
 }),
   "eligibleSample": zod.array(zod.string())
 }),
+  "focusedScans": zod.object({
+  "state": zod.enum(['unavailable', 'blocked', 'ready', 'scanning']),
+  "reason": zod.string(),
+  "authorization": zod.object({
+  "state": zod.enum(['unavailable', 'unverified', 'available', 'blocked']),
+  "reason": zod.string(),
+  "verifiedAt": zod.coerce.date().nullable()
+}),
+  "reference": zod.object({
+  "available": zod.boolean(),
+  "reason": zod.string(),
+  "eligibleCount": zod.number().min(getRadarStatusResponseFocusedScansReferenceEligibleCountMin),
+  "freshness": zod.enum(['fresh', 'stale', 'missing']),
+  "dataQuality": zod.enum(['good', 'degraded', 'unavailable'])
+}),
+  "leaderEvidence": zod.object({
+  "available": zod.boolean(),
+  "reason": zod.string()
+}),
+  "capacity": zod.object({
+  "maximum": zod.number().min(1),
+  "active": zod.number().min(getRadarStatusResponseFocusedScansCapacityActiveMin),
+  "available": zod.number().min(getRadarStatusResponseFocusedScansCapacityAvailableMin)
+}),
+  "activeScans": zod.array(zod.object({
+  "symbol": zod.string(),
+  "admittedAt": zod.coerce.date(),
+  "observedAt": zod.coerce.date(),
+  "independentEvidenceCount": zod.number().min(getRadarStatusResponseFocusedScansActiveScansItemIndependentEvidenceCountMin),
+  "connectionState": zod.enum(['not_configured', 'connecting', 'connected', 'streaming', 'error', 'stopped']),
+  "marketFeedState": zod.enum(['streaming', 'stale', 'offline']),
+  "dataFresh": zod.boolean(),
+  "reason": zod.string()
+})),
+  "candidates": zod.array(zod.object({
+  "symbol": zod.string(),
+  "state": zod.enum(['admitted', 'rejected', 'cooling_down', 'evicted']),
+  "reason": zod.string(),
+  "observedAt": zod.coerce.date().nullable(),
+  "independentEvidenceCount": zod.number().min(getRadarStatusResponseFocusedScansCandidatesItemIndependentEvidenceCountMin),
+  "updatedAt": zod.coerce.date()
+}))
+}),
   "symbolRadars": zod.array(zod.object({
   "symbol": zod.string(),
   "connectionState": zod.enum(['not_configured', 'connecting', 'connected', 'streaming', 'error', 'stopped']),
@@ -795,6 +849,17 @@ export const startRadarConnectionResponseMarketUniverseLifecycleCountsInactiveMi
 export const startRadarConnectionResponseMarketUniverseLifecycleCountsDelistedMin = 0;
 
 export const startRadarConnectionResponseMarketUniverseLifecycleCountsUnknownMin = 0;
+
+export const startRadarConnectionResponseFocusedScansReferenceEligibleCountMin = 0;
+
+
+export const startRadarConnectionResponseFocusedScansCapacityActiveMin = 0;
+
+export const startRadarConnectionResponseFocusedScansCapacityAvailableMin = 0;
+
+export const startRadarConnectionResponseFocusedScansActiveScansItemIndependentEvidenceCountMin = 0;
+
+export const startRadarConnectionResponseFocusedScansCandidatesItemIndependentEvidenceCountMin = 0;
 
 export const startRadarConnectionResponseSymbolRadarsItemAlphaRadarDiagnosticsFreshQuotesMin = 0;
 
@@ -1186,6 +1251,49 @@ export const StartRadarConnectionResponse = zod.object({
 }),
   "eligibleSample": zod.array(zod.string())
 }),
+  "focusedScans": zod.object({
+  "state": zod.enum(['unavailable', 'blocked', 'ready', 'scanning']),
+  "reason": zod.string(),
+  "authorization": zod.object({
+  "state": zod.enum(['unavailable', 'unverified', 'available', 'blocked']),
+  "reason": zod.string(),
+  "verifiedAt": zod.coerce.date().nullable()
+}),
+  "reference": zod.object({
+  "available": zod.boolean(),
+  "reason": zod.string(),
+  "eligibleCount": zod.number().min(startRadarConnectionResponseFocusedScansReferenceEligibleCountMin),
+  "freshness": zod.enum(['fresh', 'stale', 'missing']),
+  "dataQuality": zod.enum(['good', 'degraded', 'unavailable'])
+}),
+  "leaderEvidence": zod.object({
+  "available": zod.boolean(),
+  "reason": zod.string()
+}),
+  "capacity": zod.object({
+  "maximum": zod.number().min(1),
+  "active": zod.number().min(startRadarConnectionResponseFocusedScansCapacityActiveMin),
+  "available": zod.number().min(startRadarConnectionResponseFocusedScansCapacityAvailableMin)
+}),
+  "activeScans": zod.array(zod.object({
+  "symbol": zod.string(),
+  "admittedAt": zod.coerce.date(),
+  "observedAt": zod.coerce.date(),
+  "independentEvidenceCount": zod.number().min(startRadarConnectionResponseFocusedScansActiveScansItemIndependentEvidenceCountMin),
+  "connectionState": zod.enum(['not_configured', 'connecting', 'connected', 'streaming', 'error', 'stopped']),
+  "marketFeedState": zod.enum(['streaming', 'stale', 'offline']),
+  "dataFresh": zod.boolean(),
+  "reason": zod.string()
+})),
+  "candidates": zod.array(zod.object({
+  "symbol": zod.string(),
+  "state": zod.enum(['admitted', 'rejected', 'cooling_down', 'evicted']),
+  "reason": zod.string(),
+  "observedAt": zod.coerce.date().nullable(),
+  "independentEvidenceCount": zod.number().min(startRadarConnectionResponseFocusedScansCandidatesItemIndependentEvidenceCountMin),
+  "updatedAt": zod.coerce.date()
+}))
+}),
   "symbolRadars": zod.array(zod.object({
   "symbol": zod.string(),
   "connectionState": zod.enum(['not_configured', 'connecting', 'connected', 'streaming', 'error', 'stopped']),
@@ -1516,6 +1624,17 @@ export const stopRadarConnectionResponseMarketUniverseLifecycleCountsInactiveMin
 export const stopRadarConnectionResponseMarketUniverseLifecycleCountsDelistedMin = 0;
 
 export const stopRadarConnectionResponseMarketUniverseLifecycleCountsUnknownMin = 0;
+
+export const stopRadarConnectionResponseFocusedScansReferenceEligibleCountMin = 0;
+
+
+export const stopRadarConnectionResponseFocusedScansCapacityActiveMin = 0;
+
+export const stopRadarConnectionResponseFocusedScansCapacityAvailableMin = 0;
+
+export const stopRadarConnectionResponseFocusedScansActiveScansItemIndependentEvidenceCountMin = 0;
+
+export const stopRadarConnectionResponseFocusedScansCandidatesItemIndependentEvidenceCountMin = 0;
 
 export const stopRadarConnectionResponseSymbolRadarsItemAlphaRadarDiagnosticsFreshQuotesMin = 0;
 
@@ -1907,6 +2026,49 @@ export const StopRadarConnectionResponse = zod.object({
 }),
   "eligibleSample": zod.array(zod.string())
 }),
+  "focusedScans": zod.object({
+  "state": zod.enum(['unavailable', 'blocked', 'ready', 'scanning']),
+  "reason": zod.string(),
+  "authorization": zod.object({
+  "state": zod.enum(['unavailable', 'unverified', 'available', 'blocked']),
+  "reason": zod.string(),
+  "verifiedAt": zod.coerce.date().nullable()
+}),
+  "reference": zod.object({
+  "available": zod.boolean(),
+  "reason": zod.string(),
+  "eligibleCount": zod.number().min(stopRadarConnectionResponseFocusedScansReferenceEligibleCountMin),
+  "freshness": zod.enum(['fresh', 'stale', 'missing']),
+  "dataQuality": zod.enum(['good', 'degraded', 'unavailable'])
+}),
+  "leaderEvidence": zod.object({
+  "available": zod.boolean(),
+  "reason": zod.string()
+}),
+  "capacity": zod.object({
+  "maximum": zod.number().min(1),
+  "active": zod.number().min(stopRadarConnectionResponseFocusedScansCapacityActiveMin),
+  "available": zod.number().min(stopRadarConnectionResponseFocusedScansCapacityAvailableMin)
+}),
+  "activeScans": zod.array(zod.object({
+  "symbol": zod.string(),
+  "admittedAt": zod.coerce.date(),
+  "observedAt": zod.coerce.date(),
+  "independentEvidenceCount": zod.number().min(stopRadarConnectionResponseFocusedScansActiveScansItemIndependentEvidenceCountMin),
+  "connectionState": zod.enum(['not_configured', 'connecting', 'connected', 'streaming', 'error', 'stopped']),
+  "marketFeedState": zod.enum(['streaming', 'stale', 'offline']),
+  "dataFresh": zod.boolean(),
+  "reason": zod.string()
+})),
+  "candidates": zod.array(zod.object({
+  "symbol": zod.string(),
+  "state": zod.enum(['admitted', 'rejected', 'cooling_down', 'evicted']),
+  "reason": zod.string(),
+  "observedAt": zod.coerce.date().nullable(),
+  "independentEvidenceCount": zod.number().min(stopRadarConnectionResponseFocusedScansCandidatesItemIndependentEvidenceCountMin),
+  "updatedAt": zod.coerce.date()
+}))
+}),
   "symbolRadars": zod.array(zod.object({
   "symbol": zod.string(),
   "connectionState": zod.enum(['not_configured', 'connecting', 'connected', 'streaming', 'error', 'stopped']),
@@ -2288,6 +2450,67 @@ export const GetMarketUniverseResponse = zod.object({
   "total": zod.number().min(getMarketUniverseResponseTotalMin),
   "limit": zod.number().min(1),
   "offset": zod.number().min(getMarketUniverseResponseOffsetMin)
+})
+
+
+/**
+ * @summary Get bounded focused-scan routing status and capability gates
+ */
+export const getFocusedScanStatusResponseReferenceEligibleCountMin = 0;
+
+
+export const getFocusedScanStatusResponseCapacityActiveMin = 0;
+
+export const getFocusedScanStatusResponseCapacityAvailableMin = 0;
+
+export const getFocusedScanStatusResponseActiveScansItemIndependentEvidenceCountMin = 0;
+
+export const getFocusedScanStatusResponseCandidatesItemIndependentEvidenceCountMin = 0;
+
+
+
+export const GetFocusedScanStatusResponse = zod.object({
+  "state": zod.enum(['unavailable', 'blocked', 'ready', 'scanning']),
+  "reason": zod.string(),
+  "authorization": zod.object({
+  "state": zod.enum(['unavailable', 'unverified', 'available', 'blocked']),
+  "reason": zod.string(),
+  "verifiedAt": zod.coerce.date().nullable()
+}),
+  "reference": zod.object({
+  "available": zod.boolean(),
+  "reason": zod.string(),
+  "eligibleCount": zod.number().min(getFocusedScanStatusResponseReferenceEligibleCountMin),
+  "freshness": zod.enum(['fresh', 'stale', 'missing']),
+  "dataQuality": zod.enum(['good', 'degraded', 'unavailable'])
+}),
+  "leaderEvidence": zod.object({
+  "available": zod.boolean(),
+  "reason": zod.string()
+}),
+  "capacity": zod.object({
+  "maximum": zod.number().min(1),
+  "active": zod.number().min(getFocusedScanStatusResponseCapacityActiveMin),
+  "available": zod.number().min(getFocusedScanStatusResponseCapacityAvailableMin)
+}),
+  "activeScans": zod.array(zod.object({
+  "symbol": zod.string(),
+  "admittedAt": zod.coerce.date(),
+  "observedAt": zod.coerce.date(),
+  "independentEvidenceCount": zod.number().min(getFocusedScanStatusResponseActiveScansItemIndependentEvidenceCountMin),
+  "connectionState": zod.enum(['not_configured', 'connecting', 'connected', 'streaming', 'error', 'stopped']),
+  "marketFeedState": zod.enum(['streaming', 'stale', 'offline']),
+  "dataFresh": zod.boolean(),
+  "reason": zod.string()
+})),
+  "candidates": zod.array(zod.object({
+  "symbol": zod.string(),
+  "state": zod.enum(['admitted', 'rejected', 'cooling_down', 'evicted']),
+  "reason": zod.string(),
+  "observedAt": zod.coerce.date().nullable(),
+  "independentEvidenceCount": zod.number().min(getFocusedScanStatusResponseCandidatesItemIndependentEvidenceCountMin),
+  "updatedAt": zod.coerce.date()
+}))
 })
 
 

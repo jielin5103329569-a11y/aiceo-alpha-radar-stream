@@ -119,6 +119,18 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/MarketUniverseResult"
+  /radar/focused-scans:
+    get:
+      operationId: getFocusedScanStatus
+      tags: [radar]
+      summary: Get bounded focused-scan routing status and capability gates
+      responses:
+        "200":
+          description: Read-only focused-scan capacity, authorization, reference, and candidate status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FocusedScanSnapshot"
   /radar/validation:
     get:
       operationId: getSignalValidation
@@ -389,6 +401,144 @@ components:
           type: number
           minimum: 0
       required: [summary, items, total, limit, offset]
+    DatabentoAuthorizationState:
+      type: string
+      enum: [unavailable, unverified, available, blocked]
+    FocusedScanState:
+      type: string
+      enum: [unavailable, blocked, ready, scanning]
+    FocusedCandidateState:
+      type: string
+      enum: [admitted, rejected, cooling_down, evicted]
+    FocusedScanAuthorization:
+      type: object
+      properties:
+        state:
+          $ref: "#/components/schemas/DatabentoAuthorizationState"
+        reason:
+          type: string
+        verifiedAt:
+          type: [string, "null"]
+          format: date-time
+      required: [state, reason, verifiedAt]
+    FocusedScanReference:
+      type: object
+      properties:
+        available:
+          type: boolean
+        reason:
+          type: string
+        eligibleCount:
+          type: number
+          minimum: 0
+        freshness:
+          $ref: "#/components/schemas/ReferenceFreshness"
+        dataQuality:
+          $ref: "#/components/schemas/ReferenceDataQuality"
+      required: [available, reason, eligibleCount, freshness, dataQuality]
+    FocusedScanLeaderEvidence:
+      type: object
+      properties:
+        available:
+          type: boolean
+        reason:
+          type: string
+      required: [available, reason]
+    FocusedScanCapacity:
+      type: object
+      properties:
+        maximum:
+          type: number
+          minimum: 1
+        active:
+          type: number
+          minimum: 0
+        available:
+          type: number
+          minimum: 0
+      required: [maximum, active, available]
+    FocusedScanActive:
+      type: object
+      properties:
+        symbol:
+          type: string
+        admittedAt:
+          type: string
+          format: date-time
+        observedAt:
+          type: string
+          format: date-time
+        independentEvidenceCount:
+          type: number
+          minimum: 0
+        connectionState:
+          $ref: "#/components/schemas/RadarConnectionState"
+        marketFeedState:
+          $ref: "#/components/schemas/MarketFeedState"
+        dataFresh:
+          type: boolean
+        reason:
+          type: string
+      required:
+        - symbol
+        - admittedAt
+        - observedAt
+        - independentEvidenceCount
+        - connectionState
+        - marketFeedState
+        - dataFresh
+        - reason
+    FocusedScanCandidate:
+      type: object
+      properties:
+        symbol:
+          type: string
+        state:
+          $ref: "#/components/schemas/FocusedCandidateState"
+        reason:
+          type: string
+        observedAt:
+          type: [string, "null"]
+          format: date-time
+        independentEvidenceCount:
+          type: number
+          minimum: 0
+        updatedAt:
+          type: string
+          format: date-time
+      required: [symbol, state, reason, observedAt, independentEvidenceCount, updatedAt]
+    FocusedScanSnapshot:
+      type: object
+      properties:
+        state:
+          $ref: "#/components/schemas/FocusedScanState"
+        reason:
+          type: string
+        authorization:
+          $ref: "#/components/schemas/FocusedScanAuthorization"
+        reference:
+          $ref: "#/components/schemas/FocusedScanReference"
+        leaderEvidence:
+          $ref: "#/components/schemas/FocusedScanLeaderEvidence"
+        capacity:
+          $ref: "#/components/schemas/FocusedScanCapacity"
+        activeScans:
+          type: array
+          items:
+            $ref: "#/components/schemas/FocusedScanActive"
+        candidates:
+          type: array
+          items:
+            $ref: "#/components/schemas/FocusedScanCandidate"
+      required:
+        - state
+        - reason
+        - authorization
+        - reference
+        - leaderEvidence
+        - capacity
+        - activeScans
+        - candidates
     RadarSignalFreshness:
       type: string
       enum: [fresh, delayed, stale, missing]
@@ -1660,6 +1810,8 @@ components:
           $ref: "#/components/schemas/LiveIngestionDiagnostics"
         marketUniverse:
           $ref: "#/components/schemas/MarketUniverseSummary"
+        focusedScans:
+          $ref: "#/components/schemas/FocusedScanSnapshot"
         symbolRadars:
           type: array
           items:
@@ -1700,6 +1852,7 @@ components:
         - streams
         - liveIngestion
         - marketUniverse
+        - focusedScans
         - symbolRadars
         - alphaRanking
         - preBreakoutLeader

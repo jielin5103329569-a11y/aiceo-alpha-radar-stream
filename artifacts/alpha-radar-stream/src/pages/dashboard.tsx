@@ -27,7 +27,7 @@ import {
   Zap,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import type { MarketFeedState, MarketUniverseSummary, RadarConnectionState, RadarReconnectState, RadarSignal, RadarSnapshot, RadarStatus, RadarSymbolStatus, AlphaRadarRankingSnapshot } from '@workspace/api-client-react';
+import type { AlphaRadarRankingSnapshot, FocusedScanSnapshot, MarketFeedState, MarketUniverseSummary, RadarConnectionState, RadarReconnectState, RadarSignal, RadarSnapshot, RadarStatus, RadarSymbolStatus } from '@workspace/api-client-react';
 
 export default function Dashboard() {
   const { status, isLoading, isError, transportState } = useRadarStream();
@@ -286,6 +286,8 @@ export default function Dashboard() {
             liveSymbolCount={status?.symbolRadars?.length ?? 0}
           />
 
+          <FocusedScanRoutingCard status={status?.focusedScans ?? null} />
+
           <RadarScoreCard radar={status?.radar ?? null} />
 
           <RadarComponentsCard radar={status?.radar ?? null} />
@@ -482,6 +484,136 @@ function MarketUniverseFoundationCard({
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+function FocusedScanRoutingCard({ status }: { status: FocusedScanSnapshot | null }) {
+  const stateStyle = status?.state === 'scanning'
+    ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
+    : status?.state === 'ready'
+      ? 'border-primary/40 bg-primary/10 text-primary'
+      : status?.state === 'blocked'
+        ? 'border-destructive/30 bg-destructive/10 text-destructive'
+        : 'border-muted-foreground/30 bg-muted/50 text-muted-foreground';
+  const authorizationStyle = status?.authorization.state === 'available'
+    ? 'text-emerald-700 dark:text-emerald-300'
+    : status?.authorization.state === 'blocked' || status?.authorization.state === 'unavailable'
+      ? 'text-destructive'
+      : 'text-amber-700 dark:text-amber-300';
+
+  return (
+    <Card className="scroll-mt-20" data-testid="focused-scan-routing">
+      <CardHeader className="pb-4">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <CardTitle className="flex items-center gap-2 text-sm font-medium uppercase tracking-widest text-muted-foreground">
+              <Radio className="h-4 w-4 text-primary" />
+              Focused Live-Scan Routing
+            </CardTitle>
+            <CardDescription className="mt-1">
+              Bounded, isolated scans for future verified market leaders. The protected five-symbol pool and Alpha Ranking are not changed.
+            </CardDescription>
+          </div>
+          <Badge
+            variant="outline"
+            className={`font-mono text-[10px] uppercase ${stateStyle}`}
+            data-testid="focused-scan-state"
+          >
+            {status?.state ?? 'unavailable'}
+          </Badge>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="grid gap-3 sm:grid-cols-3">
+          <RoutingGate
+            label="Databento capability"
+            value={status?.authorization.state ?? 'unavailable'}
+            className={authorizationStyle}
+          />
+          <RoutingGate
+            label="Verified reference"
+            value={status?.reference.available ? 'available' : 'unavailable'}
+            className={status?.reference.available ? 'text-emerald-700 dark:text-emerald-300' : 'text-destructive'}
+          />
+          <RoutingGate
+            label="Focused capacity"
+            value={`${status?.capacity.active ?? 0}/${status?.capacity.maximum ?? 0}`}
+            className="text-foreground"
+          />
+        </div>
+
+        <div className="rounded-md border border-dashed border-border bg-background/50 p-3">
+          <div className="flex items-start gap-2">
+            <CircleAlert className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+            <div className="min-w-0 space-y-1.5">
+              <p className="text-xs leading-relaxed text-muted-foreground" data-testid="focused-scan-reason">
+                {status?.reason ?? 'Focused-scan capability is awaiting the current server status.'}
+              </p>
+              <p className="text-[11px] leading-relaxed text-muted-foreground">
+                {status?.leaderEvidence.reason ?? 'No verified market-leader evidence is available.'}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {status?.activeScans && status.activeScans.length > 0 ? (
+          <div className="space-y-2" data-testid="focused-scan-active-list">
+            {status.activeScans.map((scan) => (
+              <div key={scan.symbol} className="rounded-md border border-border/70 bg-card p-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono text-sm font-semibold">{scan.symbol}</span>
+                    <Badge variant="outline" className="font-mono text-[10px]">
+                      {scan.marketFeedState}
+                    </Badge>
+                  </div>
+                  <span className={cn('font-mono text-[10px]', scan.dataFresh ? 'text-emerald-700 dark:text-emerald-300' : 'text-muted-foreground')}>
+                    {scan.dataFresh ? 'fresh evidence' : 'freshness gate pending'}
+                  </span>
+                </div>
+                <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">{scan.reason}</p>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-xs text-muted-foreground" data-testid="focused-scan-empty">
+            No focused live scans are active. Reference records, cached data, heartbeats, and manual UI input cannot create one.
+          </p>
+        )}
+
+        {status?.candidates && status.candidates.length > 0 && (
+          <div className="border-t border-border/60 pt-3">
+            <p className="mb-2 text-[10px] uppercase tracking-widest text-muted-foreground">Recent routing decisions</p>
+            <div className="space-y-2">
+              {status.candidates.slice(0, 4).map((candidate) => (
+                <div key={`${candidate.symbol}-${candidate.updatedAt}`} className="flex gap-3 text-xs">
+                  <span className="w-14 shrink-0 font-mono font-medium">{candidate.symbol}</span>
+                  <span className="w-24 shrink-0 font-mono text-muted-foreground">{candidate.state.replaceAll('_', ' ')}</span>
+                  <span className="min-w-0 text-muted-foreground">{candidate.reason}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function RoutingGate({
+  label,
+  value,
+  className,
+}: {
+  label: string;
+  value: string;
+  className: string;
+}) {
+  return (
+    <div className="rounded-md border border-border/60 bg-card p-3">
+      <p className="text-[9px] uppercase tracking-wider text-muted-foreground">{label}</p>
+      <p className={cn('mt-1 font-mono text-sm font-semibold uppercase', className)}>{value}</p>
+    </div>
   );
 }
 

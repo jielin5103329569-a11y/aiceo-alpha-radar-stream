@@ -22,7 +22,11 @@ import {
   type MarketFeedState,
 } from "./marketFeed";
 import { logger } from "./logger";
-import { marketUniverse, type MarketUniverseSummary } from "./marketUniverse";
+import {
+  marketUniverse,
+  normalizeReferenceSymbol,
+  type MarketUniverseSummary,
+} from "./marketUniverse";
 import { signalValidation } from "./signalValidation";
 
 export type RadarConnectionState =
@@ -200,6 +204,7 @@ export type RadarStatus = {
     alphaVelocity: number | null;
   } | null;
   marketUniverse?: MarketUniverseSummary;
+  focusedScans?: FocusedScanSnapshot;
 };
 
 export type RadarSymbolStatus = {
@@ -212,6 +217,68 @@ export type RadarSymbolStatus = {
   market: RadarStatus["market"];
   liveIngestion: LiveIngestionDiagnostics;
   error: string | null;
+};
+
+export type DatabentoAuthorizationState = "unavailable" | "unverified" | "available" | "blocked";
+export type FocusedScanState = "unavailable" | "blocked" | "ready" | "scanning";
+export type FocusedCandidateState = "admitted" | "rejected" | "cooling_down" | "evicted";
+
+export type VerifiedMarketLeader = {
+  symbol: string;
+  observedAt: Date;
+  source: "databento_live";
+  schema: "mbp-1" | "ohlcv-1s";
+  subscriptionVerified: boolean;
+  completeMarketFields: boolean;
+  fresh: boolean;
+  minimumLiquiditySatisfied: boolean;
+  independentEvidenceCount: number;
+};
+
+export type FocusedScanCandidate = {
+  symbol: string;
+  state: FocusedCandidateState;
+  reason: string;
+  observedAt: Date | null;
+  independentEvidenceCount: number;
+  updatedAt: Date;
+};
+
+export type FocusedScanSnapshot = {
+  state: FocusedScanState;
+  reason: string;
+  authorization: {
+    state: DatabentoAuthorizationState;
+    reason: string;
+    verifiedAt: Date | null;
+  };
+  reference: {
+    available: boolean;
+    reason: string;
+    eligibleCount: number;
+    freshness: MarketUniverseSummary["freshness"];
+    dataQuality: MarketUniverseSummary["dataQuality"];
+  };
+  leaderEvidence: {
+    available: boolean;
+    reason: string;
+  };
+  capacity: {
+    maximum: number;
+    active: number;
+    available: number;
+  };
+  activeScans: Array<{
+    symbol: string;
+    admittedAt: Date;
+    observedAt: Date;
+    independentEvidenceCount: number;
+    connectionState: RadarConnectionState;
+    marketFeedState: MarketFeedState;
+    dataFresh: boolean;
+    reason: string;
+  }>;
+  candidates: FocusedScanCandidate[];
 };
 
 export type AlphaRankingEligibility = "ranked" | "building" | "ineligible";
@@ -2243,8 +2310,363 @@ export function updateAlphaRadarRanking(
   };
 }
 
+type FocusedScanLiveService = {
+  getStatus(): RadarStatus;
+  start(): RadarStatus;
+  stop(): RadarStatus;
+  on(event: "status", listener: () => void): unknown;
+};
+
+type ActiveFocusedScan = {
+  symbol: string;
+  admittedAt: Date;
+  leader: VerifiedMarketLeader;
+  service: FocusedScanLiveService;
+};
+
+export type FocusedScanCoordinatorOptions = {
+  referenceUniverse?: Pick<typeof marketUniverse, "query">;
+  createService?: (symbol: string) => FocusedScanLiveService;
+  apiKeyAvailable?: () => boolean;
+  maximumScans?: number;
+};
+
+const FOCUSED_SCAN_DEFAULT_CAPACITY = 3;
+const FOCUSED_SCAN_CANDIDATE_HISTORY_LIMIT = 12;
+const FOCUSED_SCAN_COOLDOWN_MS = 5 * 60_000;
+const FOCUSED_SCAN_LEADER_MAX_AGE_MS = 15_000;
+
+/**
+ * Keeps optional dynamic bridges separate from the protected five-symbol radar.
+ * Candidates arrive only from an internal, verified live-leader source; this
+ * coordinator intentionally has no HTTP mutation endpoint.
+ */
+export class FocusedScanCoordinator extends EventEmitter {
+  private readonly referenceUniverse: Pick<typeof marketUniverse, "query">;
+  private readonly createService: (symbol: string) => FocusedScanLiveService;
+  private readonly apiKeyAvailable: () => boolean;
+  private readonly maximumScans: number;
+  private readonly active = new Map<string, ActiveFocusedScan>();
+  private readonly candidateHistory = new Map<string, FocusedScanCandidate>();
+  private readonly cooldowns = new Map<string, Date>();
+
+  constructor(options: FocusedScanCoordinatorOptions = {}) {
+    super();
+    this.referenceUniverse = options.referenceUniverse ?? marketUniverse;
+    this.createService = options.createService ?? ((symbol) => new DatabentoLiveService(symbol));
+    this.apiKeyAvailable = options.apiKeyAvailable ?? (() => Boolean(process.env.DATABENTO_API_KEY));
+    this.maximumScans = Math.max(
+      1,
+      Math.min(FOCUSED_SCAN_DEFAULT_CAPACITY, options.maximumScans ?? FOCUSED_SCAN_DEFAULT_CAPACITY),
+    );
+  }
+
+  getStatus(protectedStatuses: RadarStatus[], now = new Date()): FocusedScanSnapshot {
+    const reference = this.referenceStatus();
+    const authorization = this.authorizationStatus(protectedStatuses);
+    const activeScans = [...this.active.values()]
+      .map((scan) => {
+        const status = scan.service.getStatus();
+        const dataFresh =
+          status.connectionState === "streaming"
+          && status.marketFeedState === "streaming"
+          && status.alphaRadar.preBreakout.dataFresh;
+        return {
+          symbol: scan.symbol,
+          admittedAt: scan.admittedAt,
+          observedAt: scan.leader.observedAt,
+          independentEvidenceCount: scan.leader.independentEvidenceCount,
+          connectionState: status.connectionState,
+          marketFeedState: status.marketFeedState,
+          dataFresh,
+          reason: dataFresh
+            ? "Focused bridge has fresh, independently verified market evidence."
+            : "Focused bridge is isolated from the protected pool and is not eligible until its own live freshness gate passes.",
+        };
+      })
+      .sort((left, right) => left.symbol.localeCompare(right.symbol));
+    const candidates = [...this.candidateHistory.values()]
+      .sort((left, right) => right.updatedAt.getTime() - left.updatedAt.getTime())
+      .slice(0, FOCUSED_SCAN_CANDIDATE_HISTORY_LIMIT);
+    const leaderEvidenceAvailable = activeScans.length > 0;
+
+    const state: FocusedScanState =
+      !reference.available || authorization.state === "unavailable" || authorization.state === "blocked"
+        ? "blocked"
+        : authorization.state === "unverified"
+          ? "unavailable"
+          : activeScans.length > 0
+            ? "scanning"
+            : "unavailable";
+    const reason =
+      !reference.available
+        ? reference.reason
+        : authorization.state !== "available"
+          ? authorization.reason
+          : activeScans.length > 0
+            ? `${activeScans.length} focused scan${activeScans.length === 1 ? "" : "s"} run independently of the protected five-symbol pool.`
+            : "Automatic focused admission is unavailable because this deployment has no verified Databento market-leader source. Reference data alone never admits a focused scan.";
+
+    return {
+      state,
+      reason,
+      authorization,
+      reference,
+      leaderEvidence: {
+        available: leaderEvidenceAvailable,
+        reason: leaderEvidenceAvailable
+          ? "At least one internally verified market-leader record is actively routed."
+          : "No verified market-leader record is available. Reference-only records, cached values, heartbeats, and synthetic inputs cannot create a focused scan.",
+      },
+      capacity: {
+        maximum: this.maximumScans,
+        active: activeScans.length,
+        available: Math.max(0, this.maximumScans - activeScans.length),
+      },
+      activeScans,
+      candidates,
+    };
+  }
+
+  routeVerifiedMarketLeader(
+    leader: VerifiedMarketLeader,
+    protectedStatuses: RadarStatus[],
+    now = new Date(),
+  ): FocusedScanCandidate {
+    const symbol = normalizeReferenceSymbol(leader.symbol);
+    if (!symbol) {
+      return this.recordCandidate({
+        symbol: String(leader.symbol ?? "").toUpperCase() || "UNKNOWN",
+        state: "rejected",
+        reason: "Candidate symbol is invalid and cannot be verified against the reference universe.",
+        observedAt: leader.observedAt,
+        independentEvidenceCount: leader.independentEvidenceCount,
+        updatedAt: now,
+      });
+    }
+    if (MONITORED_SYMBOLS.includes(symbol as (typeof MONITORED_SYMBOLS)[number])) {
+      return this.recordCandidate({
+        symbol,
+        state: "rejected",
+        reason: "The protected five-symbol pool is isolated and cannot be routed through focused scans.",
+        observedAt: leader.observedAt,
+        independentEvidenceCount: leader.independentEvidenceCount,
+        updatedAt: now,
+      });
+    }
+
+    const reference = this.referenceStatus();
+    if (!reference.available) {
+      return this.recordCandidate({
+        symbol,
+        state: "rejected",
+        reason: `Reference eligibility is unavailable: ${reference.reason}`,
+        observedAt: leader.observedAt,
+        independentEvidenceCount: leader.independentEvidenceCount,
+        updatedAt: now,
+      });
+    }
+    const matchingReference = this.referenceUniverse.query({
+      search: symbol,
+      eligibility: "eligible",
+      lifecycle: "active",
+      limit: 2,
+    }).items.find((item) => item.symbol === symbol);
+    if (!matchingReference) {
+      return this.recordCandidate({
+        symbol,
+        state: "rejected",
+        reason: "No fresh, verified active common-equity reference record is eligible for this symbol.",
+        observedAt: leader.observedAt,
+        independentEvidenceCount: leader.independentEvidenceCount,
+        updatedAt: now,
+      });
+    }
+
+    const authorization = this.authorizationStatus(protectedStatuses);
+    if (authorization.state !== "available") {
+      return this.recordCandidate({
+        symbol,
+        state: "rejected",
+        reason: `Focused routing is blocked: ${authorization.reason}`,
+        observedAt: leader.observedAt,
+        independentEvidenceCount: leader.independentEvidenceCount,
+        updatedAt: now,
+      });
+    }
+    if (!this.hasVerifiedLeaderEvidence(leader, now)) {
+      return this.recordCandidate({
+        symbol,
+        state: "rejected",
+        reason: "A candidate requires a fresh, complete Databento market record, minimum liquidity, and at least two independent evidence components.",
+        observedAt: leader.observedAt,
+        independentEvidenceCount: leader.independentEvidenceCount,
+        updatedAt: now,
+      });
+    }
+    if (this.active.has(symbol)) {
+      return this.recordCandidate({
+        symbol,
+        state: "admitted",
+        reason: "This eligible candidate is already in the bounded focused-scan pool.",
+        observedAt: leader.observedAt,
+        independentEvidenceCount: leader.independentEvidenceCount,
+        updatedAt: now,
+      });
+    }
+    const cooldownUntil = this.cooldowns.get(symbol);
+    if (cooldownUntil && cooldownUntil.getTime() > now.getTime()) {
+      return this.recordCandidate({
+        symbol,
+        state: "cooling_down",
+        reason: `Focused re-admission is delayed until ${cooldownUntil.toISOString()} to prevent candidate churn.`,
+        observedAt: leader.observedAt,
+        independentEvidenceCount: leader.independentEvidenceCount,
+        updatedAt: now,
+      });
+    }
+    this.cooldowns.delete(symbol);
+
+    if (this.active.size >= this.maximumScans && !this.evictInactiveScan(now)) {
+      return this.recordCandidate({
+        symbol,
+        state: "rejected",
+        reason: `Focused-scan capacity is full (${this.maximumScans}); active fresh scans are protected from eviction.`,
+        observedAt: leader.observedAt,
+        independentEvidenceCount: leader.independentEvidenceCount,
+        updatedAt: now,
+      });
+    }
+
+    const service = this.createService(symbol);
+    service.on("status", () => this.emit("status"));
+    this.active.set(symbol, { symbol, admittedAt: now, leader: { ...leader, symbol }, service });
+    service.start();
+    const candidate = this.recordCandidate({
+      symbol,
+      state: "admitted",
+      reason: "Verified reference, Databento authorization, fresh complete market evidence, liquidity, and independent evidence gates passed. The focused bridge remains isolated from protected ranking and scoring.",
+      observedAt: leader.observedAt,
+      independentEvidenceCount: leader.independentEvidenceCount,
+      updatedAt: now,
+    });
+    this.emit("status");
+    return candidate;
+  }
+
+  stop(): void {
+    this.active.forEach((scan) => scan.service.stop());
+    this.active.clear();
+    this.emit("status");
+  }
+
+  private referenceStatus(): FocusedScanSnapshot["reference"] {
+    const summary = this.referenceUniverse.query({ eligibility: "eligible", limit: 1 }).summary;
+    const available =
+      summary.refreshState === "ready"
+      && summary.freshness === "fresh"
+      && summary.dataQuality === "good"
+      && summary.eligibleCount > 0;
+    return {
+      available,
+      reason: available
+        ? "Fresh verified active common-equity reference records are available for candidate eligibility checks."
+        : `Reference universe is ${summary.refreshState}/${summary.freshness}/${summary.dataQuality}: ${summary.reason}`,
+      eligibleCount: summary.eligibleCount,
+      freshness: summary.freshness,
+      dataQuality: summary.dataQuality,
+    };
+  }
+
+  private authorizationStatus(
+    protectedStatuses: RadarStatus[],
+  ): FocusedScanSnapshot["authorization"] {
+    if (!this.apiKeyAvailable()) {
+      return {
+        state: "unavailable",
+        reason: "Databento authorization is unavailable because the server has no configured API key.",
+        verifiedAt: null,
+      };
+    }
+    const verified = protectedStatuses.find((status) => (
+      status.connectionState === "streaming"
+      && status.marketFeedState === "streaming"
+      && status.liveIngestion.conditions.subscriptionVerified
+    ));
+    if (verified) {
+      return {
+        state: "available",
+        reason: "A protected Databento subscription is currently verified by its own live stream.",
+        verifiedAt: verified.lastUpdatedAt ?? verified.startedAt,
+      };
+    }
+    const allErrored = protectedStatuses.length > 0
+      && protectedStatuses.every((status) => status.connectionState === "error");
+    if (allErrored) {
+      return {
+        state: "blocked",
+        reason: "Databento live authorization or subscription capability has not been verified: every protected bridge is currently in an error state.",
+        verifiedAt: null,
+      };
+    }
+    return {
+      state: "unverified",
+      reason: "A Databento API key is configured, but no protected live subscription has yet verified a fresh streaming capability. Focused scans remain unavailable.",
+      verifiedAt: null,
+    };
+  }
+
+  private hasVerifiedLeaderEvidence(leader: VerifiedMarketLeader, now: Date): boolean {
+    return leader.source === "databento_live"
+      && ["mbp-1", "ohlcv-1s"].includes(leader.schema)
+      && leader.subscriptionVerified
+      && leader.completeMarketFields
+      && leader.fresh
+      && leader.minimumLiquiditySatisfied
+      && leader.independentEvidenceCount >= 2
+      && now.getTime() - leader.observedAt.getTime() >= 0
+      && now.getTime() - leader.observedAt.getTime() <= FOCUSED_SCAN_LEADER_MAX_AGE_MS;
+  }
+
+  private evictInactiveScan(now: Date): boolean {
+    const inactive = [...this.active.values()]
+      .map((scan) => ({ scan, status: scan.service.getStatus() }))
+      .filter(({ scan, status }) => (
+        status.marketFeedState !== "streaming"
+        && now.getTime() - scan.admittedAt.getTime() >= FOCUSED_SCAN_COOLDOWN_MS
+      ))
+      .sort((left, right) => left.scan.admittedAt.getTime() - right.scan.admittedAt.getTime())[0];
+    if (!inactive) return false;
+    inactive.scan.service.stop();
+    this.active.delete(inactive.scan.symbol);
+    this.cooldowns.set(
+      inactive.scan.symbol,
+      new Date(now.getTime() + FOCUSED_SCAN_COOLDOWN_MS),
+    );
+    this.recordCandidate({
+      symbol: inactive.scan.symbol,
+      state: "evicted",
+      reason: "Evicted only after its isolated live feed became inactive and its minimum focused-scan tenure elapsed.",
+      observedAt: inactive.scan.leader.observedAt,
+      independentEvidenceCount: inactive.scan.leader.independentEvidenceCount,
+      updatedAt: now,
+    });
+    return true;
+  }
+
+  private recordCandidate(candidate: FocusedScanCandidate): FocusedScanCandidate {
+    this.candidateHistory.set(candidate.symbol, candidate);
+    const overflow = [...this.candidateHistory.values()]
+      .sort((left, right) => left.updatedAt.getTime() - right.updatedAt.getTime())
+      .slice(0, Math.max(0, this.candidateHistory.size - FOCUSED_SCAN_CANDIDATE_HISTORY_LIMIT));
+    overflow.forEach((entry) => this.candidateHistory.delete(entry.symbol));
+    return candidate;
+  }
+}
+
 export class DatabentoUniverseService extends EventEmitter {
   private readonly services = MONITORED_SYMBOLS.map((symbol) => new DatabentoLiveService(symbol));
+  private readonly focusedScans = new FocusedScanCoordinator();
   private rankingMachine: AlphaRadarRankingMachine = {
     order: [],
     pendingOrder: null,
@@ -2257,6 +2679,7 @@ export class DatabentoUniverseService extends EventEmitter {
     this.services.forEach((service) => {
       service.on("status", () => this.emit("status", this.getStatus()));
     });
+    this.focusedScans.on("status", () => this.emit("status", this.getStatus()));
     marketUniverse.on("status", () => this.emit("status", this.getStatus()));
   }
 
@@ -2275,6 +2698,7 @@ export class DatabentoUniverseService extends EventEmitter {
       symbolRadars,
       alphaRanking: rankingResult.snapshot,
       marketUniverse: marketUniverse.getSummary(),
+      focusedScans: this.focusedScans.getStatus(statuses),
       preBreakoutLeader: leader
         ? {
             symbol: leader.symbol,
@@ -2292,8 +2716,13 @@ export class DatabentoUniverseService extends EventEmitter {
   }
 
   stop(): RadarStatus {
+    this.focusedScans.stop();
     this.services.forEach((service) => service.stop());
     return this.getStatus();
+  }
+
+  getFocusedScanStatus(): FocusedScanSnapshot {
+    return this.focusedScans.getStatus(this.services.map((service) => service.getStatus()));
   }
 }
 

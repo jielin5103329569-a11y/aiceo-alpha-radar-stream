@@ -205,6 +205,100 @@ export interface MarketUniverseResult {
   offset: number;
 }
 
+export type DatabentoAuthorizationState = typeof DatabentoAuthorizationState[keyof typeof DatabentoAuthorizationState];
+
+
+export const DatabentoAuthorizationState = {
+  unavailable: 'unavailable',
+  unverified: 'unverified',
+  available: 'available',
+  blocked: 'blocked',
+} as const;
+
+export type FocusedScanState = typeof FocusedScanState[keyof typeof FocusedScanState];
+
+
+export const FocusedScanState = {
+  unavailable: 'unavailable',
+  blocked: 'blocked',
+  ready: 'ready',
+  scanning: 'scanning',
+} as const;
+
+export type FocusedCandidateState = typeof FocusedCandidateState[keyof typeof FocusedCandidateState];
+
+
+export const FocusedCandidateState = {
+  admitted: 'admitted',
+  rejected: 'rejected',
+  cooling_down: 'cooling_down',
+  evicted: 'evicted',
+} as const;
+
+export interface FocusedScanAuthorization {
+  state: DatabentoAuthorizationState;
+  reason: string;
+  /** @nullable */
+  verifiedAt: string | null;
+}
+
+export interface FocusedScanReference {
+  available: boolean;
+  reason: string;
+  /** @minimum 0 */
+  eligibleCount: number;
+  freshness: ReferenceFreshness;
+  dataQuality: ReferenceDataQuality;
+}
+
+export interface FocusedScanLeaderEvidence {
+  available: boolean;
+  reason: string;
+}
+
+export interface FocusedScanCapacity {
+  /** @minimum 1 */
+  maximum: number;
+  /** @minimum 0 */
+  active: number;
+  /** @minimum 0 */
+  available: number;
+}
+
+export interface FocusedScanActive {
+  symbol: string;
+  admittedAt: string;
+  observedAt: string;
+  /** @minimum 0 */
+  independentEvidenceCount: number;
+  connectionState: RadarConnectionState;
+  marketFeedState: MarketFeedState;
+  dataFresh: boolean;
+  reason: string;
+}
+
+export interface FocusedScanCandidate {
+  symbol: string;
+  state: FocusedCandidateState;
+  reason: string;
+  /** @nullable */
+  observedAt: string | null;
+  /** @minimum 0 */
+  independentEvidenceCount: number;
+  updatedAt: string;
+}
+
+export interface FocusedScanSnapshot {
+  state: FocusedScanState;
+  reason: string;
+  authorization: FocusedScanAuthorization;
+  reference: FocusedScanReference;
+  leaderEvidence: FocusedScanLeaderEvidence;
+  capacity: FocusedScanCapacity;
+  activeScans: FocusedScanActive[];
+  candidates: FocusedScanCandidate[];
+}
+
 export type RadarSignalFreshness = typeof RadarSignalFreshness[keyof typeof RadarSignalFreshness];
 
 
@@ -1133,6 +1227,7 @@ export interface RadarStatus {
   streams: RadarStream[];
   liveIngestion: LiveIngestionDiagnostics;
   marketUniverse: MarketUniverseSummary;
+  focusedScans: FocusedScanSnapshot;
   symbolRadars: RadarSymbolStatus[];
   alphaRanking: AlphaRadarRankingSnapshot;
   /** @nullable */

@@ -20,6 +20,7 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  FocusedScanSnapshot,
   GetMarketUniverseParams,
   GetSignalValidationParams,
   HealthStatus,
@@ -502,6 +503,83 @@ export function useGetMarketUniverse<TData = Awaited<ReturnType<typeof getMarket
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getGetMarketUniverseQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetFocusedScanStatusUrl = () => {
+
+
+
+
+  return `/api/radar/focused-scans`
+}
+
+/**
+ * @summary Get bounded focused-scan routing status and capability gates
+ */
+export const getFocusedScanStatus = async ( options?: Parameters<typeof customFetch>[1]): Promise<FocusedScanSnapshot> => {
+
+  return customFetch<FocusedScanSnapshot>(getGetFocusedScanStatusUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetFocusedScanStatusQueryKey = () => {
+    return [
+    `/api/radar/focused-scans`
+    ] as const;
+    }
+
+
+export const getGetFocusedScanStatusQueryOptions = <TData = Awaited<ReturnType<typeof getFocusedScanStatus>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getFocusedScanStatus>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetFocusedScanStatusQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getFocusedScanStatus>>> = ({ signal }) => getFocusedScanStatus({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getFocusedScanStatus>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetFocusedScanStatusQueryResult = NonNullable<Awaited<ReturnType<typeof getFocusedScanStatus>>>
+export type GetFocusedScanStatusQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get bounded focused-scan routing status and capability gates
+ */
+
+export function useGetFocusedScanStatus<TData = Awaited<ReturnType<typeof getFocusedScanStatus>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getFocusedScanStatus>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetFocusedScanStatusQueryOptions(options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 
