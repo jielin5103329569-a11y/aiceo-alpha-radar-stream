@@ -22,7 +22,7 @@ try {
   writeFileSync(outputPath, output);
 
   const require = createRequire(import.meta.url);
-  const { calculateAlphaRadar } = require(outputPath);
+  const { addAlphaRadarDynamics, calculateAlphaRadar } = require(outputPath);
   const now = new Date("2026-08-19T14:30:00.000Z");
 
   const timestamps = [
@@ -71,6 +71,50 @@ try {
   assert.ok(active.diagnostics.fresh_prices >= 2, "diagnostics should count distinct fresh price timestamps");
   assert.ok(active.diagnostics.fresh_volume >= 2, "diagnostics should count fresh volume observations");
   assert.ok((active.diagnostics.valid_window_age ?? 0) >= 0, "diagnostics should report the valid window age");
+
+  const validHistory = [
+    {
+      generatedAt: new Date(now.getTime() - 65_000),
+      score: (active.score ?? 70) - 10,
+      momentumScore: (active.momentum.score ?? 60) - 8,
+      volumeScore: (active.volumeIntensity.score ?? 60) - 6,
+      orderFlowScore: (active.orderFlowPressure.score ?? 60) - 5,
+    },
+    {
+      generatedAt: new Date(now.getTime() - 31_000),
+      score: (active.score ?? 70) - 6,
+      momentumScore: (active.momentum.score ?? 60) - 5,
+      volumeScore: (active.volumeIntensity.score ?? 60) - 4,
+      orderFlowScore: (active.orderFlowPressure.score ?? 60) - 3,
+    },
+    {
+      generatedAt: new Date(now.getTime() - 5_000),
+      score: (active.score ?? 70) - 2,
+      momentumScore: (active.momentum.score ?? 60) - 2,
+      volumeScore: (active.volumeIntensity.score ?? 60) - 2,
+      orderFlowScore: (active.orderFlowPressure.score ?? 60) - 2,
+    },
+  ];
+  const dynamicActive = addAlphaRadarDynamics(
+    { ...active, status: "Watch" },
+    validHistory,
+    {
+      lastScannedAt: now,
+      scanIntervalMs: 1_000,
+      scanMode: "opening",
+      triggerReason: "rapid_midpoint_change",
+      eventTriggered: true,
+    },
+  );
+  assert.ok((dynamicActive.alphaVelocity.delta30s ?? 0) > 0, "a valid 30-second baseline should produce Alpha Velocity");
+  assert.ok((dynamicActive.alphaVelocity.rate30s ?? 0) > 0, "Alpha Velocity should express positive score speed");
+  assert.ok((dynamicActive.alphaVelocity.delta60s ?? 0) > 0, "a valid 60-second baseline should produce longer-horizon velocity");
+  assert.ok((dynamicActive.changeIndicators.momentumAcceleration ?? 0) > 0, "momentum acceleration must use valid scan history");
+  assert.ok((dynamicActive.changeIndicators.volumeAcceleration ?? 0) > 0, "volume acceleration must use valid scan history");
+  assert.ok((dynamicActive.changeIndicators.orderFlowShift ?? 0) > 0, "order-flow shift must use valid scan history");
+  assert.equal(dynamicActive.preBreakoutWatch, true, "multiple improving fresh components should enable the advisory watch");
+  assert.equal(dynamicActive.scan.scanMode, "opening", "scan metadata should retain the adaptive opening mode");
+  assert.equal(dynamicActive.scan.eventTriggered, true, "scan metadata should retain the event trigger");
 
   const minimumFreshWindow = calculateAlphaRadar({
     now,

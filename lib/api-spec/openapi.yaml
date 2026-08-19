@@ -131,6 +131,54 @@ components:
         - fresh_volume
         - valid_window_age
         - scoring_gate_reason
+    AlphaRadarScanMetadata:
+      type: object
+      properties:
+        lastScannedAt:
+          type: string
+          format: date-time
+        scanIntervalMs:
+          type: number
+        scanMode:
+          type: string
+          enum: [normal, pre_open, opening]
+        triggerReason:
+          type: string
+        eventTriggered:
+          type: boolean
+      required:
+        - lastScannedAt
+        - scanIntervalMs
+        - scanMode
+        - triggerReason
+        - eventTriggered
+    AlphaVelocity:
+      type: object
+      properties:
+        delta30s:
+          type: [number, "null"]
+        delta60s:
+          type: [number, "null"]
+        rate30s:
+          type: [number, "null"]
+          description: Alpha score points per minute using the latest valid 30-second comparison.
+        rate60s:
+          type: [number, "null"]
+          description: Alpha score points per minute using the latest valid 60-second comparison.
+      required: [delta30s, delta60s, rate30s, rate60s]
+    AlphaChangeIndicators:
+      type: object
+      properties:
+        momentumAcceleration:
+          type: [number, "null"]
+          description: Momentum score-point change per minute between valid scans.
+        volumeAcceleration:
+          type: [number, "null"]
+          description: Volume intensity score-point change per minute between valid scans.
+        orderFlowShift:
+          type: [number, "null"]
+          description: Order-flow score-point change per minute between valid scans.
+      required: [momentumAcceleration, volumeAcceleration, orderFlowShift]
     RadarSignalMetric:
       type: object
       properties:
@@ -193,6 +241,14 @@ components:
             type: string
         diagnostics:
           $ref: "#/components/schemas/AlphaRadarDiagnostics"
+        scan:
+          $ref: "#/components/schemas/AlphaRadarScanMetadata"
+        alphaVelocity:
+          $ref: "#/components/schemas/AlphaVelocity"
+        changeIndicators:
+          $ref: "#/components/schemas/AlphaChangeIndicators"
+        preBreakoutWatch:
+          type: boolean
         momentum:
           $ref: "#/components/schemas/RadarSignalMetric"
         spread:
@@ -218,6 +274,10 @@ components:
         - generatedAt
         - warnings
         - diagnostics
+        - scan
+        - alphaVelocity
+        - changeIndicators
+        - preBreakoutWatch
         - momentum
         - spread
         - volumeIntensity

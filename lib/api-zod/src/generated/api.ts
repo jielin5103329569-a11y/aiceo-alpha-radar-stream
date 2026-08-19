@@ -59,6 +59,25 @@ export const GetRadarStatusResponse = zod.object({
   "valid_window_age": zod.number().nullable().describe('Age in seconds of the active, real-observation scoring window.'),
   "scoring_gate_reason": zod.string()
 }),
+  "scan": zod.object({
+  "lastScannedAt": zod.coerce.date(),
+  "scanIntervalMs": zod.number(),
+  "scanMode": zod.enum(['normal', 'pre_open', 'opening']),
+  "triggerReason": zod.string(),
+  "eventTriggered": zod.boolean()
+}),
+  "alphaVelocity": zod.object({
+  "delta30s": zod.number().nullable(),
+  "delta60s": zod.number().nullable(),
+  "rate30s": zod.number().nullable().describe('Alpha score points per minute using the latest valid 30-second comparison.'),
+  "rate60s": zod.number().nullable().describe('Alpha score points per minute using the latest valid 60-second comparison.')
+}),
+  "changeIndicators": zod.object({
+  "momentumAcceleration": zod.number().nullable().describe('Momentum score-point change per minute between valid scans.'),
+  "volumeAcceleration": zod.number().nullable().describe('Volume intensity score-point change per minute between valid scans.'),
+  "orderFlowShift": zod.number().nullable().describe('Order-flow score-point change per minute between valid scans.')
+}),
+  "preBreakoutWatch": zod.boolean(),
   "momentum": zod.object({
   "value": zod.number().nullable(),
   "unit": zod.string(),
@@ -245,6 +264,25 @@ export const StartRadarConnectionResponse = zod.object({
   "valid_window_age": zod.number().nullable().describe('Age in seconds of the active, real-observation scoring window.'),
   "scoring_gate_reason": zod.string()
 }),
+  "scan": zod.object({
+  "lastScannedAt": zod.coerce.date(),
+  "scanIntervalMs": zod.number(),
+  "scanMode": zod.enum(['normal', 'pre_open', 'opening']),
+  "triggerReason": zod.string(),
+  "eventTriggered": zod.boolean()
+}),
+  "alphaVelocity": zod.object({
+  "delta30s": zod.number().nullable(),
+  "delta60s": zod.number().nullable(),
+  "rate30s": zod.number().nullable().describe('Alpha score points per minute using the latest valid 30-second comparison.'),
+  "rate60s": zod.number().nullable().describe('Alpha score points per minute using the latest valid 60-second comparison.')
+}),
+  "changeIndicators": zod.object({
+  "momentumAcceleration": zod.number().nullable().describe('Momentum score-point change per minute between valid scans.'),
+  "volumeAcceleration": zod.number().nullable().describe('Volume intensity score-point change per minute between valid scans.'),
+  "orderFlowShift": zod.number().nullable().describe('Order-flow score-point change per minute between valid scans.')
+}),
+  "preBreakoutWatch": zod.boolean(),
   "momentum": zod.object({
   "value": zod.number().nullable(),
   "unit": zod.string(),
@@ -431,6 +469,25 @@ export const StopRadarConnectionResponse = zod.object({
   "valid_window_age": zod.number().nullable().describe('Age in seconds of the active, real-observation scoring window.'),
   "scoring_gate_reason": zod.string()
 }),
+  "scan": zod.object({
+  "lastScannedAt": zod.coerce.date(),
+  "scanIntervalMs": zod.number(),
+  "scanMode": zod.enum(['normal', 'pre_open', 'opening']),
+  "triggerReason": zod.string(),
+  "eventTriggered": zod.boolean()
+}),
+  "alphaVelocity": zod.object({
+  "delta30s": zod.number().nullable(),
+  "delta60s": zod.number().nullable(),
+  "rate30s": zod.number().nullable().describe('Alpha score points per minute using the latest valid 30-second comparison.'),
+  "rate60s": zod.number().nullable().describe('Alpha score points per minute using the latest valid 60-second comparison.')
+}),
+  "changeIndicators": zod.object({
+  "momentumAcceleration": zod.number().nullable().describe('Momentum score-point change per minute between valid scans.'),
+  "volumeAcceleration": zod.number().nullable().describe('Volume intensity score-point change per minute between valid scans.'),
+  "orderFlowShift": zod.number().nullable().describe('Order-flow score-point change per minute between valid scans.')
+}),
+  "preBreakoutWatch": zod.boolean(),
   "momentum": zod.object({
   "value": zod.number().nullable(),
   "unit": zod.string(),

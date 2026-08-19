@@ -82,7 +82,22 @@ try {
   writeFileSync(join(outputDirectory, "package.json"), '{"type":"commonjs"}');
 
   const require = createRequire(import.meta.url);
-  const { DatabentoLiveService } = require(join(outputDirectory, "databentoLive.js"));
+  const { DatabentoLiveService, scanProfileAt } = require(join(outputDirectory, "databentoLive.js"));
+  assert.deepEqual(
+    scanProfileAt(new Date("2026-08-17T13:27:00.000Z")),
+    { scanMode: "pre_open", scanIntervalMs: 3_000 },
+    "the five minutes before a weekday U.S. open should use the faster pre-open cadence",
+  );
+  assert.deepEqual(
+    scanProfileAt(new Date("2026-08-17T13:31:00.000Z")),
+    { scanMode: "opening", scanIntervalMs: 1_000 },
+    "the first thirty minutes after open should use the high-frequency opening cadence",
+  );
+  assert.deepEqual(
+    scanProfileAt(new Date("2026-08-17T14:05:00.000Z")),
+    { scanMode: "normal", scanIntervalMs: 5_000 },
+    "normal session time should retain the bounded five-second cadence",
+  );
   const now = new Date();
   const incompleteService = new DatabentoLiveService();
   seedIncompleteFreshWindow(incompleteService, now);
@@ -115,6 +130,21 @@ try {
     "Quote-depth proxy because classified trade sides are unavailable",
     "unclassified live trades must use the fresh quote-depth proxy",
   );
+
+  const eventTriggeredService = new DatabentoLiveService();
+  const eventNow = new Date();
+  eventTriggeredService.applyEvent({ type: "ready" });
+  eventTriggeredService.applyEvent(marketEvent(new Date(eventNow.getTime() - 6_000), 100, null));
+  eventTriggeredService.applyEvent(marketEvent(eventNow, 100.08, null));
+  const eventTriggeredAlpha = eventTriggeredService.getStatus().alphaRadar;
+  assert.equal(eventTriggeredAlpha.scan.eventTriggered, true, "a material fresh midpoint move must request an event scan");
+  assert.equal(eventTriggeredAlpha.scan.triggerReason, "rapid_midpoint_change", "the scan should identify the triggering market change");
+
+  freshAlphaService.status.lastUpdatedAt = new Date(Date.now() - 16_000);
+  const staleAlpha = freshAlphaService.getStatus().alphaRadar;
+  assert.equal(staleAlpha.score, null, "a stale market feed must immediately clear the effective Alpha score");
+  assert.equal(staleAlpha.alphaVelocity.rate30s, null, "stale data must not publish Alpha Velocity");
+  assert.equal(staleAlpha.preBreakoutWatch, false, "stale data must not publish a pre-breakout advisory");
 
   const quietMixedService = new DatabentoLiveService();
   const quietMixedNow = new Date();
@@ -234,7 +264,7 @@ try {
   assert.equal(staleNestedTrade.radar.score, null, "a stale nested trade must not restore the secondary score");
   assert.equal(staleNestedTrade.alphaRadar.score, null, "a stale nested trade must not restore Alpha Radar");
 
-  console.log("Databento live service tests passed: interruption gating, heartbeat-only stale state, and recovery-window reset.");
+  console.log("Databento live service tests passed: adaptive scans, interruption gating, heartbeat-only stale state, and recovery-window reset.");
 } finally {
   rmSync(outputDirectory, { recursive: true, force: true });
 }

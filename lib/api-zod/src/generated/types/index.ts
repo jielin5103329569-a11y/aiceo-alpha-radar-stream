@@ -6,11 +6,15 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from './alphaChangeIndicators';
 export * from './alphaRadarDiagnostics';
+export * from './alphaRadarScanMetadata';
+export * from './alphaRadarScanMetadataScanMode';
 export * from './alphaRadarScoreState';
 export * from './alphaRadarSignalState';
 export * from './alphaRadarSnapshot';
 export * from './alphaRadarSnapshotUnusualActivity';
+export * from './alphaVelocity';
 export * from './healthStatus';
 export * from './marketFeedState';
 export * from './radarActivityFlag';

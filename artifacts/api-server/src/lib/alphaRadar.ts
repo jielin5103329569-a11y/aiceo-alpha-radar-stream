@@ -47,6 +47,29 @@ export type AlphaRadarDiagnostics = {
   scoring_gate_reason: string;
 };
 
+export type AlphaRadarScanMode = "normal" | "pre_open" | "opening";
+
+export type AlphaRadarScanMetadata = {
+  lastScannedAt: Date;
+  scanIntervalMs: number;
+  scanMode: AlphaRadarScanMode;
+  triggerReason: string;
+  eventTriggered: boolean;
+};
+
+export type AlphaVelocity = {
+  delta30s: number | null;
+  delta60s: number | null;
+  rate30s: number | null;
+  rate60s: number | null;
+};
+
+export type AlphaChangeIndicators = {
+  momentumAcceleration: number | null;
+  volumeAcceleration: number | null;
+  orderFlowShift: number | null;
+};
+
 export type AlphaRadarSnapshot = {
   score: number | null;
   status: AlphaRadarSignalState | null;
@@ -56,6 +79,10 @@ export type AlphaRadarSnapshot = {
   generatedAt: Date;
   warnings: string[];
   diagnostics: AlphaRadarDiagnostics;
+  scan: AlphaRadarScanMetadata;
+  alphaVelocity: AlphaVelocity;
+  changeIndicators: AlphaChangeIndicators;
+  preBreakoutWatch: boolean;
   momentum: RadarSignalMetric;
   spread: RadarSignalMetric;
   volumeIntensity: RadarSignalMetric;
@@ -69,6 +96,22 @@ export type AlphaRadarInput = {
   quotes: QuoteObservation[];
   trades: TradeObservation[];
   bars: BarObservation[];
+};
+
+export type AlphaRadarHistoryPoint = {
+  generatedAt: Date;
+  score: number;
+  momentumScore: number;
+  volumeScore: number;
+  orderFlowScore: number;
+};
+
+export type AlphaRadarScanContext = {
+  lastScannedAt: Date;
+  scanIntervalMs: number;
+  scanMode: AlphaRadarScanMode;
+  triggerReason: string;
+  eventTriggered: boolean;
 };
 
 const SHORT_WINDOW_MS = 30_000;
@@ -181,6 +224,119 @@ function getWindow<T extends { timestamp: Date }>(items: T[], start: number, end
     const timestamp = item.timestamp.getTime();
     return timestamp > start && timestamp <= end;
   });
+}
+
+function emptyAlphaVelocity(): AlphaVelocity {
+  return {
+    delta30s: null,
+    delta60s: null,
+    rate30s: null,
+    rate60s: null,
+  };
+}
+
+function emptyChangeIndicators(): AlphaChangeIndicators {
+  return {
+    momentumAcceleration: null,
+    volumeAcceleration: null,
+    orderFlowShift: null,
+  };
+}
+
+function changeRate(current: number, previous: number, elapsedMs: number): number | null {
+  if (!Number.isFinite(current) || !Number.isFinite(previous) || elapsedMs <= 0) return null;
+  return round(((current - previous) / elapsedMs) * 60_000, 2);
+}
+
+function historyPointAtOrBefore(
+  history: AlphaRadarHistoryPoint[],
+  targetMs: number,
+): AlphaRadarHistoryPoint | null {
+  return [...history]
+    .reverse()
+    .find((point) => point.generatedAt.getTime() <= targetMs) ?? null;
+}
+
+export function addAlphaRadarDynamics(
+  snapshot: AlphaRadarSnapshot,
+  history: AlphaRadarHistoryPoint[],
+  context: AlphaRadarScanContext,
+): AlphaRadarSnapshot {
+  const scan = {
+    lastScannedAt: context.lastScannedAt,
+    scanIntervalMs: context.scanIntervalMs,
+    scanMode: context.scanMode,
+    triggerReason: context.triggerReason,
+    eventTriggered: context.eventTriggered,
+  };
+  const invalidDynamics = {
+    scan,
+    alphaVelocity: emptyAlphaVelocity(),
+    changeIndicators: emptyChangeIndicators(),
+    preBreakoutWatch: false,
+  };
+
+  if (
+    snapshot.scoreState !== "available"
+    || snapshot.dataQuality !== "good"
+    || snapshot.score === null
+    || !snapshot.momentum.scoreEligible
+    || !snapshot.volumeIntensity.scoreEligible
+    || !snapshot.orderFlowPressure.scoreEligible
+  ) {
+    return { ...snapshot, ...invalidDynamics };
+  }
+
+  const nowMs = context.lastScannedAt.getTime();
+  const current: AlphaRadarHistoryPoint = {
+    generatedAt: context.lastScannedAt,
+    score: snapshot.score,
+    momentumScore: snapshot.momentum.score ?? 0,
+    volumeScore: snapshot.volumeIntensity.score ?? 0,
+    orderFlowScore: snapshot.orderFlowPressure.score ?? 0,
+  };
+  const baseline30 = historyPointAtOrBefore(history, nowMs - 30_000);
+  const baseline60 = historyPointAtOrBefore(history, nowMs - 60_000);
+  const previous = history.at(-1) ?? null;
+  const velocity = {
+    delta30s: baseline30 ? round(current.score - baseline30.score, 2) : null,
+    delta60s: baseline60 ? round(current.score - baseline60.score, 2) : null,
+    rate30s: baseline30
+      ? changeRate(current.score, baseline30.score, nowMs - baseline30.generatedAt.getTime())
+      : null,
+    rate60s: baseline60
+      ? changeRate(current.score, baseline60.score, nowMs - baseline60.generatedAt.getTime())
+      : null,
+  };
+  const indicators = {
+    momentumAcceleration: previous
+      ? changeRate(current.momentumScore, previous.momentumScore, nowMs - previous.generatedAt.getTime())
+      : null,
+    volumeAcceleration: previous
+      ? changeRate(current.volumeScore, previous.volumeScore, nowMs - previous.generatedAt.getTime())
+      : null,
+    orderFlowShift: previous
+      ? changeRate(current.orderFlowScore, previous.orderFlowScore, nowMs - previous.generatedAt.getTime())
+      : null,
+  };
+  const improvingComponents = [
+    indicators.momentumAcceleration,
+    indicators.volumeAcceleration,
+    indicators.orderFlowShift,
+  ].filter((value): value is number => value !== null && value >= 1).length;
+  const preBreakoutWatch =
+    snapshot.status !== "Breakout Setup"
+    && velocity.rate30s !== null
+    && velocity.rate30s > 0
+    && improvingComponents >= 2;
+
+  return {
+    ...snapshot,
+    ...invalidDynamics,
+    alphaVelocity: velocity,
+    changeIndicators: indicators,
+    preBreakoutWatch,
+  };
 }
 
 function calculateMomentum(input: AlphaRadarInput): RadarSignalMetric {
@@ -559,6 +715,16 @@ export function createEmptyAlphaRadar(now: Date): AlphaRadarSnapshot {
       valid_window_age: null,
       scoring_gate_reason: "waiting_for_live_market_observations",
     },
+    scan: {
+      lastScannedAt: now,
+      scanIntervalMs: 5_000,
+      scanMode: "normal",
+      triggerReason: "waiting_for_live_market_observations",
+      eventTriggered: false,
+    },
+    alphaVelocity: emptyAlphaVelocity(),
+    changeIndicators: emptyChangeIndicators(),
+    preBreakoutWatch: false,
     momentum: { ...unavailable, unit: "%" },
     spread: { ...unavailable, unit: "bps" },
     volumeIntensity: { ...unavailable, unit: "x baseline" },
@@ -677,6 +843,16 @@ export function calculateAlphaRadar(input: AlphaRadarInput): AlphaRadarSnapshot 
     generatedAt: input.now,
     warnings,
     diagnostics,
+    scan: {
+      lastScannedAt: input.now,
+      scanIntervalMs: 5_000,
+      scanMode: "normal",
+      triggerReason: "direct_calculation",
+      eventTriggered: false,
+    },
+    alphaVelocity: emptyAlphaVelocity(),
+    changeIndicators: emptyChangeIndicators(),
+    preBreakoutWatch: false,
     momentum,
     spread,
     volumeIntensity,

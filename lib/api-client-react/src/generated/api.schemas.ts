@@ -95,6 +95,58 @@ export interface AlphaRadarDiagnostics {
   scoring_gate_reason: string;
 }
 
+export type AlphaRadarScanMetadataScanMode = typeof AlphaRadarScanMetadataScanMode[keyof typeof AlphaRadarScanMetadataScanMode];
+
+
+export const AlphaRadarScanMetadataScanMode = {
+  normal: 'normal',
+  pre_open: 'pre_open',
+  opening: 'opening',
+} as const;
+
+export interface AlphaRadarScanMetadata {
+  lastScannedAt: string;
+  scanIntervalMs: number;
+  scanMode: AlphaRadarScanMetadataScanMode;
+  triggerReason: string;
+  eventTriggered: boolean;
+}
+
+export interface AlphaVelocity {
+  /** @nullable */
+  delta30s: number | null;
+  /** @nullable */
+  delta60s: number | null;
+  /**
+     * Alpha score points per minute using the latest valid 30-second comparison.
+     * @nullable
+     */
+  rate30s: number | null;
+  /**
+     * Alpha score points per minute using the latest valid 60-second comparison.
+     * @nullable
+     */
+  rate60s: number | null;
+}
+
+export interface AlphaChangeIndicators {
+  /**
+     * Momentum score-point change per minute between valid scans.
+     * @nullable
+     */
+  momentumAcceleration: number | null;
+  /**
+     * Volume intensity score-point change per minute between valid scans.
+     * @nullable
+     */
+  volumeAcceleration: number | null;
+  /**
+     * Order-flow score-point change per minute between valid scans.
+     * @nullable
+     */
+  orderFlowShift: number | null;
+}
+
 export interface RadarSignalMetric {
   /** @nullable */
   value: number | null;
@@ -129,6 +181,10 @@ export interface AlphaRadarSnapshot {
   generatedAt: string;
   warnings: string[];
   diagnostics: AlphaRadarDiagnostics;
+  scan: AlphaRadarScanMetadata;
+  alphaVelocity: AlphaVelocity;
+  changeIndicators: AlphaChangeIndicators;
+  preBreakoutWatch: boolean;
   momentum: RadarSignalMetric;
   spread: RadarSignalMetric;
   volumeIntensity: RadarSignalMetric;

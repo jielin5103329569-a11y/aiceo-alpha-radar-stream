@@ -1,4 +1,4 @@
-import { Activity, AlertTriangle, BarChart3, Gauge, Waves } from 'lucide-react';
+import { Activity, AlertTriangle, BarChart3, Clock3, Gauge, Waves, Zap } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -105,6 +105,75 @@ export function RadarSignalPanel({ alphaRadar }: RadarSignalPanelProps) {
           </div>
         </div>
 
+        <div className="grid gap-3 sm:grid-cols-2" data-testid="alpha-radar-scan-state">
+          <div className="rounded-lg border border-border/70 bg-card p-3">
+            <div className="flex items-center gap-2 text-[10px] uppercase tracking-wider text-muted-foreground">
+              <Clock3 className="h-3.5 w-3.5 text-primary" />
+              Adaptive scan
+            </div>
+            <div className="mt-3 flex items-end justify-between gap-3">
+              <div>
+                <p className="font-mono text-sm font-semibold text-foreground">
+                  {formatTime(alphaRadar.scan.lastScannedAt)}
+                </p>
+                <p className="mt-1 text-[10px] text-muted-foreground">
+                  {scanModeLabel(alphaRadar.scan.scanMode)} · every {formatScanInterval(alphaRadar.scan.scanIntervalMs)}
+                </p>
+              </div>
+              <Badge
+                variant="outline"
+                className={cn(
+                  'border font-mono text-[9px] uppercase tracking-wide',
+                  alphaRadar.scan.eventTriggered
+                    ? 'border-amber-500/35 bg-amber-500/10 text-amber-700 dark:text-amber-300'
+                    : 'border-border text-muted-foreground',
+                )}
+              >
+                {alphaRadar.scan.eventTriggered ? 'event scan' : 'scheduled'}
+              </Badge>
+            </div>
+            <p className="mt-3 border-t border-border/60 pt-2 font-mono text-[10px] text-muted-foreground">
+              {formatGateReason(alphaRadar.scan.triggerReason)}
+            </p>
+          </div>
+
+          <div className="rounded-lg border border-border/70 bg-card p-3">
+            <div className="flex items-center gap-2 text-[10px] uppercase tracking-wider text-muted-foreground">
+              <Zap className="h-3.5 w-3.5 text-primary" />
+              Alpha velocity
+            </div>
+            <div className="mt-3 grid grid-cols-2 gap-3 font-mono">
+              <VelocityValue label="30s change" value={alphaRadar.alphaVelocity.delta30s} suffix=" pts" />
+              <VelocityValue label="60s change" value={alphaRadar.alphaVelocity.delta60s} suffix=" pts" />
+              <VelocityValue label="30s speed" value={alphaRadar.alphaVelocity.rate30s} suffix=" pts/min" />
+              <VelocityValue label="60s speed" value={alphaRadar.alphaVelocity.rate60s} suffix=" pts/min" />
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-lg border border-border/70 bg-muted/30 p-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="text-[10px] uppercase tracking-wider text-muted-foreground">
+              Component change speed
+            </div>
+            {alphaRadar.preBreakoutWatch ? (
+              <Badge className="border border-amber-500/45 bg-amber-500/10 font-mono text-[9px] uppercase tracking-wide text-amber-700 dark:text-amber-300" data-testid="status-pre-breakout-watch">
+                Pre-Breakout Watch · advisory
+              </Badge>
+            ) : null}
+          </div>
+          <div className="mt-3 grid gap-3 sm:grid-cols-3">
+            <ChangeIndicator label="Momentum acceleration" value={alphaRadar.changeIndicators.momentumAcceleration} />
+            <ChangeIndicator label="Volume acceleration" value={alphaRadar.changeIndicators.volumeAcceleration} />
+            <ChangeIndicator label="Order-flow shift" value={alphaRadar.changeIndicators.orderFlowShift} />
+          </div>
+          {alphaRadar.preBreakoutWatch ? (
+            <p className="mt-3 border-t border-amber-500/20 pt-2 text-[11px] leading-relaxed text-muted-foreground">
+              Multiple fresh core components are improving together. This is a factual monitoring state, not a buy or trading instruction.
+            </p>
+          ) : null}
+        </div>
+
         <div className="grid gap-3 sm:grid-cols-2">
           <SignalMetricCard icon={<Activity className="h-4 w-4" />} label="Price momentum" metric={alphaRadar.momentum} />
           <SignalMetricCard icon={<Waves className="h-4 w-4" />} label="Bid / ask spread" metric={alphaRadar.spread} invertScore />
@@ -145,6 +214,43 @@ function DiagnosticValue({ label, value }: { label: string; value: number | stri
 
 function formatGateReason(reason: string): string {
   return reason.replaceAll('_', ' ');
+}
+
+function scanModeLabel(mode: AlphaRadarSnapshot['scan']['scanMode']): string {
+  if (mode === 'pre_open') return 'Pre-open focus';
+  if (mode === 'opening') return 'Opening focus';
+  return 'Normal cadence';
+}
+
+function formatScanInterval(milliseconds: number): string {
+  return `${formatNumber(milliseconds / 1000, milliseconds % 1000 === 0 ? 0 : 1)}s`;
+}
+
+function VelocityValue({ label, value, suffix }: { label: string; value: number | null; suffix: string }) {
+  return (
+    <div>
+      <p className="text-[9px] uppercase tracking-wide text-muted-foreground">{label}</p>
+      <p className={cn('mt-1 text-xs font-semibold', value !== null && value > 0 ? 'text-primary' : value !== null && value < 0 ? 'text-destructive' : 'text-foreground')}>
+        {formatSignedValue(value, suffix)}
+      </p>
+    </div>
+  );
+}
+
+function ChangeIndicator({ label, value }: { label: string; value: number | null }) {
+  return (
+    <div className="rounded-md border border-border/60 bg-background/60 px-2.5 py-2">
+      <p className="text-[9px] uppercase tracking-wide text-muted-foreground">{label}</p>
+      <p className={cn('mt-1 font-mono text-sm font-semibold', value !== null && value > 0 ? 'text-primary' : value !== null && value < 0 ? 'text-destructive' : 'text-foreground')}>
+        {formatSignedValue(value, ' pts/min')}
+      </p>
+    </div>
+  );
+}
+
+function formatSignedValue(value: number | null, suffix: string): string {
+  if (value === null) return '—';
+  return `${value >= 0 ? '+' : ''}${formatNumber(value, 1)}${suffix}`;
 }
 
 function SignalMetricCard({

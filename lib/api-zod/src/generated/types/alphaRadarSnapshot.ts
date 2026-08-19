@@ -5,10 +5,13 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { AlphaChangeIndicators } from './alphaChangeIndicators';
 import type { AlphaRadarDiagnostics } from './alphaRadarDiagnostics';
+import type { AlphaRadarScanMetadata } from './alphaRadarScanMetadata';
 import type { AlphaRadarScoreState } from './alphaRadarScoreState';
 import type { AlphaRadarSignalState } from './alphaRadarSignalState';
 import type { AlphaRadarSnapshotUnusualActivity } from './alphaRadarSnapshotUnusualActivity';
+import type { AlphaVelocity } from './alphaVelocity';
 import type { RadarSignalDataQuality } from './radarSignalDataQuality';
 import type { RadarSignalMetric } from './radarSignalMetric';
 
@@ -22,6 +25,10 @@ export interface AlphaRadarSnapshot {
   generatedAt: Date;
   warnings: string[];
   diagnostics: AlphaRadarDiagnostics;
+  scan: AlphaRadarScanMetadata;
+  alphaVelocity: AlphaVelocity;
+  changeIndicators: AlphaChangeIndicators;
+  preBreakoutWatch: boolean;
   momentum: RadarSignalMetric;
   spread: RadarSignalMetric;
   volumeIntensity: RadarSignalMetric;

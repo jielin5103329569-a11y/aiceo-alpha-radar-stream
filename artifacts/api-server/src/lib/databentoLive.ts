@@ -4,8 +4,11 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import {
+  addAlphaRadarDynamics,
   calculateAlphaRadar,
   createEmptyAlphaRadar,
+  type AlphaRadarHistoryPoint,
+  type AlphaRadarScanMode,
   type AlphaRadarSnapshot,
 } from "./alphaRadar";
 import {
@@ -137,6 +140,15 @@ const MAX_EVENT_FUTURE_DRIFT_MS = 5_000;
 const MIN_MOMENTUM_COVERAGE_MS = 5_000;
 const MIN_BASELINE_COVERAGE_MS = 2 * RECENT_WINDOW_MS;
 const MAX_ALPHA_OBSERVATIONS = 2_000;
+const NORMAL_SCAN_INTERVAL_MS = 5_000;
+const PRE_OPEN_SCAN_INTERVAL_MS = 3_000;
+const OPENING_SCAN_INTERVAL_MS = 1_000;
+const EVENT_SCAN_MIN_GAP_MS = 750;
+const ALPHA_HISTORY_WINDOW_MS = 90_000;
+const RAPID_MIDPOINT_CHANGE_PERCENT = 0.03;
+const SPREAD_CHANGE_BPS = 1;
+const DEPTH_PRESSURE_CHANGE_PERCENT = 20;
+const VOLUME_SPIKE_MULTIPLIER = 3;
 
 type QuoteObservation = {
   timestamp: Date;
@@ -168,6 +180,11 @@ type TradeBucket = {
   tradeCount: number;
   classifiedTrades: number;
   lastClassifiedTimestamp: Date | null;
+};
+
+type AlphaScanProfile = {
+  scanMode: AlphaRadarScanMode;
+  scanIntervalMs: number;
 };
 
 function redactMessage(message: string): string {
@@ -288,12 +305,60 @@ function retainObservations<T extends { timestamp: Date }>(observations: T[]): T
     .slice(-MAX_ALPHA_OBSERVATIONS);
 }
 
+export function scanProfileAt(now: Date): AlphaScanProfile {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/New_York",
+    weekday: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(now);
+  const valueFor = (type: Intl.DateTimeFormatPartTypes): string =>
+    parts.find((part) => part.type === type)?.value ?? "";
+  const weekday = valueFor("weekday");
+  const minutes = Number(valueFor("hour")) * 60 + Number(valueFor("minute"));
+  const isWeekday = weekday !== "Sat" && weekday !== "Sun";
+
+  if (isWeekday && minutes >= 9 * 60 + 25 && minutes < 9 * 60 + 30) {
+    return { scanMode: "pre_open", scanIntervalMs: PRE_OPEN_SCAN_INTERVAL_MS };
+  }
+  if (isWeekday && minutes >= 9 * 60 + 30 && minutes < 10 * 60) {
+    return { scanMode: "opening", scanIntervalMs: OPENING_SCAN_INTERVAL_MS };
+  }
+  return { scanMode: "normal", scanIntervalMs: NORMAL_SCAN_INTERVAL_MS };
+}
+
+function quoteMidpoint(quote: QuoteObservation): number | null {
+  if (
+    quote.bidPrice === null
+    || quote.askPrice === null
+    || quote.bidPrice <= 0
+    || quote.askPrice <= 0
+  ) {
+    return null;
+  }
+  return (quote.bidPrice + quote.askPrice) / 2;
+}
+
+function quoteSpreadBps(quote: QuoteObservation): number | null {
+  const midpoint = quoteMidpoint(quote);
+  if (!midpoint || quote.bidPrice === null || quote.askPrice === null) return null;
+  return ((quote.askPrice - quote.bidPrice) / midpoint) * 10_000;
+}
+
+function quoteDepthPressure(quote: QuoteObservation): number | null {
+  if (quote.bidSize === null || quote.askSize === null) return null;
+  const total = quote.bidSize + quote.askSize;
+  return total > 0 ? ((quote.bidSize - quote.askSize) / total) * 100 : null;
+}
+
 export class DatabentoLiveService extends EventEmitter {
   private child: ChildProcess | null = null;
   private outputBuffer = "";
   private stopping = false;
   private heartbeatTimer: NodeJS.Timeout | null = null;
   private reconnectTimer: NodeJS.Timeout | null = null;
+  private scanTimer: NodeJS.Timeout | null = null;
   private status = blankStatus();
   private quotes: QuoteObservation[] = [];
   private trades: TradeObservation[] = [];
@@ -302,19 +367,39 @@ export class DatabentoLiveService extends EventEmitter {
   private tradeBuckets = new Map<number, TradeBucket>();
   private analysisWindowNeedsReset = false;
   private analysisWindowStartedAt: Date | null = null;
+  private scanSchedulerActive = false;
+  private lastAlphaScanAt: Date | null = null;
+  private alphaHistory: AlphaRadarHistoryPoint[] = [];
+  private pendingScanReason = "scheduled_scan";
+  private pendingScanEventTriggered = false;
 
   getStatus(): RadarStatus {
     const now = new Date();
+    const marketFeedState = this.marketFeedStateAt(now);
+    const alphaRadar =
+      marketFeedState === "streaming"
+        ? this.status.alphaRadar
+        : addAlphaRadarDynamics(
+          calculateAlphaRadar({
+            now,
+            connectionState: "stopped",
+            quotes: this.quotes,
+            trades: this.trades,
+            bars: this.bars,
+          }),
+          this.alphaHistory,
+          {
+            lastScannedAt: now,
+            scanIntervalMs: scanProfileAt(now).scanIntervalMs,
+            scanMode: scanProfileAt(now).scanMode,
+            triggerReason: "freshness_safety_check",
+            eventTriggered: false,
+          },
+        );
     return {
       ...this.status,
-      marketFeedState: this.marketFeedStateAt(now),
-      alphaRadar: calculateAlphaRadar({
-        now,
-        connectionState: this.status.connectionState,
-        quotes: this.quotes,
-        trades: this.trades,
-        bars: this.bars,
-      }),
+      marketFeedState,
+      alphaRadar,
       radar: this.calculateRadar(now),
     };
   }
@@ -327,6 +412,7 @@ export class DatabentoLiveService extends EventEmitter {
     this.stopping = true;
     this.clearReconnectTimer();
     this.clearHeartbeatTimer();
+    this.clearScanTimer();
     if (this.child && !this.child.killed) {
       this.child.kill("SIGTERM");
     }
@@ -343,6 +429,7 @@ export class DatabentoLiveService extends EventEmitter {
       streams: this.status.streams.map((stream) => ({ ...stream, state: "waiting" as const })),
     };
     this.analysisWindowNeedsReset = false;
+    this.scanSchedulerActive = false;
     this.publish();
     return this.getStatus();
   }
@@ -389,6 +476,7 @@ export class DatabentoLiveService extends EventEmitter {
           error: null,
         };
     this.startHeartbeat();
+    this.startScanScheduler();
     this.publish();
 
     const child = spawn("python3", ["-u", bridgePath], {
@@ -505,15 +593,24 @@ export class DatabentoLiveService extends EventEmitter {
           }
         : stream,
     );
+    let scanReason = "market_event";
+    let eventTriggered = false;
 
     if (event.type === "mbp") {
-      this.recordQuote({
+      const previousQuote = this.quotes.at(-1) ?? null;
+      const quote = {
         timestamp: eventTimestamp,
         bidPrice: event.bidPrice,
         askPrice: event.askPrice,
         bidSize: event.bidSize,
         askSize: event.askSize,
-      });
+      };
+      const quoteTrigger = this.quoteScanTrigger(previousQuote, quote);
+      if (quoteTrigger) {
+        scanReason = quoteTrigger;
+        eventTriggered = true;
+      }
+      this.recordQuote(quote);
       const trade = event.trade
         ? (() => {
             const tradeTimestamp = observedAt(event.trade.timestamp, now);
@@ -531,7 +628,12 @@ export class DatabentoLiveService extends EventEmitter {
           })()
         : null;
       if (trade) {
+        const volumeTriggered = this.volumeScanTrigger(trade.timestamp, trade.size);
         this.recordTrade(trade);
+        if (volumeTriggered && !quoteTrigger) {
+          scanReason = "volume_spike";
+          eventTriggered = true;
+        }
       }
       this.trimWindows(now);
       this.status = {
@@ -556,9 +658,9 @@ export class DatabentoLiveService extends EventEmitter {
           lastTradeAt: trade?.timestamp ?? this.status.market.lastTradeAt,
         },
         recentTrades: trade ? [trade, ...this.status.recentTrades].slice(0, 12) : this.status.recentTrades,
-        radar: this.calculateRadar(now),
       };
     } else {
+      const volumeTriggered = this.barVolumeScanTrigger(eventTimestamp, event.volume ?? 0);
       this.recordBar({
         timestamp: eventTimestamp,
         close: event.close,
@@ -584,10 +686,13 @@ export class DatabentoLiveService extends EventEmitter {
               : (this.status.market.sessionVolume ?? 0) + event.volume,
           lastTradeAt: eventTimestamp,
         },
-        radar: this.calculateRadar(now),
       };
+      if (volumeTriggered) {
+        scanReason = "volume_spike";
+        eventTriggered = true;
+      }
     }
-    this.publish();
+    this.requestAlphaScan(scanReason, eventTriggered);
   }
 
   private fail(message: string, shouldReconnect = false): void {
@@ -673,6 +778,159 @@ export class DatabentoLiveService extends EventEmitter {
     }
   }
 
+  private startScanScheduler(): void {
+    this.scanSchedulerActive = true;
+    this.runAlphaScan("stream_started", false);
+    this.scheduleNextScan();
+  }
+
+  private clearScanTimer(): void {
+    if (this.scanTimer) {
+      clearTimeout(this.scanTimer);
+      this.scanTimer = null;
+    }
+  }
+
+  private scheduleNextScan(delayMs?: number): void {
+    if (!this.scanSchedulerActive) return;
+    this.clearScanTimer();
+    const profile = scanProfileAt(new Date());
+    const delay = delayMs ?? profile.scanIntervalMs;
+    this.scanTimer = setTimeout(() => {
+      this.scanTimer = null;
+      const reason = this.pendingScanReason;
+      const eventTriggered = this.pendingScanEventTriggered;
+      this.pendingScanReason = "scheduled_scan";
+      this.pendingScanEventTriggered = false;
+      this.runAlphaScan(reason, eventTriggered);
+      this.scheduleNextScan();
+    }, delay);
+  }
+
+  private requestAlphaScan(reason: string, eventTriggered: boolean): void {
+    if (!this.scanSchedulerActive) {
+      this.runAlphaScan(reason, eventTriggered);
+      return;
+    }
+    const now = new Date();
+    const lastScanMs = this.lastAlphaScanAt?.getTime() ?? 0;
+    const elapsedMs = now.getTime() - lastScanMs;
+    if (!eventTriggered) {
+      return;
+    }
+    this.pendingScanReason = reason;
+    this.pendingScanEventTriggered = true;
+    if (!this.lastAlphaScanAt || elapsedMs >= EVENT_SCAN_MIN_GAP_MS) {
+      this.pendingScanReason = "scheduled_scan";
+      this.pendingScanEventTriggered = false;
+      this.runAlphaScan(reason, true);
+      this.scheduleNextScan();
+      return;
+    }
+    this.scheduleNextScan(Math.max(1, EVENT_SCAN_MIN_GAP_MS - elapsedMs));
+  }
+
+  private runAlphaScan(triggerReason: string, eventTriggered: boolean): void {
+    const now = new Date();
+    const profile = scanProfileAt(now);
+    const calculated = calculateAlphaRadar({
+      now,
+      connectionState: this.status.connectionState,
+      quotes: this.quotes,
+      trades: this.trades,
+      bars: this.bars,
+    });
+    const alphaRadar = addAlphaRadarDynamics(calculated, this.alphaHistory, {
+      lastScannedAt: now,
+      scanIntervalMs: profile.scanIntervalMs,
+      scanMode: profile.scanMode,
+      triggerReason,
+      eventTriggered,
+    });
+    if (
+      alphaRadar.scoreState === "available"
+      && alphaRadar.dataQuality === "good"
+      && alphaRadar.score !== null
+      && alphaRadar.momentum.score !== null
+      && alphaRadar.volumeIntensity.score !== null
+      && alphaRadar.orderFlowPressure.score !== null
+    ) {
+      this.alphaHistory = [
+        ...this.alphaHistory,
+        {
+          generatedAt: now,
+          score: alphaRadar.score,
+          momentumScore: alphaRadar.momentum.score,
+          volumeScore: alphaRadar.volumeIntensity.score,
+          orderFlowScore: alphaRadar.orderFlowPressure.score,
+        },
+      ].filter((point) => point.generatedAt.getTime() >= now.getTime() - ALPHA_HISTORY_WINDOW_MS);
+    } else {
+      this.alphaHistory = [];
+    }
+    this.lastAlphaScanAt = now;
+    this.status = {
+      ...this.status,
+      alphaRadar,
+      radar: this.calculateRadar(now),
+    };
+    this.publish();
+  }
+
+  private quoteScanTrigger(previous: QuoteObservation | null, current: QuoteObservation): string | null {
+    if (!previous) return null;
+    const previousMidpoint = quoteMidpoint(previous);
+    const currentMidpoint = quoteMidpoint(current);
+    if (previousMidpoint && currentMidpoint) {
+      const changePercent = Math.abs(((currentMidpoint - previousMidpoint) / previousMidpoint) * 100);
+      if (changePercent >= RAPID_MIDPOINT_CHANGE_PERCENT) return "rapid_midpoint_change";
+    }
+    const previousSpread = quoteSpreadBps(previous);
+    const currentSpread = quoteSpreadBps(current);
+    if (
+      previousSpread !== null
+      && currentSpread !== null
+      && Math.abs(currentSpread - previousSpread) >= SPREAD_CHANGE_BPS
+    ) {
+      return "spread_shift";
+    }
+    const previousPressure = quoteDepthPressure(previous);
+    const currentPressure = quoteDepthPressure(current);
+    if (
+      previousPressure !== null
+      && currentPressure !== null
+      && Math.abs(currentPressure - previousPressure) >= DEPTH_PRESSURE_CHANGE_PERCENT
+    ) {
+      return "order_flow_shift";
+    }
+    return null;
+  }
+
+  private volumeScanTrigger(timestamp: Date, volume: number): boolean {
+    if (volume <= 0) return false;
+    const priorVolume = this.trades
+      .filter((trade) => trade.timestamp.getTime() < timestamp.getTime())
+      .filter((trade) => trade.timestamp.getTime() >= timestamp.getTime() - 30_000)
+      .map((trade) => trade.size);
+    const average = priorVolume.length > 0
+      ? priorVolume.reduce((total, value) => total + value, 0) / priorVolume.length
+      : 0;
+    return average > 0 && volume >= average * VOLUME_SPIKE_MULTIPLIER;
+  }
+
+  private barVolumeScanTrigger(timestamp: Date, volume: number): boolean {
+    if (volume <= 0) return false;
+    const priorVolume = this.bars
+      .filter((bar) => bar.timestamp.getTime() < timestamp.getTime())
+      .filter((bar) => bar.timestamp.getTime() >= timestamp.getTime() - 30_000)
+      .map((bar) => bar.volume ?? 0)
+      .filter((value) => value > 0);
+    const average = priorVolume.length > 0
+      ? priorVolume.reduce((total, value) => total + value, 0) / priorVolume.length
+      : 0;
+    return average > 0 && volume >= average * VOLUME_SPIKE_MULTIPLIER;
+  }
+
   private publish(): void {
     this.emit("status", this.getStatus());
   }
@@ -746,6 +1004,12 @@ export class DatabentoLiveService extends EventEmitter {
     this.quoteWindow = [];
     this.tradeBuckets.clear();
     this.analysisWindowStartedAt = null;
+    this.alphaHistory = [];
+    this.lastAlphaScanAt = null;
+    this.status = {
+      ...this.status,
+      alphaRadar: createEmptyAlphaRadar(new Date()),
+    };
   }
 
   private marketFeedStateAt(now: Date): MarketFeedState {
