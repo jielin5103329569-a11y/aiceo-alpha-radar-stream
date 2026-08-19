@@ -248,6 +248,7 @@ function formatSignedValue(value: number | null, suffix: string): string {
 
 function PreBreakoutDetectionCard({ alphaRadar }: { alphaRadar: AlphaRadarSnapshot }) {
   const detection = alphaRadar.preBreakout;
+  const confirmation = detection.confirmation;
   return (
     <div className="rounded-lg border border-border/70 bg-card p-3" data-testid="pre-breakout-detection">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -301,6 +302,50 @@ function PreBreakoutDetectionCard({ alphaRadar }: { alphaRadar: AlphaRadarSnapsh
           Cooldown active · {formatNumber(detection.cooldownRemainingMs / 1000, 1)}s before a downgrade can be confirmed.
         </p>
       ) : null}
+      <div className="mt-3 rounded-md border border-border/60 bg-muted/30 p-3" data-testid="confirmation-gate">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <p className="text-[9px] uppercase tracking-wide text-muted-foreground">Multi-factor confirmation</p>
+            <p className="mt-1 text-[11px] leading-relaxed text-foreground">{confirmation.reason}</p>
+          </div>
+          <Badge className={cn('border font-mono text-[9px] uppercase tracking-wide', confirmationStatusStyle(confirmation.status))}>
+            {confirmation.status}
+          </Badge>
+        </div>
+        <div className="mt-3 flex items-center justify-between gap-3 border-t border-border/60 pt-2 font-mono text-[10px]">
+          <span className="text-muted-foreground">Persistent observations</span>
+          <span className="font-semibold text-foreground" data-testid="text-confirmation-persistence">
+            {confirmation.persistenceScans} / {confirmation.requiredPersistenceScans}
+          </span>
+        </div>
+        {confirmation.evidence.length > 0 ? (
+          <div className="mt-3 grid gap-2 sm:grid-cols-2" data-testid="confirmation-evidence">
+            {confirmation.evidence.map((evidence) => (
+              <div
+                key={evidence.key}
+                className={cn(
+                  'rounded border px-2.5 py-2',
+                  evidence.satisfied
+                    ? 'border-primary/25 bg-primary/5'
+                    : 'border-amber-500/25 bg-amber-500/5',
+                )}
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[10px] font-medium text-foreground">{evidence.label}</span>
+                  <span className={cn('font-mono text-[9px] uppercase', evidence.satisfied ? 'text-primary' : 'text-amber-700 dark:text-amber-300')}>
+                    {evidence.satisfied ? 'met' : 'missing'}
+                  </span>
+                </div>
+                <p className="mt-1 text-[9px] leading-relaxed text-muted-foreground">{evidence.detail}</p>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="mt-3 border-t border-border/60 pt-2 text-[10px] text-muted-foreground">
+            Evidence checks resume only after a complete, fresh live window is available.
+          </p>
+        )}
+      </div>
       {detection.state === 'unavailable' ? (
         <p className="mt-3 border-t border-border/60 pt-2 text-[11px] leading-relaxed text-muted-foreground">
           Detection is unavailable until the current live window is complete, fresh, and score-eligible. Historical observations cannot create a state.
@@ -325,6 +370,13 @@ function preBreakoutStateStyle(state: AlphaRadarSnapshot['preBreakout']['state']
   if (state === 'accelerating') return 'border-sky-500/35 bg-sky-500/10 text-sky-700 dark:text-sky-300';
   if (state === 'watch') return 'border-border bg-muted text-muted-foreground';
   return 'border-border text-muted-foreground';
+}
+
+function confirmationStatusStyle(status: AlphaRadarSnapshot['preBreakout']['confirmation']['status']): string {
+  if (status === 'confirmed') return 'border-primary/50 bg-primary/15 text-primary';
+  if (status === 'pending') return 'border-amber-500/45 bg-amber-500/10 text-amber-700 dark:text-amber-300';
+  if (status === 'rejected') return 'border-destructive/35 bg-destructive/10 text-destructive';
+  return 'border-border bg-muted text-muted-foreground';
 }
 
 function DetectionValue({ label, value }: { label: string; value: string }) {

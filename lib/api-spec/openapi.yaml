@@ -185,6 +185,68 @@ components:
     PreBreakoutDetectionState:
       type: string
       enum: [unavailable, watch, accelerating, pre_breakout, confirmed]
+    PreBreakoutConfirmationStatus:
+      type: string
+      enum: [unavailable, pending, confirmed, rejected]
+    PreBreakoutConfirmationEvidenceKey:
+      type: string
+      enum:
+        - price_momentum
+        - volume_acceleration
+        - order_flow_pressure
+        - spread_tightening
+        - alpha_velocity
+        - score_strength
+        - trajectory_persistence
+    PreBreakoutConfirmationEvidence:
+      type: object
+      properties:
+        key:
+          $ref: "#/components/schemas/PreBreakoutConfirmationEvidenceKey"
+        label:
+          type: string
+        satisfied:
+          type: boolean
+        detail:
+          type: string
+      required: [key, label, satisfied, detail]
+    PreBreakoutConfirmation:
+      type: object
+      properties:
+        status:
+          $ref: "#/components/schemas/PreBreakoutConfirmationStatus"
+        evidence:
+          type: array
+          items:
+            $ref: "#/components/schemas/PreBreakoutConfirmationEvidence"
+        satisfiedEvidence:
+          type: array
+          items:
+            type: string
+        missingEvidence:
+          type: array
+          items:
+            type: string
+        persistenceScans:
+          type: number
+          minimum: 0
+        requiredPersistenceScans:
+          type: number
+          minimum: 1
+        evaluatedAt:
+          type: string
+          format: date-time
+        reason:
+          type: string
+      required:
+        - status
+        - evidence
+        - satisfiedEvidence
+        - missingEvidence
+        - persistenceScans
+        - requiredPersistenceScans
+        - evaluatedAt
+        - reason
     PreBreakoutDetection:
       type: object
       properties:
@@ -221,6 +283,8 @@ components:
         cooldownRemainingMs:
           type: [number, "null"]
           minimum: 0
+        confirmation:
+          $ref: "#/components/schemas/PreBreakoutConfirmation"
       required:
         - state
         - evidenceCount
@@ -233,6 +297,7 @@ components:
         - lastEvaluatedAt
         - dataFresh
         - cooldownRemainingMs
+        - confirmation
     RadarSignalMetric:
       type: object
       properties:
@@ -383,6 +448,10 @@ components:
           format: date-time
         alphaRadar:
           $ref: "#/components/schemas/AlphaRadarSnapshot"
+        signalHistory:
+          type: array
+          items:
+            $ref: "#/components/schemas/AlphaRadarSignalHistoryEntry"
         market:
           $ref: "#/components/schemas/RadarMarketSnapshot"
         error:
@@ -393,8 +462,58 @@ components:
         - marketFeedState
         - lastUpdatedAt
         - alphaRadar
+        - signalHistory
         - market
         - error
+    AlphaRadarSignalHistoryEntry:
+      type: object
+      properties:
+        occurredAt:
+          type: string
+          format: date-time
+        fromState:
+          $ref: "#/components/schemas/PreBreakoutDetectionState"
+        toState:
+          $ref: "#/components/schemas/PreBreakoutDetectionState"
+        fromConfirmationStatus:
+          $ref: "#/components/schemas/PreBreakoutConfirmationStatus"
+        toConfirmationStatus:
+          $ref: "#/components/schemas/PreBreakoutConfirmationStatus"
+        score:
+          type: [number, "null"]
+        confidence:
+          type: number
+        alphaVelocity:
+          type: [number, "null"]
+        evidenceCount:
+          type: number
+          minimum: 0
+        satisfiedEvidence:
+          type: array
+          items:
+            type: string
+        missingEvidence:
+          type: array
+          items:
+            type: string
+        dataFresh:
+          type: boolean
+        reason:
+          type: string
+      required:
+        - occurredAt
+        - fromState
+        - toState
+        - fromConfirmationStatus
+        - toConfirmationStatus
+        - score
+        - confidence
+        - alphaVelocity
+        - evidenceCount
+        - satisfiedEvidence
+        - missingEvidence
+        - dataFresh
+        - reason
     RadarTrade:
       type: object
       properties:
@@ -566,6 +685,10 @@ components:
           format: date-time
         alphaRadar:
           $ref: "#/components/schemas/AlphaRadarSnapshot"
+        signalHistory:
+          type: array
+          items:
+            $ref: "#/components/schemas/AlphaRadarSignalHistoryEntry"
         error:
           type: ["string", "null"]
         market:
@@ -591,9 +714,11 @@ components:
               type: string
             state:
               $ref: "#/components/schemas/PreBreakoutDetectionState"
+            confirmationStatus:
+              $ref: "#/components/schemas/PreBreakoutConfirmationStatus"
             alphaVelocity:
               type: [number, "null"]
-          required: [symbol, state, alphaVelocity]
+          required: [symbol, state, confirmationStatus, alphaVelocity]
       required:
         - configured
         - connectionState
@@ -608,6 +733,7 @@ components:
         - reconnectAttempt
         - nextReconnectAt
         - alphaRadar
+        - signalHistory
         - error
         - market
         - recentTrades

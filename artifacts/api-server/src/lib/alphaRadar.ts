@@ -78,6 +78,39 @@ export type PreBreakoutDetectionState =
   | "pre_breakout"
   | "confirmed";
 
+export type PreBreakoutConfirmationStatus =
+  | "unavailable"
+  | "pending"
+  | "confirmed"
+  | "rejected";
+
+export type PreBreakoutConfirmationEvidenceKey =
+  | "price_momentum"
+  | "volume_acceleration"
+  | "order_flow_pressure"
+  | "spread_tightening"
+  | "alpha_velocity"
+  | "score_strength"
+  | "trajectory_persistence";
+
+export type PreBreakoutConfirmationEvidence = {
+  key: PreBreakoutConfirmationEvidenceKey;
+  label: string;
+  satisfied: boolean;
+  detail: string;
+};
+
+export type PreBreakoutConfirmation = {
+  status: PreBreakoutConfirmationStatus;
+  evidence: PreBreakoutConfirmationEvidence[];
+  satisfiedEvidence: string[];
+  missingEvidence: string[];
+  persistenceScans: number;
+  requiredPersistenceScans: number;
+  evaluatedAt: Date;
+  reason: string;
+};
+
 export type PreBreakoutDetection = {
   state: PreBreakoutDetectionState;
   evidenceCount: number;
@@ -90,6 +123,7 @@ export type PreBreakoutDetection = {
   lastEvaluatedAt: Date;
   dataFresh: boolean;
   cooldownRemainingMs: number | null;
+  confirmation: PreBreakoutConfirmation;
 };
 
 export type PreBreakoutStateMachine = {
@@ -99,6 +133,7 @@ export type PreBreakoutStateMachine = {
   lastTransitionAt: Date | null;
   lastTransitionEvidenceCount: number;
   lastTransitionReasons: string[];
+  confirmationPersistenceScans: number;
 };
 
 export type AlphaRadarSnapshot = {
@@ -139,6 +174,22 @@ export type AlphaRadarHistoryPoint = {
   spreadScore: number;
 };
 
+export type AlphaRadarSignalHistoryEntry = {
+  occurredAt: Date;
+  fromState: PreBreakoutDetectionState;
+  toState: PreBreakoutDetectionState;
+  fromConfirmationStatus: PreBreakoutConfirmationStatus;
+  toConfirmationStatus: PreBreakoutConfirmationStatus;
+  score: number | null;
+  confidence: number;
+  alphaVelocity: number | null;
+  evidenceCount: number;
+  satisfiedEvidence: string[];
+  missingEvidence: string[];
+  dataFresh: boolean;
+  reason: string;
+};
+
 export type AlphaRadarScanContext = {
   lastScannedAt: Date;
   scanIntervalMs: number;
@@ -149,6 +200,8 @@ export type AlphaRadarScanContext = {
 
 const PRE_BREAKOUT_CONFIRMATION_SCANS = 2;
 const PRE_BREAKOUT_COOLDOWN_MS = 10_000;
+const MULTI_FACTOR_CONFIRMATION_SCANS = 3;
+export const MAX_SIGNAL_HISTORY_ENTRIES = 24;
 
 const SHORT_WINDOW_MS = 30_000;
 const BASELINE_WINDOW_MS = 300_000;
@@ -280,6 +333,30 @@ function emptyChangeIndicators(): AlphaChangeIndicators {
   };
 }
 
+function unavailableConfirmation(
+  now: Date,
+  reason = "Confirmation is unavailable until a complete fresh live window is rebuilt.",
+): PreBreakoutConfirmation {
+  return {
+    status: "unavailable",
+    evidence: [],
+    satisfiedEvidence: [],
+    missingEvidence: [
+      "Fresh price momentum",
+      "Volume acceleration",
+      "Order-flow pressure",
+      "Spread tightening",
+      "Positive Alpha Velocity",
+      "Alpha score strength",
+      "Persistent multi-scan trajectory",
+    ],
+    persistenceScans: 0,
+    requiredPersistenceScans: MULTI_FACTOR_CONFIRMATION_SCANS,
+    evaluatedAt: now,
+    reason,
+  };
+}
+
 function unavailablePreBreakout(now: Date): PreBreakoutDetection {
   return {
     state: "unavailable",
@@ -293,7 +370,27 @@ function unavailablePreBreakout(now: Date): PreBreakoutDetection {
     lastEvaluatedAt: now,
     dataFresh: false,
     cooldownRemainingMs: null,
+    confirmation: unavailableConfirmation(now),
   };
+}
+
+export function appendSignalHistoryEntry(
+  history: AlphaRadarSignalHistoryEntry[],
+  entry: AlphaRadarSignalHistoryEntry,
+  maximumEntries = MAX_SIGNAL_HISTORY_ENTRIES,
+): AlphaRadarSignalHistoryEntry[] {
+  const lastEntry = history.at(-1);
+  if (lastEntry && entry.occurredAt.getTime() < lastEntry.occurredAt.getTime()) {
+    return history;
+  }
+  if (
+    lastEntry
+    && lastEntry.toState === entry.toState
+    && lastEntry.toConfirmationStatus === entry.toConfirmationStatus
+  ) {
+    return history;
+  }
+  return [...history, entry].slice(-Math.max(1, maximumEntries));
 }
 
 function changeRate(current: number, previous: number, elapsedMs: number): number | null {
@@ -406,6 +503,10 @@ export function addAlphaRadarDynamics(
       lastEvaluatedAt: context.lastScannedAt,
       dataFresh: true,
       cooldownRemainingMs: null,
+      confirmation: unavailableConfirmation(
+        context.lastScannedAt,
+        "Confirmation awaits the current state-machine evaluation.",
+      ),
     },
   };
 }
@@ -465,6 +566,127 @@ function deteriorationEvidence(snapshot: AlphaRadarSnapshot): string[] {
   ].filter((reason): reason is string => reason !== null);
 }
 
+function confirmationEvidence(
+  snapshot: AlphaRadarSnapshot,
+  persistenceScans: number,
+): PreBreakoutConfirmationEvidence[] {
+  const momentum = snapshot.changeIndicators.momentumAcceleration;
+  const volume = snapshot.changeIndicators.volumeAcceleration;
+  const orderFlow = snapshot.changeIndicators.orderFlowShift;
+  const spread = snapshot.changeIndicators.spreadTightening;
+  const velocity = snapshot.alphaVelocity.rate30s;
+  const score = snapshot.score;
+  return [
+    {
+      key: "price_momentum",
+      label: "Fresh price momentum",
+      satisfied: momentum !== null && momentum >= 10,
+      detail: momentum === null
+        ? "No eligible momentum acceleration is available."
+        : `Momentum acceleration is ${round(momentum, 1)} pts/min; requires at least +10.`,
+    },
+    {
+      key: "volume_acceleration",
+      label: "Volume acceleration",
+      satisfied: volume !== null && volume >= 10,
+      detail: volume === null
+        ? "No eligible volume acceleration is available."
+        : `Volume acceleration is ${round(volume, 1)} pts/min; requires at least +10.`,
+    },
+    {
+      key: "order_flow_pressure",
+      label: "Order-flow pressure",
+      satisfied: orderFlow !== null && orderFlow >= 10,
+      detail: orderFlow === null
+        ? "No eligible order-flow shift is available."
+        : `Order-flow shift is ${round(orderFlow, 1)} pts/min; requires at least +10.`,
+    },
+    {
+      key: "spread_tightening",
+      label: "Spread tightening",
+      satisfied: spread !== null && spread >= 8,
+      detail: spread === null
+        ? "No eligible spread change is available."
+        : `Spread score change is ${round(spread, 1)} pts/min; requires at least +8.`,
+    },
+    {
+      key: "alpha_velocity",
+      label: "Positive Alpha Velocity",
+      satisfied: velocity !== null && velocity >= 6,
+      detail: velocity === null
+        ? "No eligible 30-second Alpha Velocity is available."
+        : `Alpha Velocity is ${round(velocity, 1)} pts/min; requires at least +6.`,
+    },
+    {
+      key: "score_strength",
+      label: "Alpha score strength",
+      satisfied: score !== null && score >= 55,
+      detail: score === null
+        ? "No eligible Alpha score is available."
+        : `Alpha score is ${round(score, 0)}; requires at least 55.`,
+    },
+    {
+      key: "trajectory_persistence",
+      label: "Persistent multi-scan trajectory",
+      satisfied: persistenceScans >= MULTI_FACTOR_CONFIRMATION_SCANS,
+      detail: `${persistenceScans} of ${MULTI_FACTOR_CONFIRMATION_SCANS} consecutive valid confirmation observations.`,
+    },
+  ];
+}
+
+function evaluateConfirmation(
+  snapshot: AlphaRadarSnapshot,
+  previousPersistenceScans: number,
+  now: Date,
+): PreBreakoutConfirmation {
+  const provisionalEvidence = confirmationEvidence(snapshot, previousPersistenceScans);
+  const directAndThresholdEvidence = provisionalEvidence.filter(
+    (evidence) => evidence.key !== "trajectory_persistence",
+  );
+  const trajectoryContinues = directAndThresholdEvidence.every((evidence) => evidence.satisfied);
+  const persistenceScans = trajectoryContinues ? previousPersistenceScans + 1 : 0;
+  const evidence = confirmationEvidence(snapshot, persistenceScans);
+  const satisfiedEvidence = evidence
+    .filter((item) => item.satisfied)
+    .map((item) => item.label);
+  const missingEvidence = evidence
+    .filter((item) => !item.satisfied)
+    .map((item) => item.label);
+  const directEvidenceCount = evidence
+    .filter((item) =>
+      item.key === "price_momentum"
+      || item.key === "volume_acceleration"
+      || item.key === "order_flow_pressure"
+      || item.key === "spread_tightening",
+    )
+    .filter((item) => item.satisfied).length;
+  const allSatisfied = missingEvidence.length === 0;
+  const status: PreBreakoutConfirmationStatus = allSatisfied
+    ? "confirmed"
+    : directEvidenceCount >= 2 || trajectoryContinues
+      ? "pending"
+      : "rejected";
+  const reason =
+    status === "confirmed"
+      ? `All confirmation factors persisted for ${persistenceScans} consecutive valid scans.`
+      : status === "pending"
+        ? trajectoryContinues
+          ? `Converging evidence has persisted for ${persistenceScans} of ${MULTI_FACTOR_CONFIRMATION_SCANS} required scans.`
+          : `Confirmation remains pending; missing ${missingEvidence.join(", ")}.`
+        : `The current scan lacks converging independent evidence; missing ${missingEvidence.join(", ")}.`;
+
+  return {
+    status,
+    evidence,
+    satisfiedEvidence,
+    missingEvidence,
+    persistenceScans,
+    requiredPersistenceScans: MULTI_FACTOR_CONFIRMATION_SCANS,
+    evaluatedAt: now,
+    reason,
+  };
+}
+
 function candidateDetectionState(snapshot: AlphaRadarSnapshot, evidenceCount: number): PreBreakoutDetectionState {
   const velocity = snapshot.alphaVelocity.rate30s ?? Number.NEGATIVE_INFINITY;
   const score = snapshot.score ?? Number.NEGATIVE_INFINITY;
@@ -501,13 +723,24 @@ export function updatePreBreakoutDetection(
         lastTransitionAt: null,
         lastTransitionEvidenceCount: 0,
         lastTransitionReasons: [],
+        confirmationPersistenceScans: 0,
       },
     };
   }
 
   const reasons = positiveEvidence(snapshot);
   const deteriorationReasons = deteriorationEvidence(snapshot);
-  const candidate = candidateDetectionState(snapshot, reasons.length);
+  const confirmation = evaluateConfirmation(
+    snapshot,
+    machine.confirmationPersistenceScans ?? 0,
+    now,
+  );
+  const ungatedCandidate = candidateDetectionState(snapshot, reasons.length);
+  const candidate =
+    detectionRank(ungatedCandidate) >= detectionRank("pre_breakout")
+    && confirmation.status !== "confirmed"
+      ? "accelerating"
+      : ungatedCandidate;
   const priorState = machine.state === "unavailable" ? "watch" : machine.state;
   const priorRank = detectionRank(priorState);
   const candidateRank = detectionRank(candidate);
@@ -521,8 +754,26 @@ export function updatePreBreakoutDetection(
   let lastTransitionEvidenceCount = machine.lastTransitionEvidenceCount;
   let lastTransitionReasons = machine.lastTransitionReasons;
   let cooldownRemainingMs: number | null = null;
+  const confirmationHardCapRequired =
+    confirmation.status !== "confirmed"
+    && priorRank >= detectionRank("pre_breakout");
 
-  if (machine.state === "unavailable") {
+  if (confirmationHardCapRequired) {
+    const immediateCandidate =
+      ungatedCandidate === "unavailable" ? "watch" : ungatedCandidate;
+    nextState =
+      detectionRank(immediateCandidate) < detectionRank("accelerating")
+        ? immediateCandidate
+        : "accelerating";
+    pendingState = null;
+    pendingCount = 0;
+    lastTransitionAt = now;
+    lastTransitionEvidenceCount = reasons.length;
+    lastTransitionReasons = [
+      ...deteriorationReasons,
+      `Confirmation no longer met: ${confirmation.missingEvidence.join(", ")}`,
+    ];
+  } else if (machine.state === "unavailable") {
     nextState = "watch";
     lastTransitionAt = now;
     lastTransitionEvidenceCount = reasons.length;
@@ -569,6 +820,7 @@ export function updatePreBreakoutDetection(
     lastEvaluatedAt: now,
     dataFresh: true,
     cooldownRemainingMs,
+    confirmation,
   };
   return {
     snapshot: {
@@ -583,6 +835,7 @@ export function updatePreBreakoutDetection(
       lastTransitionAt,
       lastTransitionEvidenceCount,
       lastTransitionReasons,
+      confirmationPersistenceScans: confirmation.persistenceScans,
     },
   };
 }

@@ -163,6 +163,49 @@ export const PreBreakoutDetectionState = {
   confirmed: 'confirmed',
 } as const;
 
+export type PreBreakoutConfirmationStatus = typeof PreBreakoutConfirmationStatus[keyof typeof PreBreakoutConfirmationStatus];
+
+
+export const PreBreakoutConfirmationStatus = {
+  unavailable: 'unavailable',
+  pending: 'pending',
+  confirmed: 'confirmed',
+  rejected: 'rejected',
+} as const;
+
+export type PreBreakoutConfirmationEvidenceKey = typeof PreBreakoutConfirmationEvidenceKey[keyof typeof PreBreakoutConfirmationEvidenceKey];
+
+
+export const PreBreakoutConfirmationEvidenceKey = {
+  price_momentum: 'price_momentum',
+  volume_acceleration: 'volume_acceleration',
+  order_flow_pressure: 'order_flow_pressure',
+  spread_tightening: 'spread_tightening',
+  alpha_velocity: 'alpha_velocity',
+  score_strength: 'score_strength',
+  trajectory_persistence: 'trajectory_persistence',
+} as const;
+
+export interface PreBreakoutConfirmationEvidence {
+  key: PreBreakoutConfirmationEvidenceKey;
+  label: string;
+  satisfied: boolean;
+  detail: string;
+}
+
+export interface PreBreakoutConfirmation {
+  status: PreBreakoutConfirmationStatus;
+  evidence: PreBreakoutConfirmationEvidence[];
+  satisfiedEvidence: string[];
+  missingEvidence: string[];
+  /** @minimum 0 */
+  persistenceScans: number;
+  /** @minimum 1 */
+  requiredPersistenceScans: number;
+  evaluatedAt: string;
+  reason: string;
+}
+
 export interface PreBreakoutDetection {
   state: PreBreakoutDetectionState;
   /** @minimum 0 */
@@ -182,6 +225,7 @@ export interface PreBreakoutDetection {
      * @nullable
      */
   cooldownRemainingMs: number | null;
+  confirmation: PreBreakoutConfirmation;
 }
 
 export interface RadarSignalMetric {
@@ -249,6 +293,25 @@ export interface RadarMarketSnapshot {
   lastTradeAt: string | null;
 }
 
+export interface AlphaRadarSignalHistoryEntry {
+  occurredAt: string;
+  fromState: PreBreakoutDetectionState;
+  toState: PreBreakoutDetectionState;
+  fromConfirmationStatus: PreBreakoutConfirmationStatus;
+  toConfirmationStatus: PreBreakoutConfirmationStatus;
+  /** @nullable */
+  score: number | null;
+  confidence: number;
+  /** @nullable */
+  alphaVelocity: number | null;
+  /** @minimum 0 */
+  evidenceCount: number;
+  satisfiedEvidence: string[];
+  missingEvidence: string[];
+  dataFresh: boolean;
+  reason: string;
+}
+
 export interface RadarSymbolStatus {
   symbol: string;
   connectionState: RadarConnectionState;
@@ -256,6 +319,7 @@ export interface RadarSymbolStatus {
   /** @nullable */
   lastUpdatedAt: string | null;
   alphaRadar: AlphaRadarSnapshot;
+  signalHistory: AlphaRadarSignalHistoryEntry[];
   market: RadarMarketSnapshot;
   /** @nullable */
   error: string | null;
@@ -392,6 +456,7 @@ export interface RadarStream {
 export type RadarStatusPreBreakoutLeader = {
   symbol: string;
   state: PreBreakoutDetectionState;
+  confirmationStatus: PreBreakoutConfirmationStatus;
   /** @nullable */
   alphaVelocity: number | null;
 } | null;
@@ -414,6 +479,7 @@ export interface RadarStatus {
   /** @nullable */
   nextReconnectAt: string | null;
   alphaRadar: AlphaRadarSnapshot;
+  signalHistory: AlphaRadarSignalHistoryEntry[];
   /** @nullable */
   error: string | null;
   market: RadarMarketSnapshot;

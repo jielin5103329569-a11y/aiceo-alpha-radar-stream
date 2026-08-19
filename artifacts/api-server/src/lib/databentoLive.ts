@@ -5,11 +5,13 @@ import { fileURLToPath } from "node:url";
 
 import {
   addAlphaRadarDynamics,
+  appendSignalHistoryEntry,
   calculateAlphaRadar,
   createEmptyAlphaRadar,
   updatePreBreakoutDetection,
   type AlphaRadarHistoryPoint,
   type AlphaRadarScanMode,
+  type AlphaRadarSignalHistoryEntry,
   type AlphaRadarSnapshot,
   type PreBreakoutStateMachine,
 } from "./alphaRadar";
@@ -80,6 +82,7 @@ export type RadarStatus = {
   reconnectAttempt: number;
   nextReconnectAt: Date | null;
   alphaRadar: AlphaRadarSnapshot;
+  signalHistory: AlphaRadarSignalHistoryEntry[];
   error: string | null;
   market: {
     latestPrice: number | null;
@@ -108,6 +111,7 @@ export type RadarStatus = {
   preBreakoutLeader?: {
     symbol: string;
     state: AlphaRadarSnapshot["preBreakout"]["state"];
+    confirmationStatus: AlphaRadarSnapshot["preBreakout"]["confirmation"]["status"];
     alphaVelocity: number | null;
   } | null;
 };
@@ -118,6 +122,7 @@ export type RadarSymbolStatus = {
   marketFeedState: MarketFeedState;
   lastUpdatedAt: Date | null;
   alphaRadar: AlphaRadarSnapshot;
+  signalHistory: AlphaRadarSignalHistoryEntry[];
   market: RadarStatus["market"];
   error: string | null;
 };
@@ -227,6 +232,7 @@ function blankStatus(symbol = "NVDA"): RadarStatus {
     reconnectAttempt: 0,
     nextReconnectAt: null,
     alphaRadar: createEmptyAlphaRadar(new Date()),
+    signalHistory: [],
     error: configured ? null : "DATABENTO_API_KEY is not configured.",
     market: {
       latestPrice: null,
@@ -393,6 +399,7 @@ export class DatabentoLiveService extends EventEmitter {
   private scanSchedulerActive = false;
   private lastAlphaScanAt: Date | null = null;
   private alphaHistory: AlphaRadarHistoryPoint[] = [];
+  private signalHistory: AlphaRadarSignalHistoryEntry[] = [];
   private preBreakoutMachine: PreBreakoutStateMachine = {
     state: "unavailable",
     pendingState: null,
@@ -400,6 +407,7 @@ export class DatabentoLiveService extends EventEmitter {
     lastTransitionAt: null,
     lastTransitionEvidenceCount: 0,
     lastTransitionReasons: [],
+    confirmationPersistenceScans: 0,
   };
   private pendingScanReason = "scheduled_scan";
   private pendingScanEventTriggered = false;
@@ -407,10 +415,9 @@ export class DatabentoLiveService extends EventEmitter {
   getStatus(): RadarStatus {
     const now = new Date();
     const marketFeedState = this.marketFeedStateAt(now);
-    const alphaRadar =
-      marketFeedState === "streaming"
-        ? this.status.alphaRadar
-        : addAlphaRadarDynamics(
+    let alphaRadar = this.status.alphaRadar;
+    if (marketFeedState !== "streaming") {
+      const invalidSnapshot = addAlphaRadarDynamics(
           calculateAlphaRadar({
             now,
             connectionState: "stopped",
@@ -427,10 +434,26 @@ export class DatabentoLiveService extends EventEmitter {
             eventTriggered: false,
           },
         );
+      const invalidDetection = updatePreBreakoutDetection(
+        invalidSnapshot,
+        this.preBreakoutMachine,
+        now,
+      );
+      alphaRadar = invalidDetection.snapshot;
+      this.preBreakoutMachine = invalidDetection.machine;
+      this.recordSignalHistory(
+        this.status.alphaRadar,
+        alphaRadar,
+        now,
+        "Live confirmation evidence became unavailable.",
+      );
+      this.status = { ...this.status, alphaRadar };
+    }
     return {
       ...this.status,
       marketFeedState,
       alphaRadar,
+      signalHistory: [...this.signalHistory],
       radar: this.calculateRadar(now),
     };
   }
@@ -885,6 +908,12 @@ export class DatabentoLiveService extends EventEmitter {
     );
     const alphaRadar = detection.snapshot;
     this.preBreakoutMachine = detection.machine;
+    this.recordSignalHistory(
+      this.status.alphaRadar,
+      alphaRadar,
+      now,
+      alphaRadar.preBreakout.confirmation.reason,
+    );
     if (
       alphaRadar.scoreState === "available"
       && alphaRadar.dataQuality === "good"
@@ -912,6 +941,7 @@ export class DatabentoLiveService extends EventEmitter {
     this.status = {
       ...this.status,
       alphaRadar,
+      signalHistory: [...this.signalHistory],
       radar: this.calculateRadar(now),
     };
     this.publish();
@@ -1038,6 +1068,9 @@ export class DatabentoLiveService extends EventEmitter {
   }
 
   private resetObservations(): void {
+    const now = new Date();
+    const previousAlphaRadar = this.status.alphaRadar;
+    const unavailableAlphaRadar = createEmptyAlphaRadar(now);
     this.quotes = [];
     this.trades = [];
     this.bars = [];
@@ -1045,6 +1078,7 @@ export class DatabentoLiveService extends EventEmitter {
     this.tradeBuckets.clear();
     this.analysisWindowStartedAt = null;
     this.alphaHistory = [];
+    this.signalHistory = [];
     this.lastAlphaScanAt = null;
     this.preBreakoutMachine = {
       state: "unavailable",
@@ -1053,11 +1087,48 @@ export class DatabentoLiveService extends EventEmitter {
       lastTransitionAt: null,
       lastTransitionEvidenceCount: 0,
       lastTransitionReasons: [],
+      confirmationPersistenceScans: 0,
     };
+    this.recordSignalHistory(
+      previousAlphaRadar,
+      unavailableAlphaRadar,
+      now,
+      "The live analysis window was reset; prior confirmation evidence was cleared.",
+    );
     this.status = {
       ...this.status,
-      alphaRadar: createEmptyAlphaRadar(new Date()),
+      alphaRadar: unavailableAlphaRadar,
+      signalHistory: [...this.signalHistory],
     };
+  }
+
+  private recordSignalHistory(
+    previous: AlphaRadarSnapshot,
+    next: AlphaRadarSnapshot,
+    occurredAt: Date,
+    reason: string,
+  ): void {
+    const fromState = previous.preBreakout.state;
+    const toState = next.preBreakout.state;
+    const fromConfirmationStatus = previous.preBreakout.confirmation.status;
+    const toConfirmationStatus = next.preBreakout.confirmation.status;
+    if (fromState === toState && fromConfirmationStatus === toConfirmationStatus) return;
+
+    this.signalHistory = appendSignalHistoryEntry(this.signalHistory, {
+      occurredAt,
+      fromState,
+      toState,
+      fromConfirmationStatus,
+      toConfirmationStatus,
+      score: next.score,
+      confidence: next.confidence,
+      alphaVelocity: next.alphaVelocity.rate30s,
+      evidenceCount: next.preBreakout.evidenceCount,
+      satisfiedEvidence: [...next.preBreakout.confirmation.satisfiedEvidence],
+      missingEvidence: [...next.preBreakout.confirmation.missingEvidence],
+      dataFresh: next.preBreakout.dataFresh,
+      reason,
+    });
   }
 
   private marketFeedStateAt(now: Date): MarketFeedState {
@@ -1344,6 +1415,7 @@ function toSymbolStatus(status: RadarStatus): RadarSymbolStatus {
     marketFeedState: status.marketFeedState,
     lastUpdatedAt: status.lastUpdatedAt,
     alphaRadar: status.alphaRadar,
+    signalHistory: status.signalHistory,
     market: status.market,
     error: status.error,
   };
@@ -1396,6 +1468,7 @@ export class DatabentoUniverseService extends EventEmitter {
         ? {
             symbol: leader.symbol,
             state: leader.alphaRadar.preBreakout.state,
+            confirmationStatus: leader.alphaRadar.preBreakout.confirmation.status,
             alphaVelocity: leader.alphaRadar.alphaVelocity.rate30s,
           }
         : null,

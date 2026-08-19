@@ -5,6 +5,7 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { AlphaRadarSignalHistoryEntry } from './alphaRadarSignalHistoryEntry';
 import type { AlphaRadarSnapshot } from './alphaRadarSnapshot';
 import type { MarketFeedState } from './marketFeedState';
 import type { RadarConnectionState } from './radarConnectionState';
@@ -17,6 +18,7 @@ export interface RadarSymbolStatus {
   /** @nullable */
   lastUpdatedAt: Date | null;
   alphaRadar: AlphaRadarSnapshot;
+  signalHistory: AlphaRadarSignalHistoryEntry[];
   market: RadarMarketSnapshot;
   /** @nullable */
   error: string | null;

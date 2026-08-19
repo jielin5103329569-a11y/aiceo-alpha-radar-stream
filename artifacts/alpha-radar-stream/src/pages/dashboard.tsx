@@ -400,7 +400,7 @@ function RadarUniverseCard({
           </div>
           {leader ? (
             <Badge className="border border-primary/40 bg-primary/10 font-mono text-[10px] text-primary">
-              Velocity leader · {leader.symbol}
+              Velocity leader · {leader.symbol} · {leader.confirmationStatus}
             </Badge>
           ) : (
             <Badge variant="outline" className="font-mono text-[10px] text-muted-foreground">
@@ -410,9 +410,11 @@ function RadarUniverseCard({
         </div>
       </CardHeader>
       <CardContent>
-        <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {symbols.map((symbol) => {
             const detection = symbol.alphaRadar.preBreakout;
+            const confirmation = detection.confirmation;
+            const recentHistory = symbol.signalHistory.slice(-3);
             const active = symbol.marketFeedState === 'streaming' && detection.dataFresh;
             return (
               <div
@@ -431,6 +433,16 @@ function RadarUniverseCard({
                 <p className={cn('mt-1 font-mono text-[11px] font-semibold uppercase', detectionStateColor(detection.state))}>
                   {detection.state.replaceAll('_', ' ')}
                 </p>
+                <div className="mt-3 flex items-center justify-between gap-2">
+                  <span className="text-[9px] uppercase tracking-wide text-muted-foreground">Confirmation</span>
+                  <Badge
+                    variant="outline"
+                    className={cn('border font-mono text-[9px] uppercase', universeConfirmationStyle(confirmation.status))}
+                    data-testid={`confirmation-status-${symbol.symbol}`}
+                  >
+                    {confirmation.status}
+                  </Badge>
+                </div>
                 <div className="mt-3 border-t border-border/60 pt-2 font-mono text-[10px] text-muted-foreground">
                   <div className="flex justify-between gap-2">
                     <span>Velocity</span>
@@ -443,11 +455,47 @@ function RadarUniverseCard({
                     <span className="text-foreground">{detection.evidenceCount}</span>
                   </div>
                   <div className="mt-1 flex justify-between gap-2">
+                    <span>Persistence</span>
+                    <span className="text-foreground">
+                      {confirmation.persistenceScans}/{confirmation.requiredPersistenceScans}
+                    </span>
+                  </div>
+                  <div className="mt-1 flex justify-between gap-2">
                     <span>Freshness</span>
                     <span className={active ? 'text-primary' : 'text-muted-foreground'}>
                       {active ? 'fresh' : symbol.marketFeedState}
                     </span>
                   </div>
+                </div>
+                <div className="mt-3 border-t border-border/60 pt-2" data-testid={`confirmation-missing-${symbol.symbol}`}>
+                  <p className="text-[9px] uppercase tracking-wide text-muted-foreground">
+                    {confirmation.missingEvidence.length > 0 ? 'Still required' : 'Converged evidence'}
+                  </p>
+                  <p className={cn('mt-1 text-[10px] leading-relaxed', confirmation.missingEvidence.length > 0 ? 'text-muted-foreground' : 'text-primary')}>
+                    {confirmation.missingEvidence.length > 0
+                      ? confirmation.missingEvidence.slice(0, 3).join(' · ')
+                      : 'All confirmation categories are satisfied.'}
+                  </p>
+                </div>
+                <div className="mt-3 border-t border-border/60 pt-2" data-testid={`signal-history-${symbol.symbol}`}>
+                  <p className="text-[9px] uppercase tracking-wide text-muted-foreground">Recent trajectory</p>
+                  {recentHistory.length > 0 ? (
+                    <div className="mt-2 space-y-1.5">
+                      {recentHistory.map((entry, index) => (
+                        <div
+                          key={`${entry.occurredAt}-${entry.toState}-${entry.toConfirmationStatus}-${index}`}
+                          className="flex items-start justify-between gap-2 text-[9px]"
+                        >
+                          <span className={cn('font-mono uppercase', entry.dataFresh ? detectionStateColor(entry.toState) : 'text-muted-foreground')}>
+                            {entry.toState.replaceAll('_', ' ')} · {entry.toConfirmationStatus}
+                          </span>
+                          <span className="shrink-0 font-mono text-muted-foreground">{formatTime(entry.occurredAt)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="mt-1 text-[10px] text-muted-foreground">No state transition recorded yet.</p>
+                  )}
                 </div>
               </div>
             );
@@ -463,6 +511,15 @@ function detectionStateColor(state: RadarSymbolStatus['alphaRadar']['preBreakout
   if (state === 'pre_breakout') return 'text-amber-600 dark:text-amber-300';
   if (state === 'accelerating') return 'text-sky-600 dark:text-sky-300';
   return 'text-muted-foreground';
+}
+
+function universeConfirmationStyle(
+  status: RadarSymbolStatus['alphaRadar']['preBreakout']['confirmation']['status'],
+): string {
+  if (status === 'confirmed') return 'border-primary/40 bg-primary/10 text-primary';
+  if (status === 'pending') return 'border-amber-500/35 bg-amber-500/10 text-amber-700 dark:text-amber-300';
+  if (status === 'rejected') return 'border-destructive/30 bg-destructive/10 text-destructive';
+  return 'border-border bg-muted text-muted-foreground';
 }
 
 function signedRate(value: number | null): string {

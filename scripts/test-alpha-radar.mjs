@@ -24,6 +24,7 @@ try {
   const require = createRequire(import.meta.url);
   const {
     addAlphaRadarDynamics,
+    appendSignalHistoryEntry,
     calculateAlphaRadar,
     updatePreBreakoutDetection,
   } = require(outputPath);
@@ -83,6 +84,7 @@ try {
       momentumScore: (active.momentum.score ?? 60) - 8,
       volumeScore: (active.volumeIntensity.score ?? 60) - 6,
       orderFlowScore: (active.orderFlowPressure.score ?? 60) - 5,
+      spreadScore: (active.spread.score ?? 60) - 4,
     },
     {
       generatedAt: new Date(now.getTime() - 31_000),
@@ -90,6 +92,7 @@ try {
       momentumScore: (active.momentum.score ?? 60) - 5,
       volumeScore: (active.volumeIntensity.score ?? 60) - 4,
       orderFlowScore: (active.orderFlowPressure.score ?? 60) - 3,
+      spreadScore: (active.spread.score ?? 60) - 3,
     },
     {
       generatedAt: new Date(now.getTime() - 5_000),
@@ -97,6 +100,7 @@ try {
       momentumScore: (active.momentum.score ?? 60) - 2,
       volumeScore: (active.volumeIntensity.score ?? 60) - 2,
       orderFlowScore: (active.orderFlowPressure.score ?? 60) - 2,
+      spreadScore: (active.spread.score ?? 60) - 2,
     },
   ];
   const dynamicActive = addAlphaRadarDynamics(
@@ -136,10 +140,27 @@ try {
     pendingState: null,
     pendingCount: 0,
     lastTransitionAt: null,
+    lastTransitionEvidenceCount: 0,
+    lastTransitionReasons: [],
+    confirmationPersistenceScans: 0,
   };
   let detected = updatePreBreakoutDetection(stronglyImproving, machine, now);
   machine = detected.machine;
   assert.equal(detected.snapshot.preBreakout.state, "watch", "the first valid scan establishes WATCH without skipping levels");
+  assert.equal(
+    detected.snapshot.preBreakout.confirmation.status,
+    "pending",
+    "a single converging scan must remain pending",
+  );
+  assert.equal(
+    detected.snapshot.preBreakout.confirmation.persistenceScans,
+    1,
+    "the first converging scan should begin, not complete, trajectory persistence",
+  );
+  assert.ok(
+    detected.snapshot.preBreakout.confirmation.missingEvidence.includes("Persistent multi-scan trajectory"),
+    "single-scan confirmation should explain the missing trajectory persistence",
+  );
   for (const expectedState of ["accelerating", "pre_breakout", "confirmed"]) {
     detected = updatePreBreakoutDetection(
       stronglyImproving,
@@ -157,6 +178,74 @@ try {
   }
   assert.equal(detected.snapshot.preBreakout.evidenceCount, 4, "confirmed detection must count only direct independent evidence");
   assert.equal(detected.snapshot.preBreakoutWatch, true, "pre-breakout and confirmed states retain the advisory flag");
+  assert.equal(
+    detected.snapshot.preBreakout.confirmation.status,
+    "confirmed",
+    "all fresh factors persisting across scans should confirm the strongest detection",
+  );
+  assert.ok(
+    detected.snapshot.preBreakout.confirmation.persistenceScans >= 3,
+    "confirmed evidence must persist across at least three consecutive observations",
+  );
+  assert.deepEqual(
+    detected.snapshot.preBreakout.confirmation.missingEvidence,
+    [],
+    "confirmed evidence should not report missing categories",
+  );
+  const strongestEvidenceLossCases = [
+    {
+      label: "a required direct factor",
+      snapshot: {
+        ...stronglyImproving,
+        changeIndicators: {
+          ...stronglyImproving.changeIndicators,
+          volumeAcceleration: 0,
+        },
+      },
+    },
+    {
+      label: "the Alpha Velocity gate",
+      snapshot: {
+        ...stronglyImproving,
+        alphaVelocity: { ...stronglyImproving.alphaVelocity, rate30s: 2 },
+      },
+    },
+    {
+      label: "the Alpha score-strength gate",
+      snapshot: {
+        ...stronglyImproving,
+        score: 50,
+      },
+    },
+  ];
+  for (const [index, lossCase] of strongestEvidenceLossCases.entries()) {
+    const forcedDowngrade = updatePreBreakoutDetection(
+      lossCase.snapshot,
+      detected.machine,
+      new Date(now.getTime() + 10_000 + index * 1_000),
+    );
+    assert.notEqual(
+      forcedDowngrade.snapshot.preBreakout.state,
+      "pre_breakout",
+      `losing ${lossCase.label} must immediately remove PRE-BREAKOUT`,
+    );
+    assert.notEqual(
+      forcedDowngrade.snapshot.preBreakout.state,
+      "confirmed",
+      `losing ${lossCase.label} must immediately remove CONFIRMED`,
+    );
+    assert.notEqual(
+      forcedDowngrade.snapshot.preBreakout.confirmation.status,
+      "confirmed",
+      `losing ${lossCase.label} must immediately revoke confirmation`,
+    );
+    assert.ok(
+      forcedDowngrade.snapshot.preBreakout.transitionReasons.some((reason) =>
+        reason.startsWith("Confirmation no longer met:"),
+      ),
+      "a forced downgrade must record the confirmation loss as transition evidence",
+    );
+  }
 
   const twoDirectSignals = {
     ...stronglyImproving,
@@ -172,6 +261,9 @@ try {
     pendingState: null,
     pendingCount: 0,
     lastTransitionAt: null,
+    lastTransitionEvidenceCount: 0,
+    lastTransitionReasons: [],
+    confirmationPersistenceScans: 0,
   };
   for (let scan = 0; scan < 8; scan += 1) {
     const result = updatePreBreakoutDetection(
@@ -192,6 +284,63 @@ try {
     );
   }
 
+  const spikeMachine = {
+    state: "unavailable",
+    pendingState: null,
+    pendingCount: 0,
+    lastTransitionAt: null,
+    lastTransitionEvidenceCount: 0,
+    lastTransitionReasons: [],
+    confirmationPersistenceScans: 0,
+  };
+  const isolatedSpike = updatePreBreakoutDetection(
+    stronglyImproving,
+    spikeMachine,
+    new Date(now.getTime() + 40_000),
+  );
+  assert.equal(
+    isolatedSpike.snapshot.preBreakout.confirmation.status,
+    "pending",
+    "one isolated spike must not qualify as confirmed",
+  );
+  assert.notEqual(
+    isolatedSpike.snapshot.preBreakout.state,
+    "pre_breakout",
+    "the confirmation gate must block PRE-BREAKOUT after one spike",
+  );
+  assert.notEqual(
+    isolatedSpike.snapshot.preBreakout.state,
+    "confirmed",
+    "the confirmation gate must block CONFIRMED after one spike",
+  );
+  const evidenceLost = updatePreBreakoutDetection(
+    {
+      ...stronglyImproving,
+      alphaVelocity: { ...stronglyImproving.alphaVelocity, rate30s: 2 },
+      changeIndicators: {
+        momentumAcceleration: 18,
+        volumeAcceleration: 0,
+        orderFlowShift: 0,
+        spreadTightening: 0,
+      },
+    },
+    isolatedSpike.machine,
+    new Date(now.getTime() + 41_000),
+  );
+  assert.equal(
+    evidenceLost.snapshot.preBreakout.confirmation.persistenceScans,
+    0,
+    "losing one or more required factors must reset confirmation persistence",
+  );
+  assert.ok(
+    evidenceLost.snapshot.preBreakout.confirmation.missingEvidence.includes("Volume acceleration"),
+    "pending or rejected confirmation must name missing volume evidence",
+  );
+  assert.ok(
+    evidenceLost.snapshot.preBreakout.confirmation.missingEvidence.includes("Positive Alpha Velocity"),
+    "pending or rejected confirmation must name missing Velocity support",
+  );
+
   const unavailableDetection = updatePreBreakoutDetection(
     { ...detected.snapshot, scoreState: "stale", score: null, dataQuality: "stale" },
     machine,
@@ -199,6 +348,80 @@ try {
   );
   assert.equal(unavailableDetection.snapshot.preBreakout.state, "unavailable", "stale data must revoke the real-time detection state");
   assert.equal(unavailableDetection.snapshot.preBreakoutWatch, false, "stale data must not retain the advisory flag");
+  assert.equal(
+    unavailableDetection.snapshot.preBreakout.confirmation.status,
+    "unavailable",
+    "stale data must immediately invalidate confirmation",
+  );
+  assert.equal(
+    unavailableDetection.machine.confirmationPersistenceScans,
+    0,
+    "stale data must clear confirmation persistence",
+  );
+
+  const historyEntry = (index, overrides = {}) => ({
+    occurredAt: new Date(now.getTime() + index * 1_000),
+    fromState: index % 2 === 0 ? "watch" : "accelerating",
+    toState: index % 2 === 0 ? "accelerating" : "watch",
+    fromConfirmationStatus: index % 2 === 0 ? "rejected" : "pending",
+    toConfirmationStatus: index % 2 === 0 ? "pending" : "rejected",
+    score: 60 + index,
+    confidence: 100,
+    alphaVelocity: 6 + index,
+    evidenceCount: 3,
+    satisfiedEvidence: ["Fresh price momentum"],
+    missingEvidence: ["Persistent multi-scan trajectory"],
+    dataFresh: true,
+    reason: "Deterministic trajectory test.",
+    ...overrides,
+  });
+  let signalHistory = appendSignalHistoryEntry([], historyEntry(0));
+  signalHistory = appendSignalHistoryEntry(
+    signalHistory,
+    historyEntry(1, {
+      fromState: "accelerating",
+      toState: "accelerating",
+      fromConfirmationStatus: "pending",
+      toConfirmationStatus: "pending",
+    }),
+  );
+  assert.equal(
+    signalHistory.length,
+    1,
+    "repeated scans with the same detection and confirmation state must be deduplicated",
+  );
+  for (let index = 1; index <= 30; index += 1) {
+    signalHistory = appendSignalHistoryEntry(signalHistory, historyEntry(index));
+  }
+  assert.equal(signalHistory.length, 24, "signal trajectory retention must remain bounded");
+  assert.ok(
+    signalHistory.every((entry, index, entries) =>
+      index === 0 || entry.occurredAt.getTime() >= entries[index - 1].occurredAt.getTime(),
+    ),
+    "retained trajectory entries must remain chronological",
+  );
+  const withInvalidation = appendSignalHistoryEntry(
+    signalHistory,
+    historyEntry(31, {
+      fromState: signalHistory.at(-1).toState,
+      toState: "unavailable",
+      fromConfirmationStatus: signalHistory.at(-1).toConfirmationStatus,
+      toConfirmationStatus: "unavailable",
+      score: null,
+      alphaVelocity: null,
+      evidenceCount: 0,
+      satisfiedEvidence: [],
+      missingEvidence: ["Fresh price momentum"],
+      dataFresh: false,
+      reason: "Live data became stale.",
+    }),
+  );
+  assert.equal(withInvalidation.at(-1).toState, "unavailable", "trajectory must retain explicit live-state invalidation");
+  assert.equal(
+    withInvalidation.at(-1).toConfirmationStatus,
+    "unavailable",
+    "trajectory must retain confirmation invalidation without recording every scan",
+  );
 
   const minimumFreshWindow = calculateAlphaRadar({
     now,
@@ -408,7 +631,7 @@ try {
   assert.equal(typeof recovered.score, "number", "a newly rebuilt fresh window should produce a score");
   assert.notEqual(recovered.status, null, "a valid rebuilt window should restore a setup classification");
 
-  console.log("Alpha Radar calculation tests passed: fresh score, stale invalidation, missing data, interrupted feed, sparse inputs, and fresh-window recovery.");
+  console.log("Alpha Radar calculation tests passed: multi-factor convergence, single-spike rejection, trajectory retention, stale invalidation, and fresh-window recovery.");
 } finally {
   rmSync(outputDirectory, { recursive: true, force: true });
 }

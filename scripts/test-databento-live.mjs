@@ -110,6 +110,10 @@ try {
     [...MONITORED_SYMBOLS],
     "the scan universe must expose independent NVDA, MU, VRT, CRDO, and AMD radar windows",
   );
+  assert.ok(
+    universeStatus.symbolRadars.every((radar) => Array.isArray(radar.signalHistory)),
+    "every monitored symbol must expose its own bounded signal trajectory",
+  );
   const muService = new DatabentoLiveService("MU");
   muService.applyEvent({ type: "ready" });
   muService.applyEvent(marketEvent(new Date(), 100, "B"));
@@ -118,6 +122,11 @@ try {
     universe.getStatus().symbolRadars.find((radar) => radar.symbol === "MU")?.lastUpdatedAt,
     null,
     "events in an isolated symbol service must not contaminate the universe MU window",
+  );
+  assert.deepEqual(
+    universe.getStatus().symbolRadars.find((radar) => radar.symbol === "MU")?.signalHistory,
+    [],
+    "events in a separate MU service must not contaminate the universe MU trajectory",
   );
   const now = new Date();
   const incompleteService = new DatabentoLiveService();
@@ -142,6 +151,14 @@ try {
   assert.equal(typeof freshAlpha.score, "number", "a valid fresh service window must publish an Alpha Radar score");
   assert.equal(freshAlpha.confidence, 100, "complete fresh service evidence must report full confidence");
   assert.equal(freshAlpha.diagnostics.scoring_gate_reason, "ready", "the service must expose a ready scoring gate");
+  assert.ok(
+    ["pending", "rejected"].includes(freshAlpha.preBreakout.confirmation.status),
+    "a fresh isolated service window should explain why confirmation is not yet complete",
+  );
+  assert.ok(
+    freshAlphaService.getStatus().signalHistory.length >= 1,
+    "the first meaningful detection or confirmation transition should enter signal history",
+  );
   assert.ok(freshAlpha.diagnostics.fresh_quotes >= 2, "the service must count fresh quote observations");
   assert.ok(freshAlpha.diagnostics.fresh_trades >= 2, "the service must count fresh trade observations");
   assert.ok(freshAlpha.diagnostics.fresh_prices >= 2, "the service must count fresh price timestamps");
@@ -166,6 +183,36 @@ try {
   assert.equal(staleAlpha.score, null, "a stale market feed must immediately clear the effective Alpha score");
   assert.equal(staleAlpha.alphaVelocity.rate30s, null, "stale data must not publish Alpha Velocity");
   assert.equal(staleAlpha.preBreakoutWatch, false, "stale data must not publish a pre-breakout advisory");
+  assert.equal(
+    staleAlpha.preBreakout.confirmation.status,
+    "unavailable",
+    "stale market data must immediately invalidate multi-factor confirmation",
+  );
+  assert.equal(
+    freshAlphaService.getStatus().signalHistory.at(-1)?.toConfirmationStatus,
+    "unavailable",
+    "stale invalidation should create one meaningful confirmation trajectory entry",
+  );
+
+  const resetHistoryService = new DatabentoLiveService("AMD");
+  const resetNow = new Date();
+  resetHistoryService.applyEvent({ type: "ready" });
+  resetHistoryService.applyEvent(marketEvent(new Date(resetNow.getTime() - 8_000), 100, "A"));
+  resetHistoryService.applyEvent(marketEvent(new Date(resetNow.getTime() - 4_000), 100.1, "B"));
+  resetHistoryService.applyEvent(marketEvent(resetNow, 100.2, "B"));
+  assert.ok(resetHistoryService.getStatus().signalHistory.length >= 1, "a live AMD trajectory should be isolated and recorded");
+  const stoppedReset = resetHistoryService.stop();
+  assert.ok(stoppedReset.signalHistory.length <= 1, "stopping must clear the old trajectory window");
+  assert.equal(
+    stoppedReset.signalHistory.at(-1)?.toConfirmationStatus,
+    "unavailable",
+    "stop/reset should retain only an explicit unavailable anchor when a live state existed",
+  );
+  assert.equal(
+    stoppedReset.alphaRadar.preBreakout.confirmation.persistenceScans,
+    0,
+    "stop/reset must clear confirmation persistence",
+  );
 
   const quietMixedService = new DatabentoLiveService();
   const quietMixedNow = new Date();
@@ -285,7 +332,7 @@ try {
   assert.equal(staleNestedTrade.radar.score, null, "a stale nested trade must not restore the secondary score");
   assert.equal(staleNestedTrade.alphaRadar.score, null, "a stale nested trade must not restore Alpha Radar");
 
-  console.log("Databento live service tests passed: multi-symbol isolation, adaptive scans, interruption gating, heartbeat-only stale state, and recovery-window reset.");
+  console.log("Databento live service tests passed: per-symbol confirmation history, stale invalidation, stop/reset isolation, adaptive scans, and recovery-window reset.");
 } finally {
   rmSync(outputDirectory, { recursive: true, force: true });
 }

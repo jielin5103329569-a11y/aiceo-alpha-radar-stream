@@ -34,6 +34,11 @@ export const getRadarStatusResponseAlphaRadarPreBreakoutTransitionEvidenceCountM
 
 export const getRadarStatusResponseAlphaRadarPreBreakoutCooldownRemainingMsMin = 0;
 
+export const getRadarStatusResponseAlphaRadarPreBreakoutConfirmationPersistenceScansMin = 0;
+
+
+export const getRadarStatusResponseSignalHistoryItemEvidenceCountMin = 0;
+
 export const getRadarStatusResponseSymbolRadarsItemAlphaRadarDiagnosticsFreshQuotesMin = 0;
 
 export const getRadarStatusResponseSymbolRadarsItemAlphaRadarDiagnosticsFreshTradesMin = 0;
@@ -47,6 +52,11 @@ export const getRadarStatusResponseSymbolRadarsItemAlphaRadarPreBreakoutEvidence
 export const getRadarStatusResponseSymbolRadarsItemAlphaRadarPreBreakoutTransitionEvidenceCountMin = 0;
 
 export const getRadarStatusResponseSymbolRadarsItemAlphaRadarPreBreakoutCooldownRemainingMsMin = 0;
+
+export const getRadarStatusResponseSymbolRadarsItemAlphaRadarPreBreakoutConfirmationPersistenceScansMin = 0;
+
+
+export const getRadarStatusResponseSymbolRadarsItemSignalHistoryItemEvidenceCountMin = 0;
 
 
 
@@ -110,7 +120,22 @@ export const GetRadarStatusResponse = zod.object({
   "lastTransitionAt": zod.coerce.date().nullable(),
   "lastEvaluatedAt": zod.coerce.date(),
   "dataFresh": zod.boolean(),
-  "cooldownRemainingMs": zod.number().min(getRadarStatusResponseAlphaRadarPreBreakoutCooldownRemainingMsMin).nullable()
+  "cooldownRemainingMs": zod.number().min(getRadarStatusResponseAlphaRadarPreBreakoutCooldownRemainingMsMin).nullable(),
+  "confirmation": zod.object({
+  "status": zod.enum(['unavailable', 'pending', 'confirmed', 'rejected']),
+  "evidence": zod.array(zod.object({
+  "key": zod.enum(['price_momentum', 'volume_acceleration', 'order_flow_pressure', 'spread_tightening', 'alpha_velocity', 'score_strength', 'trajectory_persistence']),
+  "label": zod.string(),
+  "satisfied": zod.boolean(),
+  "detail": zod.string()
+})),
+  "satisfiedEvidence": zod.array(zod.string()),
+  "missingEvidence": zod.array(zod.string()),
+  "persistenceScans": zod.number().min(getRadarStatusResponseAlphaRadarPreBreakoutConfirmationPersistenceScansMin),
+  "requiredPersistenceScans": zod.number().min(1),
+  "evaluatedAt": zod.coerce.date(),
+  "reason": zod.string()
+})
 }),
   "momentum": zod.object({
   "value": zod.number().nullable(),
@@ -180,6 +205,21 @@ export const GetRadarStatusResponse = zod.object({
   "detected": zod.boolean()
 }))
 }),
+  "signalHistory": zod.array(zod.object({
+  "occurredAt": zod.coerce.date(),
+  "fromState": zod.enum(['unavailable', 'watch', 'accelerating', 'pre_breakout', 'confirmed']),
+  "toState": zod.enum(['unavailable', 'watch', 'accelerating', 'pre_breakout', 'confirmed']),
+  "fromConfirmationStatus": zod.enum(['unavailable', 'pending', 'confirmed', 'rejected']),
+  "toConfirmationStatus": zod.enum(['unavailable', 'pending', 'confirmed', 'rejected']),
+  "score": zod.number().nullable(),
+  "confidence": zod.number(),
+  "alphaVelocity": zod.number().nullable(),
+  "evidenceCount": zod.number().min(getRadarStatusResponseSignalHistoryItemEvidenceCountMin),
+  "satisfiedEvidence": zod.array(zod.string()),
+  "missingEvidence": zod.array(zod.string()),
+  "dataFresh": zod.boolean(),
+  "reason": zod.string()
+})),
   "error": zod.string().nullable(),
   "market": zod.object({
   "latestPrice": zod.number().nullable(),
@@ -305,7 +345,22 @@ export const GetRadarStatusResponse = zod.object({
   "lastTransitionAt": zod.coerce.date().nullable(),
   "lastEvaluatedAt": zod.coerce.date(),
   "dataFresh": zod.boolean(),
-  "cooldownRemainingMs": zod.number().min(getRadarStatusResponseSymbolRadarsItemAlphaRadarPreBreakoutCooldownRemainingMsMin).nullable()
+  "cooldownRemainingMs": zod.number().min(getRadarStatusResponseSymbolRadarsItemAlphaRadarPreBreakoutCooldownRemainingMsMin).nullable(),
+  "confirmation": zod.object({
+  "status": zod.enum(['unavailable', 'pending', 'confirmed', 'rejected']),
+  "evidence": zod.array(zod.object({
+  "key": zod.enum(['price_momentum', 'volume_acceleration', 'order_flow_pressure', 'spread_tightening', 'alpha_velocity', 'score_strength', 'trajectory_persistence']),
+  "label": zod.string(),
+  "satisfied": zod.boolean(),
+  "detail": zod.string()
+})),
+  "satisfiedEvidence": zod.array(zod.string()),
+  "missingEvidence": zod.array(zod.string()),
+  "persistenceScans": zod.number().min(getRadarStatusResponseSymbolRadarsItemAlphaRadarPreBreakoutConfirmationPersistenceScansMin),
+  "requiredPersistenceScans": zod.number().min(1),
+  "evaluatedAt": zod.coerce.date(),
+  "reason": zod.string()
+})
 }),
   "momentum": zod.object({
   "value": zod.number().nullable(),
@@ -375,6 +430,21 @@ export const GetRadarStatusResponse = zod.object({
   "detected": zod.boolean()
 }))
 }),
+  "signalHistory": zod.array(zod.object({
+  "occurredAt": zod.coerce.date(),
+  "fromState": zod.enum(['unavailable', 'watch', 'accelerating', 'pre_breakout', 'confirmed']),
+  "toState": zod.enum(['unavailable', 'watch', 'accelerating', 'pre_breakout', 'confirmed']),
+  "fromConfirmationStatus": zod.enum(['unavailable', 'pending', 'confirmed', 'rejected']),
+  "toConfirmationStatus": zod.enum(['unavailable', 'pending', 'confirmed', 'rejected']),
+  "score": zod.number().nullable(),
+  "confidence": zod.number(),
+  "alphaVelocity": zod.number().nullable(),
+  "evidenceCount": zod.number().min(getRadarStatusResponseSymbolRadarsItemSignalHistoryItemEvidenceCountMin),
+  "satisfiedEvidence": zod.array(zod.string()),
+  "missingEvidence": zod.array(zod.string()),
+  "dataFresh": zod.boolean(),
+  "reason": zod.string()
+})),
   "market": zod.object({
   "latestPrice": zod.number().nullable(),
   "bidPrice": zod.number().nullable(),
@@ -390,6 +460,7 @@ export const GetRadarStatusResponse = zod.object({
   "preBreakoutLeader": zod.object({
   "symbol": zod.string(),
   "state": zod.enum(['unavailable', 'watch', 'accelerating', 'pre_breakout', 'confirmed']),
+  "confirmationStatus": zod.enum(['unavailable', 'pending', 'confirmed', 'rejected']),
   "alphaVelocity": zod.number().nullable()
 }).nullable()
 })
@@ -412,6 +483,11 @@ export const startRadarConnectionResponseAlphaRadarPreBreakoutTransitionEvidence
 
 export const startRadarConnectionResponseAlphaRadarPreBreakoutCooldownRemainingMsMin = 0;
 
+export const startRadarConnectionResponseAlphaRadarPreBreakoutConfirmationPersistenceScansMin = 0;
+
+
+export const startRadarConnectionResponseSignalHistoryItemEvidenceCountMin = 0;
+
 export const startRadarConnectionResponseSymbolRadarsItemAlphaRadarDiagnosticsFreshQuotesMin = 0;
 
 export const startRadarConnectionResponseSymbolRadarsItemAlphaRadarDiagnosticsFreshTradesMin = 0;
@@ -425,6 +501,11 @@ export const startRadarConnectionResponseSymbolRadarsItemAlphaRadarPreBreakoutEv
 export const startRadarConnectionResponseSymbolRadarsItemAlphaRadarPreBreakoutTransitionEvidenceCountMin = 0;
 
 export const startRadarConnectionResponseSymbolRadarsItemAlphaRadarPreBreakoutCooldownRemainingMsMin = 0;
+
+export const startRadarConnectionResponseSymbolRadarsItemAlphaRadarPreBreakoutConfirmationPersistenceScansMin = 0;
+
+
+export const startRadarConnectionResponseSymbolRadarsItemSignalHistoryItemEvidenceCountMin = 0;
 
 
 
@@ -488,7 +569,22 @@ export const StartRadarConnectionResponse = zod.object({
   "lastTransitionAt": zod.coerce.date().nullable(),
   "lastEvaluatedAt": zod.coerce.date(),
   "dataFresh": zod.boolean(),
-  "cooldownRemainingMs": zod.number().min(startRadarConnectionResponseAlphaRadarPreBreakoutCooldownRemainingMsMin).nullable()
+  "cooldownRemainingMs": zod.number().min(startRadarConnectionResponseAlphaRadarPreBreakoutCooldownRemainingMsMin).nullable(),
+  "confirmation": zod.object({
+  "status": zod.enum(['unavailable', 'pending', 'confirmed', 'rejected']),
+  "evidence": zod.array(zod.object({
+  "key": zod.enum(['price_momentum', 'volume_acceleration', 'order_flow_pressure', 'spread_tightening', 'alpha_velocity', 'score_strength', 'trajectory_persistence']),
+  "label": zod.string(),
+  "satisfied": zod.boolean(),
+  "detail": zod.string()
+})),
+  "satisfiedEvidence": zod.array(zod.string()),
+  "missingEvidence": zod.array(zod.string()),
+  "persistenceScans": zod.number().min(startRadarConnectionResponseAlphaRadarPreBreakoutConfirmationPersistenceScansMin),
+  "requiredPersistenceScans": zod.number().min(1),
+  "evaluatedAt": zod.coerce.date(),
+  "reason": zod.string()
+})
 }),
   "momentum": zod.object({
   "value": zod.number().nullable(),
@@ -558,6 +654,21 @@ export const StartRadarConnectionResponse = zod.object({
   "detected": zod.boolean()
 }))
 }),
+  "signalHistory": zod.array(zod.object({
+  "occurredAt": zod.coerce.date(),
+  "fromState": zod.enum(['unavailable', 'watch', 'accelerating', 'pre_breakout', 'confirmed']),
+  "toState": zod.enum(['unavailable', 'watch', 'accelerating', 'pre_breakout', 'confirmed']),
+  "fromConfirmationStatus": zod.enum(['unavailable', 'pending', 'confirmed', 'rejected']),
+  "toConfirmationStatus": zod.enum(['unavailable', 'pending', 'confirmed', 'rejected']),
+  "score": zod.number().nullable(),
+  "confidence": zod.number(),
+  "alphaVelocity": zod.number().nullable(),
+  "evidenceCount": zod.number().min(startRadarConnectionResponseSignalHistoryItemEvidenceCountMin),
+  "satisfiedEvidence": zod.array(zod.string()),
+  "missingEvidence": zod.array(zod.string()),
+  "dataFresh": zod.boolean(),
+  "reason": zod.string()
+})),
   "error": zod.string().nullable(),
   "market": zod.object({
   "latestPrice": zod.number().nullable(),
@@ -683,7 +794,22 @@ export const StartRadarConnectionResponse = zod.object({
   "lastTransitionAt": zod.coerce.date().nullable(),
   "lastEvaluatedAt": zod.coerce.date(),
   "dataFresh": zod.boolean(),
-  "cooldownRemainingMs": zod.number().min(startRadarConnectionResponseSymbolRadarsItemAlphaRadarPreBreakoutCooldownRemainingMsMin).nullable()
+  "cooldownRemainingMs": zod.number().min(startRadarConnectionResponseSymbolRadarsItemAlphaRadarPreBreakoutCooldownRemainingMsMin).nullable(),
+  "confirmation": zod.object({
+  "status": zod.enum(['unavailable', 'pending', 'confirmed', 'rejected']),
+  "evidence": zod.array(zod.object({
+  "key": zod.enum(['price_momentum', 'volume_acceleration', 'order_flow_pressure', 'spread_tightening', 'alpha_velocity', 'score_strength', 'trajectory_persistence']),
+  "label": zod.string(),
+  "satisfied": zod.boolean(),
+  "detail": zod.string()
+})),
+  "satisfiedEvidence": zod.array(zod.string()),
+  "missingEvidence": zod.array(zod.string()),
+  "persistenceScans": zod.number().min(startRadarConnectionResponseSymbolRadarsItemAlphaRadarPreBreakoutConfirmationPersistenceScansMin),
+  "requiredPersistenceScans": zod.number().min(1),
+  "evaluatedAt": zod.coerce.date(),
+  "reason": zod.string()
+})
 }),
   "momentum": zod.object({
   "value": zod.number().nullable(),
@@ -753,6 +879,21 @@ export const StartRadarConnectionResponse = zod.object({
   "detected": zod.boolean()
 }))
 }),
+  "signalHistory": zod.array(zod.object({
+  "occurredAt": zod.coerce.date(),
+  "fromState": zod.enum(['unavailable', 'watch', 'accelerating', 'pre_breakout', 'confirmed']),
+  "toState": zod.enum(['unavailable', 'watch', 'accelerating', 'pre_breakout', 'confirmed']),
+  "fromConfirmationStatus": zod.enum(['unavailable', 'pending', 'confirmed', 'rejected']),
+  "toConfirmationStatus": zod.enum(['unavailable', 'pending', 'confirmed', 'rejected']),
+  "score": zod.number().nullable(),
+  "confidence": zod.number(),
+  "alphaVelocity": zod.number().nullable(),
+  "evidenceCount": zod.number().min(startRadarConnectionResponseSymbolRadarsItemSignalHistoryItemEvidenceCountMin),
+  "satisfiedEvidence": zod.array(zod.string()),
+  "missingEvidence": zod.array(zod.string()),
+  "dataFresh": zod.boolean(),
+  "reason": zod.string()
+})),
   "market": zod.object({
   "latestPrice": zod.number().nullable(),
   "bidPrice": zod.number().nullable(),
@@ -768,6 +909,7 @@ export const StartRadarConnectionResponse = zod.object({
   "preBreakoutLeader": zod.object({
   "symbol": zod.string(),
   "state": zod.enum(['unavailable', 'watch', 'accelerating', 'pre_breakout', 'confirmed']),
+  "confirmationStatus": zod.enum(['unavailable', 'pending', 'confirmed', 'rejected']),
   "alphaVelocity": zod.number().nullable()
 }).nullable()
 })
@@ -790,6 +932,11 @@ export const stopRadarConnectionResponseAlphaRadarPreBreakoutTransitionEvidenceC
 
 export const stopRadarConnectionResponseAlphaRadarPreBreakoutCooldownRemainingMsMin = 0;
 
+export const stopRadarConnectionResponseAlphaRadarPreBreakoutConfirmationPersistenceScansMin = 0;
+
+
+export const stopRadarConnectionResponseSignalHistoryItemEvidenceCountMin = 0;
+
 export const stopRadarConnectionResponseSymbolRadarsItemAlphaRadarDiagnosticsFreshQuotesMin = 0;
 
 export const stopRadarConnectionResponseSymbolRadarsItemAlphaRadarDiagnosticsFreshTradesMin = 0;
@@ -803,6 +950,11 @@ export const stopRadarConnectionResponseSymbolRadarsItemAlphaRadarPreBreakoutEvi
 export const stopRadarConnectionResponseSymbolRadarsItemAlphaRadarPreBreakoutTransitionEvidenceCountMin = 0;
 
 export const stopRadarConnectionResponseSymbolRadarsItemAlphaRadarPreBreakoutCooldownRemainingMsMin = 0;
+
+export const stopRadarConnectionResponseSymbolRadarsItemAlphaRadarPreBreakoutConfirmationPersistenceScansMin = 0;
+
+
+export const stopRadarConnectionResponseSymbolRadarsItemSignalHistoryItemEvidenceCountMin = 0;
 
 
 
@@ -866,7 +1018,22 @@ export const StopRadarConnectionResponse = zod.object({
   "lastTransitionAt": zod.coerce.date().nullable(),
   "lastEvaluatedAt": zod.coerce.date(),
   "dataFresh": zod.boolean(),
-  "cooldownRemainingMs": zod.number().min(stopRadarConnectionResponseAlphaRadarPreBreakoutCooldownRemainingMsMin).nullable()
+  "cooldownRemainingMs": zod.number().min(stopRadarConnectionResponseAlphaRadarPreBreakoutCooldownRemainingMsMin).nullable(),
+  "confirmation": zod.object({
+  "status": zod.enum(['unavailable', 'pending', 'confirmed', 'rejected']),
+  "evidence": zod.array(zod.object({
+  "key": zod.enum(['price_momentum', 'volume_acceleration', 'order_flow_pressure', 'spread_tightening', 'alpha_velocity', 'score_strength', 'trajectory_persistence']),
+  "label": zod.string(),
+  "satisfied": zod.boolean(),
+  "detail": zod.string()
+})),
+  "satisfiedEvidence": zod.array(zod.string()),
+  "missingEvidence": zod.array(zod.string()),
+  "persistenceScans": zod.number().min(stopRadarConnectionResponseAlphaRadarPreBreakoutConfirmationPersistenceScansMin),
+  "requiredPersistenceScans": zod.number().min(1),
+  "evaluatedAt": zod.coerce.date(),
+  "reason": zod.string()
+})
 }),
   "momentum": zod.object({
   "value": zod.number().nullable(),
@@ -936,6 +1103,21 @@ export const StopRadarConnectionResponse = zod.object({
   "detected": zod.boolean()
 }))
 }),
+  "signalHistory": zod.array(zod.object({
+  "occurredAt": zod.coerce.date(),
+  "fromState": zod.enum(['unavailable', 'watch', 'accelerating', 'pre_breakout', 'confirmed']),
+  "toState": zod.enum(['unavailable', 'watch', 'accelerating', 'pre_breakout', 'confirmed']),
+  "fromConfirmationStatus": zod.enum(['unavailable', 'pending', 'confirmed', 'rejected']),
+  "toConfirmationStatus": zod.enum(['unavailable', 'pending', 'confirmed', 'rejected']),
+  "score": zod.number().nullable(),
+  "confidence": zod.number(),
+  "alphaVelocity": zod.number().nullable(),
+  "evidenceCount": zod.number().min(stopRadarConnectionResponseSignalHistoryItemEvidenceCountMin),
+  "satisfiedEvidence": zod.array(zod.string()),
+  "missingEvidence": zod.array(zod.string()),
+  "dataFresh": zod.boolean(),
+  "reason": zod.string()
+})),
   "error": zod.string().nullable(),
   "market": zod.object({
   "latestPrice": zod.number().nullable(),
@@ -1061,7 +1243,22 @@ export const StopRadarConnectionResponse = zod.object({
   "lastTransitionAt": zod.coerce.date().nullable(),
   "lastEvaluatedAt": zod.coerce.date(),
   "dataFresh": zod.boolean(),
-  "cooldownRemainingMs": zod.number().min(stopRadarConnectionResponseSymbolRadarsItemAlphaRadarPreBreakoutCooldownRemainingMsMin).nullable()
+  "cooldownRemainingMs": zod.number().min(stopRadarConnectionResponseSymbolRadarsItemAlphaRadarPreBreakoutCooldownRemainingMsMin).nullable(),
+  "confirmation": zod.object({
+  "status": zod.enum(['unavailable', 'pending', 'confirmed', 'rejected']),
+  "evidence": zod.array(zod.object({
+  "key": zod.enum(['price_momentum', 'volume_acceleration', 'order_flow_pressure', 'spread_tightening', 'alpha_velocity', 'score_strength', 'trajectory_persistence']),
+  "label": zod.string(),
+  "satisfied": zod.boolean(),
+  "detail": zod.string()
+})),
+  "satisfiedEvidence": zod.array(zod.string()),
+  "missingEvidence": zod.array(zod.string()),
+  "persistenceScans": zod.number().min(stopRadarConnectionResponseSymbolRadarsItemAlphaRadarPreBreakoutConfirmationPersistenceScansMin),
+  "requiredPersistenceScans": zod.number().min(1),
+  "evaluatedAt": zod.coerce.date(),
+  "reason": zod.string()
+})
 }),
   "momentum": zod.object({
   "value": zod.number().nullable(),
@@ -1131,6 +1328,21 @@ export const StopRadarConnectionResponse = zod.object({
   "detected": zod.boolean()
 }))
 }),
+  "signalHistory": zod.array(zod.object({
+  "occurredAt": zod.coerce.date(),
+  "fromState": zod.enum(['unavailable', 'watch', 'accelerating', 'pre_breakout', 'confirmed']),
+  "toState": zod.enum(['unavailable', 'watch', 'accelerating', 'pre_breakout', 'confirmed']),
+  "fromConfirmationStatus": zod.enum(['unavailable', 'pending', 'confirmed', 'rejected']),
+  "toConfirmationStatus": zod.enum(['unavailable', 'pending', 'confirmed', 'rejected']),
+  "score": zod.number().nullable(),
+  "confidence": zod.number(),
+  "alphaVelocity": zod.number().nullable(),
+  "evidenceCount": zod.number().min(stopRadarConnectionResponseSymbolRadarsItemSignalHistoryItemEvidenceCountMin),
+  "satisfiedEvidence": zod.array(zod.string()),
+  "missingEvidence": zod.array(zod.string()),
+  "dataFresh": zod.boolean(),
+  "reason": zod.string()
+})),
   "market": zod.object({
   "latestPrice": zod.number().nullable(),
   "bidPrice": zod.number().nullable(),
@@ -1146,6 +1358,7 @@ export const StopRadarConnectionResponse = zod.object({
   "preBreakoutLeader": zod.object({
   "symbol": zod.string(),
   "state": zod.enum(['unavailable', 'watch', 'accelerating', 'pre_breakout', 'confirmed']),
+  "confirmationStatus": zod.enum(['unavailable', 'pending', 'confirmed', 'rejected']),
   "alphaVelocity": zod.number().nullable()
 }).nullable()
 })

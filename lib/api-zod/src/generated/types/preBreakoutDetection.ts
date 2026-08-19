@@ -5,6 +5,7 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { PreBreakoutConfirmation } from './preBreakoutConfirmation';
 import type { PreBreakoutDetectionState } from './preBreakoutDetectionState';
 
 export interface PreBreakoutDetection {
@@ -26,4 +27,5 @@ export interface PreBreakoutDetection {
      * @nullable
      */
   cooldownRemainingMs: number | null;
+  confirmation: PreBreakoutConfirmation;
 }

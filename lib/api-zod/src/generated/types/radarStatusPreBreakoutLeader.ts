@@ -5,6 +5,7 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { PreBreakoutConfirmationStatus } from './preBreakoutConfirmationStatus';
 import type { PreBreakoutDetectionState } from './preBreakoutDetectionState';
 
 /**
@@ -13,6 +14,7 @@ import type { PreBreakoutDetectionState } from './preBreakoutDetectionState';
 export type RadarStatusPreBreakoutLeader = {
   symbol: string;
   state: PreBreakoutDetectionState;
+  confirmationStatus: PreBreakoutConfirmationStatus;
   /** @nullable */
   alphaVelocity: number | null;
 } | null;
