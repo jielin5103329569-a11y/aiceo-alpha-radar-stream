@@ -1,0 +1,1 @@
+- [Databento live bridge](databento-live-bridge.md) — The official Python client begins streaming on iteration; do not call `start()` before consuming records.

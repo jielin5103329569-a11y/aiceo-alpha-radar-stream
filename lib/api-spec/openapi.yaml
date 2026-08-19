@@ -10,6 +10,8 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: radar
+    description: Safe market data connection and stream status
 paths:
   /healthz:
     get:
@@ -24,6 +26,54 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /radar/status:
+    get:
+      operationId: getRadarStatus
+      tags: [radar]
+      summary: Get the current safe market-data stream status
+      responses:
+        "200":
+          description: Current radar state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RadarStatus"
+  /radar/connect:
+    post:
+      operationId: startRadarConnection
+      tags: [radar]
+      summary: Start the server-side Databento live connection
+      responses:
+        "200":
+          description: Updated radar state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RadarStatus"
+  /radar/disconnect:
+    post:
+      operationId: stopRadarConnection
+      tags: [radar]
+      summary: Stop the server-side Databento live connection
+      responses:
+        "200":
+          description: Updated radar state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RadarStatus"
+  /radar/events:
+    get:
+      operationId: streamRadarEvents
+      tags: [radar]
+      summary: Receive safe radar status updates as server-sent events
+      responses:
+        "200":
+          description: Server-sent radar state updates
+          content:
+            text/event-stream:
+              schema:
+                type: string
 components:
   schemas:
     HealthStatus:
@@ -33,4 +83,107 @@ components:
           type: string
       required:
         - status
+    RadarConnectionState:
+      type: string
+      enum: [not_configured, connecting, connected, streaming, error, stopped]
+    RadarMarketSnapshot:
+      type: object
+      properties:
+        latestPrice:
+          type: [number, "null"]
+        bidPrice:
+          type: [number, "null"]
+        askPrice:
+          type: [number, "null"]
+        bidSize:
+          type: [number, "null"]
+        askSize:
+          type: [number, "null"]
+        lastTradeSize:
+          type: [number, "null"]
+        sessionVolume:
+          type: [number, "null"]
+        lastTradeAt:
+          type: ["string", "null"]
+          format: date-time
+      required:
+        - latestPrice
+        - bidPrice
+        - askPrice
+        - bidSize
+        - askSize
+        - lastTradeSize
+        - sessionVolume
+        - lastTradeAt
+    RadarTrade:
+      type: object
+      properties:
+        price:
+          type: number
+        size:
+          type: number
+        timestamp:
+          type: string
+          format: date-time
+        side:
+          type: [string, "null"]
+      required: [price, size, timestamp, side]
+    RadarStream:
+      type: object
+      properties:
+        schema:
+          type: string
+          enum: [mbp-1, ohlcv-1s]
+        state:
+          type: string
+          enum: [waiting, receiving, error]
+        eventCount:
+          type: number
+        lastEventAt:
+          type: ["string", "null"]
+          format: date-time
+      required: [schema, state, eventCount, lastEventAt]
+    RadarStatus:
+      type: object
+      properties:
+        configured:
+          type: boolean
+        connectionState:
+          $ref: "#/components/schemas/RadarConnectionState"
+        provider:
+          type: string
+        dataset:
+          type: string
+        symbol:
+          type: string
+        startedAt:
+          type: ["string", "null"]
+          format: date-time
+        lastUpdatedAt:
+          type: string
+          format: date-time
+        error:
+          type: ["string", "null"]
+        market:
+          $ref: "#/components/schemas/RadarMarketSnapshot"
+        recentTrades:
+          type: array
+          items:
+            $ref: "#/components/schemas/RadarTrade"
+        streams:
+          type: array
+          items:
+            $ref: "#/components/schemas/RadarStream"
+      required:
+        - configured
+        - connectionState
+        - provider
+        - dataset
+        - symbol
+        - startedAt
+        - lastUpdatedAt
+        - error
+        - market
+        - recentTrades
+        - streams
 
