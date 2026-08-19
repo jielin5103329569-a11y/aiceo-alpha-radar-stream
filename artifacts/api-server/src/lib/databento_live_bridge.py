@@ -87,6 +87,12 @@ def event_time(record: Any) -> str:
     return timestamp_iso(field(record, "ts_event", "ts_recv") or field(header, "ts_event", "ts_recv"))
 
 
+def receive_time(record: Any) -> str | None:
+    header = getattr(record, "hd", None)
+    value = field(record, "ts_recv") or field(header, "ts_recv")
+    return timestamp_iso(value) if value is not None else None
+
+
 def trade_side(record: Any) -> str | None:
     raw_side = str(getattr(record, "side", "")).upper()
     if raw_side in {"B", "BID", "SIDE.BID"}:
@@ -120,7 +126,11 @@ def handle_mbp(record: Any) -> None:
     write_event(
         {
             "type": "mbp",
+            "source": "databento_live",
+            "schema": "mbp-1",
             "timestamp": event_time(record),
+            "receivedAt": receive_time(record),
+            "ingestedAt": now_iso(),
             "bidPrice": bid_price,
             "askPrice": ask_price,
             "bidSize": bid_size,
@@ -134,7 +144,11 @@ def handle_ohlcv(record: Any) -> None:
     write_event(
         {
             "type": "ohlcv",
+            "source": "databento_live",
+            "schema": "ohlcv-1s",
             "timestamp": event_time(record),
+            "receivedAt": receive_time(record),
+            "ingestedAt": now_iso(),
             "close": price(field(record, "close")),
             "volume": size(field(record, "volume")),
         }

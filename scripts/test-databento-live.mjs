@@ -23,7 +23,11 @@ function transpile(sourcePath, outputName, transform = (source) => source) {
 function marketEvent(timestamp, price, side = "B") {
   return {
     type: "mbp",
+    source: "databento_live",
+    schema: "mbp-1",
     timestamp: timestamp.toISOString(),
+    receivedAt: timestamp.toISOString(),
+    ingestedAt: new Date().toISOString(),
     bidPrice: price - 0.01,
     askPrice: price + 0.01,
     bidSize: 200,
@@ -552,6 +556,45 @@ try {
   assert.equal(eventTriggeredAlpha.scan.eventTriggered, true, "a material fresh midpoint move must request an event scan");
   assert.equal(eventTriggeredAlpha.scan.triggerReason, "rapid_midpoint_change", "the scan should identify the triggering market change");
 
+  const ingestionAuditService = new DatabentoLiveService();
+  const ingestionAuditNow = new Date();
+  ingestionAuditService.applyEvent({ type: "ready" });
+  assert.equal(
+    ingestionAuditService.getStatus().liveIngestion.verifiedMarketEventCount,
+    0,
+    "bridge readiness must never count as a market event",
+  );
+  ingestionAuditService.applyEvent({
+    ...marketEvent(ingestionAuditNow, 100.25, "B"),
+    source: "untrusted",
+  });
+  assert.equal(
+    ingestionAuditService.getStatus().liveIngestion.verifiedMarketEventCount,
+    0,
+    "events without the Databento live source marker must never enter ingestion diagnostics",
+  );
+  ingestionAuditService.applyEvent(marketEvent(ingestionAuditNow, 100.25, "B"));
+  const ingestionAudit = ingestionAuditService.getStatus().liveIngestion;
+  assert.equal(ingestionAudit.verifiedMarketEventCount, 1, "a real Mbp record must be counted once");
+  assert.equal(ingestionAudit.currentWindowMarketEventCount, 1, "a fresh Mbp record must enter the current scoring window");
+  assert.equal(ingestionAudit.enteredScoringWindow, true, "accepted market evidence must report scoring-window entry");
+  assert.equal(ingestionAudit.recentMarketEvents[0].schema, "mbp-1", "the real record schema must be retained");
+  assert.equal(ingestionAudit.recentMarketEvents[0].eventType, "trade", "the nested real trade must retain its event type");
+  assert.equal(ingestionAudit.recentMarketEvents[0].enteredScoringWindow, true, "accepted event audit rows must identify scoring-window entry");
+  ingestionAuditService.applyEvent(marketEvent(new Date(ingestionAuditNow.getTime() - 30_000), 99.9, "A"));
+  const staleIngestionAudit = ingestionAuditService.getStatus().liveIngestion;
+  assert.equal(staleIngestionAudit.verifiedMarketEventCount, 2, "a delayed real record remains visible for audit");
+  assert.equal(
+    staleIngestionAudit.currentWindowMarketEventCount,
+    1,
+    "a delayed real record must not enter the active scoring window",
+  );
+  assert.equal(
+    staleIngestionAudit.recentMarketEvents[0].enteredScoringWindow,
+    false,
+    "a delayed real record must disclose that it was excluded from scoring",
+  );
+
   freshAlphaService.status.lastUpdatedAt = new Date(Date.now() - 16_000);
   const staleAlpha = freshAlphaService.getStatus().alphaRadar;
   assert.equal(staleAlpha.score, null, "a stale market feed must immediately clear the effective Alpha score");
@@ -610,7 +653,11 @@ try {
   });
   quietMixedService.applyEvent({
     type: "ohlcv",
+    source: "databento_live",
+    schema: "ohlcv-1s",
     timestamp: quietMixedNow.toISOString(),
+    receivedAt: quietMixedNow.toISOString(),
+    ingestedAt: new Date().toISOString(),
     close: 100,
     volume: 100,
   });

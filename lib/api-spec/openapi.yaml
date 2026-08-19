@@ -751,6 +751,8 @@ components:
             $ref: "#/components/schemas/AlphaRadarSignalHistoryEntry"
         market:
           $ref: "#/components/schemas/RadarMarketSnapshot"
+        liveIngestion:
+          $ref: "#/components/schemas/LiveIngestionDiagnostics"
         error:
           type: [string, "null"]
       required:
@@ -761,6 +763,7 @@ components:
         - alphaRadar
         - signalHistory
         - market
+        - liveIngestion
         - error
     AlphaRankingEligibility:
       type: string
@@ -1364,6 +1367,134 @@ components:
           type: ["string", "null"]
           format: date-time
       required: [schema, state, eventCount, lastEventAt]
+    LiveIngestionSubscription:
+      type: object
+      properties:
+        dataset:
+          type: string
+        symbol:
+          type: string
+        symbolType:
+          type: string
+        schemas:
+          type: array
+          items:
+            type: string
+            enum: [mbp-1, ohlcv-1s]
+        acceptedRecordTypes:
+          type: array
+          items:
+            type: string
+      required: [dataset, symbol, symbolType, schemas, acceptedRecordTypes]
+    LiveIngestionSession:
+      type: object
+      properties:
+        timezone:
+          type: string
+        phase:
+          type: string
+          enum: [pre_market, regular, after_hours, closed]
+        filterApplied:
+          type: boolean
+        detail:
+          type: string
+      required: [timezone, phase, filterApplied, detail]
+    LiveIngestionEvent:
+      type: object
+      properties:
+        symbol:
+          type: string
+        schema:
+          type: string
+          enum: [mbp-1, ohlcv-1s]
+        eventType:
+          type: string
+          enum: [quote, trade, ohlcv_bar]
+        eventTimestamp:
+          type: string
+          format: date-time
+        receiveTimestamp:
+          type: [string, "null"]
+          format: date-time
+        ingestedAt:
+          type: string
+          format: date-time
+        price:
+          type: [number, "null"]
+        size:
+          type: [number, "null"]
+        enteredScoringWindow:
+          type: boolean
+      required:
+        - symbol
+        - schema
+        - eventType
+        - eventTimestamp
+        - receiveTimestamp
+        - ingestedAt
+        - price
+        - size
+        - enteredScoringWindow
+    LiveIngestionFreshnessCounters:
+      type: object
+      properties:
+        quotes:
+          type: number
+          minimum: 0
+        trades:
+          type: number
+          minimum: 0
+        prices:
+          type: number
+          minimum: 0
+        volume:
+          type: number
+          minimum: 0
+      required: [quotes, trades, prices, volume]
+    LiveIngestionDiagnostics:
+      type: object
+      properties:
+        subscription:
+          $ref: "#/components/schemas/LiveIngestionSubscription"
+        marketSession:
+          $ref: "#/components/schemas/LiveIngestionSession"
+        recentMarketEvents:
+          type: array
+          items:
+            $ref: "#/components/schemas/LiveIngestionEvent"
+        verifiedMarketEventCount:
+          type: number
+          minimum: 0
+        currentWindowMarketEventCount:
+          type: number
+          minimum: 0
+        lastMarketEventAt:
+          type: ["string", "null"]
+          format: date-time
+        lastMarketEventReceivedAt:
+          type: ["string", "null"]
+          format: date-time
+        lastMarketEventAgeMs:
+          type: [number, "null"]
+          minimum: 0
+        freshnessCounters:
+          $ref: "#/components/schemas/LiveIngestionFreshnessCounters"
+        enteredScoringWindow:
+          type: boolean
+        reason:
+          type: string
+      required:
+        - subscription
+        - marketSession
+        - recentMarketEvents
+        - verifiedMarketEventCount
+        - currentWindowMarketEventCount
+        - lastMarketEventAt
+        - lastMarketEventReceivedAt
+        - lastMarketEventAgeMs
+        - freshnessCounters
+        - enteredScoringWindow
+        - reason
     RadarStatus:
       type: object
       properties:
@@ -1415,6 +1546,8 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/RadarStream"
+        liveIngestion:
+          $ref: "#/components/schemas/LiveIngestionDiagnostics"
         marketUniverse:
           $ref: "#/components/schemas/MarketUniverseSummary"
         symbolRadars:
@@ -1455,6 +1588,7 @@ components:
         - recentTrades
         - radar
         - streams
+        - liveIngestion
         - marketUniverse
         - symbolRadars
         - alphaRanking

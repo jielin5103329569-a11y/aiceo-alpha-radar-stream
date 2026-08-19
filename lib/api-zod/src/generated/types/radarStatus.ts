@@ -8,6 +8,7 @@
 import type { AlphaRadarRankingSnapshot } from './alphaRadarRankingSnapshot';
 import type { AlphaRadarSignalHistoryEntry } from './alphaRadarSignalHistoryEntry';
 import type { AlphaRadarSnapshot } from './alphaRadarSnapshot';
+import type { LiveIngestionDiagnostics } from './liveIngestionDiagnostics';
 import type { MarketFeedState } from './marketFeedState';
 import type { MarketUniverseSummary } from './marketUniverseSummary';
 import type { RadarConnectionState } from './radarConnectionState';
@@ -44,6 +45,7 @@ export interface RadarStatus {
   recentTrades: RadarTrade[];
   radar: RadarSnapshot;
   streams: RadarStream[];
+  liveIngestion: LiveIngestionDiagnostics;
   marketUniverse: MarketUniverseSummary;
   symbolRadars: RadarSymbolStatus[];
   alphaRanking: AlphaRadarRankingSnapshot;

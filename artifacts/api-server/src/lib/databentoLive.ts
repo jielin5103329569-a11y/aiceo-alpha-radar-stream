@@ -70,6 +70,48 @@ export type RadarSnapshot = {
   }>;
 };
 
+export type LiveIngestionEvent = {
+  symbol: string;
+  schema: "mbp-1" | "ohlcv-1s";
+  eventType: "quote" | "trade" | "ohlcv_bar";
+  eventTimestamp: Date;
+  receiveTimestamp: Date | null;
+  ingestedAt: Date;
+  price: number | null;
+  size: number | null;
+  enteredScoringWindow: boolean;
+};
+
+export type LiveIngestionDiagnostics = {
+  subscription: {
+    dataset: string;
+    symbol: string;
+    symbolType: "raw_symbol";
+    schemas: Array<"mbp-1" | "ohlcv-1s">;
+    acceptedRecordTypes: string[];
+  };
+  marketSession: {
+    timezone: "America/New_York";
+    phase: "pre_market" | "regular" | "after_hours" | "closed";
+    filterApplied: false;
+    detail: string;
+  };
+  recentMarketEvents: LiveIngestionEvent[];
+  verifiedMarketEventCount: number;
+  currentWindowMarketEventCount: number;
+  lastMarketEventAt: Date | null;
+  lastMarketEventReceivedAt: Date | null;
+  lastMarketEventAgeMs: number | null;
+  freshnessCounters: {
+    quotes: number;
+    trades: number;
+    prices: number;
+    volume: number;
+  };
+  enteredScoringWindow: boolean;
+  reason: string;
+};
+
 export type RadarStatus = {
   configured: boolean;
   connectionState: RadarConnectionState;
@@ -109,6 +151,7 @@ export type RadarStatus = {
     eventCount: number;
     lastEventAt: Date | null;
   }>;
+  liveIngestion: LiveIngestionDiagnostics;
   symbolRadars?: RadarSymbolStatus[];
   alphaRanking?: AlphaRadarRankingSnapshot;
   preBreakoutLeader?: {
@@ -128,6 +171,7 @@ export type RadarSymbolStatus = {
   alphaRadar: AlphaRadarSnapshot;
   signalHistory: AlphaRadarSignalHistoryEntry[];
   market: RadarStatus["market"];
+  liveIngestion: LiveIngestionDiagnostics;
   error: string | null;
 };
 
@@ -179,7 +223,11 @@ type BridgeEvent =
   | { type: "ready" }
   | {
       type: "mbp";
+      source: "databento_live";
+      schema: "mbp-1";
       timestamp: string;
+      receivedAt: string | null;
+      ingestedAt: string;
       bidPrice: number | null;
       askPrice: number | null;
       bidSize: number | null;
@@ -193,7 +241,16 @@ type BridgeEvent =
           }
         | null;
     }
-  | { type: "ohlcv"; timestamp: string; close: number | null; volume: number | null }
+  | {
+      type: "ohlcv";
+      source: "databento_live";
+      schema: "ohlcv-1s";
+      timestamp: string;
+      receivedAt: string | null;
+      ingestedAt: string;
+      close: number | null;
+      volume: number | null;
+    }
   | { type: "error"; message: string };
 
 const currentDir = path.dirname(fileURLToPath(import.meta.url));
@@ -298,6 +355,34 @@ function blankStatus(symbol = "NVDA"): RadarStatus {
       { schema: "mbp-1", state: "waiting", eventCount: 0, lastEventAt: null },
       { schema: "ohlcv-1s", state: "waiting", eventCount: 0, lastEventAt: null },
     ],
+    liveIngestion: blankLiveIngestionDiagnostics(symbol),
+  };
+}
+
+function blankLiveIngestionDiagnostics(symbol: string): LiveIngestionDiagnostics {
+  return {
+    subscription: {
+      dataset: "EQUS.MINI",
+      symbol,
+      symbolType: "raw_symbol",
+      schemas: ["mbp-1", "ohlcv-1s"],
+      acceptedRecordTypes: ["Mbp* record", "Ohlcv* record"],
+    },
+    marketSession: marketSessionAt(new Date()),
+    recentMarketEvents: [],
+    verifiedMarketEventCount: 0,
+    currentWindowMarketEventCount: 0,
+    lastMarketEventAt: null,
+    lastMarketEventReceivedAt: null,
+    lastMarketEventAgeMs: null,
+    freshnessCounters: {
+      quotes: 0,
+      trades: 0,
+      prices: 0,
+      volume: 0,
+    },
+    enteredScoringWindow: false,
+    reason: "Awaiting a real Databento Mbp or Ohlcv market record; transport, SSE, cache, and system messages are excluded.",
   };
 }
 
@@ -400,6 +485,36 @@ export function scanProfileAt(now: Date): AlphaScanProfile {
   return { scanMode: "normal", scanIntervalMs: NORMAL_SCAN_INTERVAL_MS };
 }
 
+function marketSessionAt(now: Date): LiveIngestionDiagnostics["marketSession"] {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/New_York",
+    weekday: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(now);
+  const valueFor = (type: Intl.DateTimeFormatPartTypes): string =>
+    parts.find((part) => part.type === type)?.value ?? "";
+  const weekday = valueFor("weekday");
+  const minutes = Number(valueFor("hour")) * 60 + Number(valueFor("minute"));
+  const isWeekday = weekday !== "Sat" && weekday !== "Sun";
+  const phase =
+    !isWeekday || minutes < 4 * 60 || minutes >= 20 * 60
+      ? "closed"
+      : minutes < 9 * 60 + 30
+        ? "pre_market"
+        : minutes < 16 * 60
+          ? "regular"
+          : "after_hours";
+  return {
+    timezone: "America/New_York",
+    phase,
+    filterApplied: false,
+    detail:
+      "Session is displayed for acceptance context only. Real Databento Mbp and Ohlcv records are not filtered by session; transport and interval/system messages are never counted.",
+  };
+}
+
 function quoteMidpoint(quote: QuoteObservation): number | null {
   if (
     quote.bidPrice === null
@@ -497,12 +612,52 @@ export class DatabentoLiveService extends EventEmitter {
       );
       this.status = { ...this.status, alphaRadar };
     }
+    const liveIngestion = this.currentLiveIngestionDiagnostics(alphaRadar, marketFeedState, now);
     return {
       ...this.status,
       marketFeedState,
       alphaRadar,
       signalHistory: [...this.signalHistory],
       radar: this.calculateRadar(now),
+      liveIngestion,
+    };
+  }
+
+  private currentLiveIngestionDiagnostics(
+    alphaRadar: AlphaRadarSnapshot,
+    marketFeedState: MarketFeedState,
+    now: Date,
+  ): LiveIngestionDiagnostics {
+    const stored = this.status.liveIngestion;
+    const lastMarketEventAgeMs = stored.lastMarketEventAt
+      ? Math.max(0, now.getTime() - stored.lastMarketEventAt.getTime())
+      : null;
+    const freshnessCounters = {
+      quotes: alphaRadar.diagnostics.fresh_quotes,
+      trades: alphaRadar.diagnostics.fresh_trades,
+      prices: alphaRadar.diagnostics.fresh_prices,
+      volume: alphaRadar.diagnostics.fresh_volume,
+    };
+    const enteredScoringWindow =
+      marketFeedState === "streaming"
+      && this.analysisWindowStartedAt !== null
+      && stored.currentWindowMarketEventCount > 0;
+    const reason =
+      stored.verifiedMarketEventCount === 0
+        ? "No eligible Databento Mbp or Ohlcv market record has reached this process. Heartbeats, SSE, cache, simulated data, and interval/system messages are excluded."
+        : enteredScoringWindow
+          ? "A verified Databento market record entered the active scoring window. Freshness counters show which factor inputs are currently usable."
+          : marketFeedState === "stale"
+            ? "The last verified Databento market record is outside the existing 15-second freshness window. Transport and interval/system messages do not extend it."
+            : "Verified market records are present, but the active scoring window is still rebuilding.";
+    return {
+      ...stored,
+      marketSession: marketSessionAt(now),
+      lastMarketEventAgeMs,
+      freshnessCounters,
+      enteredScoringWindow,
+      reason,
+      recentMarketEvents: [...stored.recentMarketEvents],
     };
   }
 
@@ -638,6 +793,22 @@ export class DatabentoLiveService extends EventEmitter {
     }
   }
 
+  private recordVerifiedMarketEvent(event: LiveIngestionEvent): void {
+    const previous = this.status.liveIngestion;
+    this.status = {
+      ...this.status,
+      liveIngestion: {
+        ...previous,
+        verifiedMarketEventCount: previous.verifiedMarketEventCount + 1,
+        currentWindowMarketEventCount:
+          previous.currentWindowMarketEventCount + (event.enteredScoringWindow ? 1 : 0),
+        lastMarketEventAt: event.eventTimestamp,
+        lastMarketEventReceivedAt: event.receiveTimestamp ?? event.ingestedAt,
+        recentMarketEvents: [event, ...previous.recentMarketEvents].slice(0, 12),
+      },
+    };
+  }
+
   private applyEvent(event: BridgeEvent): void {
     const now = new Date();
     if (event.type === "ready") {
@@ -662,6 +833,48 @@ export class DatabentoLiveService extends EventEmitter {
     if (!eventTimestamp) {
       return;
     }
+    if (
+      event.source !== "databento_live"
+      || (event.type === "mbp" && event.schema !== "mbp-1")
+      || (event.type === "ohlcv" && event.schema !== "ohlcv-1s")
+    ) {
+      return;
+    }
+    const hasMarketPayload =
+      event.type === "mbp"
+        ? [
+            event.bidPrice,
+            event.askPrice,
+            event.bidSize,
+            event.askSize,
+            event.trade?.price ?? null,
+            event.trade?.size ?? null,
+          ].some((value) => value !== null && Number.isFinite(value))
+        : (event.close !== null && Number.isFinite(event.close))
+          || (event.volume !== null && Number.isFinite(event.volume));
+    if (!hasMarketPayload) {
+      return;
+    }
+    const receiveTimestamp = event.receivedAt ? observedAt(event.receivedAt, now) : null;
+    const ingestedAt = observedAt(event.ingestedAt, now) ?? now;
+    const liveEvent = {
+      symbol: this.configuredSymbol,
+      schema: event.schema,
+      eventType:
+        event.type === "mbp"
+          ? event.trade
+            ? "trade"
+            : "quote"
+          : "ohlcv_bar",
+      eventTimestamp,
+      receiveTimestamp,
+      ingestedAt,
+      price:
+        event.type === "mbp"
+          ? event.trade?.price ?? event.bidPrice ?? event.askPrice
+          : event.close,
+      size: event.type === "mbp" ? event.trade?.size ?? null : event.volume,
+    } satisfies Omit<LiveIngestionEvent, "enteredScoringWindow">;
     const resetRequired =
       this.analysisWindowNeedsReset
       || shouldResetAnalysisWindow(
@@ -671,6 +884,7 @@ export class DatabentoLiveService extends EventEmitter {
       );
     if (resetRequired) {
       if (!marketEventIsFresh(eventTimestamp, now)) {
+        this.recordVerifiedMarketEvent({ ...liveEvent, enteredScoringWindow: false });
         return;
       }
       this.resetObservations();
@@ -678,10 +892,12 @@ export class DatabentoLiveService extends EventEmitter {
       this.analysisWindowStartedAt = eventTimestamp;
     } else if (this.analysisWindowStartedAt === null) {
       if (!marketEventIsFresh(eventTimestamp, now)) {
+        this.recordVerifiedMarketEvent({ ...liveEvent, enteredScoringWindow: false });
         return;
       }
       this.analysisWindowStartedAt = eventTimestamp;
     } else if (eventTimestamp.getTime() < this.analysisWindowStartedAt.getTime()) {
+      this.recordVerifiedMarketEvent({ ...liveEvent, enteredScoringWindow: false });
       return;
     }
 
@@ -794,6 +1010,7 @@ export class DatabentoLiveService extends EventEmitter {
         eventTriggered = true;
       }
     }
+    this.recordVerifiedMarketEvent({ ...liveEvent, enteredScoringWindow: true });
     this.requestAlphaScan(scanReason, eventTriggered);
   }
 
@@ -1161,6 +1378,10 @@ export class DatabentoLiveService extends EventEmitter {
       ...this.status,
       alphaRadar: unavailableAlphaRadar,
       signalHistory: [...this.signalHistory],
+      liveIngestion: {
+        ...this.status.liveIngestion,
+        currentWindowMarketEventCount: 0,
+      },
     };
   }
 
@@ -1558,6 +1779,7 @@ function toSymbolStatus(status: RadarStatus): RadarSymbolStatus {
     alphaRadar: status.alphaRadar,
     signalHistory: status.signalHistory,
     market: status.market,
+    liveIngestion: status.liveIngestion,
     error: status.error,
   };
 }

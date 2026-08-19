@@ -477,6 +477,104 @@ export interface AlphaRadarSignalHistoryEntry {
   reason: string;
 }
 
+export type LiveIngestionSubscriptionSchemasItem = typeof LiveIngestionSubscriptionSchemasItem[keyof typeof LiveIngestionSubscriptionSchemasItem];
+
+
+export const LiveIngestionSubscriptionSchemasItem = {
+  'mbp-1': 'mbp-1',
+  'ohlcv-1s': 'ohlcv-1s',
+} as const;
+
+export interface LiveIngestionSubscription {
+  dataset: string;
+  symbol: string;
+  symbolType: string;
+  schemas: LiveIngestionSubscriptionSchemasItem[];
+  acceptedRecordTypes: string[];
+}
+
+export type LiveIngestionSessionPhase = typeof LiveIngestionSessionPhase[keyof typeof LiveIngestionSessionPhase];
+
+
+export const LiveIngestionSessionPhase = {
+  pre_market: 'pre_market',
+  regular: 'regular',
+  after_hours: 'after_hours',
+  closed: 'closed',
+} as const;
+
+export interface LiveIngestionSession {
+  timezone: string;
+  phase: LiveIngestionSessionPhase;
+  filterApplied: boolean;
+  detail: string;
+}
+
+export type LiveIngestionEventSchema = typeof LiveIngestionEventSchema[keyof typeof LiveIngestionEventSchema];
+
+
+export const LiveIngestionEventSchema = {
+  'mbp-1': 'mbp-1',
+  'ohlcv-1s': 'ohlcv-1s',
+} as const;
+
+export type LiveIngestionEventEventType = typeof LiveIngestionEventEventType[keyof typeof LiveIngestionEventEventType];
+
+
+export const LiveIngestionEventEventType = {
+  quote: 'quote',
+  trade: 'trade',
+  ohlcv_bar: 'ohlcv_bar',
+} as const;
+
+export interface LiveIngestionEvent {
+  symbol: string;
+  schema: LiveIngestionEventSchema;
+  eventType: LiveIngestionEventEventType;
+  eventTimestamp: string;
+  /** @nullable */
+  receiveTimestamp: string | null;
+  ingestedAt: string;
+  /** @nullable */
+  price: number | null;
+  /** @nullable */
+  size: number | null;
+  enteredScoringWindow: boolean;
+}
+
+export interface LiveIngestionFreshnessCounters {
+  /** @minimum 0 */
+  quotes: number;
+  /** @minimum 0 */
+  trades: number;
+  /** @minimum 0 */
+  prices: number;
+  /** @minimum 0 */
+  volume: number;
+}
+
+export interface LiveIngestionDiagnostics {
+  subscription: LiveIngestionSubscription;
+  marketSession: LiveIngestionSession;
+  recentMarketEvents: LiveIngestionEvent[];
+  /** @minimum 0 */
+  verifiedMarketEventCount: number;
+  /** @minimum 0 */
+  currentWindowMarketEventCount: number;
+  /** @nullable */
+  lastMarketEventAt: string | null;
+  /** @nullable */
+  lastMarketEventReceivedAt: string | null;
+  /**
+     * @minimum 0
+     * @nullable
+     */
+  lastMarketEventAgeMs: number | null;
+  freshnessCounters: LiveIngestionFreshnessCounters;
+  enteredScoringWindow: boolean;
+  reason: string;
+}
+
 export interface RadarSymbolStatus {
   symbol: string;
   connectionState: RadarConnectionState;
@@ -486,6 +584,7 @@ export interface RadarSymbolStatus {
   alphaRadar: AlphaRadarSnapshot;
   signalHistory: AlphaRadarSignalHistoryEntry[];
   market: RadarMarketSnapshot;
+  liveIngestion: LiveIngestionDiagnostics;
   /** @nullable */
   error: string | null;
 }
@@ -961,6 +1060,7 @@ export interface RadarStatus {
   recentTrades: RadarTrade[];
   radar: RadarSnapshot;
   streams: RadarStream[];
+  liveIngestion: LiveIngestionDiagnostics;
   marketUniverse: MarketUniverseSummary;
   symbolRadars: RadarSymbolStatus[];
   alphaRanking: AlphaRadarRankingSnapshot;

@@ -7,6 +7,7 @@
  */
 import type { AlphaRadarSignalHistoryEntry } from './alphaRadarSignalHistoryEntry';
 import type { AlphaRadarSnapshot } from './alphaRadarSnapshot';
+import type { LiveIngestionDiagnostics } from './liveIngestionDiagnostics';
 import type { MarketFeedState } from './marketFeedState';
 import type { RadarConnectionState } from './radarConnectionState';
 import type { RadarMarketSnapshot } from './radarMarketSnapshot';
@@ -20,6 +21,7 @@ export interface RadarSymbolStatus {
   alphaRadar: AlphaRadarSnapshot;
   signalHistory: AlphaRadarSignalHistoryEntry[];
   market: RadarMarketSnapshot;
+  liveIngestion: LiveIngestionDiagnostics;
   /** @nullable */
   error: string | null;
 }
