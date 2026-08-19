@@ -1,6 +1,7 @@
 export type SignalFreshness = "fresh" | "delayed" | "stale" | "missing";
 export type SignalDataQuality = "good" | "degraded" | "stale" | "missing";
 export type AlphaRadarSignalState = "Neutral" | "Watch" | "Breakout Setup";
+export type AlphaRadarScoreState = "available" | "stale" | "insufficient";
 
 export type QuoteObservation = {
   timestamp: Date;
@@ -31,14 +32,16 @@ export type RadarSignalMetric = {
   freshnessMs: number | null;
   freshness: SignalFreshness;
   available: boolean;
+  scoreEligible: boolean;
   referenceValue: number | null;
   referenceLabel: string | null;
   source: string;
 };
 
 export type AlphaRadarSnapshot = {
-  score: number;
-  status: AlphaRadarSignalState;
+  score: number | null;
+  status: AlphaRadarSignalState | null;
+  scoreState: AlphaRadarScoreState;
   confidence: number;
   dataQuality: SignalDataQuality;
   generatedAt: Date;
@@ -100,6 +103,7 @@ function unavailableMetric(unit: string, source: string, now: Date): RadarSignal
     observedAt: null,
     ...metricFreshness(null, now),
     available: false,
+    scoreEligible: false,
     referenceValue: null,
     referenceLabel: null,
     source,
@@ -116,13 +120,22 @@ function makeMetric(
   referenceValue: number | null = null,
   referenceLabel: string | null = null,
 ): RadarSignalMetric {
+  const normalizedValue = value === null || !Number.isFinite(value) ? null : round(value);
+  const normalizedScore = score === null || !Number.isFinite(score) ? null : round(clamp(score), 0);
+  const freshness = metricFreshness(observedAt, now);
+  const scoreEligible =
+    normalizedValue !== null
+    && normalizedScore !== null
+    && freshness.freshness === "fresh";
+
   return {
-    value: value === null || !Number.isFinite(value) ? null : round(value),
+    value: normalizedValue,
     unit,
-    score: score === null || !Number.isFinite(score) ? null : round(clamp(score), 0),
+    score: scoreEligible ? normalizedScore : null,
     observedAt,
-    ...metricFreshness(observedAt, now),
-    available: value !== null && Number.isFinite(value),
+    ...freshness,
+    available: normalizedValue !== null,
+    scoreEligible,
     referenceValue: referenceValue === null || !Number.isFinite(referenceValue) ? null : round(referenceValue),
     referenceLabel,
     source,
@@ -364,29 +377,24 @@ function dataQualityFrom(metrics: RadarSignalMetric[], connectionState: string):
   return "good";
 }
 
-function freshnessFactor(quality: SignalDataQuality): number {
-  switch (quality) {
-    case "good":
-      return 1;
-    case "degraded":
-      return 0.6;
-    case "stale":
-      return 0;
-    case "missing":
-    default:
-      return 0;
-  }
+function withoutCurrentScore(metric: RadarSignalMetric): RadarSignalMetric {
+  return {
+    ...metric,
+    score: null,
+    scoreEligible: false,
+  };
 }
 
 export function createEmptyAlphaRadar(now: Date): AlphaRadarSnapshot {
   const unavailable = unavailableMetric("", "Waiting for live market observations.", now);
   return {
-    score: 50,
-    status: "Neutral",
+    score: null,
+    status: null,
+    scoreState: "insufficient",
     confidence: 0,
     dataQuality: "missing",
     generatedAt: now,
-    warnings: ["Waiting for live NVDA market observations. The score remains neutral until data is available."],
+    warnings: ["Waiting for live NVDA market observations. No Alpha Radar score is available."],
     momentum: { ...unavailable, unit: "%" },
     spread: { ...unavailable, unit: "bps" },
     volumeIntensity: { ...unavailable, unit: "x baseline" },
@@ -396,48 +404,82 @@ export function createEmptyAlphaRadar(now: Date): AlphaRadarSnapshot {
 }
 
 export function calculateAlphaRadar(input: AlphaRadarInput): AlphaRadarSnapshot {
-  const momentum = calculateMomentum(input);
-  const spread = calculateSpread(input);
-  const volumeIntensity = calculateVolumeIntensity(input);
-  const orderFlowPressure = calculateOrderFlowPressure(input);
-  const unusualActivity = calculateUnusualActivity(input, volumeIntensity);
+  const calculatedMomentum = calculateMomentum(input);
+  const calculatedSpread = calculateSpread(input);
+  const calculatedVolumeIntensity = calculateVolumeIntensity(input);
+  const calculatedOrderFlowPressure = calculateOrderFlowPressure(input);
+  const calculatedUnusualActivity = calculateUnusualActivity(input, calculatedVolumeIntensity);
   const components = [
-    { metric: momentum, weight: 0.3 },
-    { metric: spread, weight: 0.15 },
-    { metric: volumeIntensity, weight: 0.25 },
-    { metric: orderFlowPressure, weight: 0.3 },
+    { metric: calculatedMomentum, weight: 0.3 },
+    { metric: calculatedSpread, weight: 0.15 },
+    { metric: calculatedVolumeIntensity, weight: 0.25 },
+    { metric: calculatedOrderFlowPressure, weight: 0.3 },
   ];
-  const availableWeight = sum(components.filter(({ metric }) => metric.score !== null).map(({ weight }) => weight));
-  const weightedScore = availableWeight > 0
-    ? sum(components.filter(({ metric }) => metric.score !== null).map(({ metric, weight }) => (metric.score ?? 50) * weight)) / availableWeight
-    : 50;
+  const eligibleComponents = components.filter(({ metric }) => metric.scoreEligible && metric.score !== null);
+  const availableWeight = sum(eligibleComponents.map(({ weight }) => weight));
+  const dataQuality = dataQualityFrom(
+    [
+      calculatedMomentum,
+      calculatedSpread,
+      calculatedVolumeIntensity,
+      calculatedOrderFlowPressure,
+    ],
+    input.connectionState,
+  );
+  const scoringAvailable =
+    input.connectionState === "streaming"
+    && dataQuality === "good"
+    && eligibleComponents.length === components.length;
+  const weightedScore = scoringAvailable
+    ? sum(eligibleComponents.map(({ metric, weight }) => (metric.score ?? 0) * weight)) / availableWeight
+    : null;
+  const confidence = scoringAvailable ? Math.round(availableWeight * 100) : 0;
+  const score = weightedScore === null ? null : Math.round(clamp(weightedScore));
+  const hasHistoricalObservation = components.some(({ metric }) => metric.observedAt !== null);
+  const scoreState: AlphaRadarScoreState = scoringAvailable
+    ? "available"
+    : dataQuality === "stale" || (input.connectionState !== "streaming" && hasHistoricalObservation)
+      ? "stale"
+      : "insufficient";
 
-  const dataQuality = dataQualityFrom([momentum, spread, volumeIntensity, orderFlowPressure], input.connectionState);
-  const qualityFactor = input.connectionState === "streaming" ? freshnessFactor(dataQuality) : 0;
-  const rawConfidence = availableWeight * 100 * qualityFactor;
-  const confidence = Math.round(rawConfidence);
-  const score = Math.round(clamp(50 + (weightedScore - 50) * availableWeight * qualityFactor));
-
-  let status: AlphaRadarSignalState = "Neutral";
-  if (dataQuality === "good" && confidence >= 50) {
-    const componentsSupportBreakout = (momentum.score ?? 50) >= 60 && (orderFlowPressure.score ?? 50) >= 60 && (volumeIntensity.score ?? 50) >= 50;
+  let status: AlphaRadarSignalState | null = score === null ? null : "Neutral";
+  if (score !== null) {
+    const componentsSupportBreakout =
+      (calculatedMomentum.score ?? 0) >= 60
+      && (calculatedOrderFlowPressure.score ?? 0) >= 60
+      && (calculatedVolumeIntensity.score ?? 0) >= 50;
     if (score >= 72 && componentsSupportBreakout) {
       status = "Breakout Setup";
-    } else if (score >= 56 || unusualActivity.detected) {
+    } else if (score >= 56 || calculatedUnusualActivity.detected) {
       status = "Watch";
     }
   }
 
+  const momentum = scoringAvailable ? calculatedMomentum : withoutCurrentScore(calculatedMomentum);
+  const spread = scoringAvailable ? calculatedSpread : withoutCurrentScore(calculatedSpread);
+  const volumeIntensity = scoringAvailable
+    ? calculatedVolumeIntensity
+    : withoutCurrentScore(calculatedVolumeIntensity);
+  const orderFlowPressure = scoringAvailable
+    ? calculatedOrderFlowPressure
+    : withoutCurrentScore(calculatedOrderFlowPressure);
+  const unusualActivity = scoringAvailable
+    ? calculatedUnusualActivity
+    : {
+        ...withoutCurrentScore(calculatedUnusualActivity),
+        detected: false,
+      };
+
   const warnings: string[] = [];
   if (input.connectionState !== "streaming") {
-    warnings.push("The feed is not currently streaming; confidence is reduced and the score is held near neutral.");
+    warnings.push("The feed is not currently streaming; no current Alpha Radar score is available.");
   }
   if (dataQuality === "missing") {
     warnings.push("No usable live market observations are available yet.");
   } else if (dataQuality === "stale") {
-    warnings.push("Market observations are stale; do not treat the current score as a live activity reading.");
+    warnings.push("Market observations are historical and stale; their values are excluded from scoring.");
   } else if (dataQuality === "degraded") {
-    warnings.push("Market observations are delayed or incomplete; confidence is reduced.");
+    warnings.push("Market observations are delayed or incomplete; no score is available until a valid window is rebuilt.");
   }
   if (volumeIntensity.score === null) {
     warnings.push("Volume intensity is collecting a rolling baseline.");
@@ -449,6 +491,7 @@ export function calculateAlphaRadar(input: AlphaRadarInput): AlphaRadarSnapshot 
   return {
     score,
     status,
+    scoreState,
     confidence,
     dataQuality,
     generatedAt: input.now,

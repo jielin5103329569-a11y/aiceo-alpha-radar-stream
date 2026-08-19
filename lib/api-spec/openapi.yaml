@@ -101,6 +101,9 @@ components:
     AlphaRadarSignalState:
       type: string
       enum: [Neutral, Watch, Breakout Setup]
+    AlphaRadarScoreState:
+      type: string
+      enum: [available, stale, insufficient]
     RadarSignalMetric:
       type: object
       properties:
@@ -119,6 +122,8 @@ components:
           $ref: "#/components/schemas/RadarSignalFreshness"
         available:
           type: boolean
+        scoreEligible:
+          type: boolean
         referenceValue:
           type: [number, "null"]
         referenceLabel:
@@ -133,6 +138,7 @@ components:
         - freshnessMs
         - freshness
         - available
+        - scoreEligible
         - referenceValue
         - referenceLabel
         - source
@@ -140,9 +146,13 @@ components:
       type: object
       properties:
         score:
-          type: number
+          type: [number, "null"]
         status:
-          $ref: "#/components/schemas/AlphaRadarSignalState"
+          anyOf:
+            - $ref: "#/components/schemas/AlphaRadarSignalState"
+            - type: "null"
+        scoreState:
+          $ref: "#/components/schemas/AlphaRadarScoreState"
         confidence:
           type: number
         dataQuality:
@@ -173,6 +183,7 @@ components:
       required:
         - score
         - status
+        - scoreState
         - confidence
         - dataQuality
         - generatedAt
@@ -300,7 +311,7 @@ components:
           type: [number, "null"]
         status:
           type: string
-          enum: [neutral, watch, breakout_setup]
+          enum: [neutral, watch, breakout_setup, data_stale, insufficient]
         dataTimestamp:
           type: ["string", "null"]
           format: date-time

@@ -13,4 +13,6 @@ export const RadarSnapshotStatus = {
   neutral: 'neutral',
   watch: 'watch',
   breakout_setup: 'breakout_setup',
+  data_stale: 'data_stale',
+  insufficient: 'insufficient',
 } as const;

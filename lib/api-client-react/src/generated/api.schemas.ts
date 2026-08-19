@@ -69,6 +69,15 @@ export const AlphaRadarSignalState = {
   Breakout_Setup: 'Breakout Setup',
 } as const;
 
+export type AlphaRadarScoreState = typeof AlphaRadarScoreState[keyof typeof AlphaRadarScoreState];
+
+
+export const AlphaRadarScoreState = {
+  available: 'available',
+  stale: 'stale',
+  insufficient: 'insufficient',
+} as const;
+
 export interface RadarSignalMetric {
   /** @nullable */
   value: number | null;
@@ -81,6 +90,7 @@ export interface RadarSignalMetric {
   freshnessMs: number | null;
   freshness: RadarSignalFreshness;
   available: boolean;
+  scoreEligible: boolean;
   /** @nullable */
   referenceValue: number | null;
   /** @nullable */
@@ -93,8 +103,10 @@ export type AlphaRadarSnapshotUnusualActivity = RadarSignalMetric & {
 };
 
 export interface AlphaRadarSnapshot {
-  score: number;
-  status: AlphaRadarSignalState;
+  /** @nullable */
+  score: number | null;
+  status: AlphaRadarSignalState | null;
+  scoreState: AlphaRadarScoreState;
   confidence: number;
   dataQuality: RadarSignalDataQuality;
   generatedAt: string;
@@ -205,6 +217,8 @@ export const RadarSnapshotStatus = {
   neutral: 'neutral',
   watch: 'watch',
   breakout_setup: 'breakout_setup',
+  data_stale: 'data_stale',
+  insufficient: 'insufficient',
 } as const;
 
 export interface RadarSnapshot {

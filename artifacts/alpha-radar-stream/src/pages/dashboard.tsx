@@ -455,12 +455,14 @@ function ConnectionHealthCard({
 }
 
 function RadarScoreCard({ radar }: { radar: RadarSnapshot | null }) {
-  const statusLabel = radar ? radarStatusLabel(radar.status) : 'Neutral';
+  const statusLabel = radar ? radarStatusLabel(radar.status) : 'Insufficient Data';
   const statusTone =
     radar?.status === 'breakout_setup'
       ? 'border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300'
       : radar?.status === 'watch'
         ? 'border-primary/30 bg-primary/10 text-primary'
+        : radar?.status === 'data_stale'
+          ? 'border-destructive/30 bg-destructive/10 text-destructive'
         : 'border-border bg-muted/50 text-muted-foreground';
   const score = radar?.score ?? null;
 
@@ -756,6 +758,10 @@ function radarStatusLabel(status: RadarSnapshot['status']): string {
       return 'Breakout Setup';
     case 'watch':
       return 'Watch';
+    case 'data_stale':
+      return 'Data Stale';
+    case 'insufficient':
+      return 'Insufficient Data';
     default:
       return 'Neutral';
   }

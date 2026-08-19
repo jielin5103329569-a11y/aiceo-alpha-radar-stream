@@ -5,14 +5,17 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { AlphaRadarScoreState } from './alphaRadarScoreState';
 import type { AlphaRadarSignalState } from './alphaRadarSignalState';
 import type { AlphaRadarSnapshotUnusualActivity } from './alphaRadarSnapshotUnusualActivity';
 import type { RadarSignalDataQuality } from './radarSignalDataQuality';
 import type { RadarSignalMetric } from './radarSignalMetric';
 
 export interface AlphaRadarSnapshot {
-  score: number;
-  status: AlphaRadarSignalState;
+  /** @nullable */
+  score: number | null;
+  status: AlphaRadarSignalState | null;
+  scoreState: AlphaRadarScoreState;
   confidence: number;
   dataQuality: RadarSignalDataQuality;
   generatedAt: Date;

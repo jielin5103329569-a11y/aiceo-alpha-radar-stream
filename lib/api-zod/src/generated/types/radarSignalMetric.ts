@@ -19,6 +19,7 @@ export interface RadarSignalMetric {
   freshnessMs: number | null;
   freshness: RadarSignalFreshness;
   available: boolean;
+  scoreEligible: boolean;
   /** @nullable */
   referenceValue: number | null;
   /** @nullable */

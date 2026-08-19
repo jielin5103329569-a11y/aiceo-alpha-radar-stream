@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from './alphaRadarScoreState';
 export * from './alphaRadarSignalState';
 export * from './alphaRadarSnapshot';
 export * from './alphaRadarSnapshotUnusualActivity';

@@ -34,8 +34,9 @@ export const GetRadarStatusResponse = zod.object({
   "reconnectAttempt": zod.number(),
   "nextReconnectAt": zod.coerce.date().nullable(),
   "alphaRadar": zod.object({
-  "score": zod.number(),
-  "status": zod.enum(['Neutral', 'Watch', 'Breakout Setup']),
+  "score": zod.number().nullable(),
+  "status": zod.union([zod.enum(['Neutral', 'Watch', 'Breakout Setup']),zod.null()]),
+  "scoreState": zod.enum(['available', 'stale', 'insufficient']),
   "confidence": zod.number(),
   "dataQuality": zod.enum(['good', 'degraded', 'stale', 'missing']),
   "generatedAt": zod.coerce.date(),
@@ -48,6 +49,7 @@ export const GetRadarStatusResponse = zod.object({
   "freshnessMs": zod.number().nullable(),
   "freshness": zod.enum(['fresh', 'delayed', 'stale', 'missing']),
   "available": zod.boolean(),
+  "scoreEligible": zod.boolean(),
   "referenceValue": zod.number().nullable(),
   "referenceLabel": zod.string().nullable(),
   "source": zod.string()
@@ -60,6 +62,7 @@ export const GetRadarStatusResponse = zod.object({
   "freshnessMs": zod.number().nullable(),
   "freshness": zod.enum(['fresh', 'delayed', 'stale', 'missing']),
   "available": zod.boolean(),
+  "scoreEligible": zod.boolean(),
   "referenceValue": zod.number().nullable(),
   "referenceLabel": zod.string().nullable(),
   "source": zod.string()
@@ -72,6 +75,7 @@ export const GetRadarStatusResponse = zod.object({
   "freshnessMs": zod.number().nullable(),
   "freshness": zod.enum(['fresh', 'delayed', 'stale', 'missing']),
   "available": zod.boolean(),
+  "scoreEligible": zod.boolean(),
   "referenceValue": zod.number().nullable(),
   "referenceLabel": zod.string().nullable(),
   "source": zod.string()
@@ -84,6 +88,7 @@ export const GetRadarStatusResponse = zod.object({
   "freshnessMs": zod.number().nullable(),
   "freshness": zod.enum(['fresh', 'delayed', 'stale', 'missing']),
   "available": zod.boolean(),
+  "scoreEligible": zod.boolean(),
   "referenceValue": zod.number().nullable(),
   "referenceLabel": zod.string().nullable(),
   "source": zod.string()
@@ -96,6 +101,7 @@ export const GetRadarStatusResponse = zod.object({
   "freshnessMs": zod.number().nullable(),
   "freshness": zod.enum(['fresh', 'delayed', 'stale', 'missing']),
   "available": zod.boolean(),
+  "scoreEligible": zod.boolean(),
   "referenceValue": zod.number().nullable(),
   "referenceLabel": zod.string().nullable(),
   "source": zod.string()
@@ -122,7 +128,7 @@ export const GetRadarStatusResponse = zod.object({
 })),
   "radar": zod.object({
   "score": zod.number().nullable(),
-  "status": zod.enum(['neutral', 'watch', 'breakout_setup']),
+  "status": zod.enum(['neutral', 'watch', 'breakout_setup', 'data_stale', 'insufficient']),
   "dataTimestamp": zod.coerce.date().nullable(),
   "freshness": zod.enum(['fresh', 'stale', 'insufficient', 'quiet']),
   "sampleCount": zod.number(),
@@ -196,8 +202,9 @@ export const StartRadarConnectionResponse = zod.object({
   "reconnectAttempt": zod.number(),
   "nextReconnectAt": zod.coerce.date().nullable(),
   "alphaRadar": zod.object({
-  "score": zod.number(),
-  "status": zod.enum(['Neutral', 'Watch', 'Breakout Setup']),
+  "score": zod.number().nullable(),
+  "status": zod.union([zod.enum(['Neutral', 'Watch', 'Breakout Setup']),zod.null()]),
+  "scoreState": zod.enum(['available', 'stale', 'insufficient']),
   "confidence": zod.number(),
   "dataQuality": zod.enum(['good', 'degraded', 'stale', 'missing']),
   "generatedAt": zod.coerce.date(),
@@ -210,6 +217,7 @@ export const StartRadarConnectionResponse = zod.object({
   "freshnessMs": zod.number().nullable(),
   "freshness": zod.enum(['fresh', 'delayed', 'stale', 'missing']),
   "available": zod.boolean(),
+  "scoreEligible": zod.boolean(),
   "referenceValue": zod.number().nullable(),
   "referenceLabel": zod.string().nullable(),
   "source": zod.string()
@@ -222,6 +230,7 @@ export const StartRadarConnectionResponse = zod.object({
   "freshnessMs": zod.number().nullable(),
   "freshness": zod.enum(['fresh', 'delayed', 'stale', 'missing']),
   "available": zod.boolean(),
+  "scoreEligible": zod.boolean(),
   "referenceValue": zod.number().nullable(),
   "referenceLabel": zod.string().nullable(),
   "source": zod.string()
@@ -234,6 +243,7 @@ export const StartRadarConnectionResponse = zod.object({
   "freshnessMs": zod.number().nullable(),
   "freshness": zod.enum(['fresh', 'delayed', 'stale', 'missing']),
   "available": zod.boolean(),
+  "scoreEligible": zod.boolean(),
   "referenceValue": zod.number().nullable(),
   "referenceLabel": zod.string().nullable(),
   "source": zod.string()
@@ -246,6 +256,7 @@ export const StartRadarConnectionResponse = zod.object({
   "freshnessMs": zod.number().nullable(),
   "freshness": zod.enum(['fresh', 'delayed', 'stale', 'missing']),
   "available": zod.boolean(),
+  "scoreEligible": zod.boolean(),
   "referenceValue": zod.number().nullable(),
   "referenceLabel": zod.string().nullable(),
   "source": zod.string()
@@ -258,6 +269,7 @@ export const StartRadarConnectionResponse = zod.object({
   "freshnessMs": zod.number().nullable(),
   "freshness": zod.enum(['fresh', 'delayed', 'stale', 'missing']),
   "available": zod.boolean(),
+  "scoreEligible": zod.boolean(),
   "referenceValue": zod.number().nullable(),
   "referenceLabel": zod.string().nullable(),
   "source": zod.string()
@@ -284,7 +296,7 @@ export const StartRadarConnectionResponse = zod.object({
 })),
   "radar": zod.object({
   "score": zod.number().nullable(),
-  "status": zod.enum(['neutral', 'watch', 'breakout_setup']),
+  "status": zod.enum(['neutral', 'watch', 'breakout_setup', 'data_stale', 'insufficient']),
   "dataTimestamp": zod.coerce.date().nullable(),
   "freshness": zod.enum(['fresh', 'stale', 'insufficient', 'quiet']),
   "sampleCount": zod.number(),
@@ -358,8 +370,9 @@ export const StopRadarConnectionResponse = zod.object({
   "reconnectAttempt": zod.number(),
   "nextReconnectAt": zod.coerce.date().nullable(),
   "alphaRadar": zod.object({
-  "score": zod.number(),
-  "status": zod.enum(['Neutral', 'Watch', 'Breakout Setup']),
+  "score": zod.number().nullable(),
+  "status": zod.union([zod.enum(['Neutral', 'Watch', 'Breakout Setup']),zod.null()]),
+  "scoreState": zod.enum(['available', 'stale', 'insufficient']),
   "confidence": zod.number(),
   "dataQuality": zod.enum(['good', 'degraded', 'stale', 'missing']),
   "generatedAt": zod.coerce.date(),
@@ -372,6 +385,7 @@ export const StopRadarConnectionResponse = zod.object({
   "freshnessMs": zod.number().nullable(),
   "freshness": zod.enum(['fresh', 'delayed', 'stale', 'missing']),
   "available": zod.boolean(),
+  "scoreEligible": zod.boolean(),
   "referenceValue": zod.number().nullable(),
   "referenceLabel": zod.string().nullable(),
   "source": zod.string()
@@ -384,6 +398,7 @@ export const StopRadarConnectionResponse = zod.object({
   "freshnessMs": zod.number().nullable(),
   "freshness": zod.enum(['fresh', 'delayed', 'stale', 'missing']),
   "available": zod.boolean(),
+  "scoreEligible": zod.boolean(),
   "referenceValue": zod.number().nullable(),
   "referenceLabel": zod.string().nullable(),
   "source": zod.string()
@@ -396,6 +411,7 @@ export const StopRadarConnectionResponse = zod.object({
   "freshnessMs": zod.number().nullable(),
   "freshness": zod.enum(['fresh', 'delayed', 'stale', 'missing']),
   "available": zod.boolean(),
+  "scoreEligible": zod.boolean(),
   "referenceValue": zod.number().nullable(),
   "referenceLabel": zod.string().nullable(),
   "source": zod.string()
@@ -408,6 +424,7 @@ export const StopRadarConnectionResponse = zod.object({
   "freshnessMs": zod.number().nullable(),
   "freshness": zod.enum(['fresh', 'delayed', 'stale', 'missing']),
   "available": zod.boolean(),
+  "scoreEligible": zod.boolean(),
   "referenceValue": zod.number().nullable(),
   "referenceLabel": zod.string().nullable(),
   "source": zod.string()
@@ -420,6 +437,7 @@ export const StopRadarConnectionResponse = zod.object({
   "freshnessMs": zod.number().nullable(),
   "freshness": zod.enum(['fresh', 'delayed', 'stale', 'missing']),
   "available": zod.boolean(),
+  "scoreEligible": zod.boolean(),
   "referenceValue": zod.number().nullable(),
   "referenceLabel": zod.string().nullable(),
   "source": zod.string()
@@ -446,7 +464,7 @@ export const StopRadarConnectionResponse = zod.object({
 })),
   "radar": zod.object({
   "score": zod.number().nullable(),
-  "status": zod.enum(['neutral', 'watch', 'breakout_setup']),
+  "status": zod.enum(['neutral', 'watch', 'breakout_setup', 'data_stale', 'insufficient']),
   "dataTimestamp": zod.coerce.date().nullable(),
   "freshness": zod.enum(['fresh', 'stale', 'insufficient', 'quiet']),
   "sampleCount": zod.number(),

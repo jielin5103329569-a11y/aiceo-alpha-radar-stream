@@ -22,7 +22,12 @@ try {
   writeFileSync(outputPath, output);
 
   const require = createRequire(import.meta.url);
-  const { marketFeedStateFor, MARKET_FEED_STALE_AFTER_MS } = require(outputPath);
+  const {
+    marketFeedStateFor,
+    marketEventIsFresh,
+    shouldResetAnalysisWindow,
+    MARKET_FEED_STALE_AFTER_MS,
+  } = require(outputPath);
   const now = new Date("2026-08-19T09:30:00.000Z");
 
   assert.equal(
@@ -41,12 +46,41 @@ try {
     "a healthy transport without a market event is stale, not streaming",
   );
   assert.equal(
+    marketFeedStateFor("streaming", new Date(now.getTime() - MARKET_FEED_STALE_AFTER_MS - 1), now),
+    "stale",
+    "heartbeat-compatible transport state cannot hide an expired market event",
+  );
+  assert.equal(
+    shouldResetAnalysisWindow(
+      "streaming",
+      new Date(now.getTime() - MARKET_FEED_STALE_AFTER_MS - 1),
+      now,
+    ),
+    true,
+    "the first event after a stale interval must reset the analysis window",
+  );
+  assert.equal(
+    shouldResetAnalysisWindow("streaming", new Date(now.getTime() - 1_000), now),
+    false,
+    "continuous fresh events must not reset the analysis window",
+  );
+  assert.equal(
+    marketEventIsFresh(new Date(now.getTime() - MARKET_FEED_STALE_AFTER_MS), now),
+    true,
+    "a recovery event at the freshness boundary is eligible",
+  );
+  assert.equal(
+    marketEventIsFresh(new Date(now.getTime() - MARKET_FEED_STALE_AFTER_MS - 1), now),
+    false,
+    "a delayed recovery event must not seed a live analysis window",
+  );
+  assert.equal(
     marketFeedStateFor("stopped", new Date(now.getTime() - 1_000), now),
     "offline",
     "a stopped feed is offline even if it has prior observations",
   );
 
-  console.log("Market feed state tests passed: current event, stale event, heartbeat-only transport, and offline feed.");
+  console.log("Market feed state tests passed: current event, stale event, heartbeat-only transport, recovery reset, and offline feed.");
 } finally {
   rmSync(outputDirectory, { recursive: true, force: true });
 }

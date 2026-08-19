@@ -27,6 +27,8 @@ export function RadarSignalPanel({ alphaRadar }: RadarSignalPanelProps) {
   if (!alphaRadar) {
     return null;
   }
+  const scoreAvailable = alphaRadar.scoreState === 'available' && alphaRadar.score !== null;
+  const unusualActivityIsLive = scoreAvailable && alphaRadar.unusualActivity.detected;
 
   return (
     <Card className="border-primary/20">
@@ -41,16 +43,21 @@ export function RadarSignalPanel({ alphaRadar }: RadarSignalPanelProps) {
               Explainable live market-activity summary — not a forecast or trading instruction.
             </CardDescription>
           </div>
-          <Badge className={cn('shrink-0 border font-mono text-[10px] uppercase tracking-wider', statusStyle(alphaRadar.status))}>
-            {alphaRadar.status}
+          <Badge className={cn('shrink-0 border font-mono text-[10px] uppercase tracking-wider', statusStyle(alphaRadar.status, alphaRadar.scoreState))}>
+            {alphaRadar.status ?? scoreStateLabel(alphaRadar.scoreState)}
           </Badge>
         </div>
       </CardHeader>
       <CardContent className="space-y-5">
         <div className="grid grid-cols-[auto_1fr] gap-4 rounded-lg bg-muted/50 p-4">
-          <div className="flex h-20 w-20 shrink-0 flex-col items-center justify-center rounded-full border-4 border-primary/25 bg-background font-mono">
-            <span className="text-2xl font-bold">{Math.round(alphaRadar.score)}</span>
-            <span className="text-[9px] uppercase tracking-wider text-muted-foreground">/ 100</span>
+          <div className={cn(
+            'flex h-20 w-20 shrink-0 flex-col items-center justify-center rounded-full border-4 bg-background font-mono',
+            scoreAvailable ? 'border-primary/25' : alphaRadar.scoreState === 'stale' ? 'border-destructive/25' : 'border-border',
+          )}>
+            <span className="text-2xl font-bold">{alphaRadar.score === null ? '—' : Math.round(alphaRadar.score)}</span>
+            <span className="text-[9px] uppercase tracking-wider text-muted-foreground">
+              {scoreAvailable ? '/ 100' : alphaRadar.scoreState === 'stale' ? 'Data stale' : 'Collecting'}
+            </span>
           </div>
           <div className="min-w-0 self-center">
             <div className="flex items-center justify-between gap-3 text-xs uppercase tracking-wider text-muted-foreground">
@@ -83,8 +90,8 @@ export function RadarSignalPanel({ alphaRadar }: RadarSignalPanelProps) {
             icon={<AlertTriangle className="h-4 w-4" />}
             label="Unusual activity"
             metric={alphaRadar.unusualActivity}
-            emphasis={alphaRadar.unusualActivity.detected ? 'attention' : 'normal'}
-            valuePrefix={alphaRadar.unusualActivity.detected ? 'Elevated · ' : 'Normal · '}
+            emphasis={unusualActivityIsLive ? 'attention' : 'normal'}
+            valuePrefix={scoreAvailable ? unusualActivityIsLive ? 'Elevated · ' : 'Normal · ' : ''}
           />
         </div>
 
@@ -117,7 +124,14 @@ function SignalMetricCard({
   emphasis?: 'normal' | 'attention';
   valuePrefix?: string;
 }) {
-  const metricScore = metric.score === null ? 'Collecting' : `${Math.round(metric.score)}/100`;
+  const metricScore =
+    metric.scoreEligible && metric.score !== null
+      ? `${Math.round(metric.score)}/100`
+      : metric.observedAt && metric.freshness !== 'fresh'
+        ? 'Historical'
+        : metric.observedAt
+          ? 'Not scored'
+          : 'Collecting';
   return (
     <div className={cn(
       'rounded-md border p-3',
@@ -136,7 +150,11 @@ function SignalMetricCard({
       <div className="mt-1 text-[10px] leading-relaxed text-muted-foreground">{metric.source}</div>
       <div className="mt-3 flex items-end justify-between gap-2 border-t border-border/60 pt-2 font-mono text-[10px]">
         <span className={freshnessStyles[metric.freshness]}>
-          {metric.freshness === 'missing' ? 'No live input' : `${metric.freshness} · ${formatAge(metric.observedAt)}`}
+          {metric.freshness === 'missing'
+            ? 'No live input'
+            : !metric.scoreEligible && metric.freshness !== 'fresh'
+              ? `Historical · ${metric.freshness} · ${formatAge(metric.observedAt)}`
+              : `${metric.freshness} · ${formatAge(metric.observedAt)}`}
         </span>
         <span className="text-right text-muted-foreground">
           {metric.referenceValue === null ? formatTime(metric.observedAt) : `${metric.referenceLabel}: ${formatReference(metric)}`}
@@ -162,7 +180,20 @@ function formatReference(metric: RadarSignalMetric): string {
   return formatNumber(metric.referenceValue, 2);
 }
 
-function statusStyle(status: AlphaRadarSnapshot['status']): string {
+function scoreStateLabel(scoreState: AlphaRadarSnapshot['scoreState']): string {
+  return scoreState === 'stale' ? 'Data Stale' : 'Insufficient Data';
+}
+
+function statusStyle(
+  status: AlphaRadarSnapshot['status'],
+  scoreState: AlphaRadarSnapshot['scoreState'],
+): string {
+  if (scoreState === 'stale') {
+    return 'border-destructive/30 bg-destructive/10 text-destructive';
+  }
+  if (scoreState === 'insufficient') {
+    return 'border-border bg-muted text-muted-foreground';
+  }
   switch (status) {
     case 'Breakout Setup':
       return 'border-primary/30 bg-primary/10 text-primary';

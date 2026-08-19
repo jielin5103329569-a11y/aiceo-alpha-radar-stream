@@ -8,7 +8,12 @@ import {
   createEmptyAlphaRadar,
   type AlphaRadarSnapshot,
 } from "./alphaRadar";
-import { marketFeedStateFor, type MarketFeedState } from "./marketFeed";
+import {
+  marketEventIsFresh,
+  marketFeedStateFor,
+  shouldResetAnalysisWindow,
+  type MarketFeedState,
+} from "./marketFeed";
 import { logger } from "./logger";
 
 export type RadarConnectionState =
@@ -29,7 +34,7 @@ export type RadarSignal = {
 };
 export type RadarSnapshot = {
   score: number | null;
-  status: "neutral" | "watch" | "breakout_setup";
+  status: "neutral" | "watch" | "breakout_setup" | "data_stale" | "insufficient";
   dataTimestamp: Date | null;
   freshness: RadarFreshness;
   sampleCount: number;
@@ -219,7 +224,7 @@ function blankSignal(detail: string): RadarSignal {
 function blankRadarSnapshot(): RadarSnapshot {
   return {
     score: null,
-    status: "neutral",
+    status: "insufficient",
     dataTimestamp: null,
     freshness: "insufficient",
     sampleCount: 0,
@@ -295,16 +300,14 @@ export class DatabentoLiveService extends EventEmitter {
   private bars: BarObservation[] = [];
   private quoteWindow: QuoteObservation[] = [];
   private tradeBuckets = new Map<number, TradeBucket>();
+  private analysisWindowNeedsReset = false;
+  private analysisWindowStartedAt: Date | null = null;
 
   getStatus(): RadarStatus {
     const now = new Date();
     return {
       ...this.status,
-      marketFeedState: marketFeedStateFor(
-        this.status.connectionState,
-        this.status.lastUpdatedAt,
-        now,
-      ),
+      marketFeedState: this.marketFeedStateAt(now),
       alphaRadar: calculateAlphaRadar({
         now,
         connectionState: this.status.connectionState,
@@ -339,6 +342,7 @@ export class DatabentoLiveService extends EventEmitter {
       radar: blankRadarSnapshot(),
       streams: this.status.streams.map((stream) => ({ ...stream, state: "waiting" as const })),
     };
+    this.analysisWindowNeedsReset = false;
     this.publish();
     return this.getStatus();
   }
@@ -361,6 +365,9 @@ export class DatabentoLiveService extends EventEmitter {
     const now = new Date();
     if (!isReconnect) {
       this.resetObservations();
+      this.analysisWindowNeedsReset = false;
+    } else {
+      this.analysisWindowNeedsReset = true;
     }
     this.status = isReconnect
       ? {
@@ -465,6 +472,28 @@ export class DatabentoLiveService extends EventEmitter {
     if (!eventTimestamp) {
       return;
     }
+    const resetRequired =
+      this.analysisWindowNeedsReset
+      || shouldResetAnalysisWindow(
+        this.status.connectionState,
+        this.status.lastUpdatedAt,
+        now,
+      );
+    if (resetRequired) {
+      if (!marketEventIsFresh(eventTimestamp, now)) {
+        return;
+      }
+      this.resetObservations();
+      this.analysisWindowNeedsReset = false;
+      this.analysisWindowStartedAt = eventTimestamp;
+    } else if (this.analysisWindowStartedAt === null) {
+      if (!marketEventIsFresh(eventTimestamp, now)) {
+        return;
+      }
+      this.analysisWindowStartedAt = eventTimestamp;
+    } else if (eventTimestamp.getTime() < this.analysisWindowStartedAt.getTime()) {
+      return;
+    }
 
     const streams = this.status.streams.map((stream) =>
       stream.schema === (event.type === "mbp" ? "mbp-1" : "ohlcv-1s")
@@ -489,6 +518,9 @@ export class DatabentoLiveService extends EventEmitter {
         ? (() => {
             const tradeTimestamp = observedAt(event.trade.timestamp, now);
             return tradeTimestamp
+              && marketEventIsFresh(tradeTimestamp, now)
+              && this.analysisWindowStartedAt !== null
+              && tradeTimestamp.getTime() >= this.analysisWindowStartedAt.getTime()
               ? {
                   price: event.trade.price,
                   size: event.trade.size,
@@ -506,7 +538,11 @@ export class DatabentoLiveService extends EventEmitter {
         ...this.status,
         connectionState: "streaming",
         error: null,
-        lastUpdatedAt: now,
+        lastUpdatedAt:
+          this.status.lastUpdatedAt
+          && this.status.lastUpdatedAt.getTime() > eventTimestamp.getTime()
+            ? this.status.lastUpdatedAt
+            : eventTimestamp,
         lastHeartbeatAt: now,
         streams,
         market: {
@@ -532,7 +568,11 @@ export class DatabentoLiveService extends EventEmitter {
         ...this.status,
         connectionState: "streaming",
         error: null,
-        lastUpdatedAt: now,
+        lastUpdatedAt:
+          this.status.lastUpdatedAt
+          && this.status.lastUpdatedAt.getTime() > eventTimestamp.getTime()
+            ? this.status.lastUpdatedAt
+            : eventTimestamp,
         lastHeartbeatAt: now,
         streams,
         market: {
@@ -551,6 +591,7 @@ export class DatabentoLiveService extends EventEmitter {
   }
 
   private fail(message: string, shouldReconnect = false): void {
+    this.analysisWindowNeedsReset = true;
     this.status = {
       ...this.status,
       connectionState: "error",
@@ -704,6 +745,18 @@ export class DatabentoLiveService extends EventEmitter {
     this.bars = [];
     this.quoteWindow = [];
     this.tradeBuckets.clear();
+    this.analysisWindowStartedAt = null;
+  }
+
+  private marketFeedStateAt(now: Date): MarketFeedState {
+    const derived = marketFeedStateFor(
+      this.status.connectionState,
+      this.status.lastUpdatedAt,
+      now,
+    );
+    return this.analysisWindowNeedsReset && derived === "streaming"
+      ? "stale"
+      : derived;
   }
 
   private trimWindows(now: Date): void {
@@ -727,6 +780,10 @@ export class DatabentoLiveService extends EventEmitter {
 
   private calculateRadar(now: Date): RadarSnapshot {
     this.trimWindows(now);
+    const marketFeedState = this.marketFeedStateAt(now);
+    const scoringAllowed =
+      this.status.connectionState === "streaming"
+      && marketFeedState === "streaming";
     const bucketsByTime = [...this.tradeBuckets.values()].sort(
       (left, right) => left.timestamp.getTime() - right.timestamp.getTime(),
     );
@@ -771,7 +828,8 @@ export class DatabentoLiveService extends EventEmitter {
       now,
       prices.length >= 2 && momentumCoverage >= MIN_MOMENTUM_COVERAGE_MS,
     );
-    const momentumScore = momentumFreshness === "fresh" ? rawMomentumScore : null;
+    const candidateMomentumScore =
+      scoringAllowed && momentumFreshness === "fresh" ? rawMomentumScore : null;
 
     const recentVolume = recentBuckets.reduce((total, bucket) => total + bucket.volume, 0);
     const baselineCoverage =
@@ -792,7 +850,8 @@ export class DatabentoLiveService extends EventEmitter {
     const rawVolumeScore = volumeRatio === null ? null : clamp(((volumeRatio - 0.5) / 2.5) * 100);
     const volumeTimestamp = recentBuckets.at(-1)?.timestamp ?? null;
     const volumeFreshness = freshnessFor(volumeTimestamp, now, recentTradeCount >= 2);
-    const volumeScore = volumeFreshness === "fresh" ? rawVolumeScore : null;
+    const candidateVolumeScore =
+      scoringAllowed && volumeFreshness === "fresh" ? rawVolumeScore : null;
 
     const buyVolume = recentBuckets.reduce((total, bucket) => total + bucket.buyVolume, 0);
     const sellVolume = recentBuckets.reduce((total, bucket) => total + bucket.sellVolume, 0);
@@ -806,7 +865,8 @@ export class DatabentoLiveService extends EventEmitter {
         .filter((timestamp): timestamp is Date => timestamp !== null)
         .sort((left, right) => right.getTime() - left.getTime())[0] ?? null;
     const pressureFreshness = freshnessFor(pressureTimestamp, now, classifiedTrades >= 2);
-    const pressureScore = pressureFreshness === "fresh" ? rawPressureScore : null;
+    const candidatePressureScore =
+      scoringAllowed && pressureFreshness === "fresh" ? rawPressureScore : null;
 
     const quote = latestQuote;
     const spread =
@@ -829,30 +889,46 @@ export class DatabentoLiveService extends EventEmitter {
     const rawSpreadScore = spreadBps === null ? null : clamp(100 - spreadBps * 20);
     const spreadTimestamp = quote?.timestamp ?? null;
     const spreadFreshness = freshnessFor(spreadTimestamp, now, spread !== null);
-    const spreadScore = spreadFreshness === "fresh" ? rawSpreadScore : null;
+    const candidateSpreadScore =
+      scoringAllowed && spreadFreshness === "fresh" ? rawSpreadScore : null;
 
     const components = [
-      { score: momentumScore, weight: 0.3 },
-      { score: volumeScore, weight: 0.25 },
-      { score: pressureScore, weight: 0.25 },
-      { score: spreadScore, weight: 0.2 },
+      { score: candidateMomentumScore, weight: 0.3 },
+      { score: candidateVolumeScore, weight: 0.25 },
+      { score: candidatePressureScore, weight: 0.25 },
+      { score: candidateSpreadScore, weight: 0.2 },
     ].filter((component): component is { score: number; weight: number } => component.score !== null);
     const score =
       components.length >= 2
         ? Math.round(components.reduce((total, component) => total + component.score * component.weight, 0) /
             components.reduce((total, component) => total + component.weight, 0))
         : null;
-    const hasEnoughData = sampleCount >= 3 && components.length >= 2;
-    const finalScore = hasEnoughData && overallFreshness === "fresh" ? score : null;
+    const hasEnoughData = sampleCount >= 3 && components.length === 4;
+    const snapshotScoreEligible =
+      scoringAllowed && hasEnoughData && overallFreshness === "fresh";
+    const momentumScore = snapshotScoreEligible ? candidateMomentumScore : null;
+    const volumeScore = snapshotScoreEligible ? candidateVolumeScore : null;
+    const pressureScore = snapshotScoreEligible ? candidatePressureScore : null;
+    const spreadScore = snapshotScoreEligible ? candidateSpreadScore : null;
+    const finalScore = snapshotScoreEligible ? score : null;
     const status =
-      finalScore !== null && finalScore >= 70 && (volumeScore ?? 0) >= 60 && (momentumScore ?? 50) >= 55
+      finalScore === null
+        ? latestTimestamp !== null
+          && (
+            !scoringAllowed
+            || overallFreshness === "stale"
+            || overallFreshness === "quiet"
+          )
+          ? "data_stale"
+          : "insufficient"
+        : finalScore >= 70 && (volumeScore ?? 0) >= 60 && (momentumScore ?? 50) >= 55
         ? "breakout_setup"
-        : finalScore !== null && finalScore >= 55
+        : finalScore >= 55
           ? "watch"
           : "neutral";
 
     const activityFlags: RadarSnapshot["activityFlags"] = [];
-    if (overallFreshness === "fresh" && volumeRatio !== null && volumeRatio >= 2) {
+    if (snapshotScoreEligible && volumeRatio !== null && volumeRatio >= 2) {
       activityFlags.push({
         type: "elevated_volume",
         label: "Elevated trade volume",
@@ -860,7 +936,7 @@ export class DatabentoLiveService extends EventEmitter {
       });
     }
     if (
-      overallFreshness === "fresh" &&
+      snapshotScoreEligible &&
       baselineCoverage >= MIN_BASELINE_COVERAGE_MS &&
       recentTradeCount >= 2 &&
       baselineTradeRate !== null &&
@@ -872,28 +948,24 @@ export class DatabentoLiveService extends EventEmitter {
         detail: `${recentTradeCount} trades arrived in 60 seconds versus ${baselineTradeRate.toFixed(1)} per minute across the comparison window.`,
       });
     }
-    if (overallFreshness === "fresh" && spreadBps !== null && spreadBps >= 10) {
+    if (snapshotScoreEligible && spreadBps !== null && spreadBps >= 10) {
       activityFlags.push({
         type: "wide_spread",
         label: "Wider quoted spread",
         detail: `The latest quoted spread is ${spreadBps.toFixed(1)} basis points.`,
       });
     }
-    if (overallFreshness === "fresh" && pressureScore !== null && Math.abs(pressureScore - 50) >= 25) {
+    if (
+      snapshotScoreEligible
+      && pressureScore !== null
+      && Math.abs(pressureScore - 50) >= 25
+    ) {
       activityFlags.push({
         type: "unbalanced_pressure",
         label: "One-sided classified flow",
         detail: `${pressureScore >= 50 ? "Buy" : "Sell"}-classified volume is ${Math.max(pressureScore, 100 - pressureScore).toFixed(0)}% of classified volume.`,
       });
     }
-    if (overallFreshness === "quiet") {
-      activityFlags.push({
-        type: "quiet",
-        label: "Quiet or stale feed",
-        detail: "No recent market observations are available for a live activity comparison.",
-      });
-    }
-
     return {
       score: finalScore,
       status,
