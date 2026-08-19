@@ -23,6 +23,7 @@ import {
 } from "./marketFeed";
 import { logger } from "./logger";
 import { marketUniverse, type MarketUniverseSummary } from "./marketUniverse";
+import { signalValidation } from "./signalValidation";
 
 export type RadarConnectionState =
   | "not_configured"
@@ -955,11 +956,13 @@ export class DatabentoLiveService extends EventEmitter {
     );
     const alphaRadar = detection.snapshot;
     this.preBreakoutMachine = detection.machine;
+    const radar = this.calculateRadar(now);
     this.recordSignalHistory(
       this.status.alphaRadar,
       alphaRadar,
       now,
       alphaRadar.preBreakout.confirmation.reason,
+      radar,
     );
     if (
       alphaRadar.scoreState === "available"
@@ -989,8 +992,20 @@ export class DatabentoLiveService extends EventEmitter {
       ...this.status,
       alphaRadar,
       signalHistory: [...this.signalHistory],
-      radar: this.calculateRadar(now),
+      radar,
     };
+    if (
+      alphaRadar.preBreakout.dataFresh
+      && this.status.market.latestPrice !== null
+      && this.status.market.lastTradeAt !== null
+      && now.getTime() - this.status.market.lastTradeAt.getTime() <= STALE_AFTER_MS
+    ) {
+      signalValidation.observePrice(
+        this.configuredSymbol,
+        this.status.market.latestPrice,
+        this.status.market.lastTradeAt,
+      );
+    }
     this.publish();
   }
 
@@ -1154,6 +1169,7 @@ export class DatabentoLiveService extends EventEmitter {
     next: AlphaRadarSnapshot,
     occurredAt: Date,
     reason: string,
+    radar?: RadarSnapshot,
   ): void {
     const fromState = previous.preBreakout.state;
     const toState = next.preBreakout.state;
@@ -1161,6 +1177,7 @@ export class DatabentoLiveService extends EventEmitter {
     const toConfirmationStatus = next.preBreakout.confirmation.status;
     if (fromState === toState && fromConfirmationStatus === toConfirmationStatus) return;
 
+    const priorLatestEntry = this.signalHistory.at(-1);
     this.signalHistory = appendSignalHistoryEntry(this.signalHistory, {
       occurredAt,
       fromState,
@@ -1175,6 +1192,83 @@ export class DatabentoLiveService extends EventEmitter {
       missingEvidence: [...next.preBreakout.confirmation.missingEvidence],
       dataFresh: next.preBreakout.dataFresh,
       reason,
+    });
+    const latestEntry = this.signalHistory.at(-1);
+    const entryWasAppended = latestEntry !== priorLatestEntry
+      && latestEntry?.occurredAt.getTime() === occurredAt.getTime();
+    const persistableStates = new Set([
+      "watch",
+      "accelerating",
+      "pre_breakout",
+      "confirmed",
+    ]);
+    if (
+      !entryWasAppended
+      || !next.preBreakout.dataFresh
+      || !persistableStates.has(toState)
+      || this.status.market.latestPrice === null
+      || this.status.market.latestPrice <= 0
+    ) {
+      return;
+    }
+
+    const reference = marketUniverse
+      .query({ search: this.configuredSymbol, eligibility: "all", limit: 20 })
+      .items
+      .find((item) => item.symbol === this.configuredSymbol);
+    const sectorConfirmation = reference?.sector ? "insufficient" : "unavailable";
+    const sectorConfirmationReason = reference?.sector
+      ? "A trigger-time sector label exists, but fresh independent peer confirmation is not available."
+      : "Trusted trigger-time sector classification and fresh peer confirmation are unavailable.";
+    const direction = next.momentum.value === null || next.momentum.value === 0
+      ? "neutral"
+      : next.momentum.value > 0
+        ? "upside"
+        : "downside";
+    signalValidation.captureSignal({
+      symbol: this.configuredSymbol,
+      occurredAt,
+      fromState,
+      state: toState as "watch" | "accelerating" | "pre_breakout" | "confirmed",
+      confirmationStatus: toConfirmationStatus,
+      signalType: fromState !== toState ? "state_transition" : "confirmation_transition",
+      direction,
+      triggerPrice: this.status.market.latestPrice,
+      alphaScore: next.score,
+      signalScore: radar?.score ?? null,
+      confidence: next.confidence,
+      volumeValue: next.volumeIntensity.value,
+      volumeScore: next.volumeIntensity.score,
+      velocity30s: next.alphaVelocity.rate30s,
+      velocity60s: next.alphaVelocity.rate60s,
+      momentumAcceleration: next.changeIndicators.momentumAcceleration,
+      volumeAcceleration: next.changeIndicators.volumeAcceleration,
+      orderFlowShift: next.changeIndicators.orderFlowShift,
+      spreadTightening: next.changeIndicators.spreadTightening,
+      sector: reference?.sector ?? null,
+      sectorConfirmation,
+      sectorConfirmationReason,
+      evidenceCount: next.preBreakout.evidenceCount,
+      evidenceSummary: next.preBreakout.confirmation.evidence.map((evidence) => ({
+        key: evidence.key,
+        label: evidence.label,
+        satisfied: evidence.satisfied,
+        detail: evidence.detail,
+      })),
+      satisfiedEvidence: [...next.preBreakout.confirmation.satisfiedEvidence],
+      missingEvidence: [...next.preBreakout.confirmation.missingEvidence],
+      dataFresh: next.preBreakout.dataFresh,
+      freshness: {
+        marketFeedState: "streaming",
+        dataQuality: next.dataQuality,
+        scoreState: next.scoreState,
+        momentum: next.momentum.freshness,
+        volume: next.volumeIntensity.freshness,
+        orderFlow: next.orderFlowPressure.freshness,
+        spread: next.spread.freshness,
+      },
+      source: "Databento EQUS.MINI live",
+      catalystStatus: "unavailable",
     });
   }
 

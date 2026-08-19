@@ -119,6 +119,64 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/MarketUniverseResult"
+  /radar/validation:
+    get:
+      operationId: getSignalValidation
+      tags: [radar]
+      summary: Get immutable signal validation metrics and recent records
+      parameters:
+        - in: query
+          name: state
+          schema:
+            $ref: "#/components/schemas/ValidationSignalState"
+        - in: query
+          name: sector
+          schema:
+            type: string
+            maxLength: 120
+        - in: query
+          name: signalType
+          schema:
+            $ref: "#/components/schemas/ValidationSignalType"
+        - in: query
+          name: horizonDays
+          schema:
+            type: number
+            enum: [1, 3, 5, 10, 20]
+            default: 5
+        - in: query
+          name: limit
+          schema:
+            type: number
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        "200":
+          description: Persistent trigger-time records and future-only outcome metrics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SignalValidationDashboard"
+  /radar/validation/signals/{signalId}:
+    get:
+      operationId: getSignalValidationAudit
+      tags: [radar]
+      summary: Audit one immutable signal and its outcome checkpoints
+      parameters:
+        - in: path
+          name: signalId
+          required: true
+          schema:
+            type: string
+            minLength: 1
+      responses:
+        "200":
+          description: Full trigger-time evidence chain and checkpoint history
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SignalValidationAudit"
 components:
   schemas:
     HealthStatus:
@@ -866,6 +924,308 @@ components:
         - missingEvidence
         - dataFresh
         - reason
+    ValidationSignalState:
+      type: string
+      enum: [watch, accelerating, pre_breakout, confirmed]
+    ValidationSignalType:
+      type: string
+      enum: [state_transition, confirmation_transition]
+    ValidationDirection:
+      type: string
+      enum: [upside, downside, neutral]
+    ValidationCheckpointStatus:
+      type: string
+      enum: [pending, complete, unavailable]
+    ValidationSampleState:
+      type: string
+      enum: [insufficient_sample, available]
+    SignalValidationEvidence:
+      type: object
+      properties:
+        key:
+          type: string
+        label:
+          type: string
+        satisfied:
+          type: boolean
+        detail:
+          type: string
+      required: [key, label, satisfied, detail]
+    SignalValidationFreshness:
+      type: object
+      properties:
+        marketFeedState:
+          type: string
+        dataQuality:
+          type: string
+        scoreState:
+          type: string
+        momentum:
+          type: string
+        volume:
+          type: string
+        orderFlow:
+          type: string
+        spread:
+          type: string
+      required:
+        - marketFeedState
+        - dataQuality
+        - scoreState
+        - momentum
+        - volume
+        - orderFlow
+        - spread
+    SignalValidationCheckpoint:
+      type: object
+      properties:
+        horizonDays:
+          type: number
+          enum: [1, 3, 5, 10, 20]
+        checkpointStatus:
+          $ref: "#/components/schemas/ValidationCheckpointStatus"
+        targetAt:
+          type: string
+          format: date-time
+        observedAt:
+          type: ["string", "null"]
+          format: date-time
+        observedPrice:
+          type: [number, "null"]
+        rawReturnPercent:
+          type: [number, "null"]
+        favorableReturnPercent:
+          type: [number, "null"]
+        maxDrawdownPercent:
+          type: [number, "null"]
+        hit:
+          type: [boolean, "null"]
+        leadTimeMinutes:
+          type: [number, "null"]
+        reason:
+          type: string
+      required:
+        - horizonDays
+        - checkpointStatus
+        - targetAt
+        - observedAt
+        - observedPrice
+        - rawReturnPercent
+        - favorableReturnPercent
+        - maxDrawdownPercent
+        - hit
+        - leadTimeMinutes
+        - reason
+    PersistedSignalValidationRecord:
+      type: object
+      properties:
+        id:
+          type: string
+          minLength: 1
+        schemaVersion:
+          type: number
+        recordHash:
+          type: string
+        symbol:
+          type: string
+        occurredAt:
+          type: string
+          format: date-time
+        fromState:
+          type: string
+        state:
+          $ref: "#/components/schemas/ValidationSignalState"
+        confirmationStatus:
+          type: string
+        signalType:
+          $ref: "#/components/schemas/ValidationSignalType"
+        direction:
+          $ref: "#/components/schemas/ValidationDirection"
+        triggerPrice:
+          type: number
+        alphaScore:
+          type: [number, "null"]
+        signalScore:
+          type: [number, "null"]
+        confidence:
+          type: number
+        volumeValue:
+          type: [number, "null"]
+        volumeScore:
+          type: [number, "null"]
+        velocity30s:
+          type: [number, "null"]
+        velocity60s:
+          type: [number, "null"]
+        momentumAcceleration:
+          type: [number, "null"]
+        volumeAcceleration:
+          type: [number, "null"]
+        orderFlowShift:
+          type: [number, "null"]
+        spreadTightening:
+          type: [number, "null"]
+        sector:
+          type: [string, "null"]
+        sectorConfirmation:
+          type: string
+        sectorConfirmationReason:
+          type: string
+        evidenceCount:
+          type: number
+          minimum: 0
+        evidenceSummary:
+          type: array
+          items:
+            $ref: "#/components/schemas/SignalValidationEvidence"
+        satisfiedEvidence:
+          type: array
+          items:
+            type: string
+        missingEvidence:
+          type: array
+          items:
+            type: string
+        dataFresh:
+          type: boolean
+        freshness:
+          $ref: "#/components/schemas/SignalValidationFreshness"
+        source:
+          type: string
+        catalystStatus:
+          type: string
+          enum: [unavailable]
+        checkpoints:
+          type: array
+          items:
+            $ref: "#/components/schemas/SignalValidationCheckpoint"
+      required:
+        - id
+        - schemaVersion
+        - recordHash
+        - symbol
+        - occurredAt
+        - fromState
+        - state
+        - confirmationStatus
+        - signalType
+        - direction
+        - triggerPrice
+        - alphaScore
+        - signalScore
+        - confidence
+        - volumeValue
+        - volumeScore
+        - velocity30s
+        - velocity60s
+        - momentumAcceleration
+        - volumeAcceleration
+        - orderFlowShift
+        - spreadTightening
+        - sector
+        - sectorConfirmation
+        - sectorConfirmationReason
+        - evidenceCount
+        - evidenceSummary
+        - satisfiedEvidence
+        - missingEvidence
+        - dataFresh
+        - freshness
+        - source
+        - catalystStatus
+        - checkpoints
+    SignalValidationMetrics:
+      type: object
+      properties:
+        sampleState:
+          $ref: "#/components/schemas/ValidationSampleState"
+        sampleSize:
+          type: number
+          minimum: 0
+        minimumSampleSize:
+          type: number
+          minimum: 1
+        hitRatePercent:
+          type: [number, "null"]
+        averageReturnPercent:
+          type: [number, "null"]
+          description: Mean direction-adjusted return at the selected checkpoint; profitable downside signals are positive.
+        maximumDrawdownPercent:
+          type: [number, "null"]
+        falsePositiveRatePercent:
+          type: [number, "null"]
+        averageLeadTimeMinutes:
+          type: [number, "null"]
+      required:
+        - sampleState
+        - sampleSize
+        - minimumSampleSize
+        - hitRatePercent
+        - averageReturnPercent
+        - maximumDrawdownPercent
+        - falsePositiveRatePercent
+        - averageLeadTimeMinutes
+    SignalValidationMetricDefinitions:
+      type: object
+      properties:
+        hit:
+          type: string
+        falsePositive:
+          type: string
+        leadTime:
+          type: string
+        maximumDrawdown:
+          type: string
+      required: [hit, falsePositive, leadTime, maximumDrawdown]
+    SignalValidationDashboard:
+      type: object
+      properties:
+        generatedAt:
+          type: string
+          format: date-time
+        persistenceState:
+          type: string
+          enum: [available, unavailable]
+        reason:
+          type: string
+        selectedHorizonDays:
+          type: number
+          enum: [1, 3, 5, 10, 20]
+        hitThresholdPercent:
+          type: number
+        metricDefinitions:
+          $ref: "#/components/schemas/SignalValidationMetricDefinitions"
+        metrics:
+          $ref: "#/components/schemas/SignalValidationMetrics"
+        totalSignals:
+          type: number
+          minimum: 0
+        signals:
+          type: array
+          items:
+            $ref: "#/components/schemas/PersistedSignalValidationRecord"
+      required:
+        - generatedAt
+        - persistenceState
+        - reason
+        - selectedHorizonDays
+        - hitThresholdPercent
+        - metricDefinitions
+        - metrics
+        - totalSignals
+        - signals
+    SignalValidationAudit:
+      type: object
+      properties:
+        generatedAt:
+          type: string
+          format: date-time
+        integrity:
+          type: string
+          enum: [verified, failed]
+        signal:
+          $ref: "#/components/schemas/PersistedSignalValidationRecord"
+      required: [generatedAt, integrity, signal]
     RadarTrade:
       type: object
       properties:

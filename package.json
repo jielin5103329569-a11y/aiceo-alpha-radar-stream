@@ -9,7 +9,9 @@
     "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./artifacts/**\" --filter \"./scripts\" --if-present run typecheck",
     "test:alpha-radar": "node scripts/test-alpha-radar.mjs",
     "test:market-feed": "node scripts/test-market-feed.mjs",
-    "test:databento-live": "node scripts/test-databento-live.mjs"
+    "test:databento-live": "node scripts/test-databento-live.mjs",
+    "test:signal-validation": "node scripts/test-signal-validation.mjs",
+    "test:signal-validation-db": "node scripts/test-signal-validation-db.mjs"
   },
   "private": true,
   "dependencies": {

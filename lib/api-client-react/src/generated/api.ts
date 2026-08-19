@@ -21,9 +21,12 @@ import type {
 
 import type {
   GetMarketUniverseParams,
+  GetSignalValidationParams,
   HealthStatus,
   MarketUniverseResult,
-  RadarStatus
+  RadarStatus,
+  SignalValidationAudit,
+  SignalValidationDashboard
 } from './api.schemas';
 
 import { customFetch } from '../custom-fetch';
@@ -499,6 +502,167 @@ export function useGetMarketUniverse<TData = Awaited<ReturnType<typeof getMarket
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getGetMarketUniverseQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetSignalValidationUrl = (params?: GetSignalValidationParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/radar/validation?${stringifiedParams}` : `/api/radar/validation`
+}
+
+/**
+ * @summary Get immutable signal validation metrics and recent records
+ */
+export const getSignalValidation = async (params?: GetSignalValidationParams, options?: Parameters<typeof customFetch>[1]): Promise<SignalValidationDashboard> => {
+
+  return customFetch<SignalValidationDashboard>(getGetSignalValidationUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetSignalValidationQueryKey = (params?: GetSignalValidationParams,) => {
+    return [
+    `/api/radar/validation`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetSignalValidationQueryOptions = <TData = Awaited<ReturnType<typeof getSignalValidation>>, TError = ErrorType<unknown>>(params?: GetSignalValidationParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getSignalValidation>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetSignalValidationQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getSignalValidation>>> = ({ signal }) => getSignalValidation(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getSignalValidation>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetSignalValidationQueryResult = NonNullable<Awaited<ReturnType<typeof getSignalValidation>>>
+export type GetSignalValidationQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get immutable signal validation metrics and recent records
+ */
+
+export function useGetSignalValidation<TData = Awaited<ReturnType<typeof getSignalValidation>>, TError = ErrorType<unknown>>(
+ params?: GetSignalValidationParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getSignalValidation>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetSignalValidationQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetSignalValidationAuditUrl = (signalId: string,) => {
+
+
+
+
+  return `/api/radar/validation/signals/${signalId}`
+}
+
+/**
+ * @summary Audit one immutable signal and its outcome checkpoints
+ */
+export const getSignalValidationAudit = async (signalId: string, options?: Parameters<typeof customFetch>[1]): Promise<SignalValidationAudit> => {
+
+  return customFetch<SignalValidationAudit>(getGetSignalValidationAuditUrl(signalId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetSignalValidationAuditQueryKey = (signalId: string,) => {
+    return [
+    `/api/radar/validation/signals/${signalId}`
+    ] as const;
+    }
+
+
+export const getGetSignalValidationAuditQueryOptions = <TData = Awaited<ReturnType<typeof getSignalValidationAudit>>, TError = ErrorType<unknown>>(signalId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getSignalValidationAudit>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetSignalValidationAuditQueryKey(signalId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getSignalValidationAudit>>> = ({ signal }) => getSignalValidationAudit(signalId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: signalId !== null && signalId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getSignalValidationAudit>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetSignalValidationAuditQueryResult = NonNullable<Awaited<ReturnType<typeof getSignalValidationAudit>>>
+export type GetSignalValidationAuditQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Audit one immutable signal and its outcome checkpoints
+ */
+
+export function useGetSignalValidationAudit<TData = Awaited<ReturnType<typeof getSignalValidationAudit>>, TError = ErrorType<unknown>>(
+ signalId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getSignalValidationAudit>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetSignalValidationAuditQueryOptions(signalId,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

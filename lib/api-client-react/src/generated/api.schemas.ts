@@ -576,6 +576,230 @@ export interface AlphaRadarRankingSnapshot {
   requiredObservationCount: number;
 }
 
+export type ValidationSignalState = typeof ValidationSignalState[keyof typeof ValidationSignalState];
+
+
+export const ValidationSignalState = {
+  watch: 'watch',
+  accelerating: 'accelerating',
+  pre_breakout: 'pre_breakout',
+  confirmed: 'confirmed',
+} as const;
+
+export type ValidationSignalType = typeof ValidationSignalType[keyof typeof ValidationSignalType];
+
+
+export const ValidationSignalType = {
+  state_transition: 'state_transition',
+  confirmation_transition: 'confirmation_transition',
+} as const;
+
+export type ValidationDirection = typeof ValidationDirection[keyof typeof ValidationDirection];
+
+
+export const ValidationDirection = {
+  upside: 'upside',
+  downside: 'downside',
+  neutral: 'neutral',
+} as const;
+
+export type ValidationCheckpointStatus = typeof ValidationCheckpointStatus[keyof typeof ValidationCheckpointStatus];
+
+
+export const ValidationCheckpointStatus = {
+  pending: 'pending',
+  complete: 'complete',
+  unavailable: 'unavailable',
+} as const;
+
+export type ValidationSampleState = typeof ValidationSampleState[keyof typeof ValidationSampleState];
+
+
+export const ValidationSampleState = {
+  insufficient_sample: 'insufficient_sample',
+  available: 'available',
+} as const;
+
+export interface SignalValidationEvidence {
+  key: string;
+  label: string;
+  satisfied: boolean;
+  detail: string;
+}
+
+export interface SignalValidationFreshness {
+  marketFeedState: string;
+  dataQuality: string;
+  scoreState: string;
+  momentum: string;
+  volume: string;
+  orderFlow: string;
+  spread: string;
+}
+
+export type SignalValidationCheckpointHorizonDays = typeof SignalValidationCheckpointHorizonDays[keyof typeof SignalValidationCheckpointHorizonDays];
+
+
+export const SignalValidationCheckpointHorizonDays = {
+  NUMBER_1: 1,
+  NUMBER_3: 3,
+  NUMBER_5: 5,
+  NUMBER_10: 10,
+  NUMBER_20: 20,
+} as const;
+
+export interface SignalValidationCheckpoint {
+  horizonDays: SignalValidationCheckpointHorizonDays;
+  checkpointStatus: ValidationCheckpointStatus;
+  targetAt: string;
+  /** @nullable */
+  observedAt: string | null;
+  /** @nullable */
+  observedPrice: number | null;
+  /** @nullable */
+  rawReturnPercent: number | null;
+  /** @nullable */
+  favorableReturnPercent: number | null;
+  /** @nullable */
+  maxDrawdownPercent: number | null;
+  /** @nullable */
+  hit: boolean | null;
+  /** @nullable */
+  leadTimeMinutes: number | null;
+  reason: string;
+}
+
+export type PersistedSignalValidationRecordCatalystStatus = typeof PersistedSignalValidationRecordCatalystStatus[keyof typeof PersistedSignalValidationRecordCatalystStatus];
+
+
+export const PersistedSignalValidationRecordCatalystStatus = {
+  unavailable: 'unavailable',
+} as const;
+
+export interface PersistedSignalValidationRecord {
+  /** @minLength 1 */
+  id: string;
+  schemaVersion: number;
+  recordHash: string;
+  symbol: string;
+  occurredAt: string;
+  fromState: string;
+  state: ValidationSignalState;
+  confirmationStatus: string;
+  signalType: ValidationSignalType;
+  direction: ValidationDirection;
+  triggerPrice: number;
+  /** @nullable */
+  alphaScore: number | null;
+  /** @nullable */
+  signalScore: number | null;
+  confidence: number;
+  /** @nullable */
+  volumeValue: number | null;
+  /** @nullable */
+  volumeScore: number | null;
+  /** @nullable */
+  velocity30s: number | null;
+  /** @nullable */
+  velocity60s: number | null;
+  /** @nullable */
+  momentumAcceleration: number | null;
+  /** @nullable */
+  volumeAcceleration: number | null;
+  /** @nullable */
+  orderFlowShift: number | null;
+  /** @nullable */
+  spreadTightening: number | null;
+  /** @nullable */
+  sector: string | null;
+  sectorConfirmation: string;
+  sectorConfirmationReason: string;
+  /** @minimum 0 */
+  evidenceCount: number;
+  evidenceSummary: SignalValidationEvidence[];
+  satisfiedEvidence: string[];
+  missingEvidence: string[];
+  dataFresh: boolean;
+  freshness: SignalValidationFreshness;
+  source: string;
+  catalystStatus: PersistedSignalValidationRecordCatalystStatus;
+  checkpoints: SignalValidationCheckpoint[];
+}
+
+export interface SignalValidationMetrics {
+  sampleState: ValidationSampleState;
+  /** @minimum 0 */
+  sampleSize: number;
+  /** @minimum 1 */
+  minimumSampleSize: number;
+  /** @nullable */
+  hitRatePercent: number | null;
+  /**
+     * Mean direction-adjusted return at the selected checkpoint; profitable downside signals are positive.
+     * @nullable
+     */
+  averageReturnPercent: number | null;
+  /** @nullable */
+  maximumDrawdownPercent: number | null;
+  /** @nullable */
+  falsePositiveRatePercent: number | null;
+  /** @nullable */
+  averageLeadTimeMinutes: number | null;
+}
+
+export interface SignalValidationMetricDefinitions {
+  hit: string;
+  falsePositive: string;
+  leadTime: string;
+  maximumDrawdown: string;
+}
+
+export type SignalValidationDashboardPersistenceState = typeof SignalValidationDashboardPersistenceState[keyof typeof SignalValidationDashboardPersistenceState];
+
+
+export const SignalValidationDashboardPersistenceState = {
+  available: 'available',
+  unavailable: 'unavailable',
+} as const;
+
+export type SignalValidationDashboardSelectedHorizonDays = typeof SignalValidationDashboardSelectedHorizonDays[keyof typeof SignalValidationDashboardSelectedHorizonDays];
+
+
+export const SignalValidationDashboardSelectedHorizonDays = {
+  NUMBER_1: 1,
+  NUMBER_3: 3,
+  NUMBER_5: 5,
+  NUMBER_10: 10,
+  NUMBER_20: 20,
+} as const;
+
+export interface SignalValidationDashboard {
+  generatedAt: string;
+  persistenceState: SignalValidationDashboardPersistenceState;
+  reason: string;
+  selectedHorizonDays: SignalValidationDashboardSelectedHorizonDays;
+  hitThresholdPercent: number;
+  metricDefinitions: SignalValidationMetricDefinitions;
+  metrics: SignalValidationMetrics;
+  /** @minimum 0 */
+  totalSignals: number;
+  signals: PersistedSignalValidationRecord[];
+}
+
+export type SignalValidationAuditIntegrity = typeof SignalValidationAuditIntegrity[keyof typeof SignalValidationAuditIntegrity];
+
+
+export const SignalValidationAuditIntegrity = {
+  verified: 'verified',
+  failed: 'failed',
+} as const;
+
+export interface SignalValidationAudit {
+  generatedAt: string;
+  integrity: SignalValidationAuditIntegrity;
+  signal: PersistedSignalValidationRecord;
+}
+
 export interface RadarTrade {
   price: number;
   size: number;
@@ -773,3 +997,28 @@ export const GetMarketUniverseEligibility = {
 
 export const GetMarketUniverseLifecycle = {...SecurityLifecycleStatus,  all: 'all',
 } as const
+export type GetSignalValidationParams = {
+state?: ValidationSignalState;
+/**
+ * @maxLength 120
+ */
+sector?: string;
+signalType?: ValidationSignalType;
+horizonDays?: GetSignalValidationHorizonDays;
+/**
+ * @minimum 1
+ * @maximum 100
+ */
+limit?: number;
+};
+
+export type GetSignalValidationHorizonDays = typeof GetSignalValidationHorizonDays[keyof typeof GetSignalValidationHorizonDays];
+
+
+export const GetSignalValidationHorizonDays = {
+  NUMBER_1: 1,
+  NUMBER_3: 3,
+  NUMBER_5: 5,
+  NUMBER_10: 10,
+  NUMBER_20: 20,
+} as const;

@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { RadarSignalPanel } from '@/components/radar-signal-panel';
+import { SignalValidationPanel } from '@/components/signal-validation-panel';
 import { formatAge, formatNumber, formatPercent, formatTime, cn } from '@/lib/utils';
 import {
   AlertCircle,
@@ -269,6 +270,8 @@ export default function Dashboard() {
         {/* Right Column - Streams & Tape */}
         <div className="lg:col-span-8 flex flex-col gap-6">
           <RadarSignalPanel alphaRadar={status?.alphaRadar} />
+
+          <SignalValidationPanel />
 
           <RadarUniverseCard
             symbols={status?.symbolRadars ?? []}

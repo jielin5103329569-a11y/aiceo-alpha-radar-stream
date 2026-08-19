@@ -1763,3 +1763,201 @@ export const GetMarketUniverseResponse = zod.object({
 })
 
 
+/**
+ * @summary Get immutable signal validation metrics and recent records
+ */
+export const getSignalValidationQuerySectorMax = 120;
+
+export const getSignalValidationQueryHorizonDaysDefault = 5;
+export const getSignalValidationQueryLimitDefault = 20;
+export const getSignalValidationQueryLimitMax = 100;
+
+
+
+export const GetSignalValidationQueryParams = zod.object({
+  "state": zod.enum(['watch', 'accelerating', 'pre_breakout', 'confirmed']).optional(),
+  "sector": zod.coerce.string().max(getSignalValidationQuerySectorMax).optional(),
+  "signalType": zod.enum(['state_transition', 'confirmation_transition']).optional(),
+  "horizonDays": zod.union([zod.literal(1),zod.literal(3),zod.literal(5),zod.literal(10),zod.literal(20)]).default(getSignalValidationQueryHorizonDaysDefault),
+  "limit": zod.coerce.number().min(1).max(getSignalValidationQueryLimitMax).default(getSignalValidationQueryLimitDefault)
+})
+
+export const getSignalValidationResponseMetricsSampleSizeMin = 0;
+
+
+export const getSignalValidationResponseTotalSignalsMin = 0;
+
+
+export const getSignalValidationResponseSignalsItemEvidenceCountMin = 0;
+
+
+
+export const GetSignalValidationResponse = zod.object({
+  "generatedAt": zod.coerce.date(),
+  "persistenceState": zod.enum(['available', 'unavailable']),
+  "reason": zod.string(),
+  "selectedHorizonDays": zod.union([zod.literal(1),zod.literal(3),zod.literal(5),zod.literal(10),zod.literal(20)]),
+  "hitThresholdPercent": zod.number(),
+  "metricDefinitions": zod.object({
+  "hit": zod.string(),
+  "falsePositive": zod.string(),
+  "leadTime": zod.string(),
+  "maximumDrawdown": zod.string()
+}),
+  "metrics": zod.object({
+  "sampleState": zod.enum(['insufficient_sample', 'available']),
+  "sampleSize": zod.number().min(getSignalValidationResponseMetricsSampleSizeMin),
+  "minimumSampleSize": zod.number().min(1),
+  "hitRatePercent": zod.number().nullable(),
+  "averageReturnPercent": zod.number().nullable().describe('Mean direction-adjusted return at the selected checkpoint; profitable downside signals are positive.'),
+  "maximumDrawdownPercent": zod.number().nullable(),
+  "falsePositiveRatePercent": zod.number().nullable(),
+  "averageLeadTimeMinutes": zod.number().nullable()
+}),
+  "totalSignals": zod.number().min(getSignalValidationResponseTotalSignalsMin),
+  "signals": zod.array(zod.object({
+  "id": zod.string().min(1),
+  "schemaVersion": zod.number(),
+  "recordHash": zod.string(),
+  "symbol": zod.string(),
+  "occurredAt": zod.coerce.date(),
+  "fromState": zod.string(),
+  "state": zod.enum(['watch', 'accelerating', 'pre_breakout', 'confirmed']),
+  "confirmationStatus": zod.string(),
+  "signalType": zod.enum(['state_transition', 'confirmation_transition']),
+  "direction": zod.enum(['upside', 'downside', 'neutral']),
+  "triggerPrice": zod.number(),
+  "alphaScore": zod.number().nullable(),
+  "signalScore": zod.number().nullable(),
+  "confidence": zod.number(),
+  "volumeValue": zod.number().nullable(),
+  "volumeScore": zod.number().nullable(),
+  "velocity30s": zod.number().nullable(),
+  "velocity60s": zod.number().nullable(),
+  "momentumAcceleration": zod.number().nullable(),
+  "volumeAcceleration": zod.number().nullable(),
+  "orderFlowShift": zod.number().nullable(),
+  "spreadTightening": zod.number().nullable(),
+  "sector": zod.string().nullable(),
+  "sectorConfirmation": zod.string(),
+  "sectorConfirmationReason": zod.string(),
+  "evidenceCount": zod.number().min(getSignalValidationResponseSignalsItemEvidenceCountMin),
+  "evidenceSummary": zod.array(zod.object({
+  "key": zod.string(),
+  "label": zod.string(),
+  "satisfied": zod.boolean(),
+  "detail": zod.string()
+})),
+  "satisfiedEvidence": zod.array(zod.string()),
+  "missingEvidence": zod.array(zod.string()),
+  "dataFresh": zod.boolean(),
+  "freshness": zod.object({
+  "marketFeedState": zod.string(),
+  "dataQuality": zod.string(),
+  "scoreState": zod.string(),
+  "momentum": zod.string(),
+  "volume": zod.string(),
+  "orderFlow": zod.string(),
+  "spread": zod.string()
+}),
+  "source": zod.string(),
+  "catalystStatus": zod.enum(['unavailable']),
+  "checkpoints": zod.array(zod.object({
+  "horizonDays": zod.union([zod.literal(1),zod.literal(3),zod.literal(5),zod.literal(10),zod.literal(20)]),
+  "checkpointStatus": zod.enum(['pending', 'complete', 'unavailable']),
+  "targetAt": zod.coerce.date(),
+  "observedAt": zod.coerce.date().nullable(),
+  "observedPrice": zod.number().nullable(),
+  "rawReturnPercent": zod.number().nullable(),
+  "favorableReturnPercent": zod.number().nullable(),
+  "maxDrawdownPercent": zod.number().nullable(),
+  "hit": zod.boolean().nullable(),
+  "leadTimeMinutes": zod.number().nullable(),
+  "reason": zod.string()
+}))
+}))
+})
+
+
+/**
+ * @summary Audit one immutable signal and its outcome checkpoints
+ */
+
+
+
+export const GetSignalValidationAuditParams = zod.object({
+  "signalId": zod.coerce.string().min(1)
+})
+
+
+export const getSignalValidationAuditResponseSignalEvidenceCountMin = 0;
+
+
+
+export const GetSignalValidationAuditResponse = zod.object({
+  "generatedAt": zod.coerce.date(),
+  "integrity": zod.enum(['verified', 'failed']),
+  "signal": zod.object({
+  "id": zod.string().min(1),
+  "schemaVersion": zod.number(),
+  "recordHash": zod.string(),
+  "symbol": zod.string(),
+  "occurredAt": zod.coerce.date(),
+  "fromState": zod.string(),
+  "state": zod.enum(['watch', 'accelerating', 'pre_breakout', 'confirmed']),
+  "confirmationStatus": zod.string(),
+  "signalType": zod.enum(['state_transition', 'confirmation_transition']),
+  "direction": zod.enum(['upside', 'downside', 'neutral']),
+  "triggerPrice": zod.number(),
+  "alphaScore": zod.number().nullable(),
+  "signalScore": zod.number().nullable(),
+  "confidence": zod.number(),
+  "volumeValue": zod.number().nullable(),
+  "volumeScore": zod.number().nullable(),
+  "velocity30s": zod.number().nullable(),
+  "velocity60s": zod.number().nullable(),
+  "momentumAcceleration": zod.number().nullable(),
+  "volumeAcceleration": zod.number().nullable(),
+  "orderFlowShift": zod.number().nullable(),
+  "spreadTightening": zod.number().nullable(),
+  "sector": zod.string().nullable(),
+  "sectorConfirmation": zod.string(),
+  "sectorConfirmationReason": zod.string(),
+  "evidenceCount": zod.number().min(getSignalValidationAuditResponseSignalEvidenceCountMin),
+  "evidenceSummary": zod.array(zod.object({
+  "key": zod.string(),
+  "label": zod.string(),
+  "satisfied": zod.boolean(),
+  "detail": zod.string()
+})),
+  "satisfiedEvidence": zod.array(zod.string()),
+  "missingEvidence": zod.array(zod.string()),
+  "dataFresh": zod.boolean(),
+  "freshness": zod.object({
+  "marketFeedState": zod.string(),
+  "dataQuality": zod.string(),
+  "scoreState": zod.string(),
+  "momentum": zod.string(),
+  "volume": zod.string(),
+  "orderFlow": zod.string(),
+  "spread": zod.string()
+}),
+  "source": zod.string(),
+  "catalystStatus": zod.enum(['unavailable']),
+  "checkpoints": zod.array(zod.object({
+  "horizonDays": zod.union([zod.literal(1),zod.literal(3),zod.literal(5),zod.literal(10),zod.literal(20)]),
+  "checkpointStatus": zod.enum(['pending', 'complete', 'unavailable']),
+  "targetAt": zod.coerce.date(),
+  "observedAt": zod.coerce.date().nullable(),
+  "observedPrice": zod.number().nullable(),
+  "rawReturnPercent": zod.number().nullable(),
+  "favorableReturnPercent": zod.number().nullable(),
+  "maxDrawdownPercent": zod.number().nullable(),
+  "hit": zod.boolean().nullable(),
+  "leadTimeMinutes": zod.number().nullable(),
+  "reason": zod.string()
+}))
+})
+})
+
+

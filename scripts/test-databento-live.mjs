@@ -87,6 +87,10 @@ try {
     join(outputDirectory, "logger.js"),
     '"use strict"; Object.defineProperty(exports, "__esModule", { value: true }); exports.logger = { info() {}, warn() {}, error() {} };',
   );
+  writeFileSync(
+    join(outputDirectory, "signalValidation.js"),
+    '"use strict"; Object.defineProperty(exports, "__esModule", { value: true }); exports.signalValidation = { captureSignal() {}, observePrice() {} };',
+  );
   writeFileSync(join(outputDirectory, "package.json"), '{"type":"commonjs"}');
 
   const require = createRequire(import.meta.url);
