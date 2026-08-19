@@ -59,6 +59,27 @@ export const getRadarStatusResponseSymbolRadarsItemAlphaRadarPreBreakoutConfirma
 export const getRadarStatusResponseSymbolRadarsItemSignalHistoryItemEvidenceCountMin = 0;
 
 
+export const getRadarStatusResponseAlphaRankingEntriesItemRankingScoreMin = 0;
+export const getRadarStatusResponseAlphaRankingEntriesItemRankingScoreMax = 100;
+
+export const getRadarStatusResponseAlphaRankingEntriesItemFactorContributionsOneAlphaScoreMin = 0;
+
+export const getRadarStatusResponseAlphaRankingEntriesItemFactorContributionsOneAlphaVelocityMin = 0;
+
+export const getRadarStatusResponseAlphaRankingEntriesItemFactorContributionsOneComponentAccelerationMin = 0;
+
+export const getRadarStatusResponseAlphaRankingEntriesItemFactorContributionsOneSignalTrajectoryMin = 0;
+
+export const getRadarStatusResponseAlphaRankingEntriesItemAlphaScoreMin = 0;
+export const getRadarStatusResponseAlphaRankingEntriesItemAlphaScoreMax = 100;
+
+export const getRadarStatusResponseAlphaRankingEntriesItemConfidenceMin = 0;
+export const getRadarStatusResponseAlphaRankingEntriesItemConfidenceMax = 100;
+
+export const getRadarStatusResponseAlphaRankingPendingObservationCountMin = 0;
+
+
+
 
 export const GetRadarStatusResponse = zod.object({
   "configured": zod.boolean(),
@@ -457,6 +478,34 @@ export const GetRadarStatusResponse = zod.object({
 }),
   "error": zod.string().nullable()
 })),
+  "alphaRanking": zod.object({
+  "generatedAt": zod.coerce.date(),
+  "entries": zod.array(zod.object({
+  "symbol": zod.string(),
+  "rank": zod.number().min(1).nullable(),
+  "eligibility": zod.enum(['ranked', 'building', 'ineligible']),
+  "orderStatus": zod.union([zod.enum(['stable', 'pending']),zod.null()]),
+  "rankingScore": zod.number().min(getRadarStatusResponseAlphaRankingEntriesItemRankingScoreMin).max(getRadarStatusResponseAlphaRankingEntriesItemRankingScoreMax).nullable(),
+  "factorContributions": zod.union([zod.object({
+  "alphaScore": zod.number().min(getRadarStatusResponseAlphaRankingEntriesItemFactorContributionsOneAlphaScoreMin),
+  "alphaVelocity": zod.number().min(getRadarStatusResponseAlphaRankingEntriesItemFactorContributionsOneAlphaVelocityMin),
+  "componentAcceleration": zod.number().min(getRadarStatusResponseAlphaRankingEntriesItemFactorContributionsOneComponentAccelerationMin),
+  "componentAccelerationAverage": zod.number(),
+  "signalTrajectory": zod.number().min(getRadarStatusResponseAlphaRankingEntriesItemFactorContributionsOneSignalTrajectoryMin)
+}),zod.null()]),
+  "alphaScore": zod.number().min(getRadarStatusResponseAlphaRankingEntriesItemAlphaScoreMin).max(getRadarStatusResponseAlphaRankingEntriesItemAlphaScoreMax).nullable(),
+  "detectionState": zod.enum(['unavailable', 'watch', 'accelerating', 'pre_breakout', 'confirmed']),
+  "confirmationStatus": zod.enum(['unavailable', 'pending', 'confirmed', 'rejected']),
+  "alphaVelocity": zod.number().nullable(),
+  "confidence": zod.number().min(getRadarStatusResponseAlphaRankingEntriesItemConfidenceMin).max(getRadarStatusResponseAlphaRankingEntriesItemConfidenceMax),
+  "trajectory": zod.enum(['strengthening', 'stable', 'weakening', 'unavailable']),
+  "reason": zod.string()
+})),
+  "leaderSymbol": zod.string().nullable(),
+  "reorderPending": zod.boolean(),
+  "pendingObservationCount": zod.number().min(getRadarStatusResponseAlphaRankingPendingObservationCountMin),
+  "requiredObservationCount": zod.number().min(1)
+}),
   "preBreakoutLeader": zod.object({
   "symbol": zod.string(),
   "state": zod.enum(['unavailable', 'watch', 'accelerating', 'pre_breakout', 'confirmed']),
@@ -506,6 +555,27 @@ export const startRadarConnectionResponseSymbolRadarsItemAlphaRadarPreBreakoutCo
 
 
 export const startRadarConnectionResponseSymbolRadarsItemSignalHistoryItemEvidenceCountMin = 0;
+
+
+export const startRadarConnectionResponseAlphaRankingEntriesItemRankingScoreMin = 0;
+export const startRadarConnectionResponseAlphaRankingEntriesItemRankingScoreMax = 100;
+
+export const startRadarConnectionResponseAlphaRankingEntriesItemFactorContributionsOneAlphaScoreMin = 0;
+
+export const startRadarConnectionResponseAlphaRankingEntriesItemFactorContributionsOneAlphaVelocityMin = 0;
+
+export const startRadarConnectionResponseAlphaRankingEntriesItemFactorContributionsOneComponentAccelerationMin = 0;
+
+export const startRadarConnectionResponseAlphaRankingEntriesItemFactorContributionsOneSignalTrajectoryMin = 0;
+
+export const startRadarConnectionResponseAlphaRankingEntriesItemAlphaScoreMin = 0;
+export const startRadarConnectionResponseAlphaRankingEntriesItemAlphaScoreMax = 100;
+
+export const startRadarConnectionResponseAlphaRankingEntriesItemConfidenceMin = 0;
+export const startRadarConnectionResponseAlphaRankingEntriesItemConfidenceMax = 100;
+
+export const startRadarConnectionResponseAlphaRankingPendingObservationCountMin = 0;
+
 
 
 
@@ -906,6 +976,34 @@ export const StartRadarConnectionResponse = zod.object({
 }),
   "error": zod.string().nullable()
 })),
+  "alphaRanking": zod.object({
+  "generatedAt": zod.coerce.date(),
+  "entries": zod.array(zod.object({
+  "symbol": zod.string(),
+  "rank": zod.number().min(1).nullable(),
+  "eligibility": zod.enum(['ranked', 'building', 'ineligible']),
+  "orderStatus": zod.union([zod.enum(['stable', 'pending']),zod.null()]),
+  "rankingScore": zod.number().min(startRadarConnectionResponseAlphaRankingEntriesItemRankingScoreMin).max(startRadarConnectionResponseAlphaRankingEntriesItemRankingScoreMax).nullable(),
+  "factorContributions": zod.union([zod.object({
+  "alphaScore": zod.number().min(startRadarConnectionResponseAlphaRankingEntriesItemFactorContributionsOneAlphaScoreMin),
+  "alphaVelocity": zod.number().min(startRadarConnectionResponseAlphaRankingEntriesItemFactorContributionsOneAlphaVelocityMin),
+  "componentAcceleration": zod.number().min(startRadarConnectionResponseAlphaRankingEntriesItemFactorContributionsOneComponentAccelerationMin),
+  "componentAccelerationAverage": zod.number(),
+  "signalTrajectory": zod.number().min(startRadarConnectionResponseAlphaRankingEntriesItemFactorContributionsOneSignalTrajectoryMin)
+}),zod.null()]),
+  "alphaScore": zod.number().min(startRadarConnectionResponseAlphaRankingEntriesItemAlphaScoreMin).max(startRadarConnectionResponseAlphaRankingEntriesItemAlphaScoreMax).nullable(),
+  "detectionState": zod.enum(['unavailable', 'watch', 'accelerating', 'pre_breakout', 'confirmed']),
+  "confirmationStatus": zod.enum(['unavailable', 'pending', 'confirmed', 'rejected']),
+  "alphaVelocity": zod.number().nullable(),
+  "confidence": zod.number().min(startRadarConnectionResponseAlphaRankingEntriesItemConfidenceMin).max(startRadarConnectionResponseAlphaRankingEntriesItemConfidenceMax),
+  "trajectory": zod.enum(['strengthening', 'stable', 'weakening', 'unavailable']),
+  "reason": zod.string()
+})),
+  "leaderSymbol": zod.string().nullable(),
+  "reorderPending": zod.boolean(),
+  "pendingObservationCount": zod.number().min(startRadarConnectionResponseAlphaRankingPendingObservationCountMin),
+  "requiredObservationCount": zod.number().min(1)
+}),
   "preBreakoutLeader": zod.object({
   "symbol": zod.string(),
   "state": zod.enum(['unavailable', 'watch', 'accelerating', 'pre_breakout', 'confirmed']),
@@ -955,6 +1053,27 @@ export const stopRadarConnectionResponseSymbolRadarsItemAlphaRadarPreBreakoutCon
 
 
 export const stopRadarConnectionResponseSymbolRadarsItemSignalHistoryItemEvidenceCountMin = 0;
+
+
+export const stopRadarConnectionResponseAlphaRankingEntriesItemRankingScoreMin = 0;
+export const stopRadarConnectionResponseAlphaRankingEntriesItemRankingScoreMax = 100;
+
+export const stopRadarConnectionResponseAlphaRankingEntriesItemFactorContributionsOneAlphaScoreMin = 0;
+
+export const stopRadarConnectionResponseAlphaRankingEntriesItemFactorContributionsOneAlphaVelocityMin = 0;
+
+export const stopRadarConnectionResponseAlphaRankingEntriesItemFactorContributionsOneComponentAccelerationMin = 0;
+
+export const stopRadarConnectionResponseAlphaRankingEntriesItemFactorContributionsOneSignalTrajectoryMin = 0;
+
+export const stopRadarConnectionResponseAlphaRankingEntriesItemAlphaScoreMin = 0;
+export const stopRadarConnectionResponseAlphaRankingEntriesItemAlphaScoreMax = 100;
+
+export const stopRadarConnectionResponseAlphaRankingEntriesItemConfidenceMin = 0;
+export const stopRadarConnectionResponseAlphaRankingEntriesItemConfidenceMax = 100;
+
+export const stopRadarConnectionResponseAlphaRankingPendingObservationCountMin = 0;
+
 
 
 
@@ -1355,6 +1474,34 @@ export const StopRadarConnectionResponse = zod.object({
 }),
   "error": zod.string().nullable()
 })),
+  "alphaRanking": zod.object({
+  "generatedAt": zod.coerce.date(),
+  "entries": zod.array(zod.object({
+  "symbol": zod.string(),
+  "rank": zod.number().min(1).nullable(),
+  "eligibility": zod.enum(['ranked', 'building', 'ineligible']),
+  "orderStatus": zod.union([zod.enum(['stable', 'pending']),zod.null()]),
+  "rankingScore": zod.number().min(stopRadarConnectionResponseAlphaRankingEntriesItemRankingScoreMin).max(stopRadarConnectionResponseAlphaRankingEntriesItemRankingScoreMax).nullable(),
+  "factorContributions": zod.union([zod.object({
+  "alphaScore": zod.number().min(stopRadarConnectionResponseAlphaRankingEntriesItemFactorContributionsOneAlphaScoreMin),
+  "alphaVelocity": zod.number().min(stopRadarConnectionResponseAlphaRankingEntriesItemFactorContributionsOneAlphaVelocityMin),
+  "componentAcceleration": zod.number().min(stopRadarConnectionResponseAlphaRankingEntriesItemFactorContributionsOneComponentAccelerationMin),
+  "componentAccelerationAverage": zod.number(),
+  "signalTrajectory": zod.number().min(stopRadarConnectionResponseAlphaRankingEntriesItemFactorContributionsOneSignalTrajectoryMin)
+}),zod.null()]),
+  "alphaScore": zod.number().min(stopRadarConnectionResponseAlphaRankingEntriesItemAlphaScoreMin).max(stopRadarConnectionResponseAlphaRankingEntriesItemAlphaScoreMax).nullable(),
+  "detectionState": zod.enum(['unavailable', 'watch', 'accelerating', 'pre_breakout', 'confirmed']),
+  "confirmationStatus": zod.enum(['unavailable', 'pending', 'confirmed', 'rejected']),
+  "alphaVelocity": zod.number().nullable(),
+  "confidence": zod.number().min(stopRadarConnectionResponseAlphaRankingEntriesItemConfidenceMin).max(stopRadarConnectionResponseAlphaRankingEntriesItemConfidenceMax),
+  "trajectory": zod.enum(['strengthening', 'stable', 'weakening', 'unavailable']),
+  "reason": zod.string()
+})),
+  "leaderSymbol": zod.string().nullable(),
+  "reorderPending": zod.boolean(),
+  "pendingObservationCount": zod.number().min(stopRadarConnectionResponseAlphaRankingPendingObservationCountMin),
+  "requiredObservationCount": zod.number().min(1)
+}),
   "preBreakoutLeader": zod.object({
   "symbol": zod.string(),
   "state": zod.enum(['unavailable', 'watch', 'accelerating', 'pre_breakout', 'confirmed']),

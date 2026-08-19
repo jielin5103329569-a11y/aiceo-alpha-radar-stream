@@ -2,3 +2,4 @@
 - [Market data recovery](market-data-recovery.md) — Keep feed heartbeats separate from market-event freshness and use bounded retry backoff for provider recovery.
 - [Signal integrity](signal-integrity.md) — Never preserve directional scores or setup labels when a live feed is interrupted, stale, or materially incomplete.
 - [Pre-breakout evidence](pre-breakout-evidence.md) — Count only direct component changes as independent evidence; composite Alpha Velocity is a gate, not another vote.
+- [Ranking stabilization](ranking-stabilization.md) — Confirm reorders only from eligible symbols' independent scans; reads and ineligible peers must never advance hysteresis.

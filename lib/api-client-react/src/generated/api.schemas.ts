@@ -325,6 +325,92 @@ export interface RadarSymbolStatus {
   error: string | null;
 }
 
+export type AlphaRankingEligibility = typeof AlphaRankingEligibility[keyof typeof AlphaRankingEligibility];
+
+
+export const AlphaRankingEligibility = {
+  ranked: 'ranked',
+  building: 'building',
+  ineligible: 'ineligible',
+} as const;
+
+export type AlphaRankingTrajectory = typeof AlphaRankingTrajectory[keyof typeof AlphaRankingTrajectory];
+
+
+export const AlphaRankingTrajectory = {
+  strengthening: 'strengthening',
+  stable: 'stable',
+  weakening: 'weakening',
+  unavailable: 'unavailable',
+} as const;
+
+export type AlphaRankingOrderStatus = typeof AlphaRankingOrderStatus[keyof typeof AlphaRankingOrderStatus];
+
+
+export const AlphaRankingOrderStatus = {
+  stable: 'stable',
+  pending: 'pending',
+} as const;
+
+export interface AlphaRadarRankingFactorContributions {
+  /** @minimum 0 */
+  alphaScore: number;
+  /** @minimum 0 */
+  alphaVelocity: number;
+  /** @minimum 0 */
+  componentAcceleration: number;
+  componentAccelerationAverage: number;
+  /** @minimum 0 */
+  signalTrajectory: number;
+}
+
+export interface AlphaRadarRankingEntry {
+  symbol: string;
+  /**
+     * @minimum 1
+     * @nullable
+     */
+  rank: number | null;
+  eligibility: AlphaRankingEligibility;
+  orderStatus: AlphaRankingOrderStatus | null;
+  /**
+     * @minimum 0
+     * @maximum 100
+     * @nullable
+     */
+  rankingScore: number | null;
+  factorContributions: AlphaRadarRankingFactorContributions | null;
+  /**
+     * @minimum 0
+     * @maximum 100
+     * @nullable
+     */
+  alphaScore: number | null;
+  detectionState: PreBreakoutDetectionState;
+  confirmationStatus: PreBreakoutConfirmationStatus;
+  /** @nullable */
+  alphaVelocity: number | null;
+  /**
+     * @minimum 0
+     * @maximum 100
+     */
+  confidence: number;
+  trajectory: AlphaRankingTrajectory;
+  reason: string;
+}
+
+export interface AlphaRadarRankingSnapshot {
+  generatedAt: string;
+  entries: AlphaRadarRankingEntry[];
+  /** @nullable */
+  leaderSymbol: string | null;
+  reorderPending: boolean;
+  /** @minimum 0 */
+  pendingObservationCount: number;
+  /** @minimum 1 */
+  requiredObservationCount: number;
+}
+
 export interface RadarTrade {
   price: number;
   size: number;
@@ -487,6 +573,7 @@ export interface RadarStatus {
   radar: RadarSnapshot;
   streams: RadarStream[];
   symbolRadars: RadarSymbolStatus[];
+  alphaRanking: AlphaRadarRankingSnapshot;
   /** @nullable */
   preBreakoutLeader: RadarStatusPreBreakoutLeader;
 }

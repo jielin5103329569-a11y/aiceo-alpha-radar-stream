@@ -87,6 +87,7 @@ try {
     DatabentoUniverseService,
     MONITORED_SYMBOLS,
     scanProfileAt,
+    updateAlphaRadarRanking,
   } = require(join(outputDirectory, "databentoLive.js"));
   assert.deepEqual(
     scanProfileAt(new Date("2026-08-17T13:27:00.000Z")),
@@ -113,6 +114,17 @@ try {
   assert.ok(
     universeStatus.symbolRadars.every((radar) => Array.isArray(radar.signalHistory)),
     "every monitored symbol must expose its own bounded signal trajectory",
+  );
+  assert.deepEqual(
+    universeStatus.alphaRanking.entries.map((entry) => entry.symbol),
+    [...MONITORED_SYMBOLS],
+    "the ranking board must include every monitored symbol even when all live windows are ineligible",
+  );
+  assert.ok(
+    universeStatus.alphaRanking.entries.every(
+      (entry) => entry.rank === null && entry.eligibility === "ineligible",
+    ),
+    "stopped universe symbols must never receive an apparently valid rank",
   );
   const muService = new DatabentoLiveService("MU");
   muService.applyEvent({ type: "ready" });
@@ -146,7 +158,8 @@ try {
   freshAlphaService.applyEvent(marketEvent(new Date(freshAlphaNow.getTime() - 8_000), 100, null));
   freshAlphaService.applyEvent(marketEvent(new Date(freshAlphaNow.getTime() - 4_000), 100.1, null));
   freshAlphaService.applyEvent(marketEvent(freshAlphaNow, 100.2, null));
-  const freshAlpha = freshAlphaService.getStatus().alphaRadar;
+  const freshAlphaStatus = freshAlphaService.getStatus();
+  const freshAlpha = freshAlphaStatus.alphaRadar;
   assert.equal(freshAlpha.scoreState, "available", "fresh incoming MBP events must establish an Alpha Radar window");
   assert.equal(typeof freshAlpha.score, "number", "a valid fresh service window must publish an Alpha Radar score");
   assert.equal(freshAlpha.confidence, 100, "complete fresh service evidence must report full confidence");
@@ -168,6 +181,213 @@ try {
     "Quote-depth proxy because classified trade sides are unavailable",
     "unclassified live trades must use the fresh quote-depth proxy",
   );
+
+  function rankingSymbol({
+    symbol,
+    score,
+    velocity,
+    scanAt,
+    trajectory = "strengthening",
+    marketFeedState = "streaming",
+  }) {
+    const strengthening = trajectory === "strengthening";
+    const historyEntry = {
+      occurredAt: new Date(scanAt.getTime() - 1_000),
+      fromState: strengthening ? "watch" : "confirmed",
+      toState: strengthening ? "accelerating" : "watch",
+      fromConfirmationStatus: strengthening ? "rejected" : "confirmed",
+      toConfirmationStatus: strengthening ? "pending" : "rejected",
+      score,
+      confidence: 100,
+      alphaVelocity: velocity,
+      evidenceCount: 3,
+      satisfiedEvidence: ["Fresh price momentum"],
+      missingEvidence: ["Persistent multi-scan trajectory"],
+      dataFresh: marketFeedState === "streaming",
+      reason: "Deterministic ranking trajectory.",
+    };
+    return {
+      symbol,
+      connectionState: marketFeedState === "streaming" ? "streaming" : "error",
+      marketFeedState,
+      lastUpdatedAt: scanAt,
+      alphaRadar: {
+        ...freshAlpha,
+        score,
+        scoreState: marketFeedState === "streaming" ? "available" : "stale",
+        dataQuality: marketFeedState === "streaming" ? "good" : "stale",
+        confidence: marketFeedState === "streaming" ? 100 : 0,
+        scan: { ...freshAlpha.scan, lastScannedAt: scanAt },
+        alphaVelocity: {
+          ...freshAlpha.alphaVelocity,
+          rate30s: marketFeedState === "streaming" ? velocity : null,
+        },
+        changeIndicators: {
+          momentumAcceleration: marketFeedState === "streaming" ? 8 : null,
+          volumeAcceleration: marketFeedState === "streaming" ? 7 : null,
+          orderFlowShift: marketFeedState === "streaming" ? 6 : null,
+          spreadTightening: marketFeedState === "streaming" ? 5 : null,
+        },
+        preBreakout: {
+          ...freshAlpha.preBreakout,
+          state: marketFeedState === "streaming" ? "accelerating" : "unavailable",
+          dataFresh: marketFeedState === "streaming",
+          confirmation: {
+            ...freshAlpha.preBreakout.confirmation,
+            status: marketFeedState === "streaming" ? "pending" : "unavailable",
+          },
+        },
+      },
+      signalHistory: [historyEntry],
+      market: freshAlphaStatus.market,
+      error: marketFeedState === "streaming" ? null : "Deterministic stale window.",
+    };
+  }
+
+  const emptyRankingMachine = () => ({
+    order: [],
+    pendingOrder: null,
+    pendingObservationCount: 0,
+    lastInputSignature: null,
+  });
+  const rankingAt = new Date("2026-08-19T14:30:00.000Z");
+  const initialRanking = updateAlphaRadarRanking(
+    [
+      rankingSymbol({ symbol: "NVDA", score: 82, velocity: 8, scanAt: rankingAt }),
+      rankingSymbol({ symbol: "MU", score: 70, velocity: 5, scanAt: rankingAt }),
+    ],
+    emptyRankingMachine(),
+    rankingAt,
+  );
+  assert.equal(initialRanking.snapshot.leaderSymbol, "NVDA", "the stronger fresh combined ranking evidence should lead");
+  assert.equal(initialRanking.snapshot.entries[0].rank, 1, "the server ranking must publish the current rank");
+  assert.match(
+    initialRanking.snapshot.entries[0].reason,
+    /Score 82.*Alpha Velocity \+8\/min.*component acceleration \+6\.5\/min.*trajectory/,
+    "each ranked symbol must expose a concise evidence-based explanation",
+  );
+  const initialFactors = initialRanking.snapshot.entries[0].factorContributions;
+  assert.ok(initialFactors, "a ranked symbol must expose transparent factor contributions");
+  assert.equal(
+    Math.round(
+      (
+        initialFactors.alphaScore
+        + initialFactors.alphaVelocity
+        + initialFactors.componentAcceleration
+        + initialFactors.signalTrajectory
+      ) * 10,
+    ) / 10,
+    initialRanking.snapshot.entries[0].rankingScore,
+    "the published ranking index must equal the sum of its transparent factor contributions",
+  );
+
+  const oneTickReorderAt = new Date(rankingAt.getTime() + 1_000);
+  const oneTickCandidates = [
+    rankingSymbol({ symbol: "NVDA", score: 82, velocity: 8, scanAt: oneTickReorderAt }),
+    rankingSymbol({ symbol: "MU", score: 96, velocity: 20, scanAt: oneTickReorderAt }),
+    rankingSymbol({
+      symbol: "AMD",
+      score: 50,
+      velocity: 0,
+      scanAt: oneTickReorderAt,
+      marketFeedState: "stale",
+    }),
+  ];
+  const oneTickReorder = updateAlphaRadarRanking(
+    oneTickCandidates,
+    initialRanking.machine,
+    oneTickReorderAt,
+  );
+  assert.equal(
+    oneTickReorder.snapshot.leaderSymbol,
+    "NVDA",
+    "one isolated scan must not immediately reorder the established ranking",
+  );
+  assert.equal(oneTickReorder.snapshot.reorderPending, true, "a possible reorder must be exposed as pending");
+  assert.equal(oneTickReorder.snapshot.pendingObservationCount, 1, "the first changed scan begins reorder confirmation");
+
+  const repeatedPoll = updateAlphaRadarRanking(
+    [
+      oneTickCandidates[0],
+      oneTickCandidates[1],
+      rankingSymbol({
+        symbol: "AMD",
+        score: 50,
+        velocity: 0,
+        scanAt: new Date(oneTickReorderAt.getTime() + 500),
+        marketFeedState: "stale",
+      }),
+    ],
+    oneTickReorder.machine,
+    oneTickReorderAt,
+  );
+  assert.equal(
+    repeatedPoll.snapshot.pendingObservationCount,
+    1,
+    "repeated reads of the same eligible scans must not count when an unrelated stale peer timestamp changes",
+  );
+  assert.equal(repeatedPoll.snapshot.leaderSymbol, "NVDA", "polling alone must not advance the pending reorder");
+
+  const confirmedReorderAt = new Date(rankingAt.getTime() + 2_000);
+  const confirmedReorder = updateAlphaRadarRanking(
+    [
+      rankingSymbol({ symbol: "NVDA", score: 82, velocity: 8, scanAt: confirmedReorderAt }),
+      rankingSymbol({ symbol: "MU", score: 96, velocity: 20, scanAt: confirmedReorderAt }),
+    ],
+    repeatedPoll.machine,
+    confirmedReorderAt,
+  );
+  assert.equal(
+    confirmedReorder.snapshot.leaderSymbol,
+    "MU",
+    "two independent agreeing scans should confirm the new ranking order",
+  );
+  assert.equal(confirmedReorder.snapshot.reorderPending, false, "a confirmed reorder must clear pending state");
+
+  const trajectoryRanking = updateAlphaRadarRanking(
+    [
+      rankingSymbol({
+        symbol: "VRT",
+        score: 75,
+        velocity: 9,
+        scanAt: rankingAt,
+        trajectory: "weakening",
+      }),
+      rankingSymbol({
+        symbol: "CRDO",
+        score: 75,
+        velocity: 9,
+        scanAt: rankingAt,
+        trajectory: "strengthening",
+      }),
+    ],
+    emptyRankingMachine(),
+    rankingAt,
+  );
+  assert.equal(
+    trajectoryRanking.snapshot.leaderSymbol,
+    "CRDO",
+    "bounded strengthening trajectory should outrank otherwise equal weakening evidence",
+  );
+
+  const staleInvalidation = updateAlphaRadarRanking(
+    [
+      rankingSymbol({
+        symbol: "NVDA",
+        score: 82,
+        velocity: 8,
+        scanAt: confirmedReorderAt,
+        marketFeedState: "stale",
+      }),
+      rankingSymbol({ symbol: "MU", score: 70, velocity: 5, scanAt: confirmedReorderAt }),
+    ],
+    initialRanking.machine,
+    confirmedReorderAt,
+  );
+  const staleNvdaRank = staleInvalidation.snapshot.entries.find((entry) => entry.symbol === "NVDA");
+  assert.equal(staleNvdaRank.rank, null, "stale data must lose its rank immediately without hysteresis");
+  assert.equal(staleNvdaRank.eligibility, "ineligible", "stale data must be explicitly ineligible");
+  assert.equal(staleInvalidation.snapshot.leaderSymbol, "MU", "a fresh peer remains ranked independently");
 
   const eventTriggeredService = new DatabentoLiveService();
   const eventNow = new Date();

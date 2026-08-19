@@ -24,7 +24,7 @@ import {
   Zap,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import type { MarketFeedState, RadarConnectionState, RadarReconnectState, RadarSignal, RadarSnapshot, RadarStatus, RadarSymbolStatus } from '@workspace/api-client-react';
+import type { MarketFeedState, RadarConnectionState, RadarReconnectState, RadarSignal, RadarSnapshot, RadarStatus, RadarSymbolStatus, AlphaRadarRankingSnapshot } from '@workspace/api-client-react';
 
 export default function Dashboard() {
   const { status, isLoading, isError, transportState } = useRadarStream();
@@ -271,7 +271,7 @@ export default function Dashboard() {
 
           <RadarUniverseCard
             symbols={status?.symbolRadars ?? []}
-            leader={status?.preBreakoutLeader ?? null}
+            ranking={status?.alphaRanking ?? null}
           />
 
           <RadarScoreCard radar={status?.radar ?? null} />
@@ -380,11 +380,16 @@ export default function Dashboard() {
 
 function RadarUniverseCard({
   symbols,
-  leader,
+  ranking,
 }: {
   symbols: RadarSymbolStatus[];
-  leader: RadarStatus['preBreakoutLeader'];
+  ranking: AlphaRadarRankingSnapshot | null;
 }) {
+  const entries = ranking?.entries ?? [];
+  const displayItems = entries.length > 0
+    ? entries.map((entry) => ({ entry, symbol: symbols.find((symbol) => symbol.symbol === entry.symbol) }))
+    : symbols.map((symbol) => ({ entry: null, symbol }));
+
   return (
     <Card data-testid="radar-universe">
       <CardHeader className="pb-4">
@@ -392,15 +397,19 @@ function RadarUniverseCard({
           <div>
             <CardTitle className="flex items-center gap-2 text-sm font-medium uppercase tracking-widest text-muted-foreground">
               <ScanLine className="h-4 w-4 text-primary" />
-              Live Pre-Breakout Scan Universe
+              Live Pre-Breakout Scan Universe & Ranking
             </CardTitle>
             <CardDescription className="mt-1">
-              Independent Databento live windows for NVDA, MU, VRT, CRDO, and AMD. States require fresh, converging evidence.
+              Independent Databento live windows and cross-symbol Alpha Ranking for NVDA, MU, VRT, CRDO, and AMD.
             </CardDescription>
           </div>
-          {leader ? (
+          {ranking?.reorderPending ? (
+            <Badge variant="outline" className="border-amber-500/40 bg-amber-500/10 font-mono text-[10px] text-amber-700 dark:text-amber-300">
+              Reorder pending · {ranking.pendingObservationCount}/{ranking.requiredObservationCount}
+            </Badge>
+          ) : ranking?.leaderSymbol ? (
             <Badge className="border border-primary/40 bg-primary/10 font-mono text-[10px] text-primary">
-              Velocity leader · {leader.symbol} · {leader.confirmationStatus}
+              Alpha rank leader · {ranking.leaderSymbol}
             </Badge>
           ) : (
             <Badge variant="outline" className="font-mono text-[10px] text-muted-foreground">
@@ -410,86 +419,151 @@ function RadarUniverseCard({
         </div>
       </CardHeader>
       <CardContent>
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          {symbols.map((symbol) => {
-            const detection = symbol.alphaRadar.preBreakout;
-            const confirmation = detection.confirmation;
-            const recentHistory = symbol.signalHistory.slice(-3);
-            const active = symbol.marketFeedState === 'streaming' && detection.dataFresh;
+        <div className="grid gap-3 xl:grid-cols-2" data-testid="alpha-ranking-board">
+          {displayItems.map(({ entry, symbol }) => {
+            const sym = entry?.symbol ?? symbol?.symbol ?? 'UNK';
+            const active = symbol?.marketFeedState === 'streaming' && symbol?.alphaRadar.preBreakout.dataFresh;
+            const detectionState = entry?.detectionState ?? symbol?.alphaRadar.preBreakout.state ?? 'unavailable';
+            const confirmationStatus = entry?.confirmationStatus ?? symbol?.alphaRadar.preBreakout.confirmation.status ?? 'unavailable';
+            const recentHistory = symbol?.signalHistory.slice(-3) ?? [];
+            const missingEvidence = symbol?.alphaRadar.preBreakout.confirmation.missingEvidence ?? [];
             return (
               <div
-                key={symbol.symbol}
+                key={sym}
                 className={cn(
-                  'rounded-md border p-3',
+                  'rounded-md border p-3 flex flex-col gap-3',
                   active ? 'border-border/80 bg-card' : 'border-border/60 bg-muted/30',
+                  entry?.eligibility === 'ranked' ? 'border-primary/20 shadow-sm' : ''
                 )}
-                data-testid={`radar-symbol-${symbol.symbol}`}
+                data-testid={`ranking-entry-${sym}`}
               >
-                <div className="flex items-center justify-between gap-2">
-                  <span className="font-mono text-sm font-bold text-foreground">{symbol.symbol}</span>
-                  <span className={cn('h-2 w-2 rounded-full', active ? 'bg-primary animate-pulse' : 'bg-muted-foreground')} />
+                {/* Header: Rank, Symbol, Scores */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className={cn(
+                      "flex flex-col items-center justify-center w-8 h-8 rounded font-mono font-bold text-base",
+                      entry?.rank === 1 ? "bg-primary/20 text-primary border border-primary/30" : "bg-muted text-muted-foreground border border-border"
+                    )}>
+                      {entry?.rank ?? '-'}
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono text-sm font-bold text-foreground">{sym}</span>
+                        <span className={cn('h-1.5 w-1.5 rounded-full', active ? 'bg-primary animate-pulse' : 'bg-muted-foreground')} />
+                      </div>
+                      <div className="text-[9px] uppercase tracking-wide text-muted-foreground flex gap-1.5 items-center mt-0.5">
+                        <span className={cn(
+                          entry?.eligibility === 'ranked' ? 'text-primary font-medium' : 'text-muted-foreground',
+                          "uppercase"
+                        )}>
+                          {entry?.eligibility ?? 'building'}
+                        </span>
+                        {entry?.orderStatus === 'pending' && (
+                          <>
+                            <span className="text-border">•</span>
+                            <span className="text-amber-600 dark:text-amber-400">stabilizing</span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex flex-col items-end text-right">
+                    <div className="text-lg font-mono font-bold text-foreground flex items-baseline gap-1">
+                      {entry?.rankingScore !== null && entry?.rankingScore !== undefined ? formatNumber(entry.rankingScore, 1) : '-'}
+                      <span className="text-[9px] text-muted-foreground uppercase font-sans font-normal mb-0.5">Index</span>
+                    </div>
+                    <div className="text-[10px] font-mono text-muted-foreground flex items-baseline gap-1 mt-0.5">
+                      {entry?.alphaScore !== null && entry?.alphaScore !== undefined ? formatNumber(entry.alphaScore, 1) : '-'}
+                      <span className="text-[8px] uppercase font-sans font-normal">Alpha</span>
+                    </div>
+                  </div>
                 </div>
-                <p className="mt-2 text-[9px] uppercase tracking-wide text-muted-foreground">Detection state</p>
-                <p className={cn('mt-1 font-mono text-[11px] font-semibold uppercase', detectionStateColor(detection.state))}>
-                  {detection.state.replaceAll('_', ' ')}
-                </p>
-                <div className="mt-3 flex items-center justify-between gap-2">
+
+                {/* Stats Grid */}
+                <div className="grid grid-cols-2 gap-2 border-y border-border/60 py-2.5 font-mono text-[9px] sm:grid-cols-4">
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[8px] uppercase tracking-wide text-muted-foreground font-sans">State</span>
+                    <span className={cn('uppercase font-semibold truncate', detectionStateColor(detectionState))}>
+                      {detectionState.replace('_', ' ')}
+                    </span>
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[8px] uppercase tracking-wide text-muted-foreground font-sans">Velocity</span>
+                    <span className={cn((entry?.alphaVelocity ?? symbol?.alphaRadar.alphaVelocity.rate30s ?? 0) > 0 ? 'text-primary' : 'text-foreground')}>
+                      {signedRate(entry?.alphaVelocity ?? symbol?.alphaRadar.alphaVelocity.rate30s ?? null)}
+                    </span>
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[8px] uppercase tracking-wide text-muted-foreground font-sans">Confidence</span>
+                    <span className="text-foreground">{entry?.confidence !== undefined ? formatNumber(entry.confidence, 0) + '%' : '-'}</span>
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[8px] uppercase tracking-wide text-muted-foreground font-sans">Trajectory</span>
+                    <span className={cn(
+                      'uppercase',
+                      entry?.trajectory === 'strengthening' ? 'text-emerald-600 dark:text-emerald-400' :
+                      entry?.trajectory === 'weakening' ? 'text-destructive' : 'text-foreground'
+                    )}>
+                      {entry?.trajectory ?? '-'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Server Reason */}
+                {entry?.reason && (
+                  <div className="text-[9px] text-muted-foreground bg-muted/40 p-2 rounded-sm border border-border/50">
+                    {entry.reason}
+                  </div>
+                )}
+                {entry?.factorContributions && (
+                  <div
+                    className="flex flex-wrap gap-x-3 gap-y-1 font-mono text-[8px] uppercase text-muted-foreground"
+                    data-testid={`ranking-factors-${sym}`}
+                  >
+                    <span>Index mix</span>
+                    <span>Alpha {formatNumber(entry.factorContributions.alphaScore, 1)}</span>
+                    <span>Velocity {formatNumber(entry.factorContributions.alphaVelocity, 1)}</span>
+                    <span>Acceleration {formatNumber(entry.factorContributions.componentAcceleration, 1)}</span>
+                    <span>Trajectory {formatNumber(entry.factorContributions.signalTrajectory, 1)}</span>
+                  </div>
+                )}
+
+                {/* Confirmation & Missing Evidence */}
+                <div className="mt-1 flex items-center justify-between gap-2">
                   <span className="text-[9px] uppercase tracking-wide text-muted-foreground">Confirmation</span>
                   <Badge
                     variant="outline"
-                    className={cn('border font-mono text-[9px] uppercase', universeConfirmationStyle(confirmation.status))}
-                    data-testid={`confirmation-status-${symbol.symbol}`}
+                    className={cn('border font-mono text-[9px] uppercase', universeConfirmationStyle(confirmationStatus))}
+                    data-testid={`confirmation-status-${sym}`}
                   >
-                    {confirmation.status}
+                    {confirmationStatus}
                   </Badge>
                 </div>
-                <div className="mt-3 border-t border-border/60 pt-2 font-mono text-[10px] text-muted-foreground">
-                  <div className="flex justify-between gap-2">
-                    <span>Velocity</span>
-                    <span className={cn((symbol.alphaRadar.alphaVelocity.rate30s ?? 0) > 0 ? 'text-primary' : 'text-foreground')}>
-                      {signedRate(symbol.alphaRadar.alphaVelocity.rate30s)}
-                    </span>
-                  </div>
-                  <div className="mt-1 flex justify-between gap-2">
-                    <span>Evidence</span>
-                    <span className="text-foreground">{detection.evidenceCount}</span>
-                  </div>
-                  <div className="mt-1 flex justify-between gap-2">
-                    <span>Persistence</span>
-                    <span className="text-foreground">
-                      {confirmation.persistenceScans}/{confirmation.requiredPersistenceScans}
-                    </span>
-                  </div>
-                  <div className="mt-1 flex justify-between gap-2">
-                    <span>Freshness</span>
-                    <span className={active ? 'text-primary' : 'text-muted-foreground'}>
-                      {active ? 'fresh' : symbol.marketFeedState}
-                    </span>
-                  </div>
-                </div>
-                <div className="mt-3 border-t border-border/60 pt-2" data-testid={`confirmation-missing-${symbol.symbol}`}>
+                <div className="border-t border-border/60 pt-2" data-testid={`confirmation-missing-${sym}`}>
                   <p className="text-[9px] uppercase tracking-wide text-muted-foreground">
-                    {confirmation.missingEvidence.length > 0 ? 'Still required' : 'Converged evidence'}
+                    {missingEvidence.length > 0 ? 'Still required' : 'Converged evidence'}
                   </p>
-                  <p className={cn('mt-1 text-[10px] leading-relaxed', confirmation.missingEvidence.length > 0 ? 'text-muted-foreground' : 'text-primary')}>
-                    {confirmation.missingEvidence.length > 0
-                      ? confirmation.missingEvidence.slice(0, 3).join(' · ')
+                  <p className={cn('mt-1 text-[10px] leading-relaxed', missingEvidence.length > 0 ? 'text-muted-foreground' : 'text-primary')}>
+                    {missingEvidence.length > 0
+                      ? missingEvidence.slice(0, 3).join(' · ')
                       : 'All confirmation categories are satisfied.'}
                   </p>
                 </div>
-                <div className="mt-3 border-t border-border/60 pt-2" data-testid={`signal-history-${symbol.symbol}`}>
+
+                {/* Signal History */}
+                <div className="border-t border-border/60 pt-2" data-testid={`signal-history-${sym}`}>
                   <p className="text-[9px] uppercase tracking-wide text-muted-foreground">Recent trajectory</p>
                   {recentHistory.length > 0 ? (
                     <div className="mt-2 space-y-1.5">
-                      {recentHistory.map((entry, index) => (
+                      {recentHistory.map((hist, index) => (
                         <div
-                          key={`${entry.occurredAt}-${entry.toState}-${entry.toConfirmationStatus}-${index}`}
+                          key={`${hist.occurredAt}-${hist.toState}-${index}`}
                           className="flex items-start justify-between gap-2 text-[9px]"
                         >
-                          <span className={cn('font-mono uppercase', entry.dataFresh ? detectionStateColor(entry.toState) : 'text-muted-foreground')}>
-                            {entry.toState.replaceAll('_', ' ')} · {entry.toConfirmationStatus}
+                          <span className={cn('font-mono uppercase', hist.dataFresh ? detectionStateColor(hist.toState) : 'text-muted-foreground')}>
+                            {hist.toState.replaceAll('_', ' ')} · {hist.toConfirmationStatus}
                           </span>
-                          <span className="shrink-0 font-mono text-muted-foreground">{formatTime(entry.occurredAt)}</span>
+                          <span className="shrink-0 font-mono text-muted-foreground">{formatTime(hist.occurredAt)}</span>
                         </div>
                       ))}
                     </div>

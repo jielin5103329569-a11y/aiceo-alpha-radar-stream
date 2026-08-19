@@ -108,6 +108,7 @@ export type RadarStatus = {
     lastEventAt: Date | null;
   }>;
   symbolRadars?: RadarSymbolStatus[];
+  alphaRanking?: AlphaRadarRankingSnapshot;
   preBreakoutLeader?: {
     symbol: string;
     state: AlphaRadarSnapshot["preBreakout"]["state"];
@@ -125,6 +126,50 @@ export type RadarSymbolStatus = {
   signalHistory: AlphaRadarSignalHistoryEntry[];
   market: RadarStatus["market"];
   error: string | null;
+};
+
+export type AlphaRankingEligibility = "ranked" | "building" | "ineligible";
+export type AlphaRankingTrajectory = "strengthening" | "stable" | "weakening" | "unavailable";
+export type AlphaRankingOrderStatus = "stable" | "pending";
+
+export type AlphaRadarRankingEntry = {
+  symbol: string;
+  rank: number | null;
+  eligibility: AlphaRankingEligibility;
+  orderStatus: AlphaRankingOrderStatus | null;
+  rankingScore: number | null;
+  factorContributions: AlphaRadarRankingFactorContributions | null;
+  alphaScore: number | null;
+  detectionState: AlphaRadarSnapshot["preBreakout"]["state"];
+  confirmationStatus: AlphaRadarSnapshot["preBreakout"]["confirmation"]["status"];
+  alphaVelocity: number | null;
+  confidence: number;
+  trajectory: AlphaRankingTrajectory;
+  reason: string;
+};
+
+export type AlphaRadarRankingFactorContributions = {
+  alphaScore: number;
+  alphaVelocity: number;
+  componentAcceleration: number;
+  componentAccelerationAverage: number;
+  signalTrajectory: number;
+};
+
+export type AlphaRadarRankingSnapshot = {
+  generatedAt: Date;
+  entries: AlphaRadarRankingEntry[];
+  leaderSymbol: string | null;
+  reorderPending: boolean;
+  pendingObservationCount: number;
+  requiredObservationCount: number;
+};
+
+export type AlphaRadarRankingMachine = {
+  order: string[];
+  pendingOrder: string[] | null;
+  pendingObservationCount: number;
+  lastInputSignature: string | null;
 };
 
 type BridgeEvent =
@@ -1431,8 +1476,333 @@ function preBreakoutRank(state: AlphaRadarSnapshot["preBreakout"]["state"]): num
   }[state];
 }
 
+function confirmationRank(
+  status: AlphaRadarSnapshot["preBreakout"]["confirmation"]["status"],
+): number {
+  return {
+    unavailable: 0,
+    rejected: 1,
+    pending: 2,
+    confirmed: 3,
+  }[status];
+}
+
+const RANKING_CONFIRMATION_OBSERVATIONS = 2;
+
+function clampRanking(value: number, minimum = 0, maximum = 100): number {
+  return Math.min(maximum, Math.max(minimum, value));
+}
+
+function roundRanking(value: number, digits = 1): number {
+  const factor = 10 ** digits;
+  return Math.round(value * factor) / factor;
+}
+
+function rankingTrajectory(status: RadarSymbolStatus): AlphaRankingTrajectory {
+  if (!status.alphaRadar.preBreakout.dataFresh) return "unavailable";
+  const freshEntries = status.signalHistory.filter((entry) => entry.dataFresh);
+  const first = freshEntries[0];
+  if (!first) return "stable";
+  const currentStateDelta =
+    preBreakoutRank(status.alphaRadar.preBreakout.state) - preBreakoutRank(first.fromState);
+  const currentConfirmationDelta =
+    confirmationRank(status.alphaRadar.preBreakout.confirmation.status)
+    - confirmationRank(first.fromConfirmationStatus);
+  const direction = currentStateDelta * 2 + currentConfirmationDelta;
+  if (direction > 0) return "strengthening";
+  if (direction < 0) return "weakening";
+  return "stable";
+}
+
+function rankingEligibility(status: RadarSymbolStatus): {
+  eligibility: AlphaRankingEligibility;
+  reason: string;
+} {
+  const snapshot = status.alphaRadar;
+  if (
+    status.connectionState !== "streaming"
+    || status.marketFeedState !== "streaming"
+    || !snapshot.preBreakout.dataFresh
+    || snapshot.scoreState !== "available"
+    || snapshot.dataQuality !== "good"
+    || snapshot.score === null
+    || snapshot.confidence <= 0
+  ) {
+    return {
+      eligibility: "ineligible",
+      reason: "No current valid live window is available for ranking.",
+    };
+  }
+  if (snapshot.alphaVelocity.rate30s === null) {
+    return {
+      eligibility: "building",
+      reason: "Fresh score is available; building a 30-second Alpha Velocity window.",
+    };
+  }
+  if (
+    [
+      snapshot.changeIndicators.momentumAcceleration,
+      snapshot.changeIndicators.volumeAcceleration,
+      snapshot.changeIndicators.orderFlowShift,
+      snapshot.changeIndicators.spreadTightening,
+    ].every((value) => value === null)
+  ) {
+    return {
+      eligibility: "building",
+      reason: "Fresh score is available; building component acceleration context.",
+    };
+  }
+  return { eligibility: "ranked", reason: "" };
+}
+
+function rankingValues(
+  status: RadarSymbolStatus,
+  trajectory: AlphaRankingTrajectory,
+): {
+  rankingScore: number;
+  factorContributions: AlphaRadarRankingFactorContributions;
+} {
+  const snapshot = status.alphaRadar;
+  const accelerations = [
+    snapshot.changeIndicators.momentumAcceleration,
+    snapshot.changeIndicators.volumeAcceleration,
+    snapshot.changeIndicators.orderFlowShift,
+    snapshot.changeIndicators.spreadTightening,
+  ].filter((value): value is number => value !== null);
+  const accelerationAverage = accelerations.reduce((total, value) => total + value, 0)
+    / Math.max(accelerations.length, 1);
+  const velocity = snapshot.alphaVelocity.rate30s ?? 0;
+  const trajectoryValue = {
+    strengthening: 100,
+    stable: 50,
+    weakening: 10,
+    unavailable: 0,
+  }[trajectory];
+  const factorContributions = {
+    alphaScore: roundRanking((snapshot.score ?? 0) * 0.55),
+    alphaVelocity: roundRanking(clampRanking(50 + velocity * 2) * 0.2),
+    componentAcceleration: roundRanking(
+      clampRanking(50 + accelerationAverage * 1.5) * 0.15,
+    ),
+    componentAccelerationAverage: roundRanking(accelerationAverage),
+    signalTrajectory: roundRanking(trajectoryValue * 0.1),
+  };
+  return {
+    rankingScore: roundRanking(
+      factorContributions.alphaScore
+      + factorContributions.alphaVelocity
+      + factorContributions.componentAcceleration
+      + factorContributions.signalTrajectory,
+    ),
+    factorContributions,
+  };
+}
+
+function rankingReason(
+  status: RadarSymbolStatus,
+  trajectory: AlphaRankingTrajectory,
+  eligibility: AlphaRankingEligibility,
+  baseReason: string,
+  orderStatus: AlphaRankingOrderStatus | null,
+  factorContributions: AlphaRadarRankingFactorContributions | null,
+): string {
+  if (eligibility !== "ranked") return baseReason;
+  const velocity = status.alphaRadar.alphaVelocity.rate30s ?? 0;
+  const state = status.alphaRadar.preBreakout.state.replaceAll("_", " ");
+  const confirmation = status.alphaRadar.preBreakout.confirmation.status;
+  const held = orderStatus === "pending"
+    ? " Position is held until another independent scan agrees."
+    : "";
+  const acceleration = factorContributions?.componentAccelerationAverage ?? 0;
+  return `Score ${roundRanking(status.alphaRadar.score ?? 0, 0)}; ${state}; ${confirmation} confirmation; Alpha Velocity ${velocity >= 0 ? "+" : ""}${roundRanking(velocity)}/min; component acceleration ${acceleration >= 0 ? "+" : ""}${roundRanking(acceleration)}/min; ${trajectory} trajectory.${held}`;
+}
+
+function rankingInputSignature(symbols: RadarSymbolStatus[]): string {
+  return symbols
+    .map((status) => {
+      const snapshot = status.alphaRadar;
+      return [
+        status.symbol,
+        status.connectionState,
+        status.marketFeedState,
+        snapshot.scan.lastScannedAt.toISOString(),
+        snapshot.score,
+        snapshot.alphaVelocity.rate30s,
+        snapshot.preBreakout.state,
+        snapshot.preBreakout.confirmation.status,
+      ].join(":");
+    })
+    .join("|");
+}
+
+function sameOrder(left: string[] | null, right: string[]): boolean {
+  return left !== null
+    && left.length === right.length
+    && left.every((symbol, index) => symbol === right[index]);
+}
+
+export function updateAlphaRadarRanking(
+  symbols: RadarSymbolStatus[],
+  machine: AlphaRadarRankingMachine,
+  now: Date,
+): { snapshot: AlphaRadarRankingSnapshot; machine: AlphaRadarRankingMachine } {
+  const candidates = symbols.map((status) => {
+    const readiness = rankingEligibility(status);
+    const trajectory = rankingTrajectory(status);
+    const values = readiness.eligibility === "ranked"
+      ? rankingValues(status, trajectory)
+      : null;
+    return {
+      status,
+      eligibility: readiness.eligibility,
+      baseReason: readiness.reason,
+      trajectory,
+      rankingScore: values?.rankingScore ?? null,
+      factorContributions: values?.factorContributions ?? null,
+    };
+  });
+  const rawOrder = candidates
+    .filter((candidate) => candidate.eligibility === "ranked")
+    .sort((left, right) => {
+      const scoreDifference = (right.rankingScore ?? Number.NEGATIVE_INFINITY)
+        - (left.rankingScore ?? Number.NEGATIVE_INFINITY);
+      return scoreDifference !== 0 ? scoreDifference : left.status.symbol.localeCompare(right.status.symbol);
+    })
+    .map((candidate) => candidate.status.symbol);
+  const signature = rankingInputSignature(
+    candidates
+      .filter((candidate) => candidate.eligibility === "ranked")
+      .map((candidate) => candidate.status),
+  );
+  const previouslyRanked = machine.order.filter((symbol) => rawOrder.includes(symbol));
+  const newSymbols = rawOrder.filter((symbol) => !machine.order.includes(symbol));
+  const provisionalOrder = [...previouslyRanked, ...newSymbols];
+  let nextMachine: AlphaRadarRankingMachine = {
+    ...machine,
+    lastInputSignature: signature,
+  };
+
+  if (machine.order.length === 0) {
+    nextMachine = {
+      order: rawOrder,
+      pendingOrder: null,
+      pendingObservationCount: 0,
+      lastInputSignature: signature,
+    };
+  } else if (sameOrder(provisionalOrder, rawOrder)) {
+    nextMachine = {
+      order: provisionalOrder,
+      pendingOrder: null,
+      pendingObservationCount: 0,
+      lastInputSignature: signature,
+    };
+  } else if (signature !== machine.lastInputSignature) {
+    const pendingObservationCount = sameOrder(machine.pendingOrder, rawOrder)
+      ? machine.pendingObservationCount + 1
+      : 1;
+    if (pendingObservationCount >= RANKING_CONFIRMATION_OBSERVATIONS) {
+      nextMachine = {
+        order: rawOrder,
+        pendingOrder: null,
+        pendingObservationCount: 0,
+        lastInputSignature: signature,
+      };
+    } else {
+      nextMachine = {
+        order: provisionalOrder,
+        pendingOrder: rawOrder,
+        pendingObservationCount,
+        lastInputSignature: signature,
+      };
+    }
+  } else {
+    nextMachine = {
+      ...machine,
+      order: provisionalOrder,
+      lastInputSignature: signature,
+    };
+  }
+
+  const rankBySymbol = new Map(nextMachine.order.map((symbol, index) => [symbol, index + 1]));
+  const reorderPending = nextMachine.pendingOrder !== null;
+  const rankedEntries = candidates
+    .filter((candidate) => candidate.eligibility === "ranked")
+    .sort(
+      (left, right) =>
+        (rankBySymbol.get(left.status.symbol) ?? Number.MAX_SAFE_INTEGER)
+        - (rankBySymbol.get(right.status.symbol) ?? Number.MAX_SAFE_INTEGER),
+    )
+    .map((candidate) => {
+      const orderStatus: AlphaRankingOrderStatus = reorderPending ? "pending" : "stable";
+      return {
+        symbol: candidate.status.symbol,
+        rank: rankBySymbol.get(candidate.status.symbol) ?? null,
+        eligibility: candidate.eligibility,
+        orderStatus,
+        rankingScore: candidate.rankingScore,
+        factorContributions: candidate.factorContributions,
+        alphaScore: candidate.status.alphaRadar.score,
+        detectionState: candidate.status.alphaRadar.preBreakout.state,
+        confirmationStatus: candidate.status.alphaRadar.preBreakout.confirmation.status,
+        alphaVelocity: candidate.status.alphaRadar.alphaVelocity.rate30s,
+        confidence: candidate.status.alphaRadar.confidence,
+        trajectory: candidate.trajectory,
+        reason: rankingReason(
+          candidate.status,
+          candidate.trajectory,
+          candidate.eligibility,
+          candidate.baseReason,
+          orderStatus,
+          candidate.factorContributions,
+        ),
+      };
+    });
+  const unavailableEntries = candidates
+    .filter((candidate) => candidate.eligibility !== "ranked")
+    .map((candidate) => ({
+      symbol: candidate.status.symbol,
+      rank: null,
+      eligibility: candidate.eligibility,
+      orderStatus: null,
+      rankingScore: null,
+      factorContributions: null,
+      alphaScore: candidate.status.alphaRadar.score,
+      detectionState: candidate.status.alphaRadar.preBreakout.state,
+      confirmationStatus: candidate.status.alphaRadar.preBreakout.confirmation.status,
+      alphaVelocity: candidate.status.alphaRadar.alphaVelocity.rate30s,
+      confidence: candidate.status.alphaRadar.confidence,
+      trajectory: candidate.trajectory,
+      reason: rankingReason(
+        candidate.status,
+        candidate.trajectory,
+        candidate.eligibility,
+        candidate.baseReason,
+        null,
+        null,
+      ),
+    }));
+
+  return {
+    machine: nextMachine,
+    snapshot: {
+      generatedAt: now,
+      entries: [...rankedEntries, ...unavailableEntries],
+      leaderSymbol: rankedEntries[0]?.symbol ?? null,
+      reorderPending,
+      pendingObservationCount: nextMachine.pendingObservationCount,
+      requiredObservationCount: RANKING_CONFIRMATION_OBSERVATIONS,
+    },
+  };
+}
+
 export class DatabentoUniverseService extends EventEmitter {
   private readonly services = MONITORED_SYMBOLS.map((symbol) => new DatabentoLiveService(symbol));
+  private rankingMachine: AlphaRadarRankingMachine = {
+    order: [],
+    pendingOrder: null,
+    pendingObservationCount: 0,
+    lastInputSignature: null,
+  };
 
   constructor() {
     super();
@@ -1445,25 +1815,16 @@ export class DatabentoUniverseService extends EventEmitter {
     const statuses = this.services.map((service) => service.getStatus());
     const primary = statuses.find((status) => status.symbol === "NVDA") ?? statuses[0];
     const symbolRadars = statuses.map(toSymbolStatus);
-    const ranked = [...symbolRadars]
-      .filter(
-        (status) =>
-          status.alphaRadar.preBreakout.state !== "unavailable"
-          && (status.alphaRadar.alphaVelocity.rate30s ?? 0) > 0,
-      )
-      .sort((left, right) => {
-        const stateDifference =
-          preBreakoutRank(right.alphaRadar.preBreakout.state)
-          - preBreakoutRank(left.alphaRadar.preBreakout.state);
-        if (stateDifference !== 0) return stateDifference;
-        return (right.alphaRadar.alphaVelocity.rate30s ?? Number.NEGATIVE_INFINITY)
-          - (left.alphaRadar.alphaVelocity.rate30s ?? Number.NEGATIVE_INFINITY);
-      });
-    const leader = ranked[0];
+    const rankingResult = updateAlphaRadarRanking(symbolRadars, this.rankingMachine, new Date());
+    this.rankingMachine = rankingResult.machine;
+    const leader = rankingResult.snapshot.leaderSymbol
+      ? symbolRadars.find((status) => status.symbol === rankingResult.snapshot.leaderSymbol)
+      : null;
 
     return {
       ...primary,
       symbolRadars,
+      alphaRanking: rankingResult.snapshot,
       preBreakoutLeader: leader
         ? {
             symbol: leader.symbol,

@@ -465,6 +465,119 @@ components:
         - signalHistory
         - market
         - error
+    AlphaRankingEligibility:
+      type: string
+      enum: [ranked, building, ineligible]
+    AlphaRankingTrajectory:
+      type: string
+      enum: [strengthening, stable, weakening, unavailable]
+    AlphaRankingOrderStatus:
+      type: string
+      enum: [stable, pending]
+    AlphaRadarRankingFactorContributions:
+      type: object
+      properties:
+        alphaScore:
+          type: number
+          minimum: 0
+        alphaVelocity:
+          type: number
+          minimum: 0
+        componentAcceleration:
+          type: number
+          minimum: 0
+        componentAccelerationAverage:
+          type: number
+        signalTrajectory:
+          type: number
+          minimum: 0
+      required:
+        - alphaScore
+        - alphaVelocity
+        - componentAcceleration
+        - componentAccelerationAverage
+        - signalTrajectory
+    AlphaRadarRankingEntry:
+      type: object
+      properties:
+        symbol:
+          type: string
+        rank:
+          type: [number, "null"]
+          minimum: 1
+        eligibility:
+          $ref: "#/components/schemas/AlphaRankingEligibility"
+        orderStatus:
+          anyOf:
+            - $ref: "#/components/schemas/AlphaRankingOrderStatus"
+            - type: "null"
+        rankingScore:
+          type: [number, "null"]
+          minimum: 0
+          maximum: 100
+        factorContributions:
+          anyOf:
+            - $ref: "#/components/schemas/AlphaRadarRankingFactorContributions"
+            - type: "null"
+        alphaScore:
+          type: [number, "null"]
+          minimum: 0
+          maximum: 100
+        detectionState:
+          $ref: "#/components/schemas/PreBreakoutDetectionState"
+        confirmationStatus:
+          $ref: "#/components/schemas/PreBreakoutConfirmationStatus"
+        alphaVelocity:
+          type: [number, "null"]
+        confidence:
+          type: number
+          minimum: 0
+          maximum: 100
+        trajectory:
+          $ref: "#/components/schemas/AlphaRankingTrajectory"
+        reason:
+          type: string
+      required:
+        - symbol
+        - rank
+        - eligibility
+        - orderStatus
+        - rankingScore
+        - factorContributions
+        - alphaScore
+        - detectionState
+        - confirmationStatus
+        - alphaVelocity
+        - confidence
+        - trajectory
+        - reason
+    AlphaRadarRankingSnapshot:
+      type: object
+      properties:
+        generatedAt:
+          type: string
+          format: date-time
+        entries:
+          type: array
+          items:
+            $ref: "#/components/schemas/AlphaRadarRankingEntry"
+        leaderSymbol:
+          type: [string, "null"]
+        reorderPending:
+          type: boolean
+        pendingObservationCount:
+          type: number
+          minimum: 0
+        requiredObservationCount:
+          type: number
+          minimum: 1
+      required:
+        - generatedAt
+        - entries
+        - leaderSymbol
+        - reorderPending
+        - pendingObservationCount
+        - requiredObservationCount
     AlphaRadarSignalHistoryEntry:
       type: object
       properties:
@@ -707,6 +820,8 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/RadarSymbolStatus"
+        alphaRanking:
+          $ref: "#/components/schemas/AlphaRadarRankingSnapshot"
         preBreakoutLeader:
           type: [object, "null"]
           properties:
@@ -740,4 +855,5 @@ components:
         - radar
         - streams
         - symbolRadars
+        - alphaRanking
         - preBreakoutLeader
