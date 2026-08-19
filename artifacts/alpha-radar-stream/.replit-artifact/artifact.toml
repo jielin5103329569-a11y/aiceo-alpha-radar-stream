@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "Alpha Radar Stream"
+description = "A mobile-friendly real-time market data connection dashboard for safely validating Databento US equities streaming access with NVDA OHLCV-1s and MBP-1 data. It never exposes credentials and does not place trades."
+version = "1.0.0"
+id = "artifacts/alpha-radar-stream"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 18520
+
+[services.development]
+run = "pnpm --filter @workspace/alpha-radar-stream run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/alpha-radar-stream", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/alpha-radar-stream/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "18520"
+BASE_PATH = "/"
