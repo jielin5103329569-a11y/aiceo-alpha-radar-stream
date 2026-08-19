@@ -32,6 +32,7 @@ router.get("/radar/events", (req: Request, res: Response): void => {
     "X-Accel-Buffering": "no",
   });
   res.flushHeaders();
+  res.write("retry: 2000\n\n");
 
   const writeStatus = (): void => {
     res.write(`event: status\ndata: ${JSON.stringify(databentoLive.getStatus())}\n\n`);
@@ -40,7 +41,7 @@ router.get("/radar/events", (req: Request, res: Response): void => {
 
   const heartbeat = setInterval(() => {
     res.write(": keep-alive\n\n");
-  }, 25_000);
+  }, 15_000);
   databentoLive.on("status", writeStatus);
 
   req.on("close", () => {

@@ -21,6 +21,16 @@ export const RadarConnectionState = {
   stopped: 'stopped',
 } as const;
 
+export type RadarReconnectState = typeof RadarReconnectState[keyof typeof RadarReconnectState];
+
+
+export const RadarReconnectState = {
+  idle: 'idle',
+  scheduled: 'scheduled',
+  reconnecting: 'reconnecting',
+  exhausted: 'exhausted',
+} as const;
+
 export interface RadarMarketSnapshot {
   /** @nullable */
   latestPrice: number | null;
@@ -81,7 +91,14 @@ export interface RadarStatus {
   symbol: string;
   /** @nullable */
   startedAt: string | null;
-  lastUpdatedAt: string;
+  /** @nullable */
+  lastUpdatedAt: string | null;
+  /** @nullable */
+  lastHeartbeatAt: string | null;
+  reconnectState: RadarReconnectState;
+  reconnectAttempt: number;
+  /** @nullable */
+  nextReconnectAt: string | null;
   /** @nullable */
   error: string | null;
   market: RadarMarketSnapshot;

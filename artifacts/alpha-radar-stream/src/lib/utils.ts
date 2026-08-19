@@ -23,3 +23,16 @@ export function formatTime(isoStr: string | null | undefined): string {
   const pad = (n: number, z = 2) => ('00' + n).slice(-z);
   return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}.${pad(d.getMilliseconds(), 3)}`;
 }
+
+export function formatAge(isoStr: string | null | undefined): string {
+  if (!isoStr) return 'No data yet';
+  const timestamp = new Date(isoStr).getTime();
+  if (Number.isNaN(timestamp)) return 'Unknown';
+
+  const elapsedSeconds = Math.max(0, Math.floor((Date.now() - timestamp) / 1000));
+  if (elapsedSeconds < 2) return 'just now';
+  if (elapsedSeconds < 60) return `${elapsedSeconds}s ago`;
+  const elapsedMinutes = Math.floor(elapsedSeconds / 60);
+  if (elapsedMinutes < 60) return `${elapsedMinutes}m ago`;
+  return `${Math.floor(elapsedMinutes / 60)}h ago`;
+}

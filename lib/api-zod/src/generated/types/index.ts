@@ -9,6 +9,7 @@
 export * from './healthStatus';
 export * from './radarConnectionState';
 export * from './radarMarketSnapshot';
+export * from './radarReconnectState';
 export * from './radarStatus';
 export * from './radarStream';
 export * from './radarStreamSchema';

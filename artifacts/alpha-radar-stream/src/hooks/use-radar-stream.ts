@@ -7,7 +7,7 @@ export function useRadarStream() {
   const queryClient = useQueryClient();
   
   const [liveStatus, setLiveStatus] = useState<RadarStatus | null>(null);
-  const [sseError, setSseError] = useState<boolean>(false);
+  const [transportState, setTransportState] = useState<'connecting' | 'connected' | 'reconnecting'>('connecting');
   const eventSourceRef = useRef<EventSource | null>(null);
 
   // We use the generated hook for the initial load and fallback state.
@@ -16,8 +16,8 @@ export function useRadarStream() {
     query: {
       queryKey: getGetRadarStatusQueryKey(),
       refetchInterval: (query) => {
-        // Fallback to polling every 2s if EventSource is failing
-        return sseError ? 2000 : false;
+        // Maintain a safe REST fallback while the browser re-establishes SSE.
+        return transportState === 'connected' ? false : 2000;
       },
       staleTime: 5000,
     }
@@ -33,19 +33,22 @@ export function useRadarStream() {
       try {
         const data = JSON.parse(event.data) as RadarStatus;
         setLiveStatus(data);
-        if (sseError) setSseError(false); // recover from error state
+        setTransportState('connected');
         // Sync query cache so it's fresh if other components need it
         queryClient.setQueryData(getGetRadarStatusQueryKey(), data);
       } catch {
-        setSseError(true);
+        setTransportState('reconnecting');
       }
     };
 
     es.addEventListener('status', handleStatusEvent);
     es.onmessage = handleStatusEvent;
+    es.onopen = () => {
+      setTransportState('connected');
+    };
     es.onerror = () => {
-      setSseError(true);
-      // EventSource tries to reconnect automatically.
+      setTransportState('reconnecting');
+      // EventSource retries using the server-provided reconnect delay.
     };
 
     return () => {
@@ -53,13 +56,12 @@ export function useRadarStream() {
       es.close();
       eventSourceRef.current = null;
     };
-  }, [queryClient, sseError]);
+  }, [queryClient]);
 
   // Merge state: if live status is available, use it. Otherwise, use initial fetched status.
   const status = liveStatus ?? initialStatus ?? null;
   
-  // The stream is broken if there's an SSE error and the connection is supposed to be 'streaming'
-  const isError = Boolean(queryError || (sseError && status?.connectionState === 'streaming'));
+  const isError = Boolean(queryError || status?.connectionState === 'error');
 
-  return { status, isLoading, isError };
+  return { status, isLoading, isError, transportState };
 }

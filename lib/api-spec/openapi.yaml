@@ -86,6 +86,9 @@ components:
     RadarConnectionState:
       type: string
       enum: [not_configured, connecting, connected, streaming, error, stopped]
+    RadarReconnectState:
+      type: string
+      enum: [idle, scheduled, reconnecting, exhausted]
     RadarMarketSnapshot:
       type: object
       properties:
@@ -160,7 +163,17 @@ components:
           type: ["string", "null"]
           format: date-time
         lastUpdatedAt:
-          type: string
+          type: ["string", "null"]
+          format: date-time
+        lastHeartbeatAt:
+          type: ["string", "null"]
+          format: date-time
+        reconnectState:
+          $ref: "#/components/schemas/RadarReconnectState"
+        reconnectAttempt:
+          type: number
+        nextReconnectAt:
+          type: ["string", "null"]
           format: date-time
         error:
           type: ["string", "null"]
@@ -182,6 +195,10 @@ components:
         - symbol
         - startedAt
         - lastUpdatedAt
+        - lastHeartbeatAt
+        - reconnectState
+        - reconnectAttempt
+        - nextReconnectAt
         - error
         - market
         - recentTrades

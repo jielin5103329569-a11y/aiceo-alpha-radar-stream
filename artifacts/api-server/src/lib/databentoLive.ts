@@ -13,6 +13,8 @@ export type RadarConnectionState =
   | "error"
   | "stopped";
 
+export type RadarReconnectState = "idle" | "scheduled" | "reconnecting" | "exhausted";
+
 export type RadarStatus = {
   configured: boolean;
   connectionState: RadarConnectionState;
@@ -20,7 +22,11 @@ export type RadarStatus = {
   dataset: string;
   symbol: string;
   startedAt: Date | null;
-  lastUpdatedAt: Date;
+  lastUpdatedAt: Date | null;
+  lastHeartbeatAt: Date | null;
+  reconnectState: RadarReconnectState;
+  reconnectAttempt: number;
+  nextReconnectAt: Date | null;
   error: string | null;
   market: {
     latestPrice: number | null;
@@ -69,6 +75,9 @@ type BridgeEvent =
 
 const currentDir = path.dirname(fileURLToPath(import.meta.url));
 const bridgePath = path.join(currentDir, "databento_live_bridge.py");
+const HEARTBEAT_INTERVAL_MS = 5_000;
+const MAX_RECONNECT_ATTEMPTS = 5;
+const MAX_RECONNECT_DELAY_MS = 30_000;
 
 function redactMessage(message: string): string {
   const key = process.env.DATABENTO_API_KEY;
@@ -85,7 +94,11 @@ function blankStatus(): RadarStatus {
     dataset: "EQUS.MINI",
     symbol: "NVDA",
     startedAt: null,
-    lastUpdatedAt: new Date(),
+    lastUpdatedAt: null,
+    lastHeartbeatAt: null,
+    reconnectState: "idle",
+    reconnectAttempt: 0,
+    nextReconnectAt: null,
     error: configured ? null : "DATABENTO_API_KEY is not configured.",
     market: {
       latestPrice: null,
@@ -109,6 +122,8 @@ export class DatabentoLiveService extends EventEmitter {
   private child: ChildProcess | null = null;
   private outputBuffer = "";
   private stopping = false;
+  private heartbeatTimer: NodeJS.Timeout | null = null;
+  private reconnectTimer: NodeJS.Timeout | null = null;
   private status = blankStatus();
 
   getStatus(): RadarStatus {
@@ -116,25 +131,66 @@ export class DatabentoLiveService extends EventEmitter {
   }
 
   start(): RadarStatus {
+    return this.launch(false);
+  }
+
+  stop(): RadarStatus {
+    this.stopping = true;
+    this.clearReconnectTimer();
+    this.clearHeartbeatTimer();
+    if (this.child && !this.child.killed) {
+      this.child.kill("SIGTERM");
+    }
+    this.child = null;
+    this.status = {
+      ...this.status,
+      connectionState: "stopped",
+      reconnectState: "idle",
+      reconnectAttempt: 0,
+      nextReconnectAt: null,
+      error: null,
+      streams: this.status.streams.map((stream) => ({ ...stream, state: "waiting" as const })),
+    };
+    this.publish();
+    return this.status;
+  }
+
+  private launch(isReconnect: boolean): RadarStatus {
     if (this.child || this.status.connectionState === "connecting") {
       return this.status;
     }
 
     if (!process.env.DATABENTO_API_KEY) {
-      this.status = { ...blankStatus(), lastUpdatedAt: new Date() };
+      this.clearReconnectTimer();
+      this.clearHeartbeatTimer();
+      this.status = { ...blankStatus() };
       this.publish();
       return this.status;
     }
 
     this.stopping = false;
-    this.status = {
-      ...blankStatus(),
-      configured: true,
-      connectionState: "connecting",
-      startedAt: new Date(),
-      lastUpdatedAt: new Date(),
-      error: null,
-    };
+    this.clearReconnectTimer();
+    const now = new Date();
+    this.status = isReconnect
+      ? {
+          ...this.status,
+          configured: true,
+          connectionState: "connecting",
+          lastHeartbeatAt: now,
+          reconnectState: "reconnecting",
+          nextReconnectAt: null,
+          error: null,
+          streams: this.status.streams.map((stream) => ({ ...stream, state: "waiting" as const })),
+        }
+      : {
+          ...blankStatus(),
+          configured: true,
+          connectionState: "connecting",
+          startedAt: now,
+          lastHeartbeatAt: now,
+          error: null,
+        };
+    this.startHeartbeat();
     this.publish();
 
     const child = spawn("python3", ["-u", bridgePath], {
@@ -155,35 +211,26 @@ export class DatabentoLiveService extends EventEmitter {
       // If it does, keep the bytes out of logs and present a generic connection error.
     });
     child.on("error", () => {
-      this.fail("Unable to launch the Databento live bridge.");
+      if (this.child === child) {
+        this.child = null;
+      }
+      this.fail("Unable to launch the Databento live bridge.", true);
     });
     child.on("close", (code) => {
-      this.child = null;
-      if (!this.stopping && this.status.connectionState !== "error") {
+      if (this.child === child) {
+        this.child = null;
+      }
+      if (!this.stopping && !this.reconnectTimer) {
         this.fail(
-          code === 0
-            ? "The Databento live bridge stopped unexpectedly."
-            : "The Databento live bridge exited before streaming data.",
+          this.status.error ??
+            (code === 0
+              ? "The Databento live bridge stopped unexpectedly."
+              : "The Databento live bridge exited before streaming data."),
+          true,
         );
       }
     });
 
-    return this.status;
-  }
-
-  stop(): RadarStatus {
-    this.stopping = true;
-    if (this.child && !this.child.killed) {
-      this.child.kill("SIGTERM");
-    }
-    this.child = null;
-    this.status = {
-      ...this.status,
-      connectionState: "stopped",
-      error: null,
-      lastUpdatedAt: new Date(),
-    };
-    this.publish();
     return this.status;
   }
 
@@ -210,7 +257,10 @@ export class DatabentoLiveService extends EventEmitter {
         ...this.status,
         connectionState: "connected",
         error: null,
-        lastUpdatedAt: now,
+        lastHeartbeatAt: now,
+        reconnectState: "idle",
+        reconnectAttempt: 0,
+        nextReconnectAt: null,
       };
       this.publish();
       return;
@@ -246,6 +296,7 @@ export class DatabentoLiveService extends EventEmitter {
         connectionState: "streaming",
         error: null,
         lastUpdatedAt: now,
+        lastHeartbeatAt: now,
         streams,
         market: {
           ...this.status.market,
@@ -265,6 +316,7 @@ export class DatabentoLiveService extends EventEmitter {
         connectionState: "streaming",
         error: null,
         lastUpdatedAt: now,
+        lastHeartbeatAt: now,
         streams,
         market: {
           ...this.status.market,
@@ -280,16 +332,85 @@ export class DatabentoLiveService extends EventEmitter {
     this.publish();
   }
 
-  private fail(message: string): void {
+  private fail(message: string, shouldReconnect = false): void {
     this.status = {
       ...this.status,
       connectionState: "error",
       error: redactMessage(message),
-      lastUpdatedAt: new Date(),
+      lastHeartbeatAt: new Date(),
       streams: this.status.streams.map((stream) => ({ ...stream, state: "error" as const })),
     };
     logger.warn({ reason: this.status.error }, "Databento live stream is unavailable");
+    if (shouldReconnect) {
+      this.scheduleReconnect();
+    } else {
+      this.publish();
+    }
+  }
+
+  private scheduleReconnect(): void {
+    if (this.stopping || this.reconnectTimer || !process.env.DATABENTO_API_KEY) {
+      this.publish();
+      return;
+    }
+
+    const reconnectAttempt = this.status.reconnectAttempt + 1;
+    if (reconnectAttempt > MAX_RECONNECT_ATTEMPTS) {
+      this.status = {
+        ...this.status,
+        reconnectState: "exhausted",
+        nextReconnectAt: null,
+        error: `${this.status.error ?? "Databento live stream is unavailable."} Automatic reconnect paused after ${MAX_RECONNECT_ATTEMPTS} attempts.`,
+      };
+      this.publish();
+      return;
+    }
+
+    const delay = Math.min(1_000 * 2 ** (reconnectAttempt - 1), MAX_RECONNECT_DELAY_MS);
+    this.status = {
+      ...this.status,
+      reconnectState: "scheduled",
+      reconnectAttempt,
+      nextReconnectAt: new Date(Date.now() + delay),
+    };
     this.publish();
+
+    this.reconnectTimer = setTimeout(() => {
+      this.reconnectTimer = null;
+      if (!this.stopping) {
+        this.launch(true);
+      }
+    }, delay);
+  }
+
+  private startHeartbeat(): void {
+    if (this.heartbeatTimer) {
+      return;
+    }
+    this.heartbeatTimer = setInterval(() => {
+      if (this.status.connectionState === "stopped" || this.status.connectionState === "not_configured") {
+        return;
+      }
+      this.status = {
+        ...this.status,
+        lastHeartbeatAt: new Date(),
+      };
+      this.publish();
+    }, HEARTBEAT_INTERVAL_MS);
+  }
+
+  private clearHeartbeatTimer(): void {
+    if (this.heartbeatTimer) {
+      clearInterval(this.heartbeatTimer);
+      this.heartbeatTimer = null;
+    }
+  }
+
+  private clearReconnectTimer(): void {
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
   }
 
   private publish(): void {

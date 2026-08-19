@@ -7,6 +7,7 @@
  */
 import type { RadarConnectionState } from './radarConnectionState';
 import type { RadarMarketSnapshot } from './radarMarketSnapshot';
+import type { RadarReconnectState } from './radarReconnectState';
 import type { RadarStream } from './radarStream';
 import type { RadarTrade } from './radarTrade';
 
@@ -18,7 +19,14 @@ export interface RadarStatus {
   symbol: string;
   /** @nullable */
   startedAt: Date | null;
-  lastUpdatedAt: Date;
+  /** @nullable */
+  lastUpdatedAt: Date | null;
+  /** @nullable */
+  lastHeartbeatAt: Date | null;
+  reconnectState: RadarReconnectState;
+  reconnectAttempt: number;
+  /** @nullable */
+  nextReconnectAt: Date | null;
   /** @nullable */
   error: string | null;
   market: RadarMarketSnapshot;

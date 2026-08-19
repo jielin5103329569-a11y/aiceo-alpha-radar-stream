@@ -1,17 +1,17 @@
 import React from 'react';
-import { useStartRadarConnection, useStopRadarConnection, useGetRadarStatus } from '@workspace/api-client-react';
+import { useStartRadarConnection, useStopRadarConnection } from '@workspace/api-client-react';
 import { useRadarStream } from '@/hooks/use-radar-stream';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { formatNumber, formatTime, cn } from '@/lib/utils';
-import { AlertCircle, Activity, Power, PowerOff, Zap, ShieldAlert, WifiOff } from 'lucide-react';
+import { formatAge, formatNumber, formatTime, cn } from '@/lib/utils';
+import { AlertCircle, Activity, Power, PowerOff, Zap, ShieldAlert, WifiOff, Radio, RefreshCw } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import type { RadarConnectionState } from '@workspace/api-client-react';
+import type { RadarConnectionState, RadarReconnectState, RadarStatus } from '@workspace/api-client-react';
 
 export default function Dashboard() {
-  const { status, isLoading, isError } = useRadarStream();
+  const { status, isLoading, isError, transportState } = useRadarStream();
   const startConnection = useStartRadarConnection();
   const stopConnection = useStopRadarConnection();
   const { toast } = useToast();
@@ -127,6 +127,8 @@ export default function Dashboard() {
         
         {/* Left Column - Meta & Market Snap */}
         <div className="lg:col-span-4 flex flex-col gap-6">
+          <ConnectionHealthCard status={status} transportState={transportState} isError={isError} />
+
           <Card>
             <CardHeader className="pb-4">
               <CardTitle className="text-sm font-medium uppercase tracking-widest text-muted-foreground">
@@ -152,7 +154,11 @@ export default function Dashboard() {
                   <span>{formatTime(status?.startedAt)}</span>
                 </div>
                 <div className="flex justify-between items-center py-1">
-                  <span className="text-muted-foreground">Last Ping</span>
+                  <span className="text-muted-foreground">Last Heartbeat</span>
+                  <span>{formatTime(status?.lastHeartbeatAt)}</span>
+                </div>
+                <div className="flex justify-between items-center py-1">
+                  <span className="text-muted-foreground">Last Market Update</span>
                   <span>{formatTime(status?.lastUpdatedAt)}</span>
                 </div>
               </div>
@@ -308,6 +314,119 @@ export default function Dashboard() {
       </main>
     </div>
   );
+}
+
+function ConnectionHealthCard({
+  status,
+  transportState,
+  isError,
+}: {
+  status: RadarStatus | null;
+  transportState: 'connecting' | 'connected' | 'reconnecting';
+  isError: boolean;
+}) {
+  const reconnectLabel = describeReconnect(status?.reconnectState, status?.reconnectAttempt, status?.nextReconnectAt);
+  const browserLinkLabel =
+    transportState === 'connected'
+      ? 'SSE connected'
+      : transportState === 'reconnecting'
+        ? 'Recovering · REST fallback active'
+        : 'Opening SSE link';
+  const hasFailure = isError || Boolean(status?.error);
+
+  return (
+    <Card className={cn(
+      'border-l-4',
+      hasFailure ? 'border-l-destructive' : transportState === 'reconnecting' ? 'border-l-amber-500' : 'border-l-primary',
+    )}>
+      <CardHeader className="pb-4 flex flex-row items-center justify-between space-y-0">
+        <div>
+          <CardTitle className="text-sm font-medium uppercase tracking-widest text-muted-foreground">
+            Connection Health
+          </CardTitle>
+          <CardDescription className="mt-1 text-xs">
+            Live feed and browser transport are monitored separately.
+          </CardDescription>
+        </div>
+        <Radio className={cn('h-4 w-4', hasFailure ? 'text-destructive' : 'text-primary')} />
+      </CardHeader>
+      <CardContent className="space-y-3 font-mono text-sm">
+        <div className="flex items-center justify-between rounded-md bg-muted/50 px-3 py-2">
+          <span className="text-muted-foreground">Feed state</span>
+          <ConnectionStatusBadge state={status?.connectionState} error={isError} />
+        </div>
+        <HealthRow
+          label="Last heartbeat"
+          value={formatTime(status?.lastHeartbeatAt)}
+          detail={formatAge(status?.lastHeartbeatAt)}
+        />
+        <HealthRow
+          label="Last market update"
+          value={formatTime(status?.lastUpdatedAt)}
+          detail={formatAge(status?.lastUpdatedAt)}
+        />
+        <HealthRow
+          label="Browser link"
+          value={browserLinkLabel}
+          detail={transportState === 'connected' ? 'Live event stream' : 'Automatic recovery enabled'}
+          icon={transportState === 'reconnecting' ? <RefreshCw className="h-3.5 w-3.5 animate-spin text-amber-500" /> : undefined}
+        />
+        <HealthRow
+          label="Reconnect"
+          value={reconnectLabel}
+          detail={status?.reconnectState === 'scheduled' ? `Attempt ${status.reconnectAttempt} of 5` : 'Safe bounded retry policy'}
+        />
+        {status?.error ? (
+          <div className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs leading-relaxed text-destructive">
+            <span className="font-semibold uppercase tracking-wide">Feed error: </span>
+            {status.error}
+          </div>
+        ) : null}
+      </CardContent>
+    </Card>
+  );
+}
+
+function HealthRow({
+  label,
+  value,
+  detail,
+  icon,
+}: {
+  label: string;
+  value: string;
+  detail: string;
+  icon?: React.ReactNode;
+}) {
+  return (
+    <div className="flex items-center justify-between border-b border-border/50 pb-2 last:border-b-0 last:pb-0">
+      <span className="text-muted-foreground">{label}</span>
+      <span className="flex items-center gap-1.5 text-right">
+        {icon}
+        <span>
+          <span className="block font-semibold text-foreground">{value}</span>
+          <span className="block text-[10px] text-muted-foreground">{detail}</span>
+        </span>
+      </span>
+    </div>
+  );
+}
+
+function describeReconnect(
+  state: RadarReconnectState | undefined,
+  attempt: number | undefined,
+  nextReconnectAt: string | null | undefined,
+): string {
+  switch (state) {
+    case 'scheduled':
+      return `Retrying at ${formatTime(nextReconnectAt)}`;
+    case 'reconnecting':
+      return `Retry ${attempt ?? 0} in progress`;
+    case 'exhausted':
+      return 'Retries paused';
+    default:
+      return 'Stable';
+  }
 }
 
 function ConnectionStatusBadge({ state, error }: { state?: RadarConnectionState, error: boolean }) {
