@@ -553,6 +553,69 @@ export interface LiveIngestionFreshnessCounters {
   volume: number;
 }
 
+export type LiveIngestionDiagnosticsAcceptanceState = typeof LiveIngestionDiagnosticsAcceptanceState[keyof typeof LiveIngestionDiagnosticsAcceptanceState];
+
+
+export const LiveIngestionDiagnosticsAcceptanceState = {
+  offline: 'offline',
+  awaiting_live_event: 'awaiting_live_event',
+  window_building: 'window_building',
+  scoring_eligible: 'scoring_eligible',
+  stale: 'stale',
+  insufficient_sample: 'insufficient_sample',
+} as const;
+
+export interface LiveIngestionConditions {
+  subscriptionVerified: boolean;
+  realMarketEventReceived: boolean;
+  enteredScoringWindow: boolean;
+  quoteFresh: boolean;
+  tradeFresh: boolean;
+  priceFresh: boolean;
+  volumeFresh: boolean;
+  scoringEligible: boolean;
+  triggerEvidenceAvailable: boolean;
+}
+
+/**
+ * @nullable
+ */
+export type LiveIngestionTriggerEvidenceSourceEventType = typeof LiveIngestionTriggerEvidenceSourceEventType[keyof typeof LiveIngestionTriggerEvidenceSourceEventType] | null;
+
+
+export const LiveIngestionTriggerEvidenceSourceEventType = {
+  quote: 'quote',
+  trade: 'trade',
+  ohlcv_bar: 'ohlcv_bar',
+} as const;
+
+export interface LiveIngestionTriggerEvidence {
+  eventTriggered: boolean;
+  triggerReason: string;
+  /** @nullable */
+  scanAt: string | null;
+  /** @nullable */
+  sourceEventAt: string | null;
+  /** @nullable */
+  sourceEventType: LiveIngestionTriggerEvidenceSourceEventType;
+  /** @nullable */
+  sourceReceiveAt: string | null;
+  /** @minimum 0 */
+  evidenceCount: number;
+  satisfiedEvidence: string[];
+  missingEvidence: string[];
+}
+
+export interface LiveIngestionScoringStatus {
+  scoreState: AlphaRadarScoreState;
+  status: AlphaRadarSignalState | null;
+  /** @nullable */
+  score: number | null;
+  freshness: RadarSignalFreshness;
+  dataQuality: RadarSignalDataQuality;
+  gateReason: string;
+}
+
 export interface LiveIngestionDiagnostics {
   subscription: LiveIngestionSubscription;
   marketSession: LiveIngestionSession;
@@ -570,8 +633,16 @@ export interface LiveIngestionDiagnostics {
      * @nullable
      */
   lastMarketEventAgeMs: number | null;
+  /** @nullable */
+  windowStartedAt: string | null;
+  /** @nullable */
+  lastWindowEntryAt: string | null;
   freshnessCounters: LiveIngestionFreshnessCounters;
   enteredScoringWindow: boolean;
+  acceptanceState: LiveIngestionDiagnosticsAcceptanceState;
+  conditions: LiveIngestionConditions;
+  triggerEvidence: LiveIngestionTriggerEvidence;
+  scoringStatus: LiveIngestionScoringStatus;
   reason: string;
 }
 

@@ -1451,6 +1451,95 @@ components:
           type: number
           minimum: 0
       required: [quotes, trades, prices, volume]
+    LiveIngestionConditions:
+      type: object
+      properties:
+        subscriptionVerified:
+          type: boolean
+        realMarketEventReceived:
+          type: boolean
+        enteredScoringWindow:
+          type: boolean
+        quoteFresh:
+          type: boolean
+        tradeFresh:
+          type: boolean
+        priceFresh:
+          type: boolean
+        volumeFresh:
+          type: boolean
+        scoringEligible:
+          type: boolean
+        triggerEvidenceAvailable:
+          type: boolean
+      required:
+        - subscriptionVerified
+        - realMarketEventReceived
+        - enteredScoringWindow
+        - quoteFresh
+        - tradeFresh
+        - priceFresh
+        - volumeFresh
+        - scoringEligible
+        - triggerEvidenceAvailable
+    LiveIngestionTriggerEvidence:
+      type: object
+      properties:
+        eventTriggered:
+          type: boolean
+        triggerReason:
+          type: string
+        scanAt:
+          type: [string, "null"]
+          format: date-time
+        sourceEventAt:
+          type: [string, "null"]
+          format: date-time
+        sourceEventType:
+          type: [string, "null"]
+          enum: [quote, trade, ohlcv_bar, null]
+        sourceReceiveAt:
+          type: [string, "null"]
+          format: date-time
+        evidenceCount:
+          type: number
+          minimum: 0
+        satisfiedEvidence:
+          type: array
+          items:
+            type: string
+        missingEvidence:
+          type: array
+          items:
+            type: string
+      required:
+        - eventTriggered
+        - triggerReason
+        - scanAt
+        - sourceEventAt
+        - sourceEventType
+        - sourceReceiveAt
+        - evidenceCount
+        - satisfiedEvidence
+        - missingEvidence
+    LiveIngestionScoringStatus:
+      type: object
+      properties:
+        scoreState:
+          $ref: "#/components/schemas/AlphaRadarScoreState"
+        status:
+          anyOf:
+            - $ref: "#/components/schemas/AlphaRadarSignalState"
+            - type: "null"
+        score:
+          type: [number, "null"]
+        freshness:
+          $ref: "#/components/schemas/RadarSignalFreshness"
+        dataQuality:
+          $ref: "#/components/schemas/RadarSignalDataQuality"
+        gateReason:
+          type: string
+      required: [scoreState, status, score, freshness, dataQuality, gateReason]
     LiveIngestionDiagnostics:
       type: object
       properties:
@@ -1477,10 +1566,25 @@ components:
         lastMarketEventAgeMs:
           type: [number, "null"]
           minimum: 0
+        windowStartedAt:
+          type: [string, "null"]
+          format: date-time
+        lastWindowEntryAt:
+          type: [string, "null"]
+          format: date-time
         freshnessCounters:
           $ref: "#/components/schemas/LiveIngestionFreshnessCounters"
         enteredScoringWindow:
           type: boolean
+        acceptanceState:
+          type: string
+          enum: [offline, awaiting_live_event, window_building, scoring_eligible, stale, insufficient_sample]
+        conditions:
+          $ref: "#/components/schemas/LiveIngestionConditions"
+        triggerEvidence:
+          $ref: "#/components/schemas/LiveIngestionTriggerEvidence"
+        scoringStatus:
+          $ref: "#/components/schemas/LiveIngestionScoringStatus"
         reason:
           type: string
       required:
@@ -1492,8 +1596,14 @@ components:
         - lastMarketEventAt
         - lastMarketEventReceivedAt
         - lastMarketEventAgeMs
+        - windowStartedAt
+        - lastWindowEntryAt
         - freshnessCounters
         - enteredScoringWindow
+        - acceptanceState
+        - conditions
+        - triggerEvidence
+        - scoringStatus
         - reason
     RadarStatus:
       type: object

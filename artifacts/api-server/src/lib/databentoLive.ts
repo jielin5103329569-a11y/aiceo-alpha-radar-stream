@@ -102,6 +102,8 @@ export type LiveIngestionDiagnostics = {
   lastMarketEventAt: Date | null;
   lastMarketEventReceivedAt: Date | null;
   lastMarketEventAgeMs: number | null;
+  windowStartedAt: Date | null;
+  lastWindowEntryAt: Date | null;
   freshnessCounters: {
     quotes: number;
     trades: number;
@@ -109,6 +111,43 @@ export type LiveIngestionDiagnostics = {
     volume: number;
   };
   enteredScoringWindow: boolean;
+  acceptanceState:
+    | "offline"
+    | "awaiting_live_event"
+    | "window_building"
+    | "scoring_eligible"
+    | "stale"
+    | "insufficient_sample";
+  conditions: {
+    subscriptionVerified: boolean;
+    realMarketEventReceived: boolean;
+    enteredScoringWindow: boolean;
+    quoteFresh: boolean;
+    tradeFresh: boolean;
+    priceFresh: boolean;
+    volumeFresh: boolean;
+    scoringEligible: boolean;
+    triggerEvidenceAvailable: boolean;
+  };
+  triggerEvidence: {
+    eventTriggered: boolean;
+    triggerReason: string;
+    scanAt: Date | null;
+    sourceEventAt: Date | null;
+    sourceEventType: LiveIngestionEvent["eventType"] | null;
+    sourceReceiveAt: Date | null;
+    evidenceCount: number;
+    satisfiedEvidence: string[];
+    missingEvidence: string[];
+  };
+  scoringStatus: {
+    scoreState: AlphaRadarSnapshot["scoreState"];
+    status: AlphaRadarSnapshot["status"];
+    score: number | null;
+    freshness: AlphaRadarSnapshot["momentum"]["freshness"];
+    dataQuality: AlphaRadarSnapshot["dataQuality"];
+    gateReason: string;
+  };
   reason: string;
 };
 
@@ -355,11 +394,11 @@ function blankStatus(symbol = "NVDA"): RadarStatus {
       { schema: "mbp-1", state: "waiting", eventCount: 0, lastEventAt: null },
       { schema: "ohlcv-1s", state: "waiting", eventCount: 0, lastEventAt: null },
     ],
-    liveIngestion: blankLiveIngestionDiagnostics(symbol),
+    liveIngestion: blankLiveIngestionDiagnostics(symbol, configured),
   };
 }
 
-function blankLiveIngestionDiagnostics(symbol: string): LiveIngestionDiagnostics {
+function blankLiveIngestionDiagnostics(symbol: string, configured: boolean): LiveIngestionDiagnostics {
   return {
     subscription: {
       dataset: "EQUS.MINI",
@@ -375,6 +414,8 @@ function blankLiveIngestionDiagnostics(symbol: string): LiveIngestionDiagnostics
     lastMarketEventAt: null,
     lastMarketEventReceivedAt: null,
     lastMarketEventAgeMs: null,
+    windowStartedAt: null,
+    lastWindowEntryAt: null,
     freshnessCounters: {
       quotes: 0,
       trades: 0,
@@ -382,6 +423,37 @@ function blankLiveIngestionDiagnostics(symbol: string): LiveIngestionDiagnostics
       volume: 0,
     },
     enteredScoringWindow: false,
+    acceptanceState: configured ? "awaiting_live_event" : "offline",
+    conditions: {
+      subscriptionVerified: configured,
+      realMarketEventReceived: false,
+      enteredScoringWindow: false,
+      quoteFresh: false,
+      tradeFresh: false,
+      priceFresh: false,
+      volumeFresh: false,
+      scoringEligible: false,
+      triggerEvidenceAvailable: false,
+    },
+    triggerEvidence: {
+      eventTriggered: false,
+      triggerReason: "awaiting_live_event",
+      scanAt: null,
+      sourceEventAt: null,
+      sourceEventType: null,
+      sourceReceiveAt: null,
+      evidenceCount: 0,
+      satisfiedEvidence: [],
+      missingEvidence: [],
+    },
+    scoringStatus: {
+      scoreState: "insufficient",
+      status: null,
+      score: null,
+      freshness: "missing",
+      dataQuality: "missing",
+      gateReason: "feed_not_streaming",
+    },
     reason: "Awaiting a real Databento Mbp or Ohlcv market record; transport, SSE, cache, and system messages are excluded.",
   };
 }
@@ -629,6 +701,7 @@ export class DatabentoLiveService extends EventEmitter {
     now: Date,
   ): LiveIngestionDiagnostics {
     const stored = this.status.liveIngestion;
+    const latestEvent = stored.recentMarketEvents[0] ?? null;
     const lastMarketEventAgeMs = stored.lastMarketEventAt
       ? Math.max(0, now.getTime() - stored.lastMarketEventAt.getTime())
       : null;
@@ -642,20 +715,72 @@ export class DatabentoLiveService extends EventEmitter {
       marketFeedState === "streaming"
       && this.analysisWindowStartedAt !== null
       && stored.currentWindowMarketEventCount > 0;
-    const reason =
-      stored.verifiedMarketEventCount === 0
-        ? "No eligible Databento Mbp or Ohlcv market record has reached this process. Heartbeats, SSE, cache, simulated data, and interval/system messages are excluded."
-        : enteredScoringWindow
-          ? "A verified Databento market record entered the active scoring window. Freshness counters show which factor inputs are currently usable."
+    const conditions = {
+      subscriptionVerified:
+        this.status.configured
+        && stored.subscription.dataset === "EQUS.MINI"
+        && stored.subscription.symbol === this.configuredSymbol
+        && stored.subscription.symbolType === "raw_symbol",
+      realMarketEventReceived: stored.verifiedMarketEventCount > 0,
+      enteredScoringWindow,
+      quoteFresh: freshnessCounters.quotes > 0,
+      tradeFresh: freshnessCounters.trades > 0,
+      priceFresh: freshnessCounters.prices > 0,
+      volumeFresh: freshnessCounters.volume > 0,
+      scoringEligible: alphaRadar.scoreState === "available",
+      triggerEvidenceAvailable: latestEvent !== null && alphaRadar.scan.lastScannedAt !== null,
+    };
+    const acceptanceState: LiveIngestionDiagnostics["acceptanceState"] =
+      marketFeedState === "offline"
+        ? "offline"
+        : !conditions.realMarketEventReceived
+          ? "awaiting_live_event"
           : marketFeedState === "stale"
+            ? "stale"
+            : conditions.scoringEligible
+              ? "scoring_eligible"
+              : enteredScoringWindow
+                ? "insufficient_sample"
+                : "window_building";
+    const reason =
+      acceptanceState === "offline"
+        ? "The live feed is offline. No transport, cache, heartbeat, or stored value can satisfy market-event acceptance."
+        : acceptanceState === "awaiting_live_event"
+          ? "No eligible Databento Mbp or Ohlcv market record has reached this process. Heartbeats, SSE, cache, simulated data, and interval/system messages are excluded."
+          : acceptanceState === "stale"
             ? "The last verified Databento market record is outside the existing 15-second freshness window. Transport and interval/system messages do not extend it."
-            : "Verified market records are present, but the active scoring window is still rebuilding.";
+            : acceptanceState === "scoring_eligible"
+              ? "Verified live evidence currently meets the existing scoring gate. This diagnostic records the result; it does not alter scoring."
+              : acceptanceState === "insufficient_sample"
+                ? "A verified market record entered the active scoring window, but the existing scoring gate still reports Insufficient Sample. No accuracy or score is inferred."
+                : "Verified market records are present, but the active scoring window is still rebuilding.";
     return {
       ...stored,
       marketSession: marketSessionAt(now),
       lastMarketEventAgeMs,
       freshnessCounters,
       enteredScoringWindow,
+      acceptanceState,
+      conditions,
+      triggerEvidence: {
+        eventTriggered: alphaRadar.scan.eventTriggered,
+        triggerReason: alphaRadar.scan.triggerReason,
+        scanAt: alphaRadar.scan.lastScannedAt,
+        sourceEventAt: latestEvent?.eventTimestamp ?? null,
+        sourceEventType: latestEvent?.eventType ?? null,
+        sourceReceiveAt: latestEvent?.receiveTimestamp ?? null,
+        evidenceCount: alphaRadar.preBreakout.evidenceCount,
+        satisfiedEvidence: [...alphaRadar.preBreakout.confirmation.satisfiedEvidence],
+        missingEvidence: [...alphaRadar.preBreakout.confirmation.missingEvidence],
+      },
+      scoringStatus: {
+        scoreState: alphaRadar.scoreState,
+        status: alphaRadar.status,
+        score: alphaRadar.score,
+        freshness: alphaRadar.momentum.freshness,
+        dataQuality: alphaRadar.dataQuality,
+        gateReason: alphaRadar.diagnostics.scoring_gate_reason,
+      },
       reason,
       recentMarketEvents: [...stored.recentMarketEvents],
     };
@@ -804,6 +929,10 @@ export class DatabentoLiveService extends EventEmitter {
           previous.currentWindowMarketEventCount + (event.enteredScoringWindow ? 1 : 0),
         lastMarketEventAt: event.eventTimestamp,
         lastMarketEventReceivedAt: event.receiveTimestamp ?? event.ingestedAt,
+        windowStartedAt: event.enteredScoringWindow
+          ? (this.analysisWindowStartedAt ?? event.eventTimestamp)
+          : previous.windowStartedAt,
+        lastWindowEntryAt: event.enteredScoringWindow ? event.ingestedAt : previous.lastWindowEntryAt,
         recentMarketEvents: [event, ...previous.recentMarketEvents].slice(0, 12),
       },
     };
@@ -1381,6 +1510,7 @@ export class DatabentoLiveService extends EventEmitter {
       liveIngestion: {
         ...this.status.liveIngestion,
         currentWindowMarketEventCount: 0,
+        windowStartedAt: null,
       },
     };
   }

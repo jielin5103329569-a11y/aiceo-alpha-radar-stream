@@ -564,6 +564,11 @@ try {
     0,
     "bridge readiness must never count as a market event",
   );
+  assert.equal(
+    ingestionAuditService.getStatus().liveIngestion.acceptanceState,
+    "awaiting_live_event",
+    "acceptance must remain explicitly ready-but-waiting until a real market record arrives",
+  );
   ingestionAuditService.applyEvent({
     ...marketEvent(ingestionAuditNow, 100.25, "B"),
     source: "untrusted",
@@ -578,6 +583,28 @@ try {
   assert.equal(ingestionAudit.verifiedMarketEventCount, 1, "a real Mbp record must be counted once");
   assert.equal(ingestionAudit.currentWindowMarketEventCount, 1, "a fresh Mbp record must enter the current scoring window");
   assert.equal(ingestionAudit.enteredScoringWindow, true, "accepted market evidence must report scoring-window entry");
+  assert.equal(
+    ingestionAudit.acceptanceState,
+    "insufficient_sample",
+    "a fresh first record must report Insufficient Sample instead of claiming scoring eligibility",
+  );
+  assert.equal(ingestionAudit.conditions.realMarketEventReceived, true, "the readiness audit must identify the real record");
+  assert.equal(ingestionAudit.conditions.enteredScoringWindow, true, "the readiness audit must identify window entry");
+  assert.equal(ingestionAudit.conditions.scoringEligible, false, "the readiness audit must not invent a score from one event");
+  assert.ok(ingestionAudit.windowStartedAt, "the readiness audit must retain the scoring-window start time");
+  assert.ok(ingestionAudit.lastWindowEntryAt, "the readiness audit must retain the window-entry time");
+  assert.equal(ingestionAudit.triggerEvidence.sourceEventType, "trade", "trigger evidence must retain the real source type");
+  assert.equal(
+    ingestionAudit.triggerEvidence.sourceEventAt?.getTime(),
+    ingestionAuditNow.getTime(),
+    "trigger evidence must retain the real source timestamp",
+  );
+  assert.equal(ingestionAudit.scoringStatus.scoreState, "insufficient", "the audit must expose the existing score state unchanged");
+  assert.equal(
+    ingestionAudit.scoringStatus.score,
+    null,
+    "the audit must not publish a score while the existing scoring gate is insufficient",
+  );
   assert.equal(ingestionAudit.recentMarketEvents[0].schema, "mbp-1", "the real record schema must be retained");
   assert.equal(ingestionAudit.recentMarketEvents[0].eventType, "trade", "the nested real trade must retain its event type");
   assert.equal(ingestionAudit.recentMarketEvents[0].enteredScoringWindow, true, "accepted event audit rows must identify scoring-window entry");
@@ -593,6 +620,11 @@ try {
     staleIngestionAudit.recentMarketEvents[0].enteredScoringWindow,
     false,
     "a delayed real record must disclose that it was excluded from scoring",
+  );
+  assert.equal(
+    staleIngestionAudit.conditions.realMarketEventReceived,
+    true,
+    "a delayed real record may remain in the audit but must not erase prior verified evidence",
   );
 
   freshAlphaService.status.lastUpdatedAt = new Date(Date.now() - 16_000);

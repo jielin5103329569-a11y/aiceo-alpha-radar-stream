@@ -5,10 +5,14 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { LiveIngestionConditions } from './liveIngestionConditions';
+import type { LiveIngestionDiagnosticsAcceptanceState } from './liveIngestionDiagnosticsAcceptanceState';
 import type { LiveIngestionEvent } from './liveIngestionEvent';
 import type { LiveIngestionFreshnessCounters } from './liveIngestionFreshnessCounters';
+import type { LiveIngestionScoringStatus } from './liveIngestionScoringStatus';
 import type { LiveIngestionSession } from './liveIngestionSession';
 import type { LiveIngestionSubscription } from './liveIngestionSubscription';
+import type { LiveIngestionTriggerEvidence } from './liveIngestionTriggerEvidence';
 
 export interface LiveIngestionDiagnostics {
   subscription: LiveIngestionSubscription;
@@ -27,7 +31,15 @@ export interface LiveIngestionDiagnostics {
      * @nullable
      */
   lastMarketEventAgeMs: number | null;
+  /** @nullable */
+  windowStartedAt: Date | null;
+  /** @nullable */
+  lastWindowEntryAt: Date | null;
   freshnessCounters: LiveIngestionFreshnessCounters;
   enteredScoringWindow: boolean;
+  acceptanceState: LiveIngestionDiagnosticsAcceptanceState;
+  conditions: LiveIngestionConditions;
+  triggerEvidence: LiveIngestionTriggerEvidence;
+  scoringStatus: LiveIngestionScoringStatus;
   reason: string;
 }

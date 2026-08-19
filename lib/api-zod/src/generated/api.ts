@@ -53,6 +53,8 @@ export const getRadarStatusResponseLiveIngestionFreshnessCountersPricesMin = 0;
 
 export const getRadarStatusResponseLiveIngestionFreshnessCountersVolumeMin = 0;
 
+export const getRadarStatusResponseLiveIngestionTriggerEvidenceEvidenceCountMin = 0;
+
 export const getRadarStatusResponseMarketUniverseTotalCountMin = 0;
 
 export const getRadarStatusResponseMarketUniverseEligibleCountMin = 0;
@@ -105,6 +107,8 @@ export const getRadarStatusResponseSymbolRadarsItemLiveIngestionFreshnessCounter
 export const getRadarStatusResponseSymbolRadarsItemLiveIngestionFreshnessCountersPricesMin = 0;
 
 export const getRadarStatusResponseSymbolRadarsItemLiveIngestionFreshnessCountersVolumeMin = 0;
+
+export const getRadarStatusResponseSymbolRadarsItemLiveIngestionTriggerEvidenceEvidenceCountMin = 0;
 
 
 export const getRadarStatusResponseAlphaRankingEntriesItemRankingScoreMin = 0;
@@ -392,6 +396,8 @@ export const GetRadarStatusResponse = zod.object({
   "lastMarketEventAt": zod.coerce.date().nullable(),
   "lastMarketEventReceivedAt": zod.coerce.date().nullable(),
   "lastMarketEventAgeMs": zod.number().min(getRadarStatusResponseLiveIngestionLastMarketEventAgeMsMin).nullable(),
+  "windowStartedAt": zod.coerce.date().nullable(),
+  "lastWindowEntryAt": zod.coerce.date().nullable(),
   "freshnessCounters": zod.object({
   "quotes": zod.number().min(getRadarStatusResponseLiveIngestionFreshnessCountersQuotesMin),
   "trades": zod.number().min(getRadarStatusResponseLiveIngestionFreshnessCountersTradesMin),
@@ -399,6 +405,37 @@ export const GetRadarStatusResponse = zod.object({
   "volume": zod.number().min(getRadarStatusResponseLiveIngestionFreshnessCountersVolumeMin)
 }),
   "enteredScoringWindow": zod.boolean(),
+  "acceptanceState": zod.enum(['offline', 'awaiting_live_event', 'window_building', 'scoring_eligible', 'stale', 'insufficient_sample']),
+  "conditions": zod.object({
+  "subscriptionVerified": zod.boolean(),
+  "realMarketEventReceived": zod.boolean(),
+  "enteredScoringWindow": zod.boolean(),
+  "quoteFresh": zod.boolean(),
+  "tradeFresh": zod.boolean(),
+  "priceFresh": zod.boolean(),
+  "volumeFresh": zod.boolean(),
+  "scoringEligible": zod.boolean(),
+  "triggerEvidenceAvailable": zod.boolean()
+}),
+  "triggerEvidence": zod.object({
+  "eventTriggered": zod.boolean(),
+  "triggerReason": zod.string(),
+  "scanAt": zod.coerce.date().nullable(),
+  "sourceEventAt": zod.coerce.date().nullable(),
+  "sourceEventType": zod.union([zod.literal('quote'),zod.literal('trade'),zod.literal('ohlcv_bar'),zod.literal(null)]).nullable(),
+  "sourceReceiveAt": zod.coerce.date().nullable(),
+  "evidenceCount": zod.number().min(getRadarStatusResponseLiveIngestionTriggerEvidenceEvidenceCountMin),
+  "satisfiedEvidence": zod.array(zod.string()),
+  "missingEvidence": zod.array(zod.string())
+}),
+  "scoringStatus": zod.object({
+  "scoreState": zod.enum(['available', 'stale', 'insufficient']),
+  "status": zod.union([zod.enum(['Neutral', 'Watch', 'Breakout Setup']),zod.null()]),
+  "score": zod.number().nullable(),
+  "freshness": zod.enum(['fresh', 'delayed', 'stale', 'missing']),
+  "dataQuality": zod.enum(['good', 'degraded', 'stale', 'missing']),
+  "gateReason": zod.string()
+}),
   "reason": zod.string()
 }),
   "marketUniverse": zod.object({
@@ -620,6 +657,8 @@ export const GetRadarStatusResponse = zod.object({
   "lastMarketEventAt": zod.coerce.date().nullable(),
   "lastMarketEventReceivedAt": zod.coerce.date().nullable(),
   "lastMarketEventAgeMs": zod.number().min(getRadarStatusResponseSymbolRadarsItemLiveIngestionLastMarketEventAgeMsMin).nullable(),
+  "windowStartedAt": zod.coerce.date().nullable(),
+  "lastWindowEntryAt": zod.coerce.date().nullable(),
   "freshnessCounters": zod.object({
   "quotes": zod.number().min(getRadarStatusResponseSymbolRadarsItemLiveIngestionFreshnessCountersQuotesMin),
   "trades": zod.number().min(getRadarStatusResponseSymbolRadarsItemLiveIngestionFreshnessCountersTradesMin),
@@ -627,6 +666,37 @@ export const GetRadarStatusResponse = zod.object({
   "volume": zod.number().min(getRadarStatusResponseSymbolRadarsItemLiveIngestionFreshnessCountersVolumeMin)
 }),
   "enteredScoringWindow": zod.boolean(),
+  "acceptanceState": zod.enum(['offline', 'awaiting_live_event', 'window_building', 'scoring_eligible', 'stale', 'insufficient_sample']),
+  "conditions": zod.object({
+  "subscriptionVerified": zod.boolean(),
+  "realMarketEventReceived": zod.boolean(),
+  "enteredScoringWindow": zod.boolean(),
+  "quoteFresh": zod.boolean(),
+  "tradeFresh": zod.boolean(),
+  "priceFresh": zod.boolean(),
+  "volumeFresh": zod.boolean(),
+  "scoringEligible": zod.boolean(),
+  "triggerEvidenceAvailable": zod.boolean()
+}),
+  "triggerEvidence": zod.object({
+  "eventTriggered": zod.boolean(),
+  "triggerReason": zod.string(),
+  "scanAt": zod.coerce.date().nullable(),
+  "sourceEventAt": zod.coerce.date().nullable(),
+  "sourceEventType": zod.union([zod.literal('quote'),zod.literal('trade'),zod.literal('ohlcv_bar'),zod.literal(null)]).nullable(),
+  "sourceReceiveAt": zod.coerce.date().nullable(),
+  "evidenceCount": zod.number().min(getRadarStatusResponseSymbolRadarsItemLiveIngestionTriggerEvidenceEvidenceCountMin),
+  "satisfiedEvidence": zod.array(zod.string()),
+  "missingEvidence": zod.array(zod.string())
+}),
+  "scoringStatus": zod.object({
+  "scoreState": zod.enum(['available', 'stale', 'insufficient']),
+  "status": zod.union([zod.enum(['Neutral', 'Watch', 'Breakout Setup']),zod.null()]),
+  "score": zod.number().nullable(),
+  "freshness": zod.enum(['fresh', 'delayed', 'stale', 'missing']),
+  "dataQuality": zod.enum(['good', 'degraded', 'stale', 'missing']),
+  "gateReason": zod.string()
+}),
   "reason": zod.string()
 }),
   "error": zod.string().nullable()
@@ -704,6 +774,8 @@ export const startRadarConnectionResponseLiveIngestionFreshnessCountersPricesMin
 
 export const startRadarConnectionResponseLiveIngestionFreshnessCountersVolumeMin = 0;
 
+export const startRadarConnectionResponseLiveIngestionTriggerEvidenceEvidenceCountMin = 0;
+
 export const startRadarConnectionResponseMarketUniverseTotalCountMin = 0;
 
 export const startRadarConnectionResponseMarketUniverseEligibleCountMin = 0;
@@ -756,6 +828,8 @@ export const startRadarConnectionResponseSymbolRadarsItemLiveIngestionFreshnessC
 export const startRadarConnectionResponseSymbolRadarsItemLiveIngestionFreshnessCountersPricesMin = 0;
 
 export const startRadarConnectionResponseSymbolRadarsItemLiveIngestionFreshnessCountersVolumeMin = 0;
+
+export const startRadarConnectionResponseSymbolRadarsItemLiveIngestionTriggerEvidenceEvidenceCountMin = 0;
 
 
 export const startRadarConnectionResponseAlphaRankingEntriesItemRankingScoreMin = 0;
@@ -1043,6 +1117,8 @@ export const StartRadarConnectionResponse = zod.object({
   "lastMarketEventAt": zod.coerce.date().nullable(),
   "lastMarketEventReceivedAt": zod.coerce.date().nullable(),
   "lastMarketEventAgeMs": zod.number().min(startRadarConnectionResponseLiveIngestionLastMarketEventAgeMsMin).nullable(),
+  "windowStartedAt": zod.coerce.date().nullable(),
+  "lastWindowEntryAt": zod.coerce.date().nullable(),
   "freshnessCounters": zod.object({
   "quotes": zod.number().min(startRadarConnectionResponseLiveIngestionFreshnessCountersQuotesMin),
   "trades": zod.number().min(startRadarConnectionResponseLiveIngestionFreshnessCountersTradesMin),
@@ -1050,6 +1126,37 @@ export const StartRadarConnectionResponse = zod.object({
   "volume": zod.number().min(startRadarConnectionResponseLiveIngestionFreshnessCountersVolumeMin)
 }),
   "enteredScoringWindow": zod.boolean(),
+  "acceptanceState": zod.enum(['offline', 'awaiting_live_event', 'window_building', 'scoring_eligible', 'stale', 'insufficient_sample']),
+  "conditions": zod.object({
+  "subscriptionVerified": zod.boolean(),
+  "realMarketEventReceived": zod.boolean(),
+  "enteredScoringWindow": zod.boolean(),
+  "quoteFresh": zod.boolean(),
+  "tradeFresh": zod.boolean(),
+  "priceFresh": zod.boolean(),
+  "volumeFresh": zod.boolean(),
+  "scoringEligible": zod.boolean(),
+  "triggerEvidenceAvailable": zod.boolean()
+}),
+  "triggerEvidence": zod.object({
+  "eventTriggered": zod.boolean(),
+  "triggerReason": zod.string(),
+  "scanAt": zod.coerce.date().nullable(),
+  "sourceEventAt": zod.coerce.date().nullable(),
+  "sourceEventType": zod.union([zod.literal('quote'),zod.literal('trade'),zod.literal('ohlcv_bar'),zod.literal(null)]).nullable(),
+  "sourceReceiveAt": zod.coerce.date().nullable(),
+  "evidenceCount": zod.number().min(startRadarConnectionResponseLiveIngestionTriggerEvidenceEvidenceCountMin),
+  "satisfiedEvidence": zod.array(zod.string()),
+  "missingEvidence": zod.array(zod.string())
+}),
+  "scoringStatus": zod.object({
+  "scoreState": zod.enum(['available', 'stale', 'insufficient']),
+  "status": zod.union([zod.enum(['Neutral', 'Watch', 'Breakout Setup']),zod.null()]),
+  "score": zod.number().nullable(),
+  "freshness": zod.enum(['fresh', 'delayed', 'stale', 'missing']),
+  "dataQuality": zod.enum(['good', 'degraded', 'stale', 'missing']),
+  "gateReason": zod.string()
+}),
   "reason": zod.string()
 }),
   "marketUniverse": zod.object({
@@ -1271,6 +1378,8 @@ export const StartRadarConnectionResponse = zod.object({
   "lastMarketEventAt": zod.coerce.date().nullable(),
   "lastMarketEventReceivedAt": zod.coerce.date().nullable(),
   "lastMarketEventAgeMs": zod.number().min(startRadarConnectionResponseSymbolRadarsItemLiveIngestionLastMarketEventAgeMsMin).nullable(),
+  "windowStartedAt": zod.coerce.date().nullable(),
+  "lastWindowEntryAt": zod.coerce.date().nullable(),
   "freshnessCounters": zod.object({
   "quotes": zod.number().min(startRadarConnectionResponseSymbolRadarsItemLiveIngestionFreshnessCountersQuotesMin),
   "trades": zod.number().min(startRadarConnectionResponseSymbolRadarsItemLiveIngestionFreshnessCountersTradesMin),
@@ -1278,6 +1387,37 @@ export const StartRadarConnectionResponse = zod.object({
   "volume": zod.number().min(startRadarConnectionResponseSymbolRadarsItemLiveIngestionFreshnessCountersVolumeMin)
 }),
   "enteredScoringWindow": zod.boolean(),
+  "acceptanceState": zod.enum(['offline', 'awaiting_live_event', 'window_building', 'scoring_eligible', 'stale', 'insufficient_sample']),
+  "conditions": zod.object({
+  "subscriptionVerified": zod.boolean(),
+  "realMarketEventReceived": zod.boolean(),
+  "enteredScoringWindow": zod.boolean(),
+  "quoteFresh": zod.boolean(),
+  "tradeFresh": zod.boolean(),
+  "priceFresh": zod.boolean(),
+  "volumeFresh": zod.boolean(),
+  "scoringEligible": zod.boolean(),
+  "triggerEvidenceAvailable": zod.boolean()
+}),
+  "triggerEvidence": zod.object({
+  "eventTriggered": zod.boolean(),
+  "triggerReason": zod.string(),
+  "scanAt": zod.coerce.date().nullable(),
+  "sourceEventAt": zod.coerce.date().nullable(),
+  "sourceEventType": zod.union([zod.literal('quote'),zod.literal('trade'),zod.literal('ohlcv_bar'),zod.literal(null)]).nullable(),
+  "sourceReceiveAt": zod.coerce.date().nullable(),
+  "evidenceCount": zod.number().min(startRadarConnectionResponseSymbolRadarsItemLiveIngestionTriggerEvidenceEvidenceCountMin),
+  "satisfiedEvidence": zod.array(zod.string()),
+  "missingEvidence": zod.array(zod.string())
+}),
+  "scoringStatus": zod.object({
+  "scoreState": zod.enum(['available', 'stale', 'insufficient']),
+  "status": zod.union([zod.enum(['Neutral', 'Watch', 'Breakout Setup']),zod.null()]),
+  "score": zod.number().nullable(),
+  "freshness": zod.enum(['fresh', 'delayed', 'stale', 'missing']),
+  "dataQuality": zod.enum(['good', 'degraded', 'stale', 'missing']),
+  "gateReason": zod.string()
+}),
   "reason": zod.string()
 }),
   "error": zod.string().nullable()
@@ -1355,6 +1495,8 @@ export const stopRadarConnectionResponseLiveIngestionFreshnessCountersPricesMin 
 
 export const stopRadarConnectionResponseLiveIngestionFreshnessCountersVolumeMin = 0;
 
+export const stopRadarConnectionResponseLiveIngestionTriggerEvidenceEvidenceCountMin = 0;
+
 export const stopRadarConnectionResponseMarketUniverseTotalCountMin = 0;
 
 export const stopRadarConnectionResponseMarketUniverseEligibleCountMin = 0;
@@ -1407,6 +1549,8 @@ export const stopRadarConnectionResponseSymbolRadarsItemLiveIngestionFreshnessCo
 export const stopRadarConnectionResponseSymbolRadarsItemLiveIngestionFreshnessCountersPricesMin = 0;
 
 export const stopRadarConnectionResponseSymbolRadarsItemLiveIngestionFreshnessCountersVolumeMin = 0;
+
+export const stopRadarConnectionResponseSymbolRadarsItemLiveIngestionTriggerEvidenceEvidenceCountMin = 0;
 
 
 export const stopRadarConnectionResponseAlphaRankingEntriesItemRankingScoreMin = 0;
@@ -1694,6 +1838,8 @@ export const StopRadarConnectionResponse = zod.object({
   "lastMarketEventAt": zod.coerce.date().nullable(),
   "lastMarketEventReceivedAt": zod.coerce.date().nullable(),
   "lastMarketEventAgeMs": zod.number().min(stopRadarConnectionResponseLiveIngestionLastMarketEventAgeMsMin).nullable(),
+  "windowStartedAt": zod.coerce.date().nullable(),
+  "lastWindowEntryAt": zod.coerce.date().nullable(),
   "freshnessCounters": zod.object({
   "quotes": zod.number().min(stopRadarConnectionResponseLiveIngestionFreshnessCountersQuotesMin),
   "trades": zod.number().min(stopRadarConnectionResponseLiveIngestionFreshnessCountersTradesMin),
@@ -1701,6 +1847,37 @@ export const StopRadarConnectionResponse = zod.object({
   "volume": zod.number().min(stopRadarConnectionResponseLiveIngestionFreshnessCountersVolumeMin)
 }),
   "enteredScoringWindow": zod.boolean(),
+  "acceptanceState": zod.enum(['offline', 'awaiting_live_event', 'window_building', 'scoring_eligible', 'stale', 'insufficient_sample']),
+  "conditions": zod.object({
+  "subscriptionVerified": zod.boolean(),
+  "realMarketEventReceived": zod.boolean(),
+  "enteredScoringWindow": zod.boolean(),
+  "quoteFresh": zod.boolean(),
+  "tradeFresh": zod.boolean(),
+  "priceFresh": zod.boolean(),
+  "volumeFresh": zod.boolean(),
+  "scoringEligible": zod.boolean(),
+  "triggerEvidenceAvailable": zod.boolean()
+}),
+  "triggerEvidence": zod.object({
+  "eventTriggered": zod.boolean(),
+  "triggerReason": zod.string(),
+  "scanAt": zod.coerce.date().nullable(),
+  "sourceEventAt": zod.coerce.date().nullable(),
+  "sourceEventType": zod.union([zod.literal('quote'),zod.literal('trade'),zod.literal('ohlcv_bar'),zod.literal(null)]).nullable(),
+  "sourceReceiveAt": zod.coerce.date().nullable(),
+  "evidenceCount": zod.number().min(stopRadarConnectionResponseLiveIngestionTriggerEvidenceEvidenceCountMin),
+  "satisfiedEvidence": zod.array(zod.string()),
+  "missingEvidence": zod.array(zod.string())
+}),
+  "scoringStatus": zod.object({
+  "scoreState": zod.enum(['available', 'stale', 'insufficient']),
+  "status": zod.union([zod.enum(['Neutral', 'Watch', 'Breakout Setup']),zod.null()]),
+  "score": zod.number().nullable(),
+  "freshness": zod.enum(['fresh', 'delayed', 'stale', 'missing']),
+  "dataQuality": zod.enum(['good', 'degraded', 'stale', 'missing']),
+  "gateReason": zod.string()
+}),
   "reason": zod.string()
 }),
   "marketUniverse": zod.object({
@@ -1922,6 +2099,8 @@ export const StopRadarConnectionResponse = zod.object({
   "lastMarketEventAt": zod.coerce.date().nullable(),
   "lastMarketEventReceivedAt": zod.coerce.date().nullable(),
   "lastMarketEventAgeMs": zod.number().min(stopRadarConnectionResponseSymbolRadarsItemLiveIngestionLastMarketEventAgeMsMin).nullable(),
+  "windowStartedAt": zod.coerce.date().nullable(),
+  "lastWindowEntryAt": zod.coerce.date().nullable(),
   "freshnessCounters": zod.object({
   "quotes": zod.number().min(stopRadarConnectionResponseSymbolRadarsItemLiveIngestionFreshnessCountersQuotesMin),
   "trades": zod.number().min(stopRadarConnectionResponseSymbolRadarsItemLiveIngestionFreshnessCountersTradesMin),
@@ -1929,6 +2108,37 @@ export const StopRadarConnectionResponse = zod.object({
   "volume": zod.number().min(stopRadarConnectionResponseSymbolRadarsItemLiveIngestionFreshnessCountersVolumeMin)
 }),
   "enteredScoringWindow": zod.boolean(),
+  "acceptanceState": zod.enum(['offline', 'awaiting_live_event', 'window_building', 'scoring_eligible', 'stale', 'insufficient_sample']),
+  "conditions": zod.object({
+  "subscriptionVerified": zod.boolean(),
+  "realMarketEventReceived": zod.boolean(),
+  "enteredScoringWindow": zod.boolean(),
+  "quoteFresh": zod.boolean(),
+  "tradeFresh": zod.boolean(),
+  "priceFresh": zod.boolean(),
+  "volumeFresh": zod.boolean(),
+  "scoringEligible": zod.boolean(),
+  "triggerEvidenceAvailable": zod.boolean()
+}),
+  "triggerEvidence": zod.object({
+  "eventTriggered": zod.boolean(),
+  "triggerReason": zod.string(),
+  "scanAt": zod.coerce.date().nullable(),
+  "sourceEventAt": zod.coerce.date().nullable(),
+  "sourceEventType": zod.union([zod.literal('quote'),zod.literal('trade'),zod.literal('ohlcv_bar'),zod.literal(null)]).nullable(),
+  "sourceReceiveAt": zod.coerce.date().nullable(),
+  "evidenceCount": zod.number().min(stopRadarConnectionResponseSymbolRadarsItemLiveIngestionTriggerEvidenceEvidenceCountMin),
+  "satisfiedEvidence": zod.array(zod.string()),
+  "missingEvidence": zod.array(zod.string())
+}),
+  "scoringStatus": zod.object({
+  "scoreState": zod.enum(['available', 'stale', 'insufficient']),
+  "status": zod.union([zod.enum(['Neutral', 'Watch', 'Breakout Setup']),zod.null()]),
+  "score": zod.number().nullable(),
+  "freshness": zod.enum(['fresh', 'delayed', 'stale', 'missing']),
+  "dataQuality": zod.enum(['good', 'degraded', 'stale', 'missing']),
+  "gateReason": zod.string()
+}),
   "reason": zod.string()
 }),
   "error": zod.string().nullable()

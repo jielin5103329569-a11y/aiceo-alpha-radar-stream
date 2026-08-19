@@ -1,4 +1,4 @@
-import { Activity, CircleAlert, Database, ShieldCheck } from 'lucide-react';
+import { Activity, CheckCircle2, CircleAlert, Database, ShieldCheck, XCircle } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -14,7 +14,7 @@ export function LiveIngestionAcceptanceCard({ diagnostics }: LiveIngestionAccept
     return null;
   }
 
-  const eventIsFresh = diagnostics.enteredScoringWindow;
+  const acceptance = acceptancePresentation(diagnostics.acceptanceState);
   const eventAge = diagnostics.lastMarketEventAgeMs === null
     ? 'No verified event'
     : diagnostics.lastMarketEventAgeMs < 1_000
@@ -38,13 +38,11 @@ export function LiveIngestionAcceptanceCard({ diagnostics }: LiveIngestionAccept
             variant="outline"
             className={cn(
               'font-mono text-[10px] uppercase',
-              eventIsFresh
-                ? 'border-primary/40 bg-primary/10 text-primary'
-                : 'border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300',
+              acceptance.className,
             )}
             data-testid="live-ingestion-window-status"
           >
-            {eventIsFresh ? 'entered scoring window' : 'not in scoring window'}
+            {acceptance.label}
           </Badge>
         </div>
       </CardHeader>
@@ -77,6 +75,35 @@ export function LiveIngestionAcceptanceCard({ diagnostics }: LiveIngestionAccept
           <Metric label="Last event" value={formatTime(diagnostics.lastMarketEventAt)} />
         </div>
 
+        <div className="rounded-md border border-primary/20 bg-primary/5 p-3" data-testid="live-ingestion-readiness">
+          <div className="flex flex-wrap items-start justify-between gap-2">
+            <div>
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Next-session acceptance readiness</p>
+              <p className="mt-1 text-sm font-medium text-foreground">{acceptance.heading}</p>
+            </div>
+            <span className="font-mono text-[10px] uppercase text-muted-foreground">
+              {diagnostics.scoringStatus.scoreState === 'insufficient'
+                ? 'Insufficient Sample'
+                : diagnostics.scoringStatus.scoreState}
+            </span>
+          </div>
+          <div className="mt-3 grid gap-x-4 gap-y-2 sm:grid-cols-2 lg:grid-cols-3">
+            <Condition label="Verified subscription" value={diagnostics.conditions.subscriptionVerified} />
+            <Condition label="Real Databento record" value={diagnostics.conditions.realMarketEventReceived} />
+            <Condition label="Entered current window" value={diagnostics.conditions.enteredScoringWindow} />
+            <Condition label="Fresh quotes" value={diagnostics.conditions.quoteFresh} />
+            <Condition label="Fresh trades" value={diagnostics.conditions.tradeFresh} />
+            <Condition label="Fresh prices" value={diagnostics.conditions.priceFresh} />
+            <Condition label="Fresh volume" value={diagnostics.conditions.volumeFresh} />
+            <Condition label="Trigger evidence" value={diagnostics.conditions.triggerEvidenceAvailable} />
+            <Condition label="Existing scoring gate" value={diagnostics.conditions.scoringEligible} />
+          </div>
+          <div className="mt-3 grid gap-2 border-t border-primary/10 pt-3 text-[11px] text-muted-foreground sm:grid-cols-2">
+            <p>Window began: <span className="font-mono text-foreground">{formatTime(diagnostics.windowStartedAt)}</span></p>
+            <p>Last window entry: <span className="font-mono text-foreground">{formatTime(diagnostics.lastWindowEntryAt)}</span></p>
+          </div>
+        </div>
+
         <div className="rounded-md border border-border/60 bg-card p-3">
           <div className="mb-2 flex items-center gap-2 text-[10px] uppercase tracking-wider text-muted-foreground">
             <Activity className="h-3.5 w-3.5 text-primary" />
@@ -89,6 +116,45 @@ export function LiveIngestionAcceptanceCard({ diagnostics }: LiveIngestionAccept
             <Counter label="volume" value={diagnostics.freshnessCounters.volume} />
           </div>
         </div>
+
+        <div className="grid gap-3 lg:grid-cols-2">
+          <AuditSection
+            title="Trigger evidence"
+            rows={[
+              ['Source record', diagnostics.triggerEvidence.sourceEventType ?? 'No verified record'],
+              ['Source event', formatTime(diagnostics.triggerEvidence.sourceEventAt)],
+              ['Source receive', formatTime(diagnostics.triggerEvidence.sourceReceiveAt)],
+              ['Alpha scan', formatTime(diagnostics.triggerEvidence.scanAt)],
+              ['Scan cause', diagnostics.triggerEvidence.triggerReason.replaceAll('_', ' ')],
+              ['Event-triggered', diagnostics.triggerEvidence.eventTriggered ? 'yes' : 'no'],
+              ['Evidence', `${formatNumber(diagnostics.triggerEvidence.evidenceCount, 0)} direct signals`],
+            ]}
+          />
+          <AuditSection
+            title="Scoring status (read-only)"
+            rows={[
+              ['Score state', diagnostics.scoringStatus.scoreState === 'insufficient' ? 'Insufficient Sample' : diagnostics.scoringStatus.scoreState],
+              ['Radar status', diagnostics.scoringStatus.status ?? 'not established'],
+              ['Score', formatNumber(diagnostics.scoringStatus.score, 1)],
+              ['Data quality', diagnostics.scoringStatus.dataQuality],
+              ['Metric freshness', diagnostics.scoringStatus.freshness],
+              ['Existing gate', diagnostics.scoringStatus.gateReason.replaceAll('_', ' ')],
+            ]}
+          />
+        </div>
+
+        <EvidenceSummary
+          title="Satisfied evidence"
+          values={diagnostics.triggerEvidence.satisfiedEvidence}
+          empty="No direct trigger evidence is satisfied."
+          tone="positive"
+        />
+        <EvidenceSummary
+          title="Missing evidence"
+          values={diagnostics.triggerEvidence.missingEvidence}
+          empty="No missing-evidence assessment yet; a real market record is still required."
+          tone="neutral"
+        />
 
         <div className="rounded-md border border-dashed border-border bg-background/60 p-3">
           <div className="flex items-start gap-2">
@@ -154,6 +220,94 @@ export function LiveIngestionAcceptanceCard({ diagnostics }: LiveIngestionAccept
       </CardContent>
     </Card>
   );
+}
+
+function Condition({ label, value }: { label: string; value: boolean }) {
+  const Icon = value ? CheckCircle2 : XCircle;
+  return (
+    <div className="flex items-center gap-2 text-xs">
+      <Icon className={cn('h-3.5 w-3.5 shrink-0', value ? 'text-primary' : 'text-muted-foreground')} />
+      <span className={value ? 'text-foreground' : 'text-muted-foreground'}>{label}</span>
+    </div>
+  );
+}
+
+function AuditSection({ title, rows }: { title: string; rows: Array<[string, string]> }) {
+  return (
+    <div className="rounded-md border border-border/60 bg-card p-3">
+      <p className="mb-2 text-[10px] uppercase tracking-wider text-muted-foreground">{title}</p>
+      <dl className="space-y-1.5 text-[11px]">
+        {rows.map(([label, value]) => (
+          <div key={label} className="flex items-start justify-between gap-3">
+            <dt className="text-muted-foreground">{label}</dt>
+            <dd className="max-w-[62%] text-right font-mono text-foreground">{value}</dd>
+          </div>
+        ))}
+      </dl>
+    </div>
+  );
+}
+
+function EvidenceSummary({
+  title,
+  values,
+  empty,
+  tone,
+}: {
+  title: string;
+  values: string[];
+  empty: string;
+  tone: 'positive' | 'neutral';
+}) {
+  return (
+    <div className="rounded-md border border-border/60 bg-muted/20 p-3">
+      <p className="text-[10px] uppercase tracking-wider text-muted-foreground">{title}</p>
+      <p className={cn('mt-1 text-xs', values.length > 0 && tone === 'positive' ? 'text-primary' : 'text-muted-foreground')}>
+        {values.length > 0 ? values.join(' · ') : empty}
+      </p>
+    </div>
+  );
+}
+
+function acceptancePresentation(state: LiveIngestionDiagnostics['acceptanceState']) {
+  switch (state) {
+    case 'scoring_eligible':
+      return {
+        label: 'scoring gate met',
+        heading: 'Real live evidence is currently eligible under the existing scoring gate.',
+        className: 'border-primary/40 bg-primary/10 text-primary',
+      };
+    case 'insufficient_sample':
+      return {
+        label: 'insufficient sample',
+        heading: 'A real record entered the window; more existing live evidence is required.',
+        className: 'border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300',
+      };
+    case 'window_building':
+      return {
+        label: 'building window',
+        heading: 'Real records are present, but the current scoring window is rebuilding.',
+        className: 'border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300',
+      };
+    case 'stale':
+      return {
+        label: 'market evidence stale',
+        heading: 'The prior real record is outside the existing freshness gate.',
+        className: 'border-destructive/40 bg-destructive/10 text-destructive',
+      };
+    case 'offline':
+      return {
+        label: 'feed offline',
+        heading: 'Reconnect the live feed before the next-session acceptance can begin.',
+        className: 'border-destructive/40 bg-destructive/10 text-destructive',
+      };
+    default:
+      return {
+        label: 'awaiting live record',
+        heading: 'Prepared for the next eligible Databento market record; no substitute data is used.',
+        className: 'border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300',
+      };
+  }
 }
 
 function Metric({ label, value }: { label: string; value: string }) {
