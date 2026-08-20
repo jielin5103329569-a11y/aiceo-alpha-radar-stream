@@ -8,3 +8,4 @@
 - [Reference-universe trust](reference-universe-trust.md) — EQUS.MINI definitions support discovery and lifecycle only; never promote their unverified records to candidates.
 - [Validation persistence isolation](validation-persistence-isolation.md) — Withhold accuracy while persistence is incomplete; never block or bias live radar to improve validation durability.
 - [Catalyst opportunity integrity](catalyst-opportunity-integrity.md) — External catalyst context is fail-closed; confirmation needs fresh, independent catalyst, market, Alpha, and peer evidence.
+- [Artifact workflow port ownership](artifact-workflow-port-ownership.md) — Managed API and web workflows need exclusive listener ownership; never add substitute workflows for port conflicts.
