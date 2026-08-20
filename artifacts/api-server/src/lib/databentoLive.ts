@@ -463,7 +463,7 @@ function redactMessage(message: string): string {
 
 function blankStatus(symbol = "NVDA"): RadarStatus {
   const configured = Boolean(process.env.DATABENTO_API_KEY);
-  const emptyAlphaRadar = createEmptyAlphaRadar(new Date());
+  const emptyAlphaRadar = createEmptyAlphaRadar(new Date(), symbol);
   return {
     configured,
     connectionState: configured ? "stopped" : "not_configured",
@@ -1094,7 +1094,7 @@ export class DatabentoLiveService extends EventEmitter {
     this.child = child;
 
     child.stdout?.on("data", (chunk: Buffer) => {
-      this.consumeOutput(chunk.toString());
+      this.consumeOutput(child, chunk.toString());
     });
     child.stderr?.on("data", () => {
       // The bridge intentionally does not write raw diagnostics to the public API.
@@ -1122,7 +1122,10 @@ export class DatabentoLiveService extends EventEmitter {
     return this.getStatus();
   }
 
-  private consumeOutput(chunk: string): void {
+  private consumeOutput(child: ChildProcess, chunk: string): void {
+    if (this.child !== child) {
+      return;
+    }
     this.outputBuffer += chunk;
     const lines = this.outputBuffer.split("\n");
     this.outputBuffer = lines.pop() ?? "";

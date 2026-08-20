@@ -19,6 +19,7 @@ import databento as db
 
 PRICE_SCALE = 1_000_000_000
 RUNNING = True
+ALLOWED_SYMBOLS = frozenset({"NVDA", "MU", "VRT", "CRDO", "AMD"})
 
 
 def write_event(payload: dict[str, Any]) -> None:
@@ -168,7 +169,10 @@ def main() -> None:
 
     signal.signal(signal.SIGTERM, stop_handler)
     signal.signal(signal.SIGINT, stop_handler)
-    symbol = os.environ.get("RADAR_SYMBOL", "NVDA")
+    symbol = os.environ.get("RADAR_SYMBOL", "NVDA").upper()
+    if symbol not in ALLOWED_SYMBOLS:
+        write_event({"type": "error", "message": "Unsupported radar symbol."})
+        return
     dataset = "EQUS.MINI"
     client: Any = None
 

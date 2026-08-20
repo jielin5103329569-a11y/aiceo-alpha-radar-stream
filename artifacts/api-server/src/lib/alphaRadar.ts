@@ -1199,7 +1199,7 @@ function withoutCurrentScore(metric: RadarSignalMetric): RadarSignalMetric {
   };
 }
 
-export function createEmptyAlphaRadar(now: Date): AlphaRadarSnapshot {
+export function createEmptyAlphaRadar(now: Date, symbol = "NVDA"): AlphaRadarSnapshot {
   const unavailable = unavailableMetric("", "Waiting for live market observations.", now);
   return {
     score: null,
@@ -1208,7 +1208,7 @@ export function createEmptyAlphaRadar(now: Date): AlphaRadarSnapshot {
     confidence: 0,
     dataQuality: "missing",
     generatedAt: now,
-    warnings: ["Waiting for live NVDA market observations. No Alpha Radar score is available."],
+    warnings: [`Waiting for live ${symbol} market observations. No Alpha Radar score is available.`],
     diagnostics: {
       fresh_quotes: 0,
       fresh_trades: 0,
