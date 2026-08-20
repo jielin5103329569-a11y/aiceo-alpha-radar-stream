@@ -323,6 +323,21 @@ try {
     MONITORED_SYMBOLS.map((symbol) => ({ symbol, schedulerState: "inactive" })),
     "engineering scheduler visibility must read dedicated scheduler state without calculating scores or mutating ranking state",
   );
+  assert.deepEqual(
+    universe.getLifelineHealth(referenceAt).map((health) => ({
+      symbol: health.symbol,
+      schedulerState: health.schedulerState,
+      recoveryPhase: health.recoveryPhase,
+      marketEventFresh: health.marketEventFresh,
+    })),
+    MONITORED_SYMBOLS.map((symbol) => ({
+      symbol,
+      schedulerState: "inactive",
+      recoveryPhase: "stopped",
+      marketEventFresh: false,
+    })),
+    "lifeline visibility must use the same side-effect-free service projection and never turn an offline scanner into fresh evidence",
+  );
   originalGetStatus.forEach((getStatus, service) => {
     service.getStatus = getStatus;
   });

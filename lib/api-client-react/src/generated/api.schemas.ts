@@ -1311,6 +1311,303 @@ export interface EngineeringGovernanceSnapshot {
   auditHash: string;
 }
 
+export type DatabentoLifelineSymbolHealthTransportState = typeof DatabentoLifelineSymbolHealthTransportState[keyof typeof DatabentoLifelineSymbolHealthTransportState];
+
+
+export const DatabentoLifelineSymbolHealthTransportState = {
+  offline: 'offline',
+  connecting: 'connecting',
+  connected: 'connected',
+  streaming: 'streaming',
+  error: 'error',
+} as const;
+
+export type DatabentoLifelineSymbolHealthSchedulerState = typeof DatabentoLifelineSymbolHealthSchedulerState[keyof typeof DatabentoLifelineSymbolHealthSchedulerState];
+
+
+export const DatabentoLifelineSymbolHealthSchedulerState = {
+  inactive: 'inactive',
+  scheduled: 'scheduled',
+  delayed: 'delayed',
+} as const;
+
+export type DatabentoLifelineSymbolHealthRecoveryPhase = typeof DatabentoLifelineSymbolHealthRecoveryPhase[keyof typeof DatabentoLifelineSymbolHealthRecoveryPhase];
+
+
+export const DatabentoLifelineSymbolHealthRecoveryPhase = {
+  stopped: 'stopped',
+  starting: 'starting',
+  reconnecting: 'reconnecting',
+  awaiting_live_event: 'awaiting_live_event',
+  rebuilding_window: 'rebuilding_window',
+  running: 'running',
+} as const;
+
+export type DatabentoLifelineSymbolHealthRecoveryWindowState = typeof DatabentoLifelineSymbolHealthRecoveryWindowState[keyof typeof DatabentoLifelineSymbolHealthRecoveryWindowState];
+
+
+export const DatabentoLifelineSymbolHealthRecoveryWindowState = {
+  not_started: 'not_started',
+  awaiting_event: 'awaiting_event',
+  rebuilding: 'rebuilding',
+  fresh_input: 'fresh_input',
+} as const;
+
+export interface DatabentoLifelineSymbolHealth {
+  symbol: string;
+  connectionState: RadarConnectionState;
+  transportState: DatabentoLifelineSymbolHealthTransportState;
+  reconnectState: RadarReconnectState;
+  /** @minimum 0 */
+  reconnectAttempt: number;
+  /** @nullable */
+  heartbeatAt: string | null;
+  /**
+     * @minimum 0
+     * @nullable
+     */
+  heartbeatAgeMs: number | null;
+  heartbeatFresh: boolean;
+  /** @nullable */
+  lastMarketEventAt: string | null;
+  /**
+     * @minimum 0
+     * @nullable
+     */
+  marketEventAgeMs: number | null;
+  marketEventFresh: boolean;
+  schedulerState: DatabentoLifelineSymbolHealthSchedulerState;
+  recoveryPhase: DatabentoLifelineSymbolHealthRecoveryPhase;
+  recoveryWindowState: DatabentoLifelineSymbolHealthRecoveryWindowState;
+  reason: string;
+}
+
+export type BackendLifelineSnapshotSchemaVersion = typeof BackendLifelineSnapshotSchemaVersion[keyof typeof BackendLifelineSnapshotSchemaVersion];
+
+
+export const BackendLifelineSnapshotSchemaVersion = {
+  NUMBER_1: 1,
+} as const;
+
+export type BackendLifelineSnapshotOverallState = typeof BackendLifelineSnapshotOverallState[keyof typeof BackendLifelineSnapshotOverallState];
+
+
+export const BackendLifelineSnapshotOverallState = {
+  healthy: 'healthy',
+  degraded: 'degraded',
+  blocked: 'blocked',
+} as const;
+
+export type BackendLifelineSnapshotOverall = {
+  state: BackendLifelineSnapshotOverallState;
+  reason: string;
+};
+
+export type BackendLifelineSnapshotOwnerEnvironment = typeof BackendLifelineSnapshotOwnerEnvironment[keyof typeof BackendLifelineSnapshotOwnerEnvironment];
+
+
+export const BackendLifelineSnapshotOwnerEnvironment = {
+  development: 'development',
+  production: 'production',
+  test: 'test',
+} as const;
+
+export type BackendLifelineSnapshotOwnerListenerState = typeof BackendLifelineSnapshotOwnerListenerState[keyof typeof BackendLifelineSnapshotOwnerListenerState];
+
+
+export const BackendLifelineSnapshotOwnerListenerState = {
+  starting: 'starting',
+  listening: 'listening',
+  stopping: 'stopping',
+  stopped: 'stopped',
+  failed: 'failed',
+} as const;
+
+export type BackendLifelineSnapshotOwner = {
+  serviceName: string;
+  ownerId: string;
+  processId: number;
+  environment: BackendLifelineSnapshotOwnerEnvironment;
+  /** @nullable */
+  port: number | null;
+  listenerState: BackendLifelineSnapshotOwnerListenerState;
+  /** @nullable */
+  claimedAt: string | null;
+  /** @nullable */
+  listeningAt: string | null;
+  /** @nullable */
+  stoppedAt: string | null;
+  /** @minimum 0 */
+  duplicateStartAttempts: number;
+  /** @nullable */
+  lastError: string | null;
+};
+
+export type BackendLifelineSnapshotTransportState = typeof BackendLifelineSnapshotTransportState[keyof typeof BackendLifelineSnapshotTransportState];
+
+
+export const BackendLifelineSnapshotTransportState = {
+  offline: 'offline',
+  connecting: 'connecting',
+  connected: 'connected',
+  streaming: 'streaming',
+  error: 'error',
+  mixed: 'mixed',
+} as const;
+
+export type BackendLifelineSnapshotTransport = {
+  state: BackendLifelineSnapshotTransportState;
+  /** @minimum 0 */
+  configuredSymbols: number;
+  /** @minimum 0 */
+  streamingSymbols: number;
+  /** @minimum 0 */
+  errorSymbols: number;
+  reason: string;
+};
+
+export type BackendLifelineSnapshotHeartbeat = {
+  /** @minimum 0 */
+  freshSymbols: number;
+  /** @minimum 0 */
+  staleSymbols: number;
+  /** @nullable */
+  lastAt: string | null;
+  reason: string;
+};
+
+export type BackendLifelineSnapshotMarketEvents = {
+  /** @minimum 0 */
+  freshSymbols: number;
+  /** @minimum 0 */
+  staleSymbols: number;
+  /** @minimum 0 */
+  missingSymbols: number;
+  reason: string;
+};
+
+export type BackendLifelineSnapshotScanners = {
+  /** @minimum 0 */
+  scheduledSymbols: number;
+  /** @minimum 0 */
+  delayedSymbols: number;
+  /** @minimum 0 */
+  inactiveSymbols: number;
+  reason: string;
+};
+
+export type BackendLifelineSnapshotRecoveryPhase = typeof BackendLifelineSnapshotRecoveryPhase[keyof typeof BackendLifelineSnapshotRecoveryPhase];
+
+
+export const BackendLifelineSnapshotRecoveryPhase = {
+  stopped: 'stopped',
+  starting: 'starting',
+  reconnecting: 'reconnecting',
+  awaiting_live_event: 'awaiting_live_event',
+  rebuilding_window: 'rebuilding_window',
+  running: 'running',
+} as const;
+
+export type BackendLifelineSnapshotRecovery = {
+  phase: BackendLifelineSnapshotRecoveryPhase;
+  /** @minimum 0 */
+  rebuildingSymbols: number;
+  reason: string;
+};
+
+export type BackendLifelineSnapshotAlertDeliveryCapability = typeof BackendLifelineSnapshotAlertDeliveryCapability[keyof typeof BackendLifelineSnapshotAlertDeliveryCapability];
+
+
+export const BackendLifelineSnapshotAlertDeliveryCapability = {
+  available: 'available',
+  unavailable: 'unavailable',
+} as const;
+
+export type BackendLifelineSnapshotAlertDelivery = {
+  serviceRunning: boolean;
+  capability: BackendLifelineSnapshotAlertDeliveryCapability;
+  /** @minimum 0 */
+  deliveriesAttempted: number;
+  /** @minimum 0 */
+  deliveriesSucceeded: number;
+  /** @minimum 0 */
+  deliveriesSkipped: number;
+  /** @minimum 0 */
+  deliveriesFailed: number;
+  reason: string;
+};
+
+export type BackendLifelineSnapshotPersistenceBoundaryAlertRecords = typeof BackendLifelineSnapshotPersistenceBoundaryAlertRecords[keyof typeof BackendLifelineSnapshotPersistenceBoundaryAlertRecords];
+
+
+export const BackendLifelineSnapshotPersistenceBoundaryAlertRecords = {
+  database: 'database',
+} as const;
+
+export type BackendLifelineSnapshotPersistenceBoundaryUserSubscriptions = typeof BackendLifelineSnapshotPersistenceBoundaryUserSubscriptions[keyof typeof BackendLifelineSnapshotPersistenceBoundaryUserSubscriptions];
+
+
+export const BackendLifelineSnapshotPersistenceBoundaryUserSubscriptions = {
+  database: 'database',
+} as const;
+
+export type BackendLifelineSnapshotPersistenceBoundaryDeliveryAudit = typeof BackendLifelineSnapshotPersistenceBoundaryDeliveryAudit[keyof typeof BackendLifelineSnapshotPersistenceBoundaryDeliveryAudit];
+
+
+export const BackendLifelineSnapshotPersistenceBoundaryDeliveryAudit = {
+  database: 'database',
+} as const;
+
+export type BackendLifelineSnapshotPersistenceBoundaryMarketWindow = typeof BackendLifelineSnapshotPersistenceBoundaryMarketWindow[keyof typeof BackendLifelineSnapshotPersistenceBoundaryMarketWindow];
+
+
+export const BackendLifelineSnapshotPersistenceBoundaryMarketWindow = {
+  memory_rebuilt_after_restart: 'memory_rebuilt_after_restart',
+} as const;
+
+export type BackendLifelineSnapshotPersistenceBoundaryScannerState = typeof BackendLifelineSnapshotPersistenceBoundaryScannerState[keyof typeof BackendLifelineSnapshotPersistenceBoundaryScannerState];
+
+
+export const BackendLifelineSnapshotPersistenceBoundaryScannerState = {
+  memory_rebuilt_after_restart: 'memory_rebuilt_after_restart',
+} as const;
+
+export type BackendLifelineSnapshotPersistenceBoundaryShadowLearning = typeof BackendLifelineSnapshotPersistenceBoundaryShadowLearning[keyof typeof BackendLifelineSnapshotPersistenceBoundaryShadowLearning];
+
+
+export const BackendLifelineSnapshotPersistenceBoundaryShadowLearning = {
+  sidecar_not_on_lifeline: 'sidecar_not_on_lifeline',
+} as const;
+
+export type BackendLifelineSnapshotPersistenceBoundary = {
+  alertRecords: BackendLifelineSnapshotPersistenceBoundaryAlertRecords;
+  userSubscriptions: BackendLifelineSnapshotPersistenceBoundaryUserSubscriptions;
+  deliveryAudit: BackendLifelineSnapshotPersistenceBoundaryDeliveryAudit;
+  marketWindow: BackendLifelineSnapshotPersistenceBoundaryMarketWindow;
+  scannerState: BackendLifelineSnapshotPersistenceBoundaryScannerState;
+  shadowLearning: BackendLifelineSnapshotPersistenceBoundaryShadowLearning;
+  reason: string;
+};
+
+/**
+ * Read-only server lifeline. Process/transport/heartbeat health never grants market freshness, scoring, or Alert eligibility.
+ */
+export interface BackendLifelineSnapshot {
+  schemaVersion: BackendLifelineSnapshotSchemaVersion;
+  observedAt: string;
+  overall: BackendLifelineSnapshotOverall;
+  owner: BackendLifelineSnapshotOwner;
+  transport: BackendLifelineSnapshotTransport;
+  heartbeat: BackendLifelineSnapshotHeartbeat;
+  marketEvents: BackendLifelineSnapshotMarketEvents;
+  scanners: BackendLifelineSnapshotScanners;
+  recovery: BackendLifelineSnapshotRecovery;
+  alertDelivery: BackendLifelineSnapshotAlertDelivery;
+  persistenceBoundary: BackendLifelineSnapshotPersistenceBoundary;
+  symbols: DatabentoLifelineSymbolHealth[];
+  auditHash: string;
+}
+
 export type GovernanceLayerId = typeof GovernanceLayerId[keyof typeof GovernanceLayerId];
 
 

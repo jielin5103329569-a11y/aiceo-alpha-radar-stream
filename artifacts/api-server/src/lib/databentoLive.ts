@@ -403,6 +403,24 @@ export type EngineeringScannerHealth = {
   schedulerState: ProtectedScanSchedulerState;
 };
 
+export type DatabentoLifelineSymbolHealth = {
+  symbol: string;
+  connectionState: RadarConnectionState;
+  transportState: "offline" | "connecting" | "connected" | "streaming" | "error";
+  reconnectState: RadarReconnectState;
+  reconnectAttempt: number;
+  heartbeatAt: Date | null;
+  heartbeatAgeMs: number | null;
+  heartbeatFresh: boolean;
+  lastMarketEventAt: Date | null;
+  marketEventAgeMs: number | null;
+  marketEventFresh: boolean;
+  schedulerState: ProtectedScanSchedulerState;
+  recoveryPhase: "stopped" | "starting" | "reconnecting" | "awaiting_live_event" | "rebuilding_window" | "running";
+  recoveryWindowState: "not_started" | "awaiting_event" | "rebuilding" | "fresh_input";
+  reason: string;
+};
+
 type BridgeEvent =
   | { type: "ready" }
   | {
@@ -959,6 +977,78 @@ export class DatabentoLiveService extends EventEmitter {
         : scanLagMs !== null && scanLagMs > 0
           ? "delayed"
           : "scheduled",
+    };
+  }
+
+  /**
+   * Side-effect-free runtime projection for the backend lifeline. It reads
+   * stored transport/event timestamps and scheduler ownership only; unlike
+   * getStatus(), it cannot advance Alpha ranking or any signal state machine.
+   */
+  getLifelineHealth(now = new Date()): DatabentoLifelineSymbolHealth {
+    const heartbeatAt = this.status.lastHeartbeatAt;
+    const heartbeatAgeMs = heartbeatAt === null
+      ? null
+      : Math.max(0, now.getTime() - heartbeatAt.getTime());
+    const lastMarketEventAt = this.status.liveIngestion.lastMarketEventAt;
+    const marketEventAgeMs = lastMarketEventAt === null
+      ? null
+      : Math.max(0, now.getTime() - lastMarketEventAt.getTime());
+    const heartbeatFresh = heartbeatAgeMs !== null && heartbeatAgeMs <= HEARTBEAT_INTERVAL_MS * 3;
+    const marketEventFresh = marketEventAgeMs !== null && marketEventAgeMs <= STALE_AFTER_MS;
+    const schedulerState = this.getEngineeringScannerHealth(now).schedulerState;
+    const transportState =
+      this.status.connectionState === "not_configured" || this.status.connectionState === "stopped"
+        ? "offline"
+        : this.status.connectionState;
+    const recoveryPhase: DatabentoLifelineSymbolHealth["recoveryPhase"] =
+      transportState === "offline"
+        ? "stopped"
+        : transportState === "error" || this.status.reconnectState !== "idle"
+          ? "reconnecting"
+          : transportState === "connecting"
+            ? "starting"
+            : !lastMarketEventAt
+              ? "awaiting_live_event"
+              : !marketEventFresh || this.status.liveIngestion.currentWindowMarketEventCount === 0
+                ? "rebuilding_window"
+                : "running";
+    const recoveryWindowState: DatabentoLifelineSymbolHealth["recoveryWindowState"] =
+      recoveryPhase === "stopped" || recoveryPhase === "starting" || recoveryPhase === "reconnecting"
+        ? "not_started"
+        : !lastMarketEventAt
+          ? "awaiting_event"
+          : !marketEventFresh || this.status.liveIngestion.currentWindowMarketEventCount === 0
+            ? "rebuilding"
+            : "fresh_input";
+    const reason =
+      recoveryPhase === "stopped"
+        ? "The server-side bridge is stopped or not configured. No heartbeat or cached observation is treated as live."
+        : recoveryPhase === "starting"
+          ? "The server-side bridge is starting. Production scanning and alerts remain gated until real market records arrive."
+          : recoveryPhase === "reconnecting"
+            ? "The provider connection is recovering with bounded backoff. The prior analysis window is not trusted."
+            : recoveryPhase === "awaiting_live_event"
+              ? "Transport is present but no verified market event has arrived. Heartbeats do not satisfy market evidence."
+              : recoveryPhase === "rebuilding_window"
+                ? "The recovery window is rebuilding from new verified market events. Prior observations cannot restore freshness."
+                : "Transport, heartbeat, and a recent market event are present; independent scan and AlertMonitor gates still decide eligibility.";
+    return {
+      symbol: this.configuredSymbol,
+      connectionState: this.status.connectionState,
+      transportState,
+      reconnectState: this.status.reconnectState,
+      reconnectAttempt: this.status.reconnectAttempt,
+      heartbeatAt,
+      heartbeatAgeMs,
+      heartbeatFresh,
+      lastMarketEventAt,
+      marketEventAgeMs,
+      marketEventFresh,
+      schedulerState,
+      recoveryPhase,
+      recoveryWindowState,
+      reason,
     };
   }
 
@@ -3448,6 +3538,10 @@ export class DatabentoUniverseService extends EventEmitter {
    */
   getEngineeringScannerHealth(now = new Date()): EngineeringScannerHealth[] {
     return this.services.map((service) => service.getEngineeringScannerHealth(now));
+  }
+
+  getLifelineHealth(now = new Date()): DatabentoLifelineSymbolHealth[] {
+    return this.services.map((service) => service.getLifelineHealth(now));
   }
 
   start(): RadarStatus {

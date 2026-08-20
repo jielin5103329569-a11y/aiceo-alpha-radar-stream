@@ -56,30 +56,22 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/EngineeringGovernanceSnapshot"
-  /radar/connect:
-    post:
-      operationId: startRadarConnection
+  /radar/lifeline:
+    get:
+      operationId: getBackendLifeline
       tags: [radar]
-      summary: Start the server-side Databento live connection
+      summary: Read the server-owned backend lifeline health
+      description: >
+        Read-only backend ownership, transport, heartbeat, verified-market-event,
+        scheduler, recovery, alert-delivery, and persistence-boundary health.
+        Heartbeats and listener health are never represented as market evidence.
       responses:
         "200":
-          description: Updated radar state
+          description: Current server-owned backend lifeline
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/RadarStatus"
-  /radar/disconnect:
-    post:
-      operationId: stopRadarConnection
-      tags: [radar]
-      summary: Stop the server-side Databento live connection
-      responses:
-        "200":
-          description: Updated radar state
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/RadarStatus"
+                $ref: "#/components/schemas/BackendLifelineSnapshot"
   /radar/events:
     get:
       operationId: streamRadarEvents
@@ -1688,6 +1680,243 @@ components:
         - runtime
         - alerts
         - recommendations
+        - auditHash
+    DatabentoLifelineSymbolHealth:
+      type: object
+      properties:
+        symbol: { type: string }
+        connectionState:
+          $ref: "#/components/schemas/RadarConnectionState"
+        transportState:
+          type: string
+          enum: [offline, connecting, connected, streaming, error]
+        reconnectState:
+          $ref: "#/components/schemas/RadarReconnectState"
+        reconnectAttempt:
+          type: number
+          minimum: 0
+        heartbeatAt:
+          type: [string, "null"]
+          format: date-time
+        heartbeatAgeMs:
+          type: [number, "null"]
+          minimum: 0
+        heartbeatFresh: { type: boolean }
+        lastMarketEventAt:
+          type: [string, "null"]
+          format: date-time
+        marketEventAgeMs:
+          type: [number, "null"]
+          minimum: 0
+        marketEventFresh: { type: boolean }
+        schedulerState:
+          type: string
+          enum: [inactive, scheduled, delayed]
+        recoveryPhase:
+          type: string
+          enum: [stopped, starting, reconnecting, awaiting_live_event, rebuilding_window, running]
+        recoveryWindowState:
+          type: string
+          enum: [not_started, awaiting_event, rebuilding, fresh_input]
+        reason: { type: string }
+      required:
+        - symbol
+        - connectionState
+        - transportState
+        - reconnectState
+        - reconnectAttempt
+        - heartbeatAt
+        - heartbeatAgeMs
+        - heartbeatFresh
+        - lastMarketEventAt
+        - marketEventAgeMs
+        - marketEventFresh
+        - schedulerState
+        - recoveryPhase
+        - recoveryWindowState
+        - reason
+    BackendLifelineSnapshot:
+      type: object
+      description: >
+        Read-only server lifeline. Process/transport/heartbeat health never
+        grants market freshness, scoring, or Alert eligibility.
+      properties:
+        schemaVersion:
+          type: number
+          enum: [1]
+        observedAt:
+          type: string
+          format: date-time
+        overall:
+          type: object
+          properties:
+            state:
+              type: string
+              enum: [healthy, degraded, blocked]
+            reason: { type: string }
+          required: [state, reason]
+        owner:
+          type: object
+          properties:
+            serviceName: { type: string }
+            ownerId: { type: string }
+            processId: { type: number }
+            environment:
+              type: string
+              enum: [development, production, test]
+            port:
+              type: [number, "null"]
+            listenerState:
+              type: string
+              enum: [starting, listening, stopping, stopped, failed]
+            claimedAt:
+              type: [string, "null"]
+              format: date-time
+            listeningAt:
+              type: [string, "null"]
+              format: date-time
+            stoppedAt:
+              type: [string, "null"]
+              format: date-time
+            duplicateStartAttempts:
+              type: number
+              minimum: 0
+            lastError:
+              type: [string, "null"]
+          required: [serviceName, ownerId, processId, environment, port, listenerState, claimedAt, listeningAt, stoppedAt, duplicateStartAttempts, lastError]
+        transport:
+          type: object
+          properties:
+            state:
+              type: string
+              enum: [offline, connecting, connected, streaming, error, mixed]
+            configuredSymbols:
+              type: number
+              minimum: 0
+            streamingSymbols:
+              type: number
+              minimum: 0
+            errorSymbols:
+              type: number
+              minimum: 0
+            reason: { type: string }
+          required: [state, configuredSymbols, streamingSymbols, errorSymbols, reason]
+        heartbeat:
+          type: object
+          properties:
+            freshSymbols:
+              type: number
+              minimum: 0
+            staleSymbols:
+              type: number
+              minimum: 0
+            lastAt:
+              type: [string, "null"]
+              format: date-time
+            reason: { type: string }
+          required: [freshSymbols, staleSymbols, lastAt, reason]
+        marketEvents:
+          type: object
+          properties:
+            freshSymbols:
+              type: number
+              minimum: 0
+            staleSymbols:
+              type: number
+              minimum: 0
+            missingSymbols:
+              type: number
+              minimum: 0
+            reason: { type: string }
+          required: [freshSymbols, staleSymbols, missingSymbols, reason]
+        scanners:
+          type: object
+          properties:
+            scheduledSymbols:
+              type: number
+              minimum: 0
+            delayedSymbols:
+              type: number
+              minimum: 0
+            inactiveSymbols:
+              type: number
+              minimum: 0
+            reason: { type: string }
+          required: [scheduledSymbols, delayedSymbols, inactiveSymbols, reason]
+        recovery:
+          type: object
+          properties:
+            phase:
+              type: string
+              enum: [stopped, starting, reconnecting, awaiting_live_event, rebuilding_window, running]
+            rebuildingSymbols:
+              type: number
+              minimum: 0
+            reason: { type: string }
+          required: [phase, rebuildingSymbols, reason]
+        alertDelivery:
+          type: object
+          properties:
+            serviceRunning: { type: boolean }
+            capability:
+              type: string
+              enum: [available, unavailable]
+            deliveriesAttempted:
+              type: number
+              minimum: 0
+            deliveriesSucceeded:
+              type: number
+              minimum: 0
+            deliveriesSkipped:
+              type: number
+              minimum: 0
+            deliveriesFailed:
+              type: number
+              minimum: 0
+            reason: { type: string }
+          required: [serviceRunning, capability, deliveriesAttempted, deliveriesSucceeded, deliveriesSkipped, deliveriesFailed, reason]
+        persistenceBoundary:
+          type: object
+          properties:
+            alertRecords:
+              type: string
+              enum: [database]
+            userSubscriptions:
+              type: string
+              enum: [database]
+            deliveryAudit:
+              type: string
+              enum: [database]
+            marketWindow:
+              type: string
+              enum: [memory_rebuilt_after_restart]
+            scannerState:
+              type: string
+              enum: [memory_rebuilt_after_restart]
+            shadowLearning:
+              type: string
+              enum: [sidecar_not_on_lifeline]
+            reason: { type: string }
+          required: [alertRecords, userSubscriptions, deliveryAudit, marketWindow, scannerState, shadowLearning, reason]
+        symbols:
+          type: array
+          items:
+            $ref: "#/components/schemas/DatabentoLifelineSymbolHealth"
+        auditHash:
+          type: string
+      required:
+        - schemaVersion
+        - observedAt
+        - overall
+        - owner
+        - transport
+        - heartbeat
+        - marketEvents
+        - scanners
+        - recovery
+        - alertDelivery
+        - persistenceBoundary
+        - symbols
         - auditHash
     GovernanceLayerId:
       type: string

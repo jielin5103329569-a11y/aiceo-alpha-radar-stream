@@ -4,6 +4,7 @@ import {
   GetMarketUniverseResponse,
   GetFocusedScanStatusResponse,
   GetCatalystRadarResponse,
+  GetBackendLifelineResponse,
   GetEngineeringGovernanceResponse,
   GetOpportunityCenterResponse,
   GetRadarStatusResponse,
@@ -13,8 +14,6 @@ import {
   GetSignalValidationResponse,
   GetShadowLearningValidationQueryParams,
   GetShadowLearningValidationResponse,
-  StartRadarConnectionResponse,
-  StopRadarConnectionResponse,
 } from "@workspace/api-zod";
 
 import { databentoLive } from "../lib/databentoLive";
@@ -22,6 +21,8 @@ import { marketUniverse } from "../lib/marketUniverse";
 import { signalValidation } from "../lib/signalValidation";
 import { shadowLearning } from "../lib/shadowLearning";
 import { buildEngineeringGovernanceSnapshot } from "../lib/engineeringGovernance";
+import { backendLifeline } from "../lib/backendLifeline";
+import { alertService } from "../lib/alertService";
 
 const router: IRouter = Router();
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -34,6 +35,13 @@ router.get("/radar/engineering-governance", (_req: Request, res: Response): void
   res.json(GetEngineeringGovernanceResponse.parse(buildEngineeringGovernanceSnapshot({
     now: new Date(),
     protectedScanners: databentoLive.getEngineeringScannerHealth(),
+  })));
+});
+
+router.get("/radar/lifeline", (_req: Request, res: Response): void => {
+  res.json(GetBackendLifelineResponse.parse(backendLifeline.getSnapshot({
+    symbols: databentoLive.getLifelineHealth(),
+    alert: alertService.getHealth(),
   })));
 });
 
@@ -120,16 +128,6 @@ router.get("/radar/shadow-learning", async (req: Request, res: Response): Promis
   }
   const dashboard = await shadowLearning.getDashboard(parsed.data);
   res.json(GetShadowLearningValidationResponse.parse(dashboard));
-});
-
-router.post("/radar/connect", (req: Request, res: Response): void => {
-  req.log.info("Starting safe Databento live connection");
-  res.json(StartRadarConnectionResponse.parse(databentoLive.start()));
-});
-
-router.post("/radar/disconnect", (req: Request, res: Response): void => {
-  req.log.info("Stopping safe Databento live connection");
-  res.json(StopRadarConnectionResponse.parse(databentoLive.stop()));
 });
 
 router.get("/radar/events", (req: Request, res: Response): void => {

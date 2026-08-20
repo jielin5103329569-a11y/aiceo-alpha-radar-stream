@@ -22,6 +22,7 @@ import type {
 import type {
   AlertSettings,
   AlertsListResponse,
+  BackendLifelineSnapshot,
   CatalystRadarSnapshot,
   EngineeringGovernanceSnapshot,
   FocusedScanSnapshot,
@@ -302,23 +303,24 @@ export function useGetEngineeringGovernance<TData = Awaited<ReturnType<typeof ge
 
 
 
-export const getStartRadarConnectionUrl = () => {
+export const getGetBackendLifelineUrl = () => {
 
 
 
 
-  return `/api/radar/connect`
+  return `/api/radar/lifeline`
 }
 
 /**
- * @summary Start the server-side Databento live connection
+ * Read-only backend ownership, transport, heartbeat, verified-market-event, scheduler, recovery, alert-delivery, and persistence-boundary health. Heartbeats and listener health are never represented as market evidence.
+ * @summary Read the server-owned backend lifeline health
  */
-export const startRadarConnection = async ( options?: Parameters<typeof customFetch>[1]): Promise<RadarStatus> => {
+export const getBackendLifeline = async ( options?: Parameters<typeof customFetch>[1]): Promise<BackendLifelineSnapshot> => {
 
-  return customFetch<RadarStatus>(getStartRadarConnectionUrl(),
+  return customFetch<BackendLifelineSnapshot>(getGetBackendLifelineUrl(),
   {
     ...options,
-    method: 'POST'
+    method: 'GET'
 
 
   }
@@ -328,121 +330,56 @@ export const startRadarConnection = async ( options?: Parameters<typeof customFe
 
 
 
-export const getStartRadarConnectionMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof startRadarConnection>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof startRadarConnection>>, TError,void, TContext> => {
-
-const mutationKey = ['startRadarConnection'];
-const {mutation: mutationOptions, request: requestOptions} = options ?
-      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
-      options
-      : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, request: undefined};
-
-
-
-
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof startRadarConnection>>, void> = () => {
-
-
-          return  startRadarConnection(requestOptions)
-        }
-
-
-
-
-
-
-  return  { mutationFn, ...mutationOptions }}
-
-    export type StartRadarConnectionMutationResult = NonNullable<Awaited<ReturnType<typeof startRadarConnection>>>
-
-    export type StartRadarConnectionMutationError = ErrorType<unknown>
-
-    /**
- * @summary Start the server-side Databento live connection
- */
-export const useStartRadarConnection = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof startRadarConnection>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
- ): UseMutationResult<
-        Awaited<ReturnType<typeof startRadarConnection>>,
-        TError,
-        void,
-        TContext
-      > => {
-      return useMutation(getStartRadarConnectionMutationOptions(options));
+export const getGetBackendLifelineQueryKey = () => {
+    return [
+    `/api/radar/lifeline`
+    ] as const;
     }
 
-export const getStopRadarConnectionUrl = () => {
+
+export const getGetBackendLifelineQueryOptions = <TData = Awaited<ReturnType<typeof getBackendLifeline>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getBackendLifeline>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetBackendLifelineQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getBackendLifeline>>> = ({ signal }) => getBackendLifeline({ signal, ...requestOptions });
 
 
 
 
-  return `/api/radar/disconnect`
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getBackendLifeline>>, TError, TData> & { queryKey: QueryKey }
 }
 
+export type GetBackendLifelineQueryResult = NonNullable<Awaited<ReturnType<typeof getBackendLifeline>>>
+export type GetBackendLifelineQueryError = ErrorType<unknown>
+
+
 /**
- * @summary Stop the server-side Databento live connection
+ * @summary Read the server-owned backend lifeline health
  */
-export const stopRadarConnection = async ( options?: Parameters<typeof customFetch>[1]): Promise<RadarStatus> => {
 
-  return customFetch<RadarStatus>(getStopRadarConnectionUrl(),
-  {
-    ...options,
-    method: 'POST'
+export function useGetBackendLifeline<TData = Awaited<ReturnType<typeof getBackendLifeline>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getBackendLifeline>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
-  }
-);}
+  const queryOptions = getGetBackendLifelineQueryOptions(options)
 
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 
-
-
-
-export const getStopRadarConnectionMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof stopRadarConnection>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof stopRadarConnection>>, TError,void, TContext> => {
-
-const mutationKey = ['stopRadarConnection'];
-const {mutation: mutationOptions, request: requestOptions} = options ?
-      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
-      options
-      : {...options, mutation: {...options.mutation, mutationKey}}
-      : {mutation: { mutationKey, }, request: undefined};
-
-
-
-
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof stopRadarConnection>>, void> = () => {
-
-
-          return  stopRadarConnection(requestOptions)
-        }
+  return withQueryKey(query, queryOptions.queryKey);
+}
 
 
 
 
 
 
-  return  { mutationFn, ...mutationOptions }}
-
-    export type StopRadarConnectionMutationResult = NonNullable<Awaited<ReturnType<typeof stopRadarConnection>>>
-
-    export type StopRadarConnectionMutationError = ErrorType<unknown>
-
-    /**
- * @summary Stop the server-side Databento live connection
- */
-export const useStopRadarConnection = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof stopRadarConnection>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
- ): UseMutationResult<
-        Awaited<ReturnType<typeof stopRadarConnection>>,
-        TError,
-        void,
-        TContext
-      > => {
-      return useMutation(getStopRadarConnectionMutationOptions(options));
-    }
 
 export const getStreamRadarEventsUrl = () => {
 

@@ -1,8 +1,6 @@
 import React from 'react';
-import { useStartRadarConnection, useStopRadarConnection } from '@workspace/api-client-react';
 import { useRadarStream } from '@/hooks/use-radar-stream';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { RadarSignalPanel } from '@/components/radar-signal-panel';
 import { LiveIngestionAcceptanceCard } from '@/components/live-ingestion-acceptance-card';
@@ -10,6 +8,7 @@ import { SignalValidationPanel } from '@/components/signal-validation-panel';
 import { ShadowLearningStatusPanel } from '@/components/shadow-learning-status-panel';
 import { DataGovernanceCard } from '@/components/data-governance-card';
 import { EngineeringGovernanceCard } from '@/components/engineering-governance-card';
+import { BackendLifelineCard } from '@/components/backend-lifeline-card';
 import { AccountControls } from '@/components/account-controls';
 import { AccountAlerts } from '@/components/account-alerts';
 import { CatalystOpportunityCenter } from '@/components/catalyst-opportunity-center';
@@ -24,8 +23,6 @@ import {
   CircleAlert,
   Database,
   Gauge,
-  Power,
-  PowerOff,
   Radio,
   RefreshCw,
   ScanLine,
@@ -34,43 +31,12 @@ import {
   WifiOff,
   Zap,
 } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
 import type { AlphaRadarRankingSnapshot, FocusedScanSnapshot, MarketFeedState, MarketUniverseSummary, RadarConnectionState, RadarReconnectState, RadarSignal, RadarSnapshot, RadarStatus, RadarSymbolStatus } from '@workspace/api-client-react';
 
 export default function Dashboard() {
   const { status, isLoading, isError, transportState } = useRadarStream();
-  const startConnection = useStartRadarConnection();
-  const stopConnection = useStopRadarConnection();
-  const { toast } = useToast();
-
-  const isConnected = status?.connectionState === 'connected' || status?.connectionState === 'streaming';
-  const isConnecting = status?.connectionState === 'connecting';
   const isStopped = status?.connectionState === 'stopped';
   const isNotConfigured = status?.connectionState === 'not_configured';
-
-  const handleStart = () => {
-    startConnection.mutate(undefined, {
-      onError: (err) => {
-        toast({
-          title: "Failed to start stream",
-          description: "Check server configuration.",
-          variant: "destructive"
-        });
-      }
-    });
-  };
-
-  const handleStop = () => {
-    stopConnection.mutate(undefined, {
-      onError: (err) => {
-        toast({
-          title: "Failed to stop stream",
-          description: "Server may have already terminated the connection.",
-          variant: "destructive"
-        });
-      }
-    });
-  };
 
   if (isLoading && !status) {
     return (
@@ -124,33 +90,6 @@ export default function Dashboard() {
                 acceptanceState={status?.liveIngestion.acceptanceState}
               />
               <AccountControls />
-              
-              {isConnected ? (
-                <Button
-                  variant="outline" 
-                  size="sm" 
-                  className="gap-2"
-                  onClick={handleStop}
-                  disabled={stopConnection.isPending}
-                  data-testid="button-terminate-stream"
-                >
-                  <PowerOff className="h-4 w-4" />
-                  <span className="hidden sm:inline">Terminate Stream</span>
-                </Button>
-              ) : (
-                <Button
-                  size="sm" 
-                  className="gap-2"
-                  onClick={handleStart}
-                  disabled={startConnection.isPending || isConnecting}
-                  data-testid="button-engage-stream"
-                >
-                  <Power className="h-4 w-4" />
-                  <span className="hidden sm:inline">
-                    {isConnecting ? 'Connecting...' : 'Engage Stream'}
-                  </span>
-                </Button>
-              )}
             </div>
           </div>
         </div>
@@ -290,6 +229,7 @@ export default function Dashboard() {
 
           <RadarSignalPanel alphaRadar={status?.alphaRadar} scanHealth={status?.scanHealth} />
           <DataGovernanceCard governance={status?.governance} />
+          <BackendLifelineCard />
           <EngineeringGovernanceCard />
 
           <LiveIngestionAcceptanceCard diagnostics={status?.liveIngestion} />
