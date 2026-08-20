@@ -20,18 +20,25 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  AlertSettings,
+  AlertsListResponse,
   FocusedScanSnapshot,
+  GetAlertsParams,
   GetMarketUniverseParams,
   GetSignalValidationParams,
   HealthStatus,
   MarketUniverseResult,
+  PushCapability,
+  PushSubscriptionRequest,
   RadarStatus,
   SignalValidationAudit,
-  SignalValidationDashboard
+  SignalValidationDashboard,
+  TestNotificationResponse,
+  UpdateAlertSettingsRequest
 } from './api.schemas';
 
 import { customFetch } from '../custom-fetch';
-import type { ErrorType } from '../custom-fetch';
+import type { ErrorType , BodyType } from '../custom-fetch';
 
 type AwaitedInput<T> = PromiseLike<T> | T;
 
@@ -752,4 +759,739 @@ export function useGetSignalValidationAudit<TData = Awaited<ReturnType<typeof ge
 
 
 
+
+export const getGetAlertsUrl = (params?: GetAlertsParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/alerts?${stringifiedParams}` : `/api/alerts`
+}
+
+/**
+ * @summary List verified Alpha alerts with the current account's read state
+ */
+export const getAlerts = async (params?: GetAlertsParams, options?: Parameters<typeof customFetch>[1]): Promise<AlertsListResponse> => {
+
+  return customFetch<AlertsListResponse>(getGetAlertsUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetAlertsQueryKey = (params?: GetAlertsParams,) => {
+    return [
+    `/api/alerts`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetAlertsQueryOptions = <TData = Awaited<ReturnType<typeof getAlerts>>, TError = ErrorType<unknown>>(params?: GetAlertsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAlerts>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetAlertsQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getAlerts>>> = ({ signal }) => getAlerts(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getAlerts>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetAlertsQueryResult = NonNullable<Awaited<ReturnType<typeof getAlerts>>>
+export type GetAlertsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List verified Alpha alerts with the current account's read state
+ */
+
+export function useGetAlerts<TData = Awaited<ReturnType<typeof getAlerts>>, TError = ErrorType<unknown>>(
+ params?: GetAlertsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAlerts>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetAlertsQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetAlertSettingsUrl = () => {
+
+
+
+
+  return `/api/alerts/settings`
+}
+
+/**
+ * @summary Get account-scoped notification settings
+ */
+export const getAlertSettings = async ( options?: Parameters<typeof customFetch>[1]): Promise<AlertSettings> => {
+
+  return customFetch<AlertSettings>(getGetAlertSettingsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetAlertSettingsQueryKey = () => {
+    return [
+    `/api/alerts/settings`
+    ] as const;
+    }
+
+
+export const getGetAlertSettingsQueryOptions = <TData = Awaited<ReturnType<typeof getAlertSettings>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAlertSettings>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetAlertSettingsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getAlertSettings>>> = ({ signal }) => getAlertSettings({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getAlertSettings>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetAlertSettingsQueryResult = NonNullable<Awaited<ReturnType<typeof getAlertSettings>>>
+export type GetAlertSettingsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get account-scoped notification settings
+ */
+
+export function useGetAlertSettings<TData = Awaited<ReturnType<typeof getAlertSettings>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAlertSettings>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetAlertSettingsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getUpdateAlertSettingsUrl = () => {
+
+
+
+
+  return `/api/alerts/settings`
+}
+
+/**
+ * @summary Update account-scoped notification settings
+ */
+export const updateAlertSettings = async (updateAlertSettingsRequest: UpdateAlertSettingsRequest, options?: Parameters<typeof customFetch>[1]): Promise<AlertSettings> => {
+
+  return customFetch<AlertSettings>(getUpdateAlertSettingsUrl(),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(updateAlertSettingsRequest)
+  }
+);}
+
+
+
+
+
+export const getUpdateAlertSettingsMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateAlertSettings>>, TError,{data: BodyType<UpdateAlertSettingsRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateAlertSettings>>, TError,{data: BodyType<UpdateAlertSettingsRequest>}, TContext> => {
+
+const mutationKey = ['updateAlertSettings'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateAlertSettings>>, {data: BodyType<UpdateAlertSettingsRequest>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  updateAlertSettings(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateAlertSettingsMutationResult = NonNullable<Awaited<ReturnType<typeof updateAlertSettings>>>
+    export type UpdateAlertSettingsMutationBody = BodyType<UpdateAlertSettingsRequest>
+    export type UpdateAlertSettingsMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Update account-scoped notification settings
+ */
+export const useUpdateAlertSettings = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateAlertSettings>>, TError,{data: BodyType<UpdateAlertSettingsRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateAlertSettings>>,
+        TError,
+        {data: BodyType<UpdateAlertSettingsRequest>},
+        TContext
+      > => {
+      return useMutation(getUpdateAlertSettingsMutationOptions(options));
+    }
+
+export const getMarkAllAlertsReadUrl = () => {
+
+
+
+
+  return `/api/alerts/read-all`
+}
+
+/**
+ * @summary Mark the latest alert history as read for the current account
+ */
+export const markAllAlertsRead = async ( options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+  return customFetch<void>(getMarkAllAlertsReadUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getMarkAllAlertsReadMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof markAllAlertsRead>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof markAllAlertsRead>>, TError,void, TContext> => {
+
+const mutationKey = ['markAllAlertsRead'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof markAllAlertsRead>>, void> = () => {
+
+
+          return  markAllAlertsRead(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type MarkAllAlertsReadMutationResult = NonNullable<Awaited<ReturnType<typeof markAllAlertsRead>>>
+
+    export type MarkAllAlertsReadMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Mark the latest alert history as read for the current account
+ */
+export const useMarkAllAlertsRead = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof markAllAlertsRead>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof markAllAlertsRead>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getMarkAllAlertsReadMutationOptions(options));
+    }
+
+export const getMarkAlertReadUrl = (alertId: string,) => {
+
+
+
+
+  return `/api/alerts/${alertId}/read`
+}
+
+/**
+ * @summary Mark one alert as read for the current account
+ */
+export const markAlertRead = async (alertId: string, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+  return customFetch<void>(getMarkAlertReadUrl(alertId),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getMarkAlertReadMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof markAlertRead>>, TError,{alertId: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof markAlertRead>>, TError,{alertId: string}, TContext> => {
+
+const mutationKey = ['markAlertRead'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof markAlertRead>>, {alertId: string}> = (props) => {
+          const {alertId} = props ?? {};
+
+          return  markAlertRead(alertId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type MarkAlertReadMutationResult = NonNullable<Awaited<ReturnType<typeof markAlertRead>>>
+
+    export type MarkAlertReadMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Mark one alert as read for the current account
+ */
+export const useMarkAlertRead = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof markAlertRead>>, TError,{alertId: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof markAlertRead>>,
+        TError,
+        {alertId: string},
+        TContext
+      > => {
+      return useMutation(getMarkAlertReadMutationOptions(options));
+    }
+
+export const getAcknowledgeAlertUrl = (alertId: string,) => {
+
+
+
+
+  return `/api/alerts/${alertId}/acknowledge`
+}
+
+/**
+ * @summary Acknowledge one alert for the current account
+ */
+export const acknowledgeAlert = async (alertId: string, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+  return customFetch<void>(getAcknowledgeAlertUrl(alertId),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getAcknowledgeAlertMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof acknowledgeAlert>>, TError,{alertId: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof acknowledgeAlert>>, TError,{alertId: string}, TContext> => {
+
+const mutationKey = ['acknowledgeAlert'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof acknowledgeAlert>>, {alertId: string}> = (props) => {
+          const {alertId} = props ?? {};
+
+          return  acknowledgeAlert(alertId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AcknowledgeAlertMutationResult = NonNullable<Awaited<ReturnType<typeof acknowledgeAlert>>>
+
+    export type AcknowledgeAlertMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Acknowledge one alert for the current account
+ */
+export const useAcknowledgeAlert = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof acknowledgeAlert>>, TError,{alertId: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof acknowledgeAlert>>,
+        TError,
+        {alertId: string},
+        TContext
+      > => {
+      return useMutation(getAcknowledgeAlertMutationOptions(options));
+    }
+
+export const getGetPushCapabilityUrl = () => {
+
+
+
+
+  return `/api/alerts/push-capability`
+}
+
+/**
+ * @summary Get Web Push capability without exposing VAPID private material
+ */
+export const getPushCapability = async ( options?: Parameters<typeof customFetch>[1]): Promise<PushCapability> => {
+
+  return customFetch<PushCapability>(getGetPushCapabilityUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetPushCapabilityQueryKey = () => {
+    return [
+    `/api/alerts/push-capability`
+    ] as const;
+    }
+
+
+export const getGetPushCapabilityQueryOptions = <TData = Awaited<ReturnType<typeof getPushCapability>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPushCapability>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetPushCapabilityQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getPushCapability>>> = ({ signal }) => getPushCapability({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getPushCapability>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetPushCapabilityQueryResult = NonNullable<Awaited<ReturnType<typeof getPushCapability>>>
+export type GetPushCapabilityQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get Web Push capability without exposing VAPID private material
+ */
+
+export function useGetPushCapability<TData = Awaited<ReturnType<typeof getPushCapability>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPushCapability>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetPushCapabilityQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreatePushSubscriptionUrl = () => {
+
+
+
+
+  return `/api/alerts/push-subscriptions`
+}
+
+/**
+ * @summary Save or reactivate a Web Push subscription for the current account
+ */
+export const createPushSubscription = async (pushSubscriptionRequest: PushSubscriptionRequest, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+  return customFetch<void>(getCreatePushSubscriptionUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(pushSubscriptionRequest)
+  }
+);}
+
+
+
+
+
+export const getCreatePushSubscriptionMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createPushSubscription>>, TError,{data: BodyType<PushSubscriptionRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createPushSubscription>>, TError,{data: BodyType<PushSubscriptionRequest>}, TContext> => {
+
+const mutationKey = ['createPushSubscription'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createPushSubscription>>, {data: BodyType<PushSubscriptionRequest>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createPushSubscription(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreatePushSubscriptionMutationResult = NonNullable<Awaited<ReturnType<typeof createPushSubscription>>>
+    export type CreatePushSubscriptionMutationBody = BodyType<PushSubscriptionRequest>
+    export type CreatePushSubscriptionMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Save or reactivate a Web Push subscription for the current account
+ */
+export const useCreatePushSubscription = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createPushSubscription>>, TError,{data: BodyType<PushSubscriptionRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createPushSubscription>>,
+        TError,
+        {data: BodyType<PushSubscriptionRequest>},
+        TContext
+      > => {
+      return useMutation(getCreatePushSubscriptionMutationOptions(options));
+    }
+
+export const getDeletePushSubscriptionUrl = (subscriptionId: string,) => {
+
+
+
+
+  return `/api/alerts/push-subscriptions/${subscriptionId}`
+}
+
+/**
+ * @summary Deactivate one owned Push subscription
+ */
+export const deletePushSubscription = async (subscriptionId: string, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+  return customFetch<void>(getDeletePushSubscriptionUrl(subscriptionId),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeletePushSubscriptionMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deletePushSubscription>>, TError,{subscriptionId: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deletePushSubscription>>, TError,{subscriptionId: string}, TContext> => {
+
+const mutationKey = ['deletePushSubscription'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deletePushSubscription>>, {subscriptionId: string}> = (props) => {
+          const {subscriptionId} = props ?? {};
+
+          return  deletePushSubscription(subscriptionId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeletePushSubscriptionMutationResult = NonNullable<Awaited<ReturnType<typeof deletePushSubscription>>>
+
+    export type DeletePushSubscriptionMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Deactivate one owned Push subscription
+ */
+export const useDeletePushSubscription = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deletePushSubscription>>, TError,{subscriptionId: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deletePushSubscription>>,
+        TError,
+        {subscriptionId: string},
+        TContext
+      > => {
+      return useMutation(getDeletePushSubscriptionMutationOptions(options));
+    }
+
+export const getSendAlertTestNotificationUrl = () => {
+
+
+
+
+  return `/api/alerts/test-notification`
+}
+
+/**
+ * @summary Send a non-market test Push notification to the current account
+ */
+export const sendAlertTestNotification = async ( options?: Parameters<typeof customFetch>[1]): Promise<TestNotificationResponse> => {
+
+  return customFetch<TestNotificationResponse>(getSendAlertTestNotificationUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getSendAlertTestNotificationMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof sendAlertTestNotification>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof sendAlertTestNotification>>, TError,void, TContext> => {
+
+const mutationKey = ['sendAlertTestNotification'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof sendAlertTestNotification>>, void> = () => {
+
+
+          return  sendAlertTestNotification(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SendAlertTestNotificationMutationResult = NonNullable<Awaited<ReturnType<typeof sendAlertTestNotification>>>
+
+    export type SendAlertTestNotificationMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Send a non-market test Push notification to the current account
+ */
+export const useSendAlertTestNotification = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof sendAlertTestNotification>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof sendAlertTestNotification>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getSendAlertTestNotificationMutationOptions(options));
+    }
 

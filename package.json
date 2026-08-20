@@ -12,7 +12,9 @@
     "test:databento-live": "node scripts/test-databento-live.mjs",
     "test:focused-scan-routing": "node scripts/test-focused-scan-routing.mjs",
     "test:signal-validation": "node scripts/test-signal-validation.mjs",
-    "test:signal-validation-db": "node scripts/test-signal-validation-db.mjs"
+    "test:signal-validation-db": "node scripts/test-signal-validation-db.mjs",
+    "test:alert-monitor": "node scripts/test-alert-monitor.mjs",
+    "test:alert-service": "node scripts/test-alert-service.mjs"
   },
   "private": true,
   "dependencies": {

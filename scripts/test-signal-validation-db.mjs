@@ -1,6 +1,13 @@
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
-import { cpSync, mkdirSync, mkdtempSync, rmSync } from "node:fs";
+import {
+  copyFileSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -20,12 +27,32 @@ const outputPath = join(outputDirectory, "signal-validation-db-integration.mjs")
 const hostReplacementOutputPath = join(outputDirectory, "signal-validation-host-replacement.mjs");
 const schema = `signal_validation_test_${process.pid}_${Date.now()}`;
 const adminClient = new Client({ connectionString: process.env.DATABASE_URL });
+const validationMigrationTag = "0000_signal-validation";
+
+function copyValidationMigrations(sourceDir, targetDir) {
+  const sourceMetaDir = join(sourceDir, "meta");
+  const targetMetaDir = join(targetDir, "meta");
+  const journal = JSON.parse(readFileSync(join(sourceMetaDir, "_journal.json"), "utf8"));
+  mkdirSync(targetMetaDir, { recursive: true });
+  copyFileSync(
+    join(sourceDir, `${validationMigrationTag}.sql`),
+    join(targetDir, `${validationMigrationTag}.sql`),
+  );
+  copyFileSync(join(sourceMetaDir, "0000_snapshot.json"), join(targetMetaDir, "0000_snapshot.json"));
+  writeFileSync(
+    join(targetMetaDir, "_journal.json"),
+    `${JSON.stringify({
+      ...journal,
+      entries: journal.entries.filter((entry) => entry.tag === validationMigrationTag),
+    }, null, 2)}\n`,
+  );
+}
 
 try {
   await adminClient.connect();
   await adminClient.query(`CREATE SCHEMA "${schema}"`);
 
-  cpSync(resolve("lib/db/drizzle"), migrationsFolder, { recursive: true });
+  copyValidationMigrations(resolve("lib/db/drizzle"), migrationsFolder);
   await build({
     entryPoints: [
       resolve("scripts/signal-validation-db-integration.ts"),

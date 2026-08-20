@@ -2712,3 +2712,148 @@ export const GetSignalValidationAuditResponse = zod.object({
 })
 
 
+/**
+ * @summary List verified Alpha alerts with the current account's read state
+ */
+export const getAlertsQueryLimitDefault = 50;
+export const getAlertsQueryLimitMax = 100;
+
+
+
+export const GetAlertsQueryParams = zod.object({
+  "limit": zod.coerce.number().int().min(1).max(getAlertsQueryLimitMax).default(getAlertsQueryLimitDefault)
+})
+
+export const GetAlertsResponse = zod.object({
+  "alerts": zod.array(zod.object({
+  "id": zod.string(),
+  "eventKey": zod.string(),
+  "symbol": zod.string(),
+  "severity": zod.enum(['info', 'watch', 'alert', 'critical']),
+  "triggerReason": zod.string(),
+  "detectionState": zod.string(),
+  "confirmationStatus": zod.string(),
+  "alphaScore": zod.number(),
+  "alphaVelocity30s": zod.number().nullish(),
+  "confidence": zod.number(),
+  "triggerPrice": zod.number().nullish(),
+  "preBreakoutState": zod.string(),
+  "satisfiedEvidence": zod.array(zod.string()),
+  "missingEvidence": zod.array(zod.string()),
+  "generatedAt": zod.coerce.date(),
+  "readAt": zod.coerce.date().nullable(),
+  "acknowledgedAt": zod.coerce.date().nullable()
+}))
+})
+
+
+/**
+ * @summary Get account-scoped notification settings
+ */
+export const GetAlertSettingsResponse = zod.object({
+  "browserNotificationsEnabled": zod.boolean(),
+  "inAppNotificationsEnabled": zod.boolean(),
+  "minimumSeverity": zod.enum(['info', 'watch', 'alert', 'critical']),
+  "quietHoursStart": zod.string().nullable(),
+  "quietHoursEnd": zod.string().nullable(),
+  "timezone": zod.string().nullable(),
+  "globalOptOut": zod.boolean()
+})
+
+
+/**
+ * @summary Update account-scoped notification settings
+ */
+export const UpdateAlertSettingsBody = zod.object({
+  "browserNotificationsEnabled": zod.boolean(),
+  "minimumTier": zod.enum(['confirmed', 'pre_breakout', 'accelerating', 'watch']),
+  "notifyOnWatch": zod.boolean()
+})
+
+export const UpdateAlertSettingsResponse = zod.object({
+  "browserNotificationsEnabled": zod.boolean(),
+  "inAppNotificationsEnabled": zod.boolean(),
+  "minimumSeverity": zod.enum(['info', 'watch', 'alert', 'critical']),
+  "quietHoursStart": zod.string().nullable(),
+  "quietHoursEnd": zod.string().nullable(),
+  "timezone": zod.string().nullable(),
+  "globalOptOut": zod.boolean()
+})
+
+
+/**
+ * @summary Mark the latest alert history as read for the current account
+ */
+export const MarkAllAlertsReadResponse = zod.void()
+
+
+/**
+ * @summary Mark one alert as read for the current account
+ */
+export const MarkAlertReadParams = zod.object({
+  "alertId": zod.coerce.string()
+})
+
+export const MarkAlertReadResponse = zod.void()
+
+
+/**
+ * @summary Acknowledge one alert for the current account
+ */
+export const AcknowledgeAlertParams = zod.object({
+  "alertId": zod.coerce.string()
+})
+
+export const AcknowledgeAlertResponse = zod.void()
+
+
+/**
+ * @summary Get Web Push capability without exposing VAPID private material
+ */
+export const GetPushCapabilityResponse = zod.union([zod.object({
+  "available": zod.literal(true),
+  "publicKey": zod.string()
+}),zod.object({
+  "available": zod.literal(false),
+  "reason": zod.string()
+})])
+
+
+/**
+ * @summary Save or reactivate a Web Push subscription for the current account
+ */
+export const createPushSubscriptionBodyDeviceLabelMax = 120;
+
+
+
+export const CreatePushSubscriptionBody = zod.object({
+  "endpoint": zod.string(),
+  "keys": zod.object({
+  "p256dh": zod.string(),
+  "auth": zod.string()
+}),
+  "deviceLabel": zod.string().max(createPushSubscriptionBodyDeviceLabelMax).optional()
+})
+
+export const CreatePushSubscriptionResponse = zod.void()
+
+
+/**
+ * @summary Deactivate one owned Push subscription
+ */
+export const DeletePushSubscriptionParams = zod.object({
+  "subscriptionId": zod.coerce.string()
+})
+
+export const DeletePushSubscriptionResponse = zod.void()
+
+
+/**
+ * @summary Send a non-market test Push notification to the current account
+ */
+export const SendAlertTestNotificationResponse = zod.object({
+  "status": zod.enum(['sent', 'unavailable', 'no_subscriptions', 'failed']),
+  "attempted": zod.number()
+})
+
+

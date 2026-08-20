@@ -3,12 +3,40 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { build as esbuild } from "esbuild";
 import esbuildPluginPino from "esbuild-plugin-pino";
-import { copyFile, cp, rm } from "node:fs/promises";
+import { copyFile, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 
 // Plugins (e.g. 'esbuild-plugin-pino') may use `require` to resolve dependencies
 globalThis.require = createRequire(import.meta.url);
 
 const artifactDir = path.dirname(fileURLToPath(import.meta.url));
+const validationMigrationTag = "0000_signal-validation";
+
+async function copyValidationMigrations(distDir) {
+  const sourceDir = path.resolve(artifactDir, "../../lib/db/drizzle");
+  const targetDir = path.resolve(distDir, "db-migrations");
+  const sourceMetaDir = path.join(sourceDir, "meta");
+  const targetMetaDir = path.join(targetDir, "meta");
+  const sourceJournal = JSON.parse(
+    await readFile(path.join(sourceMetaDir, "_journal.json"), "utf8"),
+  );
+
+  await mkdir(targetMetaDir, { recursive: true });
+  await copyFile(
+    path.join(sourceDir, `${validationMigrationTag}.sql`),
+    path.join(targetDir, `${validationMigrationTag}.sql`),
+  );
+  await copyFile(
+    path.join(sourceMetaDir, "0000_snapshot.json"),
+    path.join(targetMetaDir, "0000_snapshot.json"),
+  );
+  await writeFile(
+    path.join(targetMetaDir, "_journal.json"),
+    `${JSON.stringify({
+      ...sourceJournal,
+      entries: sourceJournal.entries.filter((entry) => entry.tag === validationMigrationTag),
+    }, null, 2)}\n`,
+  );
+}
 
 async function buildAll() {
   const distDir = path.resolve(artifactDir, "dist");
@@ -127,11 +155,10 @@ globalThis.__dirname = __bannerPath.dirname(globalThis.__filename);
     path.resolve(artifactDir, "src/lib/databento_reference_bridge.py"),
     path.resolve(distDir, "databento_reference_bridge.py"),
   );
-  await cp(
-    path.resolve(artifactDir, "../../lib/db/drizzle"),
-    path.resolve(distDir, "db-migrations"),
-    { recursive: true },
-  );
+  // Validation's runtime recovery owns only its archive schema migration.
+  // Alert tables are managed by the workspace migration/publish flow, never
+  // replayed as part of a live host's recovery loop.
+  await copyValidationMigrations(distDir);
 }
 
 buildAll().catch((err) => {

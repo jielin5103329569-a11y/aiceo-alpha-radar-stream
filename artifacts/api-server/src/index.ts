@@ -1,6 +1,7 @@
 import app from "./app";
 import { logger } from "./lib/logger";
 import { marketUniverse } from "./lib/marketUniverse";
+import { alertService } from "./lib/alertService";
 
 const rawPort = process.env["PORT"];
 
@@ -24,4 +25,5 @@ app.listen(port, (err) => {
 
   logger.info({ port }, "Server listening");
   marketUniverse.start();
+  alertService.start();
 });

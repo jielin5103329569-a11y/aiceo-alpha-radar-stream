@@ -12,6 +12,8 @@ tags:
     description: Health operations
   - name: radar
     description: Safe market data connection and stream status
+  - name: alerts
+    description: Account-scoped verified Alpha alerts and notification settings
 paths:
   /healthz:
     get:
@@ -189,8 +191,231 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/SignalValidationAudit"
+  /alerts:
+    get:
+      operationId: getAlerts
+      tags: [alerts]
+      summary: List verified Alpha alerts with the current account's read state
+      parameters:
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+      responses:
+        "200":
+          description: Account-scoped alert history
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AlertsListResponse"
+  /alerts/settings:
+    get:
+      operationId: getAlertSettings
+      tags: [alerts]
+      summary: Get account-scoped notification settings
+      responses:
+        "200":
+          description: Notification settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AlertSettings"
+    put:
+      operationId: updateAlertSettings
+      tags: [alerts]
+      summary: Update account-scoped notification settings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateAlertSettingsRequest"
+      responses:
+        "200":
+          description: Updated notification settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AlertSettings"
+  /alerts/read-all:
+    post:
+      operationId: markAllAlertsRead
+      tags: [alerts]
+      summary: Mark the latest alert history as read for the current account
+      responses:
+        "204":
+          description: Alerts marked as read
+  /alerts/{alertId}/read:
+    post:
+      operationId: markAlertRead
+      tags: [alerts]
+      summary: Mark one alert as read for the current account
+      parameters:
+        - $ref: "#/components/parameters/AlertId"
+      responses:
+        "204":
+          description: Alert marked as read
+  /alerts/{alertId}/acknowledge:
+    post:
+      operationId: acknowledgeAlert
+      tags: [alerts]
+      summary: Acknowledge one alert for the current account
+      parameters:
+        - $ref: "#/components/parameters/AlertId"
+      responses:
+        "204":
+          description: Alert acknowledged
+  /alerts/push-capability:
+    get:
+      operationId: getPushCapability
+      tags: [alerts]
+      summary: Get Web Push capability without exposing VAPID private material
+      responses:
+        "200":
+          description: Push capability
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PushCapability"
+  /alerts/push-subscriptions:
+    post:
+      operationId: createPushSubscription
+      tags: [alerts]
+      summary: Save or reactivate a Web Push subscription for the current account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PushSubscriptionRequest"
+      responses:
+        "204":
+          description: Subscription saved
+  /alerts/push-subscriptions/{subscriptionId}:
+    delete:
+      operationId: deletePushSubscription
+      tags: [alerts]
+      summary: Deactivate one owned Push subscription
+      parameters:
+        - in: path
+          name: subscriptionId
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Subscription deactivated
+  /alerts/test-notification:
+    post:
+      operationId: sendAlertTestNotification
+      tags: [alerts]
+      summary: Send a non-market test Push notification to the current account
+      responses:
+        "200":
+          description: Test delivery result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TestNotificationResponse"
 components:
+  parameters:
+    AlertId:
+      in: path
+      name: alertId
+      required: true
+      schema:
+        type: string
   schemas:
+    AlertSeverity:
+      type: string
+      enum: [info, watch, alert, critical]
+    VerifiedAlphaAlert:
+      type: object
+      required: [id, eventKey, symbol, severity, triggerReason, detectionState, confirmationStatus, alphaScore, confidence, preBreakoutState, satisfiedEvidence, missingEvidence, generatedAt, readAt, acknowledgedAt]
+      properties:
+        id: { type: string }
+        eventKey: { type: string }
+        symbol: { type: string }
+        severity: { $ref: "#/components/schemas/AlertSeverity" }
+        triggerReason: { type: string }
+        detectionState: { type: string }
+        confirmationStatus: { type: string }
+        alphaScore: { type: number }
+        alphaVelocity30s: { type: [number, "null"] }
+        confidence: { type: number }
+        triggerPrice: { type: [number, "null"] }
+        preBreakoutState: { type: string }
+        satisfiedEvidence:
+          type: array
+          items: { type: string }
+        missingEvidence:
+          type: array
+          items: { type: string }
+        generatedAt: { type: string, format: date-time }
+        readAt: { type: [string, "null"], format: date-time }
+        acknowledgedAt: { type: [string, "null"], format: date-time }
+    AlertsListResponse:
+      type: object
+      required: [alerts]
+      properties:
+        alerts:
+          type: array
+          items: { $ref: "#/components/schemas/VerifiedAlphaAlert" }
+    AlertSettings:
+      type: object
+      required: [browserNotificationsEnabled, inAppNotificationsEnabled, minimumSeverity, quietHoursStart, quietHoursEnd, timezone, globalOptOut]
+      properties:
+        browserNotificationsEnabled: { type: boolean }
+        inAppNotificationsEnabled: { type: boolean }
+        minimumSeverity: { $ref: "#/components/schemas/AlertSeverity" }
+        quietHoursStart: { type: [string, "null"] }
+        quietHoursEnd: { type: [string, "null"] }
+        timezone: { type: [string, "null"] }
+        globalOptOut: { type: boolean }
+    UpdateAlertSettingsRequest:
+      type: object
+      required: [browserNotificationsEnabled, minimumTier, notifyOnWatch]
+      properties:
+        browserNotificationsEnabled: { type: boolean }
+        minimumTier:
+          type: string
+          enum: [confirmed, pre_breakout, accelerating, watch]
+        notifyOnWatch: { type: boolean }
+    PushCapability:
+      oneOf:
+        - type: object
+          required: [available, publicKey]
+          properties:
+            available: { const: true }
+            publicKey: { type: string }
+        - type: object
+          required: [available, reason]
+          properties:
+            available: { const: false }
+            reason: { type: string }
+    PushSubscriptionRequest:
+      type: object
+      required: [endpoint, keys]
+      properties:
+        endpoint: { type: string }
+        keys:
+          type: object
+          required: [p256dh, auth]
+          properties:
+            p256dh: { type: string }
+            auth: { type: string }
+        deviceLabel: { type: string, maxLength: 120 }
+    TestNotificationResponse:
+      type: object
+      required: [status, attempted]
+      properties:
+        status:
+          type: string
+          enum: [sent, unavailable, no_subscriptions, failed]
+        attempted: { type: number }
     HealthStatus:
       type: object
       properties:

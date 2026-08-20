@@ -5,6 +5,108 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+export type AlertSeverity = typeof AlertSeverity[keyof typeof AlertSeverity];
+
+
+export const AlertSeverity = {
+  info: 'info',
+  watch: 'watch',
+  alert: 'alert',
+  critical: 'critical',
+} as const;
+
+export interface VerifiedAlphaAlert {
+  id: string;
+  eventKey: string;
+  symbol: string;
+  severity: AlertSeverity;
+  triggerReason: string;
+  detectionState: string;
+  confirmationStatus: string;
+  alphaScore: number;
+  /** @nullable */
+  alphaVelocity30s?: number | null;
+  confidence: number;
+  /** @nullable */
+  triggerPrice?: number | null;
+  preBreakoutState: string;
+  satisfiedEvidence: string[];
+  missingEvidence: string[];
+  generatedAt: string;
+  /** @nullable */
+  readAt: string | null;
+  /** @nullable */
+  acknowledgedAt: string | null;
+}
+
+export interface AlertsListResponse {
+  alerts: VerifiedAlphaAlert[];
+}
+
+export interface AlertSettings {
+  browserNotificationsEnabled: boolean;
+  inAppNotificationsEnabled: boolean;
+  minimumSeverity: AlertSeverity;
+  /** @nullable */
+  quietHoursStart: string | null;
+  /** @nullable */
+  quietHoursEnd: string | null;
+  /** @nullable */
+  timezone: string | null;
+  globalOptOut: boolean;
+}
+
+export type UpdateAlertSettingsRequestMinimumTier = typeof UpdateAlertSettingsRequestMinimumTier[keyof typeof UpdateAlertSettingsRequestMinimumTier];
+
+
+export const UpdateAlertSettingsRequestMinimumTier = {
+  confirmed: 'confirmed',
+  pre_breakout: 'pre_breakout',
+  accelerating: 'accelerating',
+  watch: 'watch',
+} as const;
+
+export interface UpdateAlertSettingsRequest {
+  browserNotificationsEnabled: boolean;
+  minimumTier: UpdateAlertSettingsRequestMinimumTier;
+  notifyOnWatch: boolean;
+}
+
+export type PushCapability = {
+  available: true;
+  publicKey: string;
+} | {
+  available: false;
+  reason: string;
+};
+
+export type PushSubscriptionRequestKeys = {
+  p256dh: string;
+  auth: string;
+};
+
+export interface PushSubscriptionRequest {
+  endpoint: string;
+  keys: PushSubscriptionRequestKeys;
+  /** @maxLength 120 */
+  deviceLabel?: string;
+}
+
+export type TestNotificationResponseStatus = typeof TestNotificationResponseStatus[keyof typeof TestNotificationResponseStatus];
+
+
+export const TestNotificationResponseStatus = {
+  sent: 'sent',
+  unavailable: 'unavailable',
+  no_subscriptions: 'no_subscriptions',
+  failed: 'failed',
+} as const;
+
+export interface TestNotificationResponse {
+  status: TestNotificationResponseStatus;
+  attempted: number;
+}
+
 export interface HealthStatus {
   status: string;
 }
@@ -1288,3 +1390,11 @@ export const GetSignalValidationHorizonDays = {
   NUMBER_10: 10,
   NUMBER_20: 20,
 } as const;
+
+export type GetAlertsParams = {
+/**
+ * @minimum 1
+ * @maximum 100
+ */
+limit?: number;
+};

@@ -216,6 +216,8 @@ export type RadarSymbolStatus = {
   signalHistory: AlphaRadarSignalHistoryEntry[];
   market: RadarStatus["market"];
   liveIngestion: LiveIngestionDiagnostics;
+  /** Per-symbol stream states — required for fail-closed stream-receiving gate. */
+  streams: RadarStatus["streams"];
   error: string | null;
 };
 
@@ -1977,6 +1979,7 @@ function toSymbolStatus(status: RadarStatus): RadarSymbolStatus {
     signalHistory: status.signalHistory,
     market: status.market,
     liveIngestion: status.liveIngestion,
+    streams: status.streams,
     error: status.error,
   };
 }

@@ -7,6 +7,8 @@ import { Badge } from '@/components/ui/badge';
 import { RadarSignalPanel } from '@/components/radar-signal-panel';
 import { LiveIngestionAcceptanceCard } from '@/components/live-ingestion-acceptance-card';
 import { SignalValidationPanel } from '@/components/signal-validation-panel';
+import { AccountControls } from '@/components/account-controls';
+import { AccountAlerts } from '@/components/account-alerts';
 import { formatAge, formatNumber, formatPercent, formatTime, cn } from '@/lib/utils';
 import {
   AlertCircle,
@@ -96,7 +98,7 @@ export default function Dashboard() {
       {/* Header */}
       <header className="sticky top-0 z-10 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex h-16 items-center justify-between">
+            <div className="flex h-16 items-center justify-between gap-3">
             <div className="flex items-center gap-3">
               <div className="flex h-8 w-8 items-center justify-center rounded bg-primary/10 text-primary">
                 <Activity className="h-5 w-5" />
@@ -109,8 +111,9 @@ export default function Dashboard() {
               </div>
             </div>
             
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 sm:gap-4">
               <MarketFeedStatusBadge state={status?.marketFeedState} error={isError} />
+              <AccountControls />
               
               {isConnected ? (
                 <Button
@@ -275,6 +278,7 @@ export default function Dashboard() {
           <LiveIngestionAcceptanceCard diagnostics={status?.liveIngestion} />
 
           <SignalValidationPanel />
+          <AccountAlerts />
 
           <RadarUniverseCard
             symbols={status?.symbolRadars ?? []}
