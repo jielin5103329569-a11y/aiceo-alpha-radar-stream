@@ -20,6 +20,7 @@ export type SectorPriorityMember = {
   eligibility: AlphaRadarRankingEntry["eligibility"];
   marketDataState: RadarSymbolStatus["scanHealth"]["marketDataState"];
   preBreakoutState: RadarSymbolStatus["alphaRadar"]["preBreakout"]["state"];
+  confirmationStatus: RadarSymbolStatus["alphaRadar"]["preBreakout"]["confirmation"]["status"];
   reason: string;
 };
 
@@ -391,6 +392,7 @@ export function buildSectorPriority(input: SectorPriorityInput): SectorPriorityS
         eligibility: context.ranking?.eligibility ?? "ineligible",
         marketDataState: context.status.scanHealth.marketDataState,
         preBreakoutState: context.status.alphaRadar.preBreakout.state,
+         confirmationStatus: context.status.alphaRadar.preBreakout.confirmation.status,
         reason: memberReason(context),
         };
       })

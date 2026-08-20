@@ -421,6 +421,10 @@ components:
         preBreakoutState: { type: string }
         sector: { type: [string, "null"] }
         industry: { type: [string, "null"] }
+        sectorLeaderContext:
+          oneOf:
+            - $ref: "#/components/schemas/AlertSectorLeaderContext"
+            - type: "null"
         satisfiedEvidence:
           type: array
           items: { type: string }
@@ -1549,6 +1553,27 @@ components:
     SectorPriorityCandidateStage:
       type: string
       enum: [candidate, pre_breakout, withheld]
+    AlertSectorLeaderGrade:
+      type: string
+      enum: [strong, watch]
+    AlertSectorLeader:
+      type: object
+      properties:
+        rank: { type: number, minimum: 1, maximum: 5 }
+        symbol: { type: string }
+        grade: { $ref: "#/components/schemas/AlertSectorLeaderGrade" }
+      required: [rank, symbol, grade]
+    AlertSectorLeaderContext:
+      type: object
+      properties:
+        sector: { type: string }
+        leaders:
+          type: array
+          minItems: 1
+          maxItems: 5
+          items: { $ref: "#/components/schemas/AlertSectorLeader" }
+        strongestBreakoutSymbol: { type: [string, "null"] }
+      required: [sector, leaders, strongestBreakoutSymbol]
     SectorPriorityCoverage:
       type: object
       properties:
@@ -1582,6 +1607,7 @@ components:
         eligibility: { $ref: "#/components/schemas/AlphaRankingEligibility" }
         marketDataState: { $ref: "#/components/schemas/ProtectedScanMarketDataState" }
         preBreakoutState: { $ref: "#/components/schemas/PreBreakoutDetectionState" }
+        confirmationStatus: { $ref: "#/components/schemas/PreBreakoutConfirmationStatus" }
         reason: { type: string }
       required:
         - symbol
@@ -1593,6 +1619,7 @@ components:
         - eligibility
         - marketDataState
         - preBreakoutState
+        - confirmationStatus
         - reason
     SectorPrioritySectorEvidence:
       type: object

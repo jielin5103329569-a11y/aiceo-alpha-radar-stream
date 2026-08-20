@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { AlphaRankingEligibility } from './alphaRankingEligibility';
+import type { PreBreakoutConfirmationStatus } from './preBreakoutConfirmationStatus';
 import type { PreBreakoutDetectionState } from './preBreakoutDetectionState';
 import type { ProtectedScanMarketDataState } from './protectedScanMarketDataState';
 
@@ -43,5 +44,6 @@ export interface SectorPriorityMember {
   eligibility: AlphaRankingEligibility;
   marketDataState: ProtectedScanMarketDataState;
   preBreakoutState: PreBreakoutDetectionState;
+  confirmationStatus: PreBreakoutConfirmationStatus;
   reason: string;
 }

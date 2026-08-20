@@ -55,6 +55,23 @@ export type AlertGateSnapshotJson = {
   noStaleDataVeto: boolean;
 };
 
+export type AlertSectorLeaderGrade = "strong" | "watch";
+
+/**
+ * Optional, immutable context captured after an alert has passed every
+ * production gate. It is descriptive only and must never affect alert
+ * identity, promotion, or delivery eligibility.
+ */
+export type AlertSectorLeaderContext = {
+  sector: string;
+  leaders: Array<{
+    rank: number;
+    symbol: string;
+    grade: AlertSectorLeaderGrade;
+  }>;
+  strongestBreakoutSymbol: string | null;
+};
+
 export const alertRecordsTable = pgTable(
   "alert_records",
   {
@@ -79,6 +96,8 @@ export const alertRecordsTable = pgTable(
     sector: varchar("sector", { length: 160 }),
     /** Trusted fresh reference classification at alert generation time; null when unavailable. */
     industry: varchar("industry", { length: 160 }),
+    /** Optional, trusted live sector leader summary captured at alert generation time. */
+    sectorLeaderContext: jsonb("sector_leader_context").$type<AlertSectorLeaderContext>(),
     satisfiedEvidence: jsonb("satisfied_evidence").$type<string[]>().notNull(),
     missingEvidence: jsonb("missing_evidence").$type<string[]>().notNull(),
     /** The verified state-machine transition used as this alert's immutable identity. */

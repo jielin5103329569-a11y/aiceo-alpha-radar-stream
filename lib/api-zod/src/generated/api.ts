@@ -1038,6 +1038,7 @@ export const GetRadarStatusResponse = zod.object({
   "eligibility": zod.enum(['ranked', 'building', 'ineligible']),
   "marketDataState": zod.enum(['fresh', 'stale', 'offline', 'insufficient']),
   "preBreakoutState": zod.enum(['unavailable', 'watch', 'accelerating', 'pre_breakout', 'confirmed']),
+  "confirmationStatus": zod.enum(['unavailable', 'pending', 'confirmed', 'rejected']),
   "reason": zod.string()
 })),
   "reason": zod.string()
@@ -2163,6 +2164,7 @@ export const StartRadarConnectionResponse = zod.object({
   "eligibility": zod.enum(['ranked', 'building', 'ineligible']),
   "marketDataState": zod.enum(['fresh', 'stale', 'offline', 'insufficient']),
   "preBreakoutState": zod.enum(['unavailable', 'watch', 'accelerating', 'pre_breakout', 'confirmed']),
+  "confirmationStatus": zod.enum(['unavailable', 'pending', 'confirmed', 'rejected']),
   "reason": zod.string()
 })),
   "reason": zod.string()
@@ -3288,6 +3290,7 @@ export const StopRadarConnectionResponse = zod.object({
   "eligibility": zod.enum(['ranked', 'building', 'ineligible']),
   "marketDataState": zod.enum(['fresh', 'stale', 'offline', 'insufficient']),
   "preBreakoutState": zod.enum(['unavailable', 'watch', 'accelerating', 'pre_breakout', 'confirmed']),
+  "confirmationStatus": zod.enum(['unavailable', 'pending', 'confirmed', 'rejected']),
   "reason": zod.string()
 })),
   "reason": zod.string()
@@ -3964,6 +3967,12 @@ export const GetAlertsQueryParams = zod.object({
   "limit": zod.coerce.number().int().min(1).max(getAlertsQueryLimitMax).default(getAlertsQueryLimitDefault)
 })
 
+export const getAlertsResponseAlertsItemSectorLeaderContextOneLeadersItemRankMax = 5;
+
+export const getAlertsResponseAlertsItemSectorLeaderContextOneLeadersMax = 5;
+
+
+
 export const GetAlertsResponse = zod.object({
   "alerts": zod.array(zod.object({
   "id": zod.string(),
@@ -3980,6 +3989,15 @@ export const GetAlertsResponse = zod.object({
   "preBreakoutState": zod.string(),
   "sector": zod.string().nullish(),
   "industry": zod.string().nullish(),
+  "sectorLeaderContext": zod.union([zod.object({
+  "sector": zod.string(),
+  "leaders": zod.array(zod.object({
+  "rank": zod.number().min(1).max(getAlertsResponseAlertsItemSectorLeaderContextOneLeadersItemRankMax),
+  "symbol": zod.string(),
+  "grade": zod.enum(['strong', 'watch'])
+})).min(1).max(getAlertsResponseAlertsItemSectorLeaderContextOneLeadersMax),
+  "strongestBreakoutSymbol": zod.string().nullable()
+}),zod.null()]).optional(),
   "satisfiedEvidence": zod.array(zod.string()),
   "missingEvidence": zod.array(zod.string()),
   "generatedAt": zod.coerce.date(),

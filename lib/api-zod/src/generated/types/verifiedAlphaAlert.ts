@@ -5,6 +5,7 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { AlertSectorLeaderContext } from './alertSectorLeaderContext';
 import type { AlertSeverity } from './alertSeverity';
 
 export interface VerifiedAlphaAlert {
@@ -26,6 +27,7 @@ export interface VerifiedAlphaAlert {
   sector?: string | null;
   /** @nullable */
   industry?: string | null;
+  sectorLeaderContext?: AlertSectorLeaderContext | null;
   satisfiedEvidence: string[];
   missingEvidence: string[];
   generatedAt: Date;

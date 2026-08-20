@@ -52,6 +52,7 @@ function mapAlert(alert: VerifiedAlphaAlert): AlertRecord {
     alphaVelocity: alert.alphaVelocity30s ?? null,
     sector: alert.sector ?? null,
     industry: alert.industry ?? null,
+    sectorLeaderContext: alert.sectorLeaderContext ?? null,
     satisfiedEvidence,
     missingEvidence,
     dataFresh: true,

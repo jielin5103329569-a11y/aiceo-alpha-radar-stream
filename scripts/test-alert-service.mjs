@@ -236,6 +236,7 @@ exports.inArray = (col, vals) => ({ col, vals, type: "inArray" });
   const {
     AlertService,
     alertService: _defaultService,
+    buildAlertSectorLeaderContext,
     buildAlertPushPayload,
     vapidCapability,
   } = require(join(outputDirectory, "alertService.js"));
@@ -348,6 +349,39 @@ exports.inArray = (col, vals) => ({ col, vals, type: "inArray" });
     return new Promise(resolve => setTimeout(resolve, ms));
   }
 
+  function leaderMember(
+    symbol,
+    sectorWeightedScore,
+    {
+      preBreakoutState = "watch",
+      confirmationStatus = "pending",
+      marketDataState = "fresh",
+      eligibility = "ranked",
+    } = {},
+  ) {
+    return {
+      symbol,
+      eligibility,
+      marketDataState,
+      individualAlphaScore: 80,
+      sectorWeightedScore,
+      preBreakoutState,
+      confirmationStatus,
+    };
+  }
+
+  function sectorLeaderSnapshot(members) {
+    return {
+      state: "ranked",
+      sectors: [{
+        sector: "Information Technology",
+        eligibility: "ranked",
+        dataFresh: true,
+        members,
+      }],
+    };
+  }
+
   // ---------------------------------------------------------------------------
   // Test 1: vapidCapability reports unavailable when env vars absent
   // ---------------------------------------------------------------------------
@@ -419,6 +453,7 @@ exports.inArray = (col, vals) => ({ col, vals, type: "inArray" });
     },
     "alert-record-classification-test",
     { sector: "Information Technology", industry: "Semiconductors" },
+    null,
   );
   assert.equal(
     classifiedPush.body,
@@ -435,6 +470,7 @@ exports.inArray = (col, vals) => ({ col, vals, type: "inArray" });
       eventKey: "alert:NVDA:classification-test",
       sector: "Information Technology",
       industry: "Semiconductors",
+      sectorLeaderContext: null,
     },
     "push payload must preserve existing data while adding optional classification fields",
   );
@@ -453,7 +489,90 @@ exports.inArray = (col, vals) => ({ col, vals, type: "inArray" });
   assert.equal(health1.dbInsertsSucceeded, 1, "health must count successful DB insert");
 
   // ---------------------------------------------------------------------------
-  // Test 6: trusted classification is captured only as additive alert context
+  // Test 6: sector leaders remain descriptive, omit invalid members, and never force a breakout label
+  // ---------------------------------------------------------------------------
+
+  const leaderContext = buildAlertSectorLeaderContext(
+    {
+      sectorPriority: sectorLeaderSnapshot([
+        leaderMember("SECTORTEST", 99, { preBreakoutState: "pre_breakout", confirmationStatus: "confirmed" }),
+        leaderMember("MU", 94, { preBreakoutState: "accelerating" }),
+        leaderMember("AMD", 91),
+        leaderMember("AVGO", 89),
+        leaderMember("NVDA", 87),
+        leaderMember("INTC", 86),
+        leaderMember("STALE", 100, { marketDataState: "stale" }),
+        leaderMember("INELIGIBLE", 98, { eligibility: "ineligible" }),
+      ]),
+    },
+    { sector: "Information Technology", industry: "Semiconductors" },
+  );
+  assert.deepEqual(
+    leaderContext,
+    {
+      sector: "Information Technology",
+      leaders: [
+        { rank: 1, symbol: "SECTORTEST", grade: "strong" },
+        { rank: 2, symbol: "MU", grade: "strong" },
+        { rank: 3, symbol: "AMD", grade: "watch" },
+        { rank: 4, symbol: "AVGO", grade: "watch" },
+        { rank: 5, symbol: "NVDA", grade: "watch" },
+      ],
+      strongestBreakoutSymbol: "SECTORTEST",
+    },
+    "leader context must use at most five fresh ranked members in deterministic score order",
+  );
+
+  const noConfirmedBreakout = buildAlertSectorLeaderContext(
+    {
+      sectorPriority: sectorLeaderSnapshot([
+        leaderMember("MU", 94, { preBreakoutState: "accelerating" }),
+        leaderMember("AMD", 91),
+        leaderMember("AVGO", 89),
+      ]),
+    },
+    { sector: "Information Technology", industry: "Semiconductors" },
+  );
+  assert.equal(noConfirmedBreakout?.leaders.length, 3, "fewer than five valid members must not be padded");
+  assert.equal(
+    noConfirmedBreakout?.strongestBreakoutSymbol,
+    null,
+    "a non-confirmed #1 must explicitly withhold the strongest-breakout designation",
+  );
+  assert.equal(
+    buildAlertSectorLeaderContext(
+      { sectorPriority: sectorLeaderSnapshot([leaderMember("MU", 94)]) },
+      null,
+    ),
+    null,
+    "missing trusted classification must withhold leader context rather than infer a sector",
+  );
+
+  const leaderPush = buildAlertPushPayload(
+    {
+      symbol: "SECTORTEST",
+      severity: "critical",
+      triggerReason: "pre_breakout_confirmed",
+      alphaScore: 99,
+      eventKey: "alert:SECTORTEST:leader-test",
+    },
+    "alert-record-leader-test",
+    { sector: "Information Technology", industry: "Semiconductors" },
+    leaderContext,
+  );
+  assert.match(
+    leaderPush.body,
+    /#1 SECTORTEST 🔥 最强爆发; #2 MU 🟢 强; #3 AMD 🟡 观察/,
+    "push body must provide the same concise ranking and only label #1 as strongest breakout",
+  );
+  assert.equal(
+    leaderPush.data.sectorLeaderContext?.strongestBreakoutSymbol,
+    "SECTORTEST",
+    "push data must carry the immutable sector leader context for the service worker",
+  );
+
+  // ---------------------------------------------------------------------------
+  // Test 7: trusted classification and sector leaders are additive alert context
   // ---------------------------------------------------------------------------
 
   db._clearAll();
@@ -465,11 +584,25 @@ exports.inArray = (col, vals) => ({ col, vals, type: "inArray" });
   });
   databentoLive.emit("status", {
     symbolRadars: [buildPassingSymbolStatus({ symbol: "SECTORTEST" })],
+    sectorPriority: sectorLeaderSnapshot([
+      leaderMember("SECTORTEST", 99, { preBreakoutState: "pre_breakout", confirmationStatus: "confirmed" }),
+      leaderMember("MU", 94, { preBreakoutState: "accelerating" }),
+      leaderMember("AMD", 91),
+    ]),
   });
   await sleep(50);
   assert.equal(db._records.length, 1, "trusted classification must not create an additional alert candidate");
   assert.equal(db._records[0].sector, "Information Technology");
   assert.equal(db._records[0].industry, "Semiconductors");
+  assert.deepEqual(db._records[0].sectorLeaderContext, {
+    sector: "Information Technology",
+    leaders: [
+      { rank: 1, symbol: "SECTORTEST", grade: "strong" },
+      { rank: 2, symbol: "MU", grade: "strong" },
+      { rank: 3, symbol: "AMD", grade: "watch" },
+    ],
+    strongestBreakoutSymbol: "SECTORTEST",
+  });
   marketUniverse._setTrustedSecurity("SECTORTEST", null);
 
   db._clearAll();

@@ -28,6 +28,7 @@ import {
   userAlertStateTable,
   type AlertRecord,
   type NotificationChannelPreferences,
+  type AlertSectorLeaderContext,
 } from "@workspace/db";
 import { eq, and, inArray } from "drizzle-orm";
 import { logger } from "./logger";
@@ -69,10 +70,81 @@ function trustedAlertClassification(symbol: string): AlertClassification | null 
   return { sector, industry };
 }
 
+/**
+ * Builds descriptive context only after the alert candidate has already passed
+ * every production gate. The snapshot itself is server-owned and constructed
+ * solely from fresh, eligible live Alpha windows; this helper never changes
+ * eligibility, identity, or delivery.
+ */
+export function buildAlertSectorLeaderContext(
+  status: RadarStatus,
+  classification: AlertClassification | null,
+): AlertSectorLeaderContext | null {
+  if (!classification || status.sectorPriority?.state !== "ranked") return null;
+
+  const sector = status.sectorPriority.sectors.find((item) => (
+    item.sector === classification.sector
+    && item.eligibility === "ranked"
+    && item.dataFresh
+  ));
+  if (!sector) return null;
+
+  const rankedMembers = sector.members
+    .filter((member) => (
+      member.eligibility === "ranked"
+      && member.marketDataState === "fresh"
+      && member.individualAlphaScore !== null
+      && member.sectorWeightedScore !== null
+      && Number.isFinite(member.sectorWeightedScore)
+    ))
+    .sort((left, right) => (
+      (right.sectorWeightedScore ?? Number.NEGATIVE_INFINITY)
+      - (left.sectorWeightedScore ?? Number.NEGATIVE_INFINITY)
+    ) || left.symbol.localeCompare(right.symbol))
+    .slice(0, 5);
+
+  if (rankedMembers.length === 0) return null;
+
+  const topMember = rankedMembers[0];
+  return {
+    sector: sector.sector ?? classification.sector,
+    leaders: rankedMembers.map((member, index) => ({
+      rank: index + 1,
+      symbol: member.symbol,
+      grade: ["accelerating", "pre_breakout"].includes(member.preBreakoutState)
+        ? "strong"
+        : "watch",
+    })),
+    strongestBreakoutSymbol: (
+      topMember.preBreakoutState === "pre_breakout"
+      && topMember.confirmationStatus === "confirmed"
+    )
+      ? topMember.symbol
+      : null,
+  };
+}
+
+function sectorLeaderPushSuffix(context: AlertSectorLeaderContext | null): string {
+  if (!context) return "";
+  const leaders = context.leaders.map((leader) => {
+    const label = context.strongestBreakoutSymbol === leader.symbol
+      ? "🔥 最强爆发"
+      : leader.grade === "strong"
+        ? "🟢 强"
+        : "🟡 观察";
+    return `#${leader.rank} ${leader.symbol} ${label}`;
+  }).join("; ");
+  const breakout = context.strongestBreakoutSymbol
+    ? ""
+    : "; 最强爆发：暂无确认";
+  return ` · ${context.sector}: ${leaders}${breakout}`;
+}
+
 export function buildAlertPushPayload(
   candidate: NotificationCandidate,
   alertRecordId: string,
   classification: AlertClassification | null,
+  sectorLeaderContext: AlertSectorLeaderContext | null,
 ) {
   const classificationSuffix = classification
     ? ` · ${classification.sector} / ${classification.industry}`
@@ -80,7 +152,7 @@ export function buildAlertPushPayload(
 
   return {
     title: `${candidate.symbol} — ${candidate.severity.toUpperCase()}`,
-    body: `${candidate.triggerReason.replace(/_/g, " ")} · Alpha ${candidate.alphaScore}${classificationSuffix}`,
+    body: `${candidate.triggerReason.replace(/_/g, " ")} · Alpha ${candidate.alphaScore}${classificationSuffix}${sectorLeaderPushSuffix(sectorLeaderContext)}`,
     data: {
       symbol: candidate.symbol,
       severity: candidate.severity,
@@ -89,6 +161,7 @@ export function buildAlertPushPayload(
       eventKey: candidate.eventKey,
       sector: classification?.sector ?? null,
       industry: classification?.industry ?? null,
+      sectorLeaderContext,
     },
   };
 }
@@ -369,12 +442,13 @@ export class AlertService {
       // Classification is optional context assembled after all production gates
       // pass. It must never influence candidate eligibility or identity.
       const classification = trustedAlertClassification(candidate.symbol);
+      const sectorLeaderContext = buildAlertSectorLeaderContext(status, classification);
 
       // Persist the alert record idempotently, then dispatch delivery
-      const alertId = await this.persistAlertRecord(candidate, classification);
+      const alertId = await this.persistAlertRecord(candidate, classification, sectorLeaderContext);
       if (alertId !== null) {
         // Fire-and-forget delivery pipeline — never awaited in this path
-        this.dispatchDelivery(alertId, candidate, classification).catch((err: unknown) => {
+        this.dispatchDelivery(alertId, candidate, classification, sectorLeaderContext).catch((err: unknown) => {
           this.recordError(err);
         });
       }
@@ -388,6 +462,7 @@ export class AlertService {
   private async persistAlertRecord(
     candidate: NotificationCandidate,
     classification: AlertClassification | null,
+    sectorLeaderContext: AlertSectorLeaderContext | null,
   ): Promise<string | null> {
     this.counters.dbInsertsAttempted += 1;
     try {
@@ -411,6 +486,7 @@ export class AlertService {
           preBreakoutState: candidate.preBreakoutState,
           sector: classification?.sector ?? null,
           industry: classification?.industry ?? null,
+          sectorLeaderContext,
           satisfiedEvidence: [...candidate.satisfiedEvidence],
           missingEvidence: [...candidate.missingEvidence],
           transitionAt: candidate.transitionAt,
@@ -447,6 +523,7 @@ export class AlertService {
     alertRecordId: string,
     candidate: NotificationCandidate,
     classification: AlertClassification | null,
+    sectorLeaderContext: AlertSectorLeaderContext | null,
   ): Promise<void> {
     // Load active push subscriptions
     let subscriptions: typeof pushSubscriptionsTable.$inferSelect[] = [];
@@ -480,7 +557,7 @@ export class AlertService {
     }
 
     for (const [userId, userSubs] of byUser) {
-      await this.deliverToUser(alertRecordId, candidate, classification, userId, userSubs);
+      await this.deliverToUser(alertRecordId, candidate, classification, sectorLeaderContext, userId, userSubs);
     }
   }
 
@@ -488,6 +565,7 @@ export class AlertService {
     alertRecordId: string,
     candidate: NotificationCandidate,
     classification: AlertClassification | null,
+    sectorLeaderContext: AlertSectorLeaderContext | null,
     userId: string,
     subs: typeof pushSubscriptionsTable.$inferSelect[],
   ): Promise<void> {
@@ -609,7 +687,7 @@ export class AlertService {
 
     // Attempt push delivery to each active subscription for this user
     for (const sub of subs) {
-      await this.attemptPushDelivery(alertRecordId, candidate, classification, userId, sub);
+      await this.attemptPushDelivery(alertRecordId, candidate, classification, sectorLeaderContext, userId, sub);
     }
   }
 
@@ -617,6 +695,7 @@ export class AlertService {
     alertRecordId: string,
     candidate: NotificationCandidate,
     classification: AlertClassification | null,
+    sectorLeaderContext: AlertSectorLeaderContext | null,
     userId: string,
     sub: typeof pushSubscriptionsTable.$inferSelect,
   ): Promise<void> {
@@ -662,7 +741,7 @@ export class AlertService {
       );
 
       const notificationBody = JSON.stringify(
-        buildAlertPushPayload(candidate, alertRecordId, classification),
+        buildAlertPushPayload(candidate, alertRecordId, classification, sectorLeaderContext),
       );
 
       await webpush.sendNotification(

@@ -18,7 +18,8 @@ self.addEventListener("push", (event) => {
       url: payload.url || notificationData.url || self.registration.scope,
       eventKey: payload.eventKey || notificationData.eventKey || null,
       sector: notificationData.sector || payload.sector || null,
-      industry: notificationData.industry || payload.industry || null
+      industry: notificationData.industry || payload.industry || null,
+      sectorLeaderContext: notificationData.sectorLeaderContext || payload.sectorLeaderContext || null
     }
   };
 

@@ -46,6 +46,7 @@ function symbolStatus(symbol, overrides = {}) {
       preBreakout: {
         dataFresh: true,
         state: "accelerating",
+        confirmation: { status: "pending" },
       },
       momentum: { score: 86 },
       volumeIntensity: { score: 84 },
@@ -123,6 +124,11 @@ try {
   );
   assert.equal(technology?.eligibility, "ranked");
   assert.equal(technology?.constituentCount, 3);
+  assert.equal(
+    technology?.members[0]?.confirmationStatus,
+    "pending",
+    "sector members must preserve the live Alpha confirmation state without inventing confirmation",
+  );
   assert.equal(industrials?.eligibility, "insufficient");
   assert.equal(snapshot.finalCandidates.length, 0, "missing independent inputs must fail closed before final-candidate promotion");
   assert.equal(snapshot.withheldCandidates.length, 3, "strong sector members must preserve their evidence and withheld reason");
@@ -167,7 +173,7 @@ try {
         score: null,
         scoreState: "insufficient",
         dataQuality: "missing",
-        preBreakout: { dataFresh: false, state: "unavailable" },
+        preBreakout: { dataFresh: false, state: "unavailable", confirmation: { status: "unavailable" } },
         momentum: { score: null },
         volumeIntensity: { score: null },
         orderFlowPressure: { score: null, scoreEligible: false, freshness: "missing" },

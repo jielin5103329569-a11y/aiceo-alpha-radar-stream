@@ -75,6 +75,16 @@ export interface AlertRecord {
   sector: string | null;
   /** Trusted industry classification captured with the alert, if available. */
   industry: string | null;
+  /** Optional server-owned ranking of fresh, eligible leaders in this alert's sector. */
+  sectorLeaderContext: {
+    sector: string;
+    leaders: Array<{
+      rank: number;
+      symbol: string;
+      grade: 'strong' | 'watch';
+    }>;
+    strongestBreakoutSymbol: string | null;
+  } | null;
   /** Evidence items that were satisfied */
   satisfiedEvidence: string[];
   /** Evidence items that were missing */
@@ -311,6 +321,40 @@ function AlertRow({ alert, onRead, onAcknowledge }: AlertRowProps) {
         <p className="mt-1 text-[11px] text-muted-foreground" data-testid={`alert-classification-${alert.id}`}>
           {alert.sector ?? "—"}{alert.industry ? ` / ${alert.industry}` : ""}
         </p>
+      )}
+
+      {alert.sectorLeaderContext && (
+        <div className="mt-2 rounded-md border border-primary/15 bg-primary/[0.03] px-2.5 py-2" data-testid={`alert-sector-leaders-${alert.id}`}>
+          <div className="flex flex-wrap items-center gap-1.5 text-[10px]">
+            <span className="font-semibold text-foreground">{alert.sectorLeaderContext.sector} Top {alert.sectorLeaderContext.leaders.length}</span>
+            {alert.sectorLeaderContext.leaders.map((leader) => {
+              const label = alert.sectorLeaderContext?.strongestBreakoutSymbol === leader.symbol
+                ? '🔥 最强爆发'
+                : leader.grade === 'strong'
+                  ? '🟢 强'
+                  : '🟡 观察';
+              return (
+                <Badge
+                  key={leader.symbol}
+                  variant="outline"
+                  className={cn(
+                    'border font-mono text-[9px]',
+                    alert.sectorLeaderContext?.strongestBreakoutSymbol === leader.symbol
+                      ? 'border-primary/35 bg-primary/10 text-primary'
+                      : leader.grade === 'strong'
+                        ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400'
+                        : 'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400',
+                  )}
+                >
+                  #{leader.rank} {leader.symbol} · {label}
+                </Badge>
+              );
+            })}
+          </div>
+          {alert.sectorLeaderContext.strongestBreakoutSymbol === null && (
+            <p className="mt-1 text-[10px] text-muted-foreground">最强爆发：暂无确认</p>
+          )}
+        </div>
       )}
 
       {/* Evidence */}
@@ -821,6 +865,7 @@ export function historyEntryToAlertRecord(
     alphaVelocity: entry.alphaVelocity,
     sector: null,
     industry: null,
+    sectorLeaderContext: null,
     satisfiedEvidence: entry.satisfiedEvidence,
     missingEvidence: entry.missingEvidence,
     dataFresh: entry.dataFresh,

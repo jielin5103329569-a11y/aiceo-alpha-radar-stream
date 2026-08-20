@@ -6,6 +6,9 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from './alertSectorLeader';
+export * from './alertSectorLeaderContext';
+export * from './alertSectorLeaderGrade';
 export * from './alertSettings';
 export * from './alertSeverity';
 export * from './alertsListResponse';

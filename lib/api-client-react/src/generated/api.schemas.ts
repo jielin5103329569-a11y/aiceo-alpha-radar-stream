@@ -15,6 +15,35 @@ export const AlertSeverity = {
   critical: 'critical',
 } as const;
 
+export type AlertSectorLeaderGrade = typeof AlertSectorLeaderGrade[keyof typeof AlertSectorLeaderGrade];
+
+
+export const AlertSectorLeaderGrade = {
+  strong: 'strong',
+  watch: 'watch',
+} as const;
+
+export interface AlertSectorLeader {
+  /**
+     * @minimum 1
+     * @maximum 5
+     */
+  rank: number;
+  symbol: string;
+  grade: AlertSectorLeaderGrade;
+}
+
+export interface AlertSectorLeaderContext {
+  sector: string;
+  /**
+     * @minItems 1
+     * @maxItems 5
+     */
+  leaders: AlertSectorLeader[];
+  /** @nullable */
+  strongestBreakoutSymbol: string | null;
+}
+
 export interface VerifiedAlphaAlert {
   id: string;
   eventKey: string;
@@ -34,6 +63,7 @@ export interface VerifiedAlphaAlert {
   sector?: string | null;
   /** @nullable */
   industry?: string | null;
+  sectorLeaderContext?: AlertSectorLeaderContext | null;
   satisfiedEvidence: string[];
   missingEvidence: string[];
   generatedAt: string;
@@ -1306,6 +1336,7 @@ export interface SectorPriorityMember {
   eligibility: AlphaRankingEligibility;
   marketDataState: ProtectedScanMarketDataState;
   preBreakoutState: PreBreakoutDetectionState;
+  confirmationStatus: PreBreakoutConfirmationStatus;
   reason: string;
 }
 

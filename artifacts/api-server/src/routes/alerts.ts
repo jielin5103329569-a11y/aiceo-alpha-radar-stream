@@ -55,6 +55,7 @@ function serializeAlert(
     preBreakoutState: record.preBreakoutState,
     sector: record.sector,
     industry: record.industry,
+    sectorLeaderContext: record.sectorLeaderContext,
     satisfiedEvidence: record.satisfiedEvidence,
     missingEvidence: record.missingEvidence,
     generatedAt: record.generatedAt.toISOString(),
