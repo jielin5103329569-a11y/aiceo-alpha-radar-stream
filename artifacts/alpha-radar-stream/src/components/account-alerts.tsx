@@ -17,7 +17,7 @@ import {
   type VerifiedAlphaAlert,
 } from "@workspace/api-client-react";
 import { Bell, LogIn } from "lucide-react";
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import { useLocation } from "wouter";
 import { AlertCenter, type AlertRecord, type AlertNotificationSettings } from "@/components/alert-center";
 import { Button } from "@/components/ui/button";
@@ -84,6 +84,7 @@ export function AccountAlerts() {
   const { isSignedIn } = useAuth();
   const [, setLocation] = useLocation();
   const client = useQueryClient();
+  const [actionError, setActionError] = useState<string | null>(null);
   const alerts = useGetAlerts(undefined, {
     query: { queryKey: getGetAlertsQueryKey(), enabled: isSignedIn === true, refetchInterval: 20_000 },
   });
@@ -108,14 +109,19 @@ export function AccountAlerts() {
   }, [client]);
 
   const saveSettings = useCallback(async (next: AlertNotificationSettings) => {
-    await updateSettings.mutateAsync({
-      data: {
-        browserNotificationsEnabled: next.browserNotificationsEnabled,
-        minimumTier: next.minimumTier === "unavailable" ? "accelerating" : next.minimumTier,
-        notifyOnWatch: next.notifyOnWatch,
-      },
-    });
-    await refresh();
+    setActionError(null);
+    try {
+      await updateSettings.mutateAsync({
+        data: {
+          browserNotificationsEnabled: next.browserNotificationsEnabled,
+          minimumTier: next.minimumTier === "unavailable" ? "accelerating" : next.minimumTier,
+          notifyOnWatch: next.notifyOnWatch,
+        },
+      });
+      await refresh();
+    } catch {
+      setActionError("Notification settings could not be saved. Please try again.");
+    }
   }, [refresh, updateSettings]);
 
   const enablePush = useCallback(async (): Promise<boolean> => {
@@ -140,6 +146,21 @@ export function AccountAlerts() {
     return true;
   }, [pushCapability.data, saveSubscription]);
 
+  const applyReceiptMutation = useCallback((
+    operation: () => Promise<unknown>,
+    failureMessage: string,
+  ) => {
+    setActionError(null);
+    void (async () => {
+      try {
+        await operation();
+        await refresh();
+      } catch {
+        setActionError(failureMessage);
+      }
+    })();
+  }, [refresh]);
+
   if (!isSignedIn) {
     return (
       <Card className="border-dashed">
@@ -163,22 +184,60 @@ export function AccountAlerts() {
       alerts={(alerts.data?.alerts ?? []).map(mapAlert)}
       settings={currentSettings}
       isLoading={alerts.isLoading || settings.isLoading}
+      isRefreshing={alerts.isFetching || settings.isFetching}
       isError={alerts.isError || settings.isError}
+      actionError={actionError}
       browserPushEnabled={Boolean(currentSettings.browserNotificationsEnabled && canDeliverPush)}
       mutations={{
-        markRead: (id) => { void markRead.mutateAsync({ alertId: id }).then(refresh); },
-        acknowledge: (id) => { void acknowledge.mutateAsync({ alertId: id }).then(refresh); },
-        markAllRead: () => { void markAllRead.mutateAsync().then(refresh); },
+        markRead: (id) => {
+          applyReceiptMutation(
+            () => markRead.mutateAsync({ alertId: id }),
+            "This alert could not be marked as read. Please try again.",
+          );
+        },
+        acknowledge: (id) => {
+          applyReceiptMutation(
+            () => acknowledge.mutateAsync({ alertId: id }),
+            "This alert could not be acknowledged. Please try again.",
+          );
+        },
+        markAllRead: () => {
+          applyReceiptMutation(
+            () => markAllRead.mutateAsync(),
+            "Alert history could not be marked as read. Please try again.",
+          );
+        },
         setNotificationsEnabled: async (enabled) => {
-          if (enabled && !(await enablePush())) return;
-          await saveSettings({ ...currentSettings, browserNotificationsEnabled: enabled });
+          try {
+            if (enabled && !(await enablePush())) {
+              setActionError("Browser notifications could not be enabled on this device.");
+              return;
+            }
+            await saveSettings({ ...currentSettings, browserNotificationsEnabled: enabled });
+          } catch {
+            setActionError("Browser notifications could not be updated. Please try again.");
+          }
         },
         setMinimumTier: async (minimumTier) => {
           await saveSettings({ ...currentSettings, minimumTier, notifyOnWatch: minimumTier === "watch" });
         },
         sendTestNotification: async () => {
-          const result = await sendTest.mutateAsync();
-          return result.status === "sent";
+          setActionError(null);
+          try {
+            const result = await sendTest.mutateAsync();
+            if (result.status === "sent") return true;
+            setActionError(
+              result.status === "unavailable"
+                ? "Test delivery is unavailable because server Push is not configured."
+                : result.status === "no_subscriptions"
+                  ? "Test delivery needs an active browser Push subscription."
+                  : "Test notification could not be delivered. Please try again.",
+            );
+            return false;
+          } catch {
+            setActionError("Test notification could not be requested. Please try again.");
+            return false;
+          }
         },
       }}
     />

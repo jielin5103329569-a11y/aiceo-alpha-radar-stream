@@ -131,8 +131,12 @@ export interface AlertCenterProps {
   settings: AlertNotificationSettings;
   /** Loading state – true while initial data is being fetched */
   isLoading: boolean;
+  /** Background refetch state after an alert action or interval refresh */
+  isRefreshing: boolean;
   /** True if there was a fetch error */
   isError: boolean;
+  /** The latest account action error, if an alert mutation could not complete */
+  actionError?: string | null;
   /**
    * Whether browser push permission is actually granted.
    * The component NEVER claims push is enabled unless this is explicitly true.
@@ -583,7 +587,9 @@ export function AlertCenter({
   alerts,
   settings,
   isLoading,
+  isRefreshing,
   isError,
+  actionError,
   browserPushEnabled,
   mutations,
   className,
@@ -691,6 +697,17 @@ export function AlertCenter({
         {/* ── Disclaimer ──────────────────────────────────────────────────── */}
         <DisclaimerBanner />
 
+        {actionError && (
+          <div
+            className="flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive"
+            role="alert"
+            data-testid="alert-action-error"
+          >
+            <CircleAlert className="mt-0.5 h-4 w-4 shrink-0" />
+            <p>{actionError}</p>
+          </div>
+        )}
+
         {/* ── Notification settings panel ─────────────────────────────────── */}
         {showNotifPanel && (
           <>
@@ -718,7 +735,7 @@ export function AlertCenter({
                 <span className="font-mono text-foreground">({alerts.length})</span>
               )}
             </p>
-            {isLoading && (
+            {isRefreshing && !isLoading && (
               <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
                 <RefreshCw className="h-3 w-3 animate-spin" />
                 Refreshing
