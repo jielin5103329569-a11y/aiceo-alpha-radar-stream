@@ -6,16 +6,19 @@ self.addEventListener("push", (event) => {
     payload = {};
   }
 
+  const notificationData = payload.data && typeof payload.data === "object" ? payload.data : {};
   const title = payload.title || "Verified Alpha Alert";
   const options = {
     body: payload.body || "Verification/Alert only — not a trading instruction.",
     icon: payload.icon || "favicon.svg",
     badge: payload.badge || "favicon.svg",
-    tag: payload.eventKey || "alpha-radar-alert",
+    tag: payload.eventKey || notificationData.eventKey || "alpha-radar-alert",
     renotify: false,
     data: {
-      url: payload.url || self.registration.scope,
-      eventKey: payload.eventKey || null
+      url: payload.url || notificationData.url || self.registration.scope,
+      eventKey: payload.eventKey || notificationData.eventKey || null,
+      sector: notificationData.sector || payload.sector || null,
+      industry: notificationData.industry || payload.industry || null
     }
   };
 

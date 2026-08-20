@@ -166,6 +166,23 @@ exports.logger = {
 exports._log = log;
 `;
 
+// Stub: marketUniverse — only returns records explicitly marked as trusted.
+const marketUniverseStub = `
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const references = new Map();
+let summary = { freshness: "fresh", dataQuality: "good" };
+exports.marketUniverse = {
+  getSummary() { return summary; },
+  getSecurity(symbol) { return references.get(symbol) || null; },
+};
+exports._setTrustedSecurity = (symbol, reference) => {
+  if (reference) references.set(symbol, reference);
+  else references.delete(symbol);
+};
+exports._setReferenceSummary = (next) => { summary = next; };
+`;
+
 // Stub: databentoLive — a simple EventEmitter-like bus for testing
 const databentoLiveStub = `
 "use strict";
@@ -183,6 +200,7 @@ try {
   // Write stubs
   writeFileSync(join(outputDirectory, "db.js"), buildDbStub());
   writeFileSync(join(outputDirectory, "logger.js"), loggerStub);
+  writeFileSync(join(outputDirectory, "marketUniverse.js"), marketUniverseStub);
   writeFileSync(join(outputDirectory, "databentoLive.js"), databentoLiveStub);
   writeFileSync(join(outputDirectory, "package.json"), '{"type":"commonjs"}');
 
@@ -208,6 +226,7 @@ exports.inArray = (col, vals) => ({ col, vals, type: "inArray" });
       .replace(/"@workspace\/db"/g, '"./db"')
       .replace(/from "@workspace\/db"/g, 'from "./db"')
       .replace(/from "\.\/logger"/g, 'from "./logger"')
+      .replace(/from "\.\/marketUniverse"/g, 'from "./marketUniverse"')
       .replace(/from "\.\/databentoLive"/g, 'from "./databentoLive"')
       .replace(/from "\.\/alertMonitor"/g, 'from "./alertMonitor"')
       .replace(/"drizzle-orm"/g, '"./drizzle-orm"'),
@@ -217,10 +236,12 @@ exports.inArray = (col, vals) => ({ col, vals, type: "inArray" });
   const {
     AlertService,
     alertService: _defaultService,
+    buildAlertPushPayload,
     vapidCapability,
   } = require(join(outputDirectory, "alertService.js"));
   const db = require(join(outputDirectory, "db.js"));
   const { databentoLive } = require(join(outputDirectory, "databentoLive.js"));
+  const marketUniverse = require(join(outputDirectory, "marketUniverse.js"));
 
   // ---------------------------------------------------------------------------
   // Helper: build a minimal fully-passing RadarSymbolStatus fixture
@@ -385,6 +406,38 @@ exports.inArray = (col, vals) => ({ col, vals, type: "inArray" });
   assert.equal(db._records[0].symbol, "NVDA", "alert record must carry the correct symbol");
   assert.ok(db._records[0].eventKey.startsWith("alert:NVDA:"), "alert record must have deterministic event key");
   assert.equal(db._records[0].severity, "critical", "pre_breakout/confirmed must be critical");
+  assert.equal(db._records[0].sector, null, "missing trusted classifications must remain absent");
+  assert.equal(db._records[0].industry, null, "missing trusted classifications must remain absent");
+
+  const classifiedPush = buildAlertPushPayload(
+    {
+      symbol: "NVDA",
+      severity: "critical",
+      triggerReason: "pre_breakout_confirmed",
+      alphaScore: 82,
+      eventKey: "alert:NVDA:classification-test",
+    },
+    "alert-record-classification-test",
+    { sector: "Information Technology", industry: "Semiconductors" },
+  );
+  assert.equal(
+    classifiedPush.body,
+    "pre breakout confirmed · Alpha 82 · Information Technology / Semiconductors",
+    "push body must append only the trusted sector and industry names",
+  );
+  assert.deepEqual(
+    classifiedPush.data,
+    {
+      symbol: "NVDA",
+      severity: "critical",
+      triggerReason: "pre_breakout_confirmed",
+      alertRecordId: "alert-record-classification-test",
+      eventKey: "alert:NVDA:classification-test",
+      sector: "Information Technology",
+      industry: "Semiconductors",
+    },
+    "push payload must preserve existing data while adding optional classification fields",
+  );
 
   // With no VAPID keys and no push subscriptions, audit must record skipped_no_subscriptions or skipped_no_vapid
   const validOutcomes = ["skipped_no_subscriptions", "skipped_no_vapid"];
@@ -400,7 +453,61 @@ exports.inArray = (col, vals) => ({ col, vals, type: "inArray" });
   assert.equal(health1.dbInsertsSucceeded, 1, "health must count successful DB insert");
 
   // ---------------------------------------------------------------------------
-  // Test 6: DB-level duplicate event key → idempotent (no second insert, counted as duplicate)
+  // Test 6: trusted classification is captured only as additive alert context
+  // ---------------------------------------------------------------------------
+
+  db._clearAll();
+  marketUniverse._setTrustedSecurity("SECTORTEST", {
+    eligibility: "eligible",
+    sector: "Information Technology",
+    industry: "Semiconductors",
+    classificationSource: "Databento security master",
+  });
+  databentoLive.emit("status", {
+    symbolRadars: [buildPassingSymbolStatus({ symbol: "SECTORTEST" })],
+  });
+  await sleep(50);
+  assert.equal(db._records.length, 1, "trusted classification must not create an additional alert candidate");
+  assert.equal(db._records[0].sector, "Information Technology");
+  assert.equal(db._records[0].industry, "Semiconductors");
+  marketUniverse._setTrustedSecurity("SECTORTEST", null);
+
+  db._clearAll();
+  marketUniverse._setTrustedSecurity("STALECLASSIFICATION", {
+    eligibility: "eligible",
+    sector: "Information Technology",
+    industry: "Semiconductors",
+    classificationSource: "Databento security master",
+  });
+  marketUniverse._setReferenceSummary({ freshness: "stale", dataQuality: "unavailable" });
+  databentoLive.emit("status", {
+    symbolRadars: [buildPassingSymbolStatus({ symbol: "STALECLASSIFICATION" })],
+  });
+  await sleep(50);
+  assert.equal(db._records.length, 1, "untrusted reference state must not block a valid alert");
+  assert.equal(db._records[0].sector, null, "stale classifications must not be attached to an alert");
+  assert.equal(db._records[0].industry, null, "stale classifications must not be attached to an alert");
+  marketUniverse._setReferenceSummary({ freshness: "fresh", dataQuality: "good" });
+  marketUniverse._setTrustedSecurity("STALECLASSIFICATION", null);
+
+  db._clearAll();
+  marketUniverse._setTrustedSecurity("INELIGIBLECLASSIFICATION", {
+    eligibility: "ineligible",
+    sector: "Information Technology",
+    industry: "Semiconductors",
+    classificationSource: "Databento security master",
+  });
+  databentoLive.emit("status", {
+    symbolRadars: [buildPassingSymbolStatus({ symbol: "INELIGIBLECLASSIFICATION" })],
+  });
+  await sleep(50);
+  assert.equal(db._records.length, 1, "ineligible classification must not block a valid alert");
+  assert.equal(db._records[0].sector, null, "ineligible classifications must not be attached to an alert");
+  assert.equal(db._records[0].industry, null, "ineligible classifications must not be attached to an alert");
+  marketUniverse._setTrustedSecurity("INELIGIBLECLASSIFICATION", null);
+
+  // ---------------------------------------------------------------------------
+  // Test 7: DB-level duplicate event key → idempotent (no second insert, counted as duplicate)
   //   Uses a fresh service so the monitor has no prior history, forcing the DB
   //   onConflictDoNothing path to be exercised.
   // ---------------------------------------------------------------------------
@@ -428,7 +535,7 @@ exports.inArray = (col, vals) => ({ col, vals, type: "inArray" });
   }
 
   // ---------------------------------------------------------------------------
-  // Test 7: stale snapshot → no candidate, no insert
+  // Test 8: stale snapshot → no candidate, no insert
   // ---------------------------------------------------------------------------
 
   db._clearAll();
@@ -448,7 +555,7 @@ exports.inArray = (col, vals) => ({ col, vals, type: "inArray" });
   assert.equal(db._records.length, 0, "stale snapshot must not insert any alert record");
 
   // ---------------------------------------------------------------------------
-  // Test 8: no push subscriptions → skipped_no_subscriptions audit entry
+  // Test 9: no push subscriptions → skipped_no_subscriptions audit entry
   // ---------------------------------------------------------------------------
 
   db._clearAll();
@@ -463,7 +570,7 @@ exports.inArray = (col, vals) => ({ col, vals, type: "inArray" });
   assert.ok(muAudit, "no subscriptions must produce skipped_no_subscriptions audit entry");
 
   // ---------------------------------------------------------------------------
-  // Test 9: global opt-out → skipped_opt_out audit entry
+  // Test 10: global opt-out → skipped_opt_out audit entry
   // ---------------------------------------------------------------------------
 
   db._clearAll();
@@ -490,7 +597,7 @@ exports.inArray = (col, vals) => ({ col, vals, type: "inArray" });
   assert.equal(optOutAudit.userId, "user_clerk_abc", "opt-out audit must carry Clerk user ID (text, not UUID)");
 
   // ---------------------------------------------------------------------------
-  // Test 10: severity threshold → skipped_severity_threshold audit entry
+  // Test 11: severity threshold → skipped_severity_threshold audit entry
   // ---------------------------------------------------------------------------
 
   db._clearAll();
@@ -526,7 +633,7 @@ exports.inArray = (col, vals) => ({ col, vals, type: "inArray" });
   assert.ok(thresholdAudit, "below-threshold severity must produce skipped_severity_threshold audit entry");
 
   // ---------------------------------------------------------------------------
-  // Test 11: per-symbol opt-out → skipped_opt_out
+  // Test 12: per-symbol opt-out → skipped_opt_out
   // ---------------------------------------------------------------------------
 
   db._clearAll();
@@ -562,7 +669,7 @@ exports.inArray = (col, vals) => ({ col, vals, type: "inArray" });
   assert.ok(symbolOptOutAudit, "per-symbol opt-out must produce skipped_opt_out audit entry");
 
   // ---------------------------------------------------------------------------
-  // Test 12: VAPID unavailable → skipped_no_vapid per user (when subs exist, opts pass)
+  // Test 13: VAPID unavailable → skipped_no_vapid per user (when subs exist, opts pass)
   // ---------------------------------------------------------------------------
 
   db._clearAll();
@@ -591,7 +698,7 @@ exports.inArray = (col, vals) => ({ col, vals, type: "inArray" });
   assert.equal(vapidAudit.channel, "web_push", "VAPID audit must record web_push channel");
 
   // ---------------------------------------------------------------------------
-  // Test 13: stop() removes listener
+  // Test 14: stop() removes listener
   // ---------------------------------------------------------------------------
 
   const listenersBefore = databentoLive.listenerCount("status");
@@ -611,7 +718,7 @@ exports.inArray = (col, vals) => ({ col, vals, type: "inArray" });
   assert.equal(db._records.length, 0, "events after stop() must not produce records");
 
   // ---------------------------------------------------------------------------
-  // Test 14: double stop() is a no-op
+  // Test 15: double stop() is a no-op
   // ---------------------------------------------------------------------------
 
   const listenersAfterStop = databentoLive.listenerCount("status");
@@ -619,7 +726,7 @@ exports.inArray = (col, vals) => ({ col, vals, type: "inArray" });
   assert.equal(databentoLive.listenerCount("status"), listenersAfterStop, "double stop must not remove extra listeners");
 
   // ---------------------------------------------------------------------------
-  // Test 15: restart — start() after stop() re-subscribes
+  // Test 16: restart — start() after stop() re-subscribes
   // ---------------------------------------------------------------------------
 
   db._clearAll();
@@ -635,7 +742,7 @@ exports.inArray = (col, vals) => ({ col, vals, type: "inArray" });
   service.stop();
 
   // ---------------------------------------------------------------------------
-  // Test 16: multiple symbols in one status event — each processed independently
+  // Test 17: multiple symbols in one status event — each processed independently
   // ---------------------------------------------------------------------------
 
   db._clearAll();
@@ -657,7 +764,7 @@ exports.inArray = (col, vals) => ({ col, vals, type: "inArray" });
   service.stop();
 
   // ---------------------------------------------------------------------------
-  // Test 17: Clerk user ID stored as text (not UUID format) in audit
+  // Test 18: Clerk user ID stored as text (not UUID format) in audit
   // ---------------------------------------------------------------------------
 
   db._clearAll();

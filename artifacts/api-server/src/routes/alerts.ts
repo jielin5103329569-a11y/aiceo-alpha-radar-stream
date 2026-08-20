@@ -53,6 +53,8 @@ function serializeAlert(
     confidence: record.confidence,
     triggerPrice: record.triggerPrice === null ? null : Number(record.triggerPrice),
     preBreakoutState: record.preBreakoutState,
+    sector: record.sector,
+    industry: record.industry,
     satisfiedEvidence: record.satisfiedEvidence,
     missingEvidence: record.missingEvidence,
     generatedAt: record.generatedAt.toISOString(),

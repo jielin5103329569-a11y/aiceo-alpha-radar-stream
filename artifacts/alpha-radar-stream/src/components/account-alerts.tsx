@@ -50,6 +50,8 @@ function mapAlert(alert: VerifiedAlphaAlert): AlertRecord {
     score: alert.alphaScore,
     confidence: alert.confidence,
     alphaVelocity: alert.alphaVelocity30s ?? null,
+    sector: alert.sector ?? null,
+    industry: alert.industry ?? null,
     satisfiedEvidence,
     missingEvidence,
     dataFresh: true,

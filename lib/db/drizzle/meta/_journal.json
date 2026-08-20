@@ -36,6 +36,13 @@
       "when": 1787229600000,
       "tag": "0004_shadow_learning_cohorts",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1787233200000,
+      "tag": "0005_alert_record_classification",
+      "breakpoints": true
     }
   ]
 }

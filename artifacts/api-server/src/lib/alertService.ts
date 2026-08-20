@@ -32,6 +32,7 @@ import {
 import { eq, and, inArray } from "drizzle-orm";
 import { logger } from "./logger";
 import { databentoLive } from "./databentoLive";
+import { marketUniverse } from "./marketUniverse";
 import {
   AlertMonitor,
   observeRadarStatus,
@@ -50,6 +51,46 @@ const SEVERITY_ORDER: AlertSeverity[] = ["info", "watch", "alert", "critical"];
 function severityIndex(s: string): number {
   const idx = SEVERITY_ORDER.indexOf(s as AlertSeverity);
   return idx === -1 ? 0 : idx;
+}
+
+export type AlertClassification = {
+  readonly sector: string;
+  readonly industry: string;
+};
+
+function trustedAlertClassification(symbol: string): AlertClassification | null {
+  const summary = marketUniverse.getSummary();
+  if (summary.freshness !== "fresh" || summary.dataQuality !== "good") return null;
+  const reference = marketUniverse.getSecurity(symbol);
+  if (reference?.eligibility !== "eligible") return null;
+  const sector = reference?.sector?.trim();
+  const industry = reference?.industry?.trim();
+  if (!sector || !industry || !reference?.classificationSource) return null;
+  return { sector, industry };
+}
+
+export function buildAlertPushPayload(
+  candidate: NotificationCandidate,
+  alertRecordId: string,
+  classification: AlertClassification | null,
+) {
+  const classificationSuffix = classification
+    ? ` · ${classification.sector} / ${classification.industry}`
+    : "";
+
+  return {
+    title: `${candidate.symbol} — ${candidate.severity.toUpperCase()}`,
+    body: `${candidate.triggerReason.replace(/_/g, " ")} · Alpha ${candidate.alphaScore}${classificationSuffix}`,
+    data: {
+      symbol: candidate.symbol,
+      severity: candidate.severity,
+      triggerReason: candidate.triggerReason,
+      alertRecordId,
+      eventKey: candidate.eventKey,
+      sector: classification?.sector ?? null,
+      industry: classification?.industry ?? null,
+    },
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -325,12 +366,15 @@ export class AlertService {
       this.counters.lastCandidateAt = obs.evaluatedAt;
 
       const candidate = obs.result.candidate;
+      // Classification is optional context assembled after all production gates
+      // pass. It must never influence candidate eligibility or identity.
+      const classification = trustedAlertClassification(candidate.symbol);
 
       // Persist the alert record idempotently, then dispatch delivery
-      const alertId = await this.persistAlertRecord(candidate);
+      const alertId = await this.persistAlertRecord(candidate, classification);
       if (alertId !== null) {
         // Fire-and-forget delivery pipeline — never awaited in this path
-        this.dispatchDelivery(alertId, candidate).catch((err: unknown) => {
+        this.dispatchDelivery(alertId, candidate, classification).catch((err: unknown) => {
           this.recordError(err);
         });
       }
@@ -341,7 +385,10 @@ export class AlertService {
   // Alert record persistence
   // ---------------------------------------------------------------------------
 
-  private async persistAlertRecord(candidate: NotificationCandidate): Promise<string | null> {
+  private async persistAlertRecord(
+    candidate: NotificationCandidate,
+    classification: AlertClassification | null,
+  ): Promise<string | null> {
     this.counters.dbInsertsAttempted += 1;
     try {
       const result = await db
@@ -362,6 +409,8 @@ export class AlertService {
             ? String(candidate.triggerPrice)
             : null,
           preBreakoutState: candidate.preBreakoutState,
+          sector: classification?.sector ?? null,
+          industry: classification?.industry ?? null,
           satisfiedEvidence: [...candidate.satisfiedEvidence],
           missingEvidence: [...candidate.missingEvidence],
           transitionAt: candidate.transitionAt,
@@ -397,6 +446,7 @@ export class AlertService {
   private async dispatchDelivery(
     alertRecordId: string,
     candidate: NotificationCandidate,
+    classification: AlertClassification | null,
   ): Promise<void> {
     // Load active push subscriptions
     let subscriptions: typeof pushSubscriptionsTable.$inferSelect[] = [];
@@ -430,13 +480,14 @@ export class AlertService {
     }
 
     for (const [userId, userSubs] of byUser) {
-      await this.deliverToUser(alertRecordId, candidate, userId, userSubs);
+      await this.deliverToUser(alertRecordId, candidate, classification, userId, userSubs);
     }
   }
 
   private async deliverToUser(
     alertRecordId: string,
     candidate: NotificationCandidate,
+    classification: AlertClassification | null,
     userId: string,
     subs: typeof pushSubscriptionsTable.$inferSelect[],
   ): Promise<void> {
@@ -558,13 +609,14 @@ export class AlertService {
 
     // Attempt push delivery to each active subscription for this user
     for (const sub of subs) {
-      await this.attemptPushDelivery(alertRecordId, candidate, userId, sub);
+      await this.attemptPushDelivery(alertRecordId, candidate, classification, userId, sub);
     }
   }
 
   private async attemptPushDelivery(
     alertRecordId: string,
     candidate: NotificationCandidate,
+    classification: AlertClassification | null,
     userId: string,
     sub: typeof pushSubscriptionsTable.$inferSelect,
   ): Promise<void> {
@@ -609,17 +661,9 @@ export class AlertService {
         process.env.VAPID_PRIVATE_KEY!,
       );
 
-      const notificationBody = JSON.stringify({
-        title: `${candidate.symbol} — ${candidate.severity.toUpperCase()}`,
-        body: `${candidate.triggerReason.replace(/_/g, " ")} · Alpha ${candidate.alphaScore}`,
-        data: {
-          symbol: candidate.symbol,
-          severity: candidate.severity,
-          triggerReason: candidate.triggerReason,
-          alertRecordId,
-          eventKey: candidate.eventKey,
-        },
-      });
+      const notificationBody = JSON.stringify(
+        buildAlertPushPayload(candidate, alertRecordId, classification),
+      );
 
       await webpush.sendNotification(
         {

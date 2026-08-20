@@ -75,6 +75,10 @@ export const alertRecordsTable = pgTable(
     confidence: integer("confidence").notNull(),
     triggerPrice: text("trigger_price"),
     preBreakoutState: varchar("pre_breakout_state", { length: 40 }).notNull(),
+    /** Trusted fresh reference classification at alert generation time; null when unavailable. */
+    sector: varchar("sector", { length: 160 }),
+    /** Trusted fresh reference classification at alert generation time; null when unavailable. */
+    industry: varchar("industry", { length: 160 }),
     satisfiedEvidence: jsonb("satisfied_evidence").$type<string[]>().notNull(),
     missingEvidence: jsonb("missing_evidence").$type<string[]>().notNull(),
     /** The verified state-machine transition used as this alert's immutable identity. */

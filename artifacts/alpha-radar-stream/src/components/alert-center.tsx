@@ -71,6 +71,10 @@ export interface AlertRecord {
   confidence: number;
   /** Alpha velocity value if available */
   alphaVelocity: number | null;
+  /** Trusted sector classification captured with the alert, if available. */
+  sector: string | null;
+  /** Trusted industry classification captured with the alert, if available. */
+  industry: string | null;
   /** Evidence items that were satisfied */
   satisfiedEvidence: string[];
   /** Evidence items that were missing */
@@ -302,6 +306,12 @@ function AlertRow({ alert, onRead, onAcknowledge }: AlertRowProps) {
 
       {/* Reason */}
       <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">{alert.reason}</p>
+
+      {(alert.sector || alert.industry) && (
+        <p className="mt-1 text-[11px] text-muted-foreground" data-testid={`alert-classification-${alert.id}`}>
+          {alert.sector ?? "—"}{alert.industry ? ` / ${alert.industry}` : ""}
+        </p>
+      )}
 
       {/* Evidence */}
       {(alert.satisfiedEvidence.length > 0 || alert.missingEvidence.length > 0) && (
@@ -809,6 +819,8 @@ export function historyEntryToAlertRecord(
     score: entry.score,
     confidence: entry.confidence,
     alphaVelocity: entry.alphaVelocity,
+    sector: null,
+    industry: null,
     satisfiedEvidence: entry.satisfiedEvidence,
     missingEvidence: entry.missingEvidence,
     dataFresh: entry.dataFresh,

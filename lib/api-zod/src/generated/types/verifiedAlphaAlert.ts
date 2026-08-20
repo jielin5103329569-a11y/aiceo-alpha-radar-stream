@@ -22,6 +22,10 @@ export interface VerifiedAlphaAlert {
   /** @nullable */
   triggerPrice?: number | null;
   preBreakoutState: string;
+  /** @nullable */
+  sector?: string | null;
+  /** @nullable */
+  industry?: string | null;
   satisfiedEvidence: string[];
   missingEvidence: string[];
   generatedAt: Date;

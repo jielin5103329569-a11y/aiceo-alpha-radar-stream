@@ -419,6 +419,8 @@ components:
         confidence: { type: number }
         triggerPrice: { type: [number, "null"] }
         preBreakoutState: { type: string }
+        sector: { type: [string, "null"] }
+        industry: { type: [string, "null"] }
         satisfiedEvidence:
           type: array
           items: { type: string }

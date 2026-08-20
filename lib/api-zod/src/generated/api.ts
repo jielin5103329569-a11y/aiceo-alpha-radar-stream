@@ -3978,6 +3978,8 @@ export const GetAlertsResponse = zod.object({
   "confidence": zod.number(),
   "triggerPrice": zod.number().nullish(),
   "preBreakoutState": zod.string(),
+  "sector": zod.string().nullish(),
+  "industry": zod.string().nullish(),
   "satisfiedEvidence": zod.array(zod.string()),
   "missingEvidence": zod.array(zod.string()),
   "generatedAt": zod.coerce.date(),
