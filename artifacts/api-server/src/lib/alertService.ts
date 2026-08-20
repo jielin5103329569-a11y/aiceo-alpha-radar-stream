@@ -47,6 +47,11 @@ import type { RadarStatus } from "./databentoLive";
 // ---------------------------------------------------------------------------
 
 const MAX_CONSECUTIVE_PUSH_FAILURES = 5;
+/**
+ * Display limit only. A fully confirmed #1 remains eligible for alert delivery
+ * even when it is the sole leader surfaced for its sector.
+ */
+const MAX_SECTOR_LEADERS = 5;
 const SEVERITY_ORDER: AlertSeverity[] = ["info", "watch", "alert", "critical"];
 
 function severityIndex(s: string): number {
@@ -101,7 +106,8 @@ export function buildAlertSectorLeaderContext(
       (right.sectorWeightedScore ?? Number.NEGATIVE_INFINITY)
       - (left.sectorWeightedScore ?? Number.NEGATIVE_INFINITY)
     ) || left.symbol.localeCompare(right.symbol))
-    .slice(0, 5);
+    // This is intentionally an upper bound, never a minimum-population gate.
+    .slice(0, MAX_SECTOR_LEADERS);
 
   if (rankedMembers.length === 0) return null;
 

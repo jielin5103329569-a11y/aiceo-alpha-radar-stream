@@ -523,6 +523,51 @@ exports.inArray = (col, vals) => ({ col, vals, type: "inArray" });
     "leader context must use at most five fresh ranked members in deterministic score order",
   );
 
+  for (const memberCount of [1, 2, 3, 4]) {
+    const partialSectorContext = buildAlertSectorLeaderContext(
+      {
+        sectorPriority: sectorLeaderSnapshot(
+          Array.from({ length: memberCount }, (_, index) => leaderMember(
+            `PARTIAL${index + 1}`,
+            100 - index,
+            index === 0
+              ? { preBreakoutState: "pre_breakout", confirmationStatus: "confirmed" }
+              : { preBreakoutState: "watch" },
+          )),
+        ),
+      },
+      { sector: "Information Technology", industry: "Semiconductors" },
+    );
+    assert.equal(
+      partialSectorContext?.leaders.length,
+      memberCount,
+      `${memberCount} fresh ranked members must be shown without padding or a five-member gate`,
+    );
+    assert.equal(
+      partialSectorContext?.strongestBreakoutSymbol,
+      "PARTIAL1",
+      `a fully confirmed #1 must retain strongest-breakout status with only ${memberCount} member(s)`,
+    );
+  }
+
+  const singleUnconfirmedContext = buildAlertSectorLeaderContext(
+    {
+      sectorPriority: sectorLeaderSnapshot([
+        leaderMember("SINGLEPENDING", 99, { preBreakoutState: "pre_breakout", confirmationStatus: "pending" }),
+      ]),
+    },
+    { sector: "Information Technology", industry: "Semiconductors" },
+  );
+  assert.deepEqual(
+    singleUnconfirmedContext,
+    {
+      sector: "Information Technology",
+      leaders: [{ rank: 1, symbol: "SINGLEPENDING", grade: "strong" }],
+      strongestBreakoutSymbol: null,
+    },
+    "a single unconfirmed stock must remain visible but must not be labeled as strongest breakout",
+  );
+
   const noConfirmedBreakout = buildAlertSectorLeaderContext(
     {
       sectorPriority: sectorLeaderSnapshot([
@@ -572,38 +617,95 @@ exports.inArray = (col, vals) => ({ col, vals, type: "inArray" });
   );
 
   // ---------------------------------------------------------------------------
-  // Test 7: trusted classification and sector leaders are additive alert context
+  // Test 7: a single confirmed sector leader persists and enters the existing push pipeline
   // ---------------------------------------------------------------------------
 
   db._clearAll();
-  marketUniverse._setTrustedSecurity("SECTORTEST", {
+  db._addPushSub({
+    id: "single-breakout-subscription",
+    userId: "user_single_breakout",
+    active: true,
+    consecutiveFailures: 0,
+    subscriptionPayload: {
+      provider: "web_push",
+      endpoint: "https://example.com/single-breakout",
+      p256dh: "key",
+      auth: "auth",
+    },
+  });
+  db._addNotifSettings({
+    id: "single-breakout-settings",
+    userId: "user_single_breakout",
+    globalOptOut: false,
+    channelPreferences: {
+      webPush: true,
+      inApp: true,
+      minimumSeverity: "critical",
+      quietHoursStart: null,
+      quietHoursEnd: null,
+      timezone: null,
+    },
+  });
+  marketUniverse._setTrustedSecurity("SINGLEBREAKOUT", {
     eligibility: "eligible",
     sector: "Information Technology",
     industry: "Semiconductors",
     classificationSource: "Databento security master",
   });
   databentoLive.emit("status", {
-    symbolRadars: [buildPassingSymbolStatus({ symbol: "SECTORTEST" })],
+    symbolRadars: [buildPassingSymbolStatus({ symbol: "SINGLEBREAKOUT" })],
     sectorPriority: sectorLeaderSnapshot([
-      leaderMember("SECTORTEST", 99, { preBreakoutState: "pre_breakout", confirmationStatus: "confirmed" }),
-      leaderMember("MU", 94, { preBreakoutState: "accelerating" }),
-      leaderMember("AMD", 91),
+      leaderMember("SINGLEBREAKOUT", 99, { preBreakoutState: "pre_breakout", confirmationStatus: "confirmed" }),
     ]),
   });
   await sleep(50);
-  assert.equal(db._records.length, 1, "trusted classification must not create an additional alert candidate");
+  assert.equal(db._records.length, 1, "one fully confirmed candidate must persist without a five-member requirement");
+  assert.equal(db._records[0].symbol, "SINGLEBREAKOUT");
+  assert.equal(db._records[0].severity, "critical", "single confirmed breakout must retain existing critical severity");
   assert.equal(db._records[0].sector, "Information Technology");
   assert.equal(db._records[0].industry, "Semiconductors");
   assert.deepEqual(db._records[0].sectorLeaderContext, {
     sector: "Information Technology",
-    leaders: [
-      { rank: 1, symbol: "SECTORTEST", grade: "strong" },
-      { rank: 2, symbol: "MU", grade: "strong" },
-      { rank: 3, symbol: "AMD", grade: "watch" },
-    ],
-    strongestBreakoutSymbol: "SECTORTEST",
+    leaders: [{ rank: 1, symbol: "SINGLEBREAKOUT", grade: "strong" }],
+    strongestBreakoutSymbol: "SINGLEBREAKOUT",
   });
-  marketUniverse._setTrustedSecurity("SECTORTEST", null);
+  const singleBreakoutPush = buildAlertPushPayload(
+    {
+      symbol: "SINGLEBREAKOUT",
+      severity: "critical",
+      triggerReason: "pre_breakout_confirmed",
+      alphaScore: 82,
+      eventKey: db._records[0].eventKey,
+    },
+    db._records[0].id,
+    { sector: "Information Technology", industry: "Semiconductors" },
+    db._records[0].sectorLeaderContext,
+  );
+  assert.match(
+    singleBreakoutPush.body,
+    /#1 SINGLEBREAKOUT 🔥 最强爆发/,
+    "a single confirmed leader must retain its strongest-breakout label in the push body",
+  );
+  assert.doesNotMatch(
+    singleBreakoutPush.body,
+    /最强爆发：暂无确认/,
+    "a confirmed single leader must not be downgraded to the no-confirmation message",
+  );
+  assert.equal(
+    singleBreakoutPush.data.sectorLeaderContext?.leaders.length,
+    1,
+    "the service-worker-compatible push payload must preserve the single leader",
+  );
+  const singleBreakoutAudit = db._auditRows.find((row) => (
+    row.userId === "user_single_breakout"
+    && row.alertRecordId === db._records[0].id
+    && row.outcome === "skipped_no_vapid"
+  ));
+  assert.ok(
+    singleBreakoutAudit,
+    "the single confirmed breakout must enter the existing delivery pipeline; no VAPID only skips external delivery",
+  );
+  marketUniverse._setTrustedSecurity("SINGLEBREAKOUT", null);
 
   db._clearAll();
   marketUniverse._setTrustedSecurity("STALECLASSIFICATION", {
