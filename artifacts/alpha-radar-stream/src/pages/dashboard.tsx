@@ -9,6 +9,7 @@ import { LiveIngestionAcceptanceCard } from '@/components/live-ingestion-accepta
 import { SignalValidationPanel } from '@/components/signal-validation-panel';
 import { ShadowLearningStatusPanel } from '@/components/shadow-learning-status-panel';
 import { DataGovernanceCard } from '@/components/data-governance-card';
+import { EngineeringGovernanceCard } from '@/components/engineering-governance-card';
 import { AccountControls } from '@/components/account-controls';
 import { AccountAlerts } from '@/components/account-alerts';
 import { CatalystOpportunityCenter } from '@/components/catalyst-opportunity-center';
@@ -289,6 +290,7 @@ export default function Dashboard() {
 
           <RadarSignalPanel alphaRadar={status?.alphaRadar} scanHealth={status?.scanHealth} />
           <DataGovernanceCard governance={status?.governance} />
+          <EngineeringGovernanceCard />
 
           <LiveIngestionAcceptanceCard diagnostics={status?.liveIngestion} />
           <LiveSectorReadinessPanel status={status ?? null} />

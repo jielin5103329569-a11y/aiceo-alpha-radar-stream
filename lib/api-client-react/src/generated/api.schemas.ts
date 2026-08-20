@@ -1171,6 +1171,146 @@ export interface ProtectedScanHealth {
   reason: string;
 }
 
+export type EngineeringModuleId = typeof EngineeringModuleId[keyof typeof EngineeringModuleId];
+
+
+export const EngineeringModuleId = {
+  market_ingestion: 'market_ingestion',
+  data_governance: 'data_governance',
+  feature_structure: 'feature_structure',
+  stage_models: 'stage_models',
+  decision_alerting: 'decision_alerting',
+  background_learning: 'background_learning',
+  audit_persistence: 'audit_persistence',
+  network_infrastructure: 'network_infrastructure',
+} as const;
+
+export type GovernanceHealthState = typeof GovernanceHealthState[keyof typeof GovernanceHealthState];
+
+
+export const GovernanceHealthState = {
+  healthy: 'healthy',
+  degraded: 'degraded',
+  blocked: 'blocked',
+} as const;
+
+export type GovernanceAlertSeverity = typeof GovernanceAlertSeverity[keyof typeof GovernanceAlertSeverity];
+
+
+export const GovernanceAlertSeverity = {
+  info: 'info',
+  warning: 'warning',
+  critical: 'critical',
+} as const;
+
+export type GovernanceAlertCode = typeof GovernanceAlertCode[keyof typeof GovernanceAlertCode];
+
+
+export const GovernanceAlertCode = {
+  duplicate_implementation: 'duplicate_implementation',
+  active_slot_capacity: 'active_slot_capacity',
+  waiting_for_turn_stale: 'waiting_for_turn_stale',
+  resource_conflict: 'resource_conflict',
+  dependency_missing: 'dependency_missing',
+  dependency_unmet: 'dependency_unmet',
+  dependency_cycle: 'dependency_cycle',
+  failed_without_checkpoint: 'failed_without_checkpoint',
+  completed_without_validation: 'completed_without_validation',
+  task_registry_unavailable: 'task_registry_unavailable',
+  scanner_backpressure: 'scanner_backpressure',
+} as const;
+
+export interface GovernanceAlert {
+  code: GovernanceAlertCode;
+  severity: GovernanceAlertSeverity;
+  taskKeys: string[];
+  reason: string;
+}
+
+export interface EngineeringModuleBoundary {
+  id: EngineeringModuleId;
+  label: string;
+  owns: string[];
+  mustNotOwn: string[];
+}
+
+export interface EngineeringTaskQueueAssessment {
+  state: GovernanceHealthState;
+  /** @minimum 0 */
+  activeSlots: number;
+  /** @minimum 1 */
+  maximumSlots: number;
+  alerts: GovernanceAlert[];
+  canStartTaskKeys: string[];
+}
+
+export type EngineeringGovernanceSnapshotSchemaVersion = typeof EngineeringGovernanceSnapshotSchemaVersion[keyof typeof EngineeringGovernanceSnapshotSchemaVersion];
+
+
+export const EngineeringGovernanceSnapshotSchemaVersion = {
+  NUMBER_1: 1,
+} as const;
+
+export type EngineeringGovernanceSnapshotPlatformBoundaryInternalExecutionLeaseState = typeof EngineeringGovernanceSnapshotPlatformBoundaryInternalExecutionLeaseState[keyof typeof EngineeringGovernanceSnapshotPlatformBoundaryInternalExecutionLeaseState];
+
+
+export const EngineeringGovernanceSnapshotPlatformBoundaryInternalExecutionLeaseState = {
+  deferred_to_backend_lifeline: 'deferred_to_backend_lifeline',
+} as const;
+
+export type EngineeringGovernanceSnapshotPlatformBoundary = {
+  replitTaskBoardTouched: false;
+  internalExecutionLeaseState: EngineeringGovernanceSnapshotPlatformBoundaryInternalExecutionLeaseState;
+  reason: string;
+};
+
+export type EngineeringGovernanceSnapshotExecutionOrderItemState = typeof EngineeringGovernanceSnapshotExecutionOrderItemState[keyof typeof EngineeringGovernanceSnapshotExecutionOrderItemState];
+
+
+export const EngineeringGovernanceSnapshotExecutionOrderItemState = {
+  ready: 'ready',
+  blocked: 'blocked',
+} as const;
+
+export type EngineeringGovernanceSnapshotExecutionOrderItem = {
+  id: string;
+  label: string;
+  state: EngineeringGovernanceSnapshotExecutionOrderItemState;
+  reason: string;
+};
+
+export type EngineeringGovernanceSnapshotRuntime = {
+  /** @minimum 0 */
+  protectedScannerCount: number;
+  /** @minimum 0 */
+  delayedScannerCount: number;
+  /** @minimum 0 */
+  duplicateSymbolCount: number;
+  backgroundResourcePolicy: string;
+};
+
+/**
+ * Read-only engineering-governance projection. It does not integrate with Replit Task Board or agent leases and cannot change any production market-data or alert path.
+ */
+export interface EngineeringGovernanceSnapshot {
+  schemaVersion: EngineeringGovernanceSnapshotSchemaVersion;
+  generatedAt: string;
+  /**
+     * @minimum 0
+     * @maximum 100
+     */
+  healthScore: number;
+  state: GovernanceHealthState;
+  platformBoundary: EngineeringGovernanceSnapshotPlatformBoundary;
+  executionOrder: EngineeringGovernanceSnapshotExecutionOrderItem[];
+  moduleBoundaries: EngineeringModuleBoundary[];
+  taskQueue: EngineeringTaskQueueAssessment;
+  runtime: EngineeringGovernanceSnapshotRuntime;
+  alerts: GovernanceAlert[];
+  recommendations: string[];
+  auditHash: string;
+}
+
 export type GovernanceLayerId = typeof GovernanceLayerId[keyof typeof GovernanceLayerId];
 
 

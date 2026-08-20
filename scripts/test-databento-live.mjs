@@ -311,6 +311,21 @@ try {
     ),
     "offline protected scanners must expose no fabricated completed scan or verified market-data gate",
   );
+  const originalGetStatus = new Map();
+  universe.services.forEach((service) => {
+    originalGetStatus.set(service, service.getStatus);
+    service.getStatus = () => {
+      throw new Error("Engineering scheduler projection must not call service.getStatus()");
+    };
+  });
+  assert.deepEqual(
+    universe.getEngineeringScannerHealth(referenceAt),
+    MONITORED_SYMBOLS.map((symbol) => ({ symbol, schedulerState: "inactive" })),
+    "engineering scheduler visibility must read dedicated scheduler state without calculating scores or mutating ranking state",
+  );
+  originalGetStatus.forEach((getStatus, service) => {
+    service.getStatus = getStatus;
+  });
   const startupUniverse = new DatabentoUniverseService();
   const startupCalls = [];
   startupUniverse.services.forEach((service) => {

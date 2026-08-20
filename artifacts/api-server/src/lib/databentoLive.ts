@@ -398,6 +398,11 @@ export type AlphaRadarRankingMachine = {
   lastInputSignature: string | null;
 };
 
+export type EngineeringScannerHealth = {
+  symbol: string;
+  schedulerState: ProtectedScanSchedulerState;
+};
+
 type BridgeEvent =
   | { type: "ready" }
   | {
@@ -935,6 +940,25 @@ export class DatabentoLiveService extends EventEmitter {
       liveIngestion,
       scanHealth,
       governance,
+    };
+  }
+
+  /**
+   * A deliberately side-effect-free scheduler projection for infrastructure
+   * observability. Unlike getStatus(), it never recalculates a signal,
+   * persists a transition, emits an event, or changes a ranking machine.
+   */
+  getEngineeringScannerHealth(now = new Date()): EngineeringScannerHealth {
+    const scanLagMs = this.nextScheduledScanAt === null
+      ? null
+      : Math.max(0, now.getTime() - this.nextScheduledScanAt.getTime());
+    return {
+      symbol: this.configuredSymbol,
+      schedulerState: !this.scanSchedulerActive
+        ? "inactive"
+        : scanLagMs !== null && scanLagMs > 0
+          ? "delayed"
+          : "scheduled",
     };
   }
 
@@ -3415,6 +3439,15 @@ export class DatabentoUniverseService extends EventEmitter {
           }
         : null,
     };
+  }
+
+  /**
+   * Governance consumers must use this rather than getStatus(). The status
+   * endpoint advances ranking hysteresis as part of its live presentation,
+   * while this method is a pure read of scheduler ownership/capacity signals.
+   */
+  getEngineeringScannerHealth(now = new Date()): EngineeringScannerHealth[] {
+    return this.services.map((service) => service.getEngineeringScannerHealth(now));
   }
 
   start(): RadarStatus {

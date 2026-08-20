@@ -1499,6 +1499,75 @@ export const GetRadarStatusResponse = zod.object({
 
 
 /**
+ * Read-only engineering governance. It never reads or changes the Replit Task Board, agent leases, scoring, live scan cadence, Alert delivery, or Shadow Learning eligibility.
+ * @summary Read the engineering-governance projection
+ */
+export const getEngineeringGovernanceResponseHealthScoreMin = 0;
+export const getEngineeringGovernanceResponseHealthScoreMax = 100;
+
+export const getEngineeringGovernanceResponseTaskQueueActiveSlotsMin = 0;
+
+
+export const getEngineeringGovernanceResponseRuntimeProtectedScannerCountMin = 0;
+
+export const getEngineeringGovernanceResponseRuntimeDelayedScannerCountMin = 0;
+
+export const getEngineeringGovernanceResponseRuntimeDuplicateSymbolCountMin = 0;
+
+
+
+export const GetEngineeringGovernanceResponse = zod.object({
+  "schemaVersion": zod.literal(1),
+  "generatedAt": zod.coerce.date(),
+  "healthScore": zod.number().min(getEngineeringGovernanceResponseHealthScoreMin).max(getEngineeringGovernanceResponseHealthScoreMax),
+  "state": zod.enum(['healthy', 'degraded', 'blocked']),
+  "platformBoundary": zod.object({
+  "replitTaskBoardTouched": zod.literal(false),
+  "internalExecutionLeaseState": zod.enum(['deferred_to_backend_lifeline']),
+  "reason": zod.string()
+}),
+  "executionOrder": zod.array(zod.object({
+  "id": zod.string(),
+  "label": zod.string(),
+  "state": zod.enum(['ready', 'blocked']),
+  "reason": zod.string()
+})),
+  "moduleBoundaries": zod.array(zod.object({
+  "id": zod.enum(['market_ingestion', 'data_governance', 'feature_structure', 'stage_models', 'decision_alerting', 'background_learning', 'audit_persistence', 'network_infrastructure']),
+  "label": zod.string(),
+  "owns": zod.array(zod.string()),
+  "mustNotOwn": zod.array(zod.string())
+})),
+  "taskQueue": zod.object({
+  "state": zod.enum(['healthy', 'degraded', 'blocked']),
+  "activeSlots": zod.number().min(getEngineeringGovernanceResponseTaskQueueActiveSlotsMin),
+  "maximumSlots": zod.number().min(1),
+  "alerts": zod.array(zod.object({
+  "code": zod.enum(['duplicate_implementation', 'active_slot_capacity', 'waiting_for_turn_stale', 'resource_conflict', 'dependency_missing', 'dependency_unmet', 'dependency_cycle', 'failed_without_checkpoint', 'completed_without_validation', 'task_registry_unavailable', 'scanner_backpressure']),
+  "severity": zod.enum(['info', 'warning', 'critical']),
+  "taskKeys": zod.array(zod.string()),
+  "reason": zod.string()
+})),
+  "canStartTaskKeys": zod.array(zod.string())
+}),
+  "runtime": zod.object({
+  "protectedScannerCount": zod.number().min(getEngineeringGovernanceResponseRuntimeProtectedScannerCountMin),
+  "delayedScannerCount": zod.number().min(getEngineeringGovernanceResponseRuntimeDelayedScannerCountMin),
+  "duplicateSymbolCount": zod.number().min(getEngineeringGovernanceResponseRuntimeDuplicateSymbolCountMin),
+  "backgroundResourcePolicy": zod.string()
+}),
+  "alerts": zod.array(zod.object({
+  "code": zod.enum(['duplicate_implementation', 'active_slot_capacity', 'waiting_for_turn_stale', 'resource_conflict', 'dependency_missing', 'dependency_unmet', 'dependency_cycle', 'failed_without_checkpoint', 'completed_without_validation', 'task_registry_unavailable', 'scanner_backpressure']),
+  "severity": zod.enum(['info', 'warning', 'critical']),
+  "taskKeys": zod.array(zod.string()),
+  "reason": zod.string()
+})),
+  "recommendations": zod.array(zod.string()),
+  "auditHash": zod.string()
+}).describe('Read-only engineering-governance projection. It does not integrate with Replit Task Board or agent leases and cannot change any production market-data or alert path.\n')
+
+
+/**
  * @summary Start the server-side Databento live connection
  */
 export const startRadarConnectionResponseAlphaRadarDataConfidenceScoreMin = 0;

@@ -23,6 +23,7 @@ import type {
   AlertSettings,
   AlertsListResponse,
   CatalystRadarSnapshot,
+  EngineeringGovernanceSnapshot,
   FocusedScanSnapshot,
   GetAlertsParams,
   GetMarketUniverseParams,
@@ -211,6 +212,84 @@ export function useGetRadarStatus<TData = Awaited<ReturnType<typeof getRadarStat
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getGetRadarStatusQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetEngineeringGovernanceUrl = () => {
+
+
+
+
+  return `/api/radar/engineering-governance`
+}
+
+/**
+ * Read-only engineering governance. It never reads or changes the Replit Task Board, agent leases, scoring, live scan cadence, Alert delivery, or Shadow Learning eligibility.
+ * @summary Read the engineering-governance projection
+ */
+export const getEngineeringGovernance = async ( options?: Parameters<typeof customFetch>[1]): Promise<EngineeringGovernanceSnapshot> => {
+
+  return customFetch<EngineeringGovernanceSnapshot>(getGetEngineeringGovernanceUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetEngineeringGovernanceQueryKey = () => {
+    return [
+    `/api/radar/engineering-governance`
+    ] as const;
+    }
+
+
+export const getGetEngineeringGovernanceQueryOptions = <TData = Awaited<ReturnType<typeof getEngineeringGovernance>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getEngineeringGovernance>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetEngineeringGovernanceQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getEngineeringGovernance>>> = ({ signal }) => getEngineeringGovernance({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getEngineeringGovernance>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetEngineeringGovernanceQueryResult = NonNullable<Awaited<ReturnType<typeof getEngineeringGovernance>>>
+export type GetEngineeringGovernanceQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Read the engineering-governance projection
+ */
+
+export function useGetEngineeringGovernance<TData = Awaited<ReturnType<typeof getEngineeringGovernance>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getEngineeringGovernance>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetEngineeringGovernanceQueryOptions(options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

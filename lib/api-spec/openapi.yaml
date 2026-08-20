@@ -40,6 +40,22 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/RadarStatus"
+  /radar/engineering-governance:
+    get:
+      operationId: getEngineeringGovernance
+      tags: [radar]
+      summary: Read the engineering-governance projection
+      description: >
+        Read-only engineering governance. It never reads or changes the Replit
+        Task Board, agent leases, scoring, live scan cadence, Alert delivery,
+        or Shadow Learning eligibility.
+      responses:
+        "200":
+          description: Current engineering-governance projection
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EngineeringGovernanceSnapshot"
   /radar/connect:
     post:
       operationId: startRadarConnection
@@ -1504,6 +1520,175 @@ components:
         - marketDataGateReady
         - degradation
         - reason
+    EngineeringModuleId:
+      type: string
+      enum:
+        - market_ingestion
+        - data_governance
+        - feature_structure
+        - stage_models
+        - decision_alerting
+        - background_learning
+        - audit_persistence
+        - network_infrastructure
+    GovernanceHealthState:
+      type: string
+      enum: [healthy, degraded, blocked]
+    GovernanceAlertSeverity:
+      type: string
+      enum: [info, warning, critical]
+    GovernanceAlert:
+      type: object
+      properties:
+        code:
+          type: string
+          enum:
+            - duplicate_implementation
+            - active_slot_capacity
+            - waiting_for_turn_stale
+            - resource_conflict
+            - dependency_missing
+            - dependency_unmet
+            - dependency_cycle
+            - failed_without_checkpoint
+            - completed_without_validation
+            - task_registry_unavailable
+            - scanner_backpressure
+        severity:
+          $ref: "#/components/schemas/GovernanceAlertSeverity"
+        taskKeys:
+          type: array
+          items:
+            type: string
+        reason:
+          type: string
+      required: [code, severity, taskKeys, reason]
+    EngineeringModuleBoundary:
+      type: object
+      properties:
+        id:
+          $ref: "#/components/schemas/EngineeringModuleId"
+        label:
+          type: string
+        owns:
+          type: array
+          items:
+            type: string
+        mustNotOwn:
+          type: array
+          items:
+            type: string
+      required: [id, label, owns, mustNotOwn]
+    EngineeringTaskQueueAssessment:
+      type: object
+      properties:
+        state:
+          $ref: "#/components/schemas/GovernanceHealthState"
+        activeSlots:
+          type: number
+          minimum: 0
+        maximumSlots:
+          type: number
+          minimum: 1
+        alerts:
+          type: array
+          items:
+            $ref: "#/components/schemas/GovernanceAlert"
+        canStartTaskKeys:
+          type: array
+          items:
+            type: string
+      required: [state, activeSlots, maximumSlots, alerts, canStartTaskKeys]
+    EngineeringGovernanceSnapshot:
+      type: object
+      description: >
+        Read-only engineering-governance projection. It does not integrate with
+        Replit Task Board or agent leases and cannot change any production
+        market-data or alert path.
+      properties:
+        schemaVersion:
+          type: number
+          enum: [1]
+        generatedAt:
+          type: string
+          format: date-time
+        healthScore:
+          type: number
+          minimum: 0
+          maximum: 100
+        state:
+          $ref: "#/components/schemas/GovernanceHealthState"
+        platformBoundary:
+          type: object
+          properties:
+            replitTaskBoardTouched:
+              type: boolean
+              enum: [false]
+            internalExecutionLeaseState:
+              type: string
+              enum: [deferred_to_backend_lifeline]
+            reason:
+              type: string
+          required: [replitTaskBoardTouched, internalExecutionLeaseState, reason]
+        executionOrder:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              label:
+                type: string
+              state:
+                type: string
+                enum: [ready, blocked]
+              reason:
+                type: string
+            required: [id, label, state, reason]
+        moduleBoundaries:
+          type: array
+          items:
+            $ref: "#/components/schemas/EngineeringModuleBoundary"
+        taskQueue:
+          $ref: "#/components/schemas/EngineeringTaskQueueAssessment"
+        runtime:
+          type: object
+          properties:
+            protectedScannerCount:
+              type: number
+              minimum: 0
+            delayedScannerCount:
+              type: number
+              minimum: 0
+            duplicateSymbolCount:
+              type: number
+              minimum: 0
+            backgroundResourcePolicy:
+              type: string
+          required: [protectedScannerCount, delayedScannerCount, duplicateSymbolCount, backgroundResourcePolicy]
+        alerts:
+          type: array
+          items:
+            $ref: "#/components/schemas/GovernanceAlert"
+        recommendations:
+          type: array
+          items:
+            type: string
+        auditHash:
+          type: string
+      required:
+        - schemaVersion
+        - generatedAt
+        - healthScore
+        - state
+        - platformBoundary
+        - executionOrder
+        - moduleBoundaries
+        - taskQueue
+        - runtime
+        - alerts
+        - recommendations
+        - auditHash
     GovernanceLayerId:
       type: string
       enum: [raw_market, basic_features, market_structure, stage_state, final_decision]
