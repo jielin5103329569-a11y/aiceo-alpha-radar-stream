@@ -273,7 +273,7 @@ export default function Dashboard() {
 
         {/* Right Column - Streams & Tape */}
         <div className="lg:col-span-8 flex flex-col gap-6">
-          <RadarSignalPanel alphaRadar={status?.alphaRadar} />
+          <RadarSignalPanel alphaRadar={status?.alphaRadar} scanHealth={status?.scanHealth} />
 
           <LiveIngestionAcceptanceCard diagnostics={status?.liveIngestion} />
 
@@ -682,7 +682,10 @@ function RadarUniverseCard({
         <div className="grid gap-3 xl:grid-cols-2" data-testid="alpha-ranking-board">
           {displayItems.map(({ entry, symbol }) => {
             const sym = entry?.symbol ?? symbol?.symbol ?? 'UNK';
-            const active = symbol?.marketFeedState === 'streaming' && symbol?.alphaRadar.preBreakout.dataFresh;
+            const scanHealth = symbol?.scanHealth;
+            const active =
+              scanHealth?.marketDataState === 'fresh'
+              && scanHealth.marketDataGateReady === true;
             const detectionState = entry?.detectionState ?? symbol?.alphaRadar.preBreakout.state ?? 'unavailable';
             const confirmationStatus = entry?.confirmationStatus ?? symbol?.alphaRadar.preBreakout.confirmation.status ?? 'unavailable';
             const recentHistory = symbol?.signalHistory.slice(-3) ?? [];
@@ -788,6 +791,81 @@ function RadarUniverseCard({
                   </div>
                 )}
 
+                <div
+                  className="rounded-md border border-border/60 bg-background/50 p-2.5"
+                  data-testid={`protected-scan-health-${sym}`}
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="text-[9px] uppercase tracking-wide text-muted-foreground">
+                      Protected scan health
+                    </span>
+                    <div className="flex flex-wrap gap-1.5">
+                      <Badge
+                        variant="outline"
+                        className={cn(
+                          'border font-mono text-[9px] uppercase',
+                          scanHealth?.schedulerState === 'scheduled'
+                            ? 'border-primary/35 bg-primary/10 text-primary'
+                            : scanHealth?.schedulerState === 'delayed'
+                              ? 'border-amber-500/35 bg-amber-500/10 text-amber-700 dark:text-amber-300'
+                              : 'border-border bg-muted text-muted-foreground',
+                        )}
+                        data-testid={`scheduler-state-${sym}`}
+                      >
+                        {scanHealth?.schedulerState ?? 'inactive'} scheduler
+                      </Badge>
+                      <Badge
+                        variant="outline"
+                        className={cn(
+                          'border font-mono text-[9px] uppercase',
+                          scanHealth?.marketDataState === 'fresh'
+                            ? 'border-primary/35 bg-primary/10 text-primary'
+                            : scanHealth?.marketDataState === 'stale' || scanHealth?.marketDataState === 'offline'
+                              ? 'border-destructive/30 bg-destructive/10 text-destructive'
+                              : 'border-border bg-muted text-muted-foreground',
+                        )}
+                        data-testid={`scan-market-state-${sym}`}
+                      >
+                        {scanHealth?.marketDataState ?? 'unavailable'} data
+                      </Badge>
+                    </div>
+                  </div>
+                  <div className="mt-2.5 grid grid-cols-2 gap-x-3 gap-y-2 font-mono text-[9px] sm:grid-cols-3">
+                    <ScanHealthValue
+                      label="Cadence"
+                      value={scanHealth ? `${scanModeText(scanHealth.scanMode)} · ${formatMilliseconds(scanHealth.scanIntervalMs)}` : '—'}
+                    />
+                    <ScanHealthValue
+                      label="Last completed scan"
+                      value={scanHealth?.lastScanAt ? `${formatTime(scanHealth.lastScanAt)} · ${formatMilliseconds(scanHealth.lastScanAgeMs)} ago` : 'Never'}
+                    />
+                    <ScanHealthValue
+                      label="Scheduler timing"
+                      value={scanTimingText(scanHealth?.nextScanAt, scanHealth?.scanLagMs)}
+                    />
+                    <ScanHealthValue
+                      label="Last real market event"
+                      value={scanHealth?.lastMarketEventAt ? `${formatTime(scanHealth.lastMarketEventAt)} · ${formatMilliseconds(scanHealth.lastMarketEventAgeMs)} ago` : 'None verified'}
+                    />
+                    <ScanHealthValue
+                      label="Market-data gate"
+                      value={scanHealth?.marketDataGateReady ? 'Verified ready' : 'Not verified'}
+                      tone={scanHealth?.marketDataGateReady ? 'positive' : 'muted'}
+                    />
+                    <ScanHealthValue
+                      label="Degradation"
+                      value={(scanHealth?.degradation ?? 'unavailable').replaceAll('_', ' ')}
+                      tone={scanHealth?.degradation === 'ready' ? 'positive' : scanHealth?.degradation === 'offline' || scanHealth?.degradation === 'stale_market_data' ? 'negative' : 'muted'}
+                    />
+                  </div>
+                  <p
+                    className="mt-2 border-t border-border/60 pt-2 text-[10px] leading-relaxed text-muted-foreground"
+                    data-testid={`scan-health-reason-${sym}`}
+                  >
+                    {scanHealth?.reason ?? 'The server has not supplied protected scanner health for this symbol. Market-data verification remains unavailable.'}
+                  </p>
+                </div>
+
                 {/* Confirmation & Missing Evidence */}
                 <div className="mt-1 flex items-center justify-between gap-2">
                   <span className="text-[9px] uppercase tracking-wide text-muted-foreground">Confirmation</span>
@@ -860,6 +938,56 @@ function signedRate(value: number | null): string {
   return value === null ? '—' : `${value >= 0 ? '+' : ''}${formatNumber(value, 1)}/min`;
 }
 
+function ScanHealthValue({
+  label,
+  value,
+  tone = 'default',
+}: {
+  label: string;
+  value: string;
+  tone?: 'default' | 'positive' | 'negative' | 'muted';
+}) {
+  return (
+    <div className="min-w-0">
+      <p className="text-[8px] uppercase tracking-wide text-muted-foreground">{label}</p>
+      <p
+        className={cn(
+          'mt-0.5 break-words font-medium',
+          tone === 'positive'
+            ? 'text-primary'
+            : tone === 'negative'
+              ? 'text-destructive'
+              : tone === 'muted'
+                ? 'text-muted-foreground'
+                : 'text-foreground',
+        )}
+      >
+        {value}
+      </p>
+    </div>
+  );
+}
+
+function formatMilliseconds(value: number | null | undefined): string {
+  if (value === null || value === undefined) return '—';
+  if (value < 1_000) return `${Math.round(value)}ms`;
+  return `${formatNumber(value / 1_000, value % 1_000 === 0 ? 0 : 1)}s`;
+}
+
+function scanModeText(mode: RadarSymbolStatus['scanHealth']['scanMode']): string {
+  if (mode === 'pre_open') return 'Pre-open';
+  if (mode === 'opening') return 'Opening';
+  return 'Normal';
+}
+
+function scanTimingText(nextScanAt: string | null | undefined, scanLagMs: number | null | undefined): string {
+  if (!nextScanAt) return 'No scan scheduled';
+  if (scanLagMs !== null && scanLagMs !== undefined && scanLagMs > 0) {
+    return `Overdue ${formatMilliseconds(scanLagMs)}`;
+  }
+  return `Next ${formatTime(nextScanAt)}`;
+}
+
 function ConnectionHealthCard({
   status,
   transportState,
@@ -922,7 +1050,7 @@ function ConnectionHealthCard({
         <HealthRow
           label="Browser link"
           value={browserLinkLabel}
-          detail={transportState === 'connected' ? 'Live event stream' : 'Automatic recovery enabled'}
+          detail={transportState === 'connected' ? 'Status SSE connected; it does not verify a market event' : 'Automatic browser-link recovery enabled'}
           icon={transportState === 'reconnecting' ? <RefreshCw className="h-3.5 w-3.5 animate-spin text-amber-500" /> : undefined}
         />
         <HealthRow

@@ -39,6 +39,36 @@ export type RadarConnectionState =
 
 export type RadarReconnectState = "idle" | "scheduled" | "reconnecting" | "exhausted";
 export type RadarFreshness = "fresh" | "stale" | "insufficient" | "quiet";
+export type ProtectedScanSchedulerState = "inactive" | "scheduled" | "delayed";
+export type ProtectedScanMarketDataState = "fresh" | "stale" | "offline" | "insufficient";
+export type ProtectedScanDegradation =
+  | "ready"
+  | "offline"
+  | "stale_market_data"
+  | "scheduler_inactive"
+  | "scheduler_delayed"
+  | "awaiting_live_event"
+  | "insufficient_data";
+
+/**
+ * Runtime health of one protected-symbol scanner. A scheduled timer, an HTTP
+ * transport heartbeat, and a historical scan are never live market evidence.
+ */
+export type ProtectedScanHealth = {
+  schedulerState: ProtectedScanSchedulerState;
+  scanMode: AlphaRadarScanMode;
+  scanIntervalMs: number;
+  lastScanAt: Date | null;
+  lastScanAgeMs: number | null;
+  nextScanAt: Date | null;
+  scanLagMs: number | null;
+  lastMarketEventAt: Date | null;
+  lastMarketEventAgeMs: number | null;
+  marketDataState: ProtectedScanMarketDataState;
+  marketDataGateReady: boolean;
+  degradation: ProtectedScanDegradation;
+  reason: string;
+};
 export type RadarSignal = {
   score: number | null;
   dataTimestamp: Date | null;
@@ -195,6 +225,7 @@ export type RadarStatus = {
     lastEventAt: Date | null;
   }>;
   liveIngestion: LiveIngestionDiagnostics;
+  scanHealth: ProtectedScanHealth;
   symbolRadars?: RadarSymbolStatus[];
   alphaRanking?: AlphaRadarRankingSnapshot;
   preBreakoutLeader?: {
@@ -216,6 +247,7 @@ export type RadarSymbolStatus = {
   signalHistory: AlphaRadarSignalHistoryEntry[];
   market: RadarStatus["market"];
   liveIngestion: LiveIngestionDiagnostics;
+  scanHealth: ProtectedScanHealth;
   /** Per-symbol stream states — required for fail-closed stream-receiving gate. */
   streams: RadarStatus["streams"];
   error: string | null;
@@ -431,6 +463,7 @@ function redactMessage(message: string): string {
 
 function blankStatus(symbol = "NVDA"): RadarStatus {
   const configured = Boolean(process.env.DATABENTO_API_KEY);
+  const emptyAlphaRadar = createEmptyAlphaRadar(new Date());
   return {
     configured,
     connectionState: configured ? "stopped" : "not_configured",
@@ -444,7 +477,13 @@ function blankStatus(symbol = "NVDA"): RadarStatus {
     reconnectState: "idle",
     reconnectAttempt: 0,
     nextReconnectAt: null,
-    alphaRadar: createEmptyAlphaRadar(new Date()),
+    alphaRadar: {
+      ...emptyAlphaRadar,
+      scan: {
+        ...emptyAlphaRadar.scan,
+        lastScannedAt: null,
+      },
+    },
     signalHistory: [],
     error: configured ? null : "DATABENTO_API_KEY is not configured.",
     market: {
@@ -464,6 +503,21 @@ function blankStatus(symbol = "NVDA"): RadarStatus {
       { schema: "ohlcv-1s", state: "waiting", eventCount: 0, lastEventAt: null },
     ],
     liveIngestion: blankLiveIngestionDiagnostics(symbol, configured),
+    scanHealth: {
+      schedulerState: "inactive",
+      scanMode: "normal",
+      scanIntervalMs: NORMAL_SCAN_INTERVAL_MS,
+      lastScanAt: null,
+      lastScanAgeMs: null,
+      nextScanAt: null,
+      scanLagMs: null,
+      lastMarketEventAt: null,
+      lastMarketEventAgeMs: null,
+      marketDataState: "offline",
+      marketDataGateReady: false,
+      degradation: "offline",
+      reason: "Scanner is inactive. No scheduled scan, transport state, or cached value is treated as live market evidence.",
+    },
   };
 }
 
@@ -702,6 +756,9 @@ export class DatabentoLiveService extends EventEmitter {
   private analysisWindowStartedAt: Date | null = null;
   private scanSchedulerActive = false;
   private lastAlphaScanAt: Date | null = null;
+  private nextScheduledScanAt: Date | null = null;
+  private scanScheduleGeneration = 0;
+  private scanInProgress = false;
   private alphaHistory: AlphaRadarHistoryPoint[] = [];
   private signalHistory: AlphaRadarSignalHistoryEntry[] = [];
   private preBreakoutMachine: PreBreakoutStateMachine = {
@@ -721,7 +778,7 @@ export class DatabentoLiveService extends EventEmitter {
     const marketFeedState = this.marketFeedStateAt(now);
     let alphaRadar = this.status.alphaRadar;
     if (marketFeedState !== "streaming") {
-      const invalidSnapshot = addAlphaRadarDynamics(
+      const calculatedOfflineSnapshot = addAlphaRadarDynamics(
           calculateAlphaRadar({
             now,
             connectionState: "stopped",
@@ -738,6 +795,13 @@ export class DatabentoLiveService extends EventEmitter {
             eventTriggered: false,
           },
         );
+      const invalidSnapshot = {
+        ...calculatedOfflineSnapshot,
+        scan: {
+          ...calculatedOfflineSnapshot.scan,
+          lastScannedAt: this.lastAlphaScanAt,
+        },
+      };
       const invalidDetection = updatePreBreakoutDetection(
         invalidSnapshot,
         this.preBreakoutMachine,
@@ -754,6 +818,7 @@ export class DatabentoLiveService extends EventEmitter {
       this.status = { ...this.status, alphaRadar };
     }
     const liveIngestion = this.currentLiveIngestionDiagnostics(alphaRadar, marketFeedState, now);
+    const scanHealth = this.currentScanHealth(alphaRadar, marketFeedState, liveIngestion, now);
     return {
       ...this.status,
       marketFeedState,
@@ -761,6 +826,95 @@ export class DatabentoLiveService extends EventEmitter {
       signalHistory: [...this.signalHistory],
       radar: this.calculateRadar(now),
       liveIngestion,
+      scanHealth,
+    };
+  }
+
+  private currentScanHealth(
+    alphaRadar: AlphaRadarSnapshot,
+    marketFeedState: MarketFeedState,
+    liveIngestion: LiveIngestionDiagnostics,
+    now: Date,
+  ): ProtectedScanHealth {
+    const profile = scanProfileAt(now);
+    const lastScanAt = this.lastAlphaScanAt;
+    const lastScanAgeMs = lastScanAt === null
+      ? null
+      : Math.max(0, now.getTime() - lastScanAt.getTime());
+    const scanLagMs = this.nextScheduledScanAt === null
+      ? null
+      : Math.max(0, now.getTime() - this.nextScheduledScanAt.getTime());
+    const schedulerState: ProtectedScanSchedulerState =
+      !this.scanSchedulerActive
+        ? "inactive"
+        : scanLagMs !== null && scanLagMs > profile.scanIntervalMs
+          ? "delayed"
+          : "scheduled";
+    const coreComponentsEligible =
+      alphaRadar.momentum.scoreEligible
+      && alphaRadar.volumeIntensity.scoreEligible
+      && alphaRadar.orderFlowPressure.scoreEligible
+      && alphaRadar.spread.scoreEligible;
+    const verifiedFreshWindow =
+      this.status.connectionState === "streaming"
+      && marketFeedState === "streaming"
+      && liveIngestion.conditions.subscriptionVerified
+      && liveIngestion.conditions.realMarketEventReceived
+      && liveIngestion.conditions.enteredScoringWindow
+      && liveIngestion.conditions.scoringEligible
+      && alphaRadar.dataQuality === "good"
+      && alphaRadar.score !== null
+      && Number.isFinite(alphaRadar.score)
+      && alphaRadar.preBreakout.dataFresh
+      && coreComponentsEligible;
+    const marketDataState: ProtectedScanMarketDataState =
+      marketFeedState === "offline"
+        ? "offline"
+        : marketFeedState === "stale"
+          ? "stale"
+          : verifiedFreshWindow
+            ? "fresh"
+            : "insufficient";
+    const marketDataGateReady =
+      schedulerState === "scheduled"
+      && marketDataState === "fresh";
+    const degradation: ProtectedScanDegradation =
+      marketDataState === "offline"
+        ? "offline"
+        : marketDataState === "stale"
+          ? "stale_market_data"
+          : schedulerState === "inactive"
+            ? "scheduler_inactive"
+            : schedulerState === "delayed"
+              ? "scheduler_delayed"
+              : !liveIngestion.conditions.realMarketEventReceived
+                ? "awaiting_live_event"
+                : !marketDataGateReady
+                  ? "insufficient_data"
+                  : "ready";
+    const reason = {
+      ready: "Scheduler is armed and this symbol has a fresh, complete live market-data window. Alert evaluation still requires its separate event-trigger and transition gates.",
+      offline: "Feed is offline. Scheduler state, transport heartbeats, cached values, and prior scans cannot claim live market data.",
+      scheduler_inactive: "Scanner is not armed. No scan cadence is currently scheduled for this symbol.",
+      scheduler_delayed: "The next scheduled scan is overdue. The symbol remains ineligible until the scheduler resumes and every live-data gate passes.",
+      stale_market_data: "The last verified market event is outside the freshness window. A scheduled scan does not refresh market evidence.",
+      awaiting_live_event: "Scheduler is armed, but no verified Databento market event has reached this symbol's live window.",
+      insufficient_data: "Verified live data is incomplete or still rebuilding. Scores and production alerts remain unavailable.",
+    }[degradation];
+    return {
+      schedulerState,
+      scanMode: profile.scanMode,
+      scanIntervalMs: profile.scanIntervalMs,
+      lastScanAt,
+      lastScanAgeMs,
+      nextScanAt: this.nextScheduledScanAt,
+      scanLagMs,
+      lastMarketEventAt: liveIngestion.lastMarketEventAt,
+      lastMarketEventAgeMs: liveIngestion.lastMarketEventAgeMs,
+      marketDataState,
+      marketDataGateReady,
+      degradation,
+      reason,
     };
   }
 
@@ -863,7 +1017,7 @@ export class DatabentoLiveService extends EventEmitter {
     this.stopping = true;
     this.clearReconnectTimer();
     this.clearHeartbeatTimer();
-    this.clearScanTimer();
+    this.stopScanScheduler();
     if (this.child && !this.child.killed) {
       this.child.kill("SIGTERM");
     }
@@ -880,7 +1034,6 @@ export class DatabentoLiveService extends EventEmitter {
       streams: this.status.streams.map((stream) => ({ ...stream, state: "waiting" as const })),
     };
     this.analysisWindowNeedsReset = false;
-    this.scanSchedulerActive = false;
     this.publish();
     return this.getStatus();
   }
@@ -948,15 +1101,13 @@ export class DatabentoLiveService extends EventEmitter {
       // If it does, keep the bytes out of logs and present a generic connection error.
     });
     child.on("error", () => {
-      if (this.child === child) {
-        this.child = null;
-      }
+      if (this.child !== child) return;
+      this.child = null;
       this.fail("Unable to launch the Databento live bridge.", true);
     });
     child.on("close", (code) => {
-      if (this.child === child) {
-        this.child = null;
-      }
+      if (this.child !== child) return;
+      this.child = null;
       if (!this.stopping && !this.reconnectTimer) {
         this.fail(
           this.status.error ??
@@ -1213,6 +1364,7 @@ export class DatabentoLiveService extends EventEmitter {
   }
 
   private fail(message: string, shouldReconnect = false): void {
+    this.stopScanScheduler();
     this.analysisWindowNeedsReset = true;
     this.status = {
       ...this.status,
@@ -1296,16 +1448,26 @@ export class DatabentoLiveService extends EventEmitter {
   }
 
   private startScanScheduler(): void {
+    this.stopScanScheduler();
     this.scanSchedulerActive = true;
     this.runAlphaScan("stream_started", false);
     this.scheduleNextScan();
   }
 
+  private stopScanScheduler(): void {
+    this.scanSchedulerActive = false;
+    this.pendingScanReason = "scheduled_scan";
+    this.pendingScanEventTriggered = false;
+    this.clearScanTimer();
+  }
+
   private clearScanTimer(): void {
+    this.scanScheduleGeneration += 1;
     if (this.scanTimer) {
       clearTimeout(this.scanTimer);
       this.scanTimer = null;
     }
+    this.nextScheduledScanAt = null;
   }
 
   private scheduleNextScan(delayMs?: number): void {
@@ -1313,8 +1475,14 @@ export class DatabentoLiveService extends EventEmitter {
     this.clearScanTimer();
     const profile = scanProfileAt(new Date());
     const delay = delayMs ?? profile.scanIntervalMs;
+    const scheduleGeneration = this.scanScheduleGeneration;
+    this.nextScheduledScanAt = new Date(Date.now() + delay);
     this.scanTimer = setTimeout(() => {
+      if (!this.scanSchedulerActive || scheduleGeneration !== this.scanScheduleGeneration) {
+        return;
+      }
       this.scanTimer = null;
+      this.nextScheduledScanAt = null;
       const reason = this.pendingScanReason;
       const eventTriggered = this.pendingScanEventTriggered;
       this.pendingScanReason = "scheduled_scan";
@@ -1326,7 +1494,9 @@ export class DatabentoLiveService extends EventEmitter {
 
   private requestAlphaScan(reason: string, eventTriggered: boolean): void {
     if (!this.scanSchedulerActive) {
-      this.runAlphaScan(reason, eventTriggered);
+      if (this.status.connectionState === "streaming") {
+        this.runAlphaScan(reason, eventTriggered);
+      }
       return;
     }
     const now = new Date();
@@ -1348,6 +1518,9 @@ export class DatabentoLiveService extends EventEmitter {
   }
 
   private runAlphaScan(triggerReason: string, eventTriggered: boolean): void {
+    if (this.scanInProgress) return;
+    this.scanInProgress = true;
+    try {
     const now = new Date();
     const profile = scanProfileAt(now);
     const calculated = calculateAlphaRadar({
@@ -1422,6 +1595,9 @@ export class DatabentoLiveService extends EventEmitter {
       );
     }
     this.publish();
+    } finally {
+      this.scanInProgress = false;
+    }
   }
 
   private quoteScanTrigger(previous: QuoteObservation | null, current: QuoteObservation): string | null {
@@ -1979,6 +2155,7 @@ function toSymbolStatus(status: RadarStatus): RadarSymbolStatus {
     signalHistory: status.signalHistory,
     market: status.market,
     liveIngestion: status.liveIngestion,
+    scanHealth: status.scanHealth,
     streams: status.streams,
     error: status.error,
   };
@@ -2143,7 +2320,7 @@ function rankingInputSignature(symbols: RadarSymbolStatus[]): string {
         status.symbol,
         status.connectionState,
         status.marketFeedState,
-        snapshot.scan.lastScannedAt.toISOString(),
+        snapshot.scan.lastScannedAt?.toISOString() ?? "never",
         snapshot.score,
         snapshot.alphaVelocity.rate30s,
         snapshot.preBreakout.state,

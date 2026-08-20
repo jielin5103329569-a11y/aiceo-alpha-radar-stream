@@ -466,7 +466,11 @@ export const AlphaRadarScanMetadataScanMode = {
 } as const;
 
 export interface AlphaRadarScanMetadata {
-  lastScannedAt: string;
+  /**
+     * Timestamp of the last completed local scan, or null when no scan has completed in this process.
+     * @nullable
+     */
+  lastScannedAt: string | null;
   scanIntervalMs: number;
   scanMode: AlphaRadarScanMetadataScanMode;
   triggerReason: string;
@@ -652,6 +656,82 @@ export interface RadarMarketSnapshot {
   sessionVolume: number | null;
   /** @nullable */
   lastTradeAt: string | null;
+}
+
+export type ProtectedScanSchedulerState = typeof ProtectedScanSchedulerState[keyof typeof ProtectedScanSchedulerState];
+
+
+export const ProtectedScanSchedulerState = {
+  inactive: 'inactive',
+  scheduled: 'scheduled',
+  delayed: 'delayed',
+} as const;
+
+export type ProtectedScanMarketDataState = typeof ProtectedScanMarketDataState[keyof typeof ProtectedScanMarketDataState];
+
+
+export const ProtectedScanMarketDataState = {
+  fresh: 'fresh',
+  stale: 'stale',
+  offline: 'offline',
+  insufficient: 'insufficient',
+} as const;
+
+export type ProtectedScanDegradation = typeof ProtectedScanDegradation[keyof typeof ProtectedScanDegradation];
+
+
+export const ProtectedScanDegradation = {
+  ready: 'ready',
+  offline: 'offline',
+  stale_market_data: 'stale_market_data',
+  scheduler_inactive: 'scheduler_inactive',
+  scheduler_delayed: 'scheduler_delayed',
+  awaiting_live_event: 'awaiting_live_event',
+  insufficient_data: 'insufficient_data',
+} as const;
+
+export type ProtectedScanHealthScanMode = typeof ProtectedScanHealthScanMode[keyof typeof ProtectedScanHealthScanMode];
+
+
+export const ProtectedScanHealthScanMode = {
+  normal: 'normal',
+  pre_open: 'pre_open',
+  opening: 'opening',
+} as const;
+
+/**
+ * Per-symbol scheduler and market-data health. Scheduler timestamps and heartbeats are never evidence of a fresh verified market event.
+ */
+export interface ProtectedScanHealth {
+  schedulerState: ProtectedScanSchedulerState;
+  scanMode: ProtectedScanHealthScanMode;
+  /** @minimum 0 */
+  scanIntervalMs: number;
+  /** @nullable */
+  lastScanAt: string | null;
+  /**
+     * @minimum 0
+     * @nullable
+     */
+  lastScanAgeMs: number | null;
+  /** @nullable */
+  nextScanAt: string | null;
+  /**
+     * @minimum 0
+     * @nullable
+     */
+  scanLagMs: number | null;
+  /** @nullable */
+  lastMarketEventAt: string | null;
+  /**
+     * @minimum 0
+     * @nullable
+     */
+  lastMarketEventAgeMs: number | null;
+  marketDataState: ProtectedScanMarketDataState;
+  marketDataGateReady: boolean;
+  degradation: ProtectedScanDegradation;
+  reason: string;
 }
 
 export interface AlphaRadarSignalHistoryEntry {
@@ -852,6 +932,7 @@ export interface RadarSymbolStatus {
   signalHistory: AlphaRadarSignalHistoryEntry[];
   market: RadarMarketSnapshot;
   liveIngestion: LiveIngestionDiagnostics;
+  scanHealth: ProtectedScanHealth;
   /** @nullable */
   error: string | null;
 }
@@ -1328,6 +1409,7 @@ export interface RadarStatus {
   radar: RadarSnapshot;
   streams: RadarStream[];
   liveIngestion: LiveIngestionDiagnostics;
+  scanHealth: ProtectedScanHealth;
   marketUniverse: MarketUniverseSummary;
   focusedScans: FocusedScanSnapshot;
   symbolRadars: RadarSymbolStatus[];

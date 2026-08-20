@@ -284,6 +284,21 @@ try {
     ),
     "stopped universe symbols must never receive an apparently valid rank",
   );
+  assert.deepEqual(
+    universeStatus.symbolRadars.map((radar) => radar.scanHealth.marketDataState),
+    ["offline", "offline", "offline", "offline", "offline"],
+    "every protected symbol must explicitly report offline market data while Databento is stopped",
+  );
+  assert.ok(
+    universeStatus.symbolRadars.every(
+      (radar) =>
+        radar.scanHealth.schedulerState === "inactive"
+        && radar.scanHealth.lastScanAt === null
+        && radar.scanHealth.marketDataGateReady === false
+        && radar.scanHealth.degradation === "offline",
+    ),
+    "offline protected scanners must expose no fabricated completed scan or verified market-data gate",
+  );
   const muService = new DatabentoLiveService("MU");
   muService.applyEvent({ type: "ready" });
   muService.applyEvent(marketEvent(new Date(), 100, "B"));
@@ -309,6 +324,26 @@ try {
   assert.equal(incomplete.radar.spread.score, null, "incomplete evidence must not publish spread");
   assert.equal(incomplete.radar.volumeIntensity.score, null, "incomplete evidence must not publish volume");
   assert.deepEqual(incomplete.radar.activityFlags, [], "incomplete evidence must not publish activity alerts");
+  assert.equal(
+    incomplete.scanHealth.marketDataGateReady,
+    false,
+    "a direct fixture without an armed scheduler must never satisfy the market-data gate",
+  );
+
+  const insufficientHealthService = new DatabentoLiveService("NVDA");
+  insufficientHealthService.applyEvent({ type: "ready" });
+  insufficientHealthService.applyEvent(marketEvent(new Date(), 100, "B"));
+  const insufficientHealth = insufficientHealthService.getStatus().scanHealth;
+  assert.equal(
+    insufficientHealth.marketDataState,
+    "insufficient",
+    "one verified market event without a complete scoring window must report insufficient scan health",
+  );
+  assert.equal(
+    insufficientHealth.marketDataGateReady,
+    false,
+    "an insufficient protected scanner must never satisfy the market-data gate",
+  );
 
   const freshAlphaService = new DatabentoLiveService();
   const freshAlphaNow = new Date();
@@ -339,6 +374,104 @@ try {
     "Quote-depth proxy because classified trade sides are unavailable",
     "unclassified live trades must use the fresh quote-depth proxy",
   );
+  assert.equal(
+    freshAlphaStatus.scanHealth.marketDataState,
+    "fresh",
+    "a verified complete event window must be represented as fresh even before a scheduler is armed",
+  );
+  assert.equal(
+    freshAlphaStatus.scanHealth.marketDataGateReady,
+    false,
+    "a fresh direct fixture without an armed scheduler must remain alert-ineligible",
+  );
+  assert.equal(
+    freshAlphaStatus.scanHealth.degradation,
+    "scheduler_inactive",
+    "scheduler state must remain visible independently from fresh market data",
+  );
+
+  const staleHealthService = new DatabentoLiveService("NVDA");
+  staleHealthService.applyEvent({ type: "ready" });
+  staleHealthService.applyEvent(marketEvent(new Date(Date.now() - 20_000), 100, "B"));
+  const staleHealth = staleHealthService.getStatus().scanHealth;
+  assert.equal(
+    staleHealth.marketDataState,
+    "stale",
+    "a last real market event outside the existing freshness window must be stale",
+  );
+  assert.equal(
+    staleHealth.degradation,
+    "stale_market_data",
+    "stale verified market data must be distinguishable from a scheduler state",
+  );
+  assert.equal(
+    staleHealth.marketDataGateReady,
+    false,
+    "stale market data must never satisfy the production scan-health gate",
+  );
+
+  const watchdogService = new DatabentoLiveService("NVDA");
+  watchdogService.status = {
+    ...watchdogService.status,
+    connectionState: "streaming",
+    lastUpdatedAt: new Date(),
+  };
+  watchdogService.scanSchedulerActive = true;
+  watchdogService.nextScheduledScanAt = new Date(Date.now() - 10_000);
+  const delayedHealth = watchdogService.getStatus().scanHealth;
+  assert.equal(
+    delayedHealth.schedulerState,
+    "delayed",
+    "an overdue timer must be observable as delayed rather than silently appearing scheduled",
+  );
+  assert.equal(
+    delayedHealth.degradation,
+    "scheduler_delayed",
+    "a delayed scanner must publish an explicit degradation reason",
+  );
+  assert.equal(
+    delayedHealth.marketDataGateReady,
+    false,
+    "scheduler watchdog delay must fail closed before the production alert handoff",
+  );
+
+  const timerIsolationService = new DatabentoLiveService("NVDA");
+  const originalSetTimeout = globalThis.setTimeout;
+  const originalClearTimeout = globalThis.clearTimeout;
+  const scheduledCallbacks = [];
+  let timerRuns = 0;
+  globalThis.setTimeout = (callback) => {
+    scheduledCallbacks.push(callback);
+    return { unref() {} };
+  };
+  globalThis.clearTimeout = () => {};
+  try {
+    timerIsolationService.runAlphaScan = () => {
+      timerRuns += 1;
+    };
+    timerIsolationService.scanSchedulerActive = true;
+    timerIsolationService.scheduleNextScan(1);
+    const staleTimerCallback = scheduledCallbacks.at(-1);
+    timerIsolationService.stopScanScheduler();
+    staleTimerCallback();
+    assert.equal(
+      timerRuns,
+      0,
+      "a callback captured before stop must not scan after its scheduler generation is invalidated",
+    );
+
+    timerIsolationService.scanSchedulerActive = true;
+    timerIsolationService.scheduleNextScan(1);
+    scheduledCallbacks.at(-1)();
+    assert.equal(
+      timerRuns,
+      1,
+      "only the currently armed scheduler generation may execute a scheduled scan",
+    );
+  } finally {
+    globalThis.setTimeout = originalSetTimeout;
+    globalThis.clearTimeout = originalClearTimeout;
+  }
 
   function rankingSymbol({
     symbol,

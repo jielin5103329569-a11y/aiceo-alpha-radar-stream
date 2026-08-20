@@ -55,6 +55,14 @@ export const getRadarStatusResponseLiveIngestionFreshnessCountersVolumeMin = 0;
 
 export const getRadarStatusResponseLiveIngestionTriggerEvidenceEvidenceCountMin = 0;
 
+export const getRadarStatusResponseScanHealthScanIntervalMsMin = 0;
+
+export const getRadarStatusResponseScanHealthLastScanAgeMsMin = 0;
+
+export const getRadarStatusResponseScanHealthScanLagMsMin = 0;
+
+export const getRadarStatusResponseScanHealthLastMarketEventAgeMsMin = 0;
+
 export const getRadarStatusResponseMarketUniverseTotalCountMin = 0;
 
 export const getRadarStatusResponseMarketUniverseEligibleCountMin = 0;
@@ -121,6 +129,14 @@ export const getRadarStatusResponseSymbolRadarsItemLiveIngestionFreshnessCounter
 
 export const getRadarStatusResponseSymbolRadarsItemLiveIngestionTriggerEvidenceEvidenceCountMin = 0;
 
+export const getRadarStatusResponseSymbolRadarsItemScanHealthScanIntervalMsMin = 0;
+
+export const getRadarStatusResponseSymbolRadarsItemScanHealthLastScanAgeMsMin = 0;
+
+export const getRadarStatusResponseSymbolRadarsItemScanHealthScanLagMsMin = 0;
+
+export const getRadarStatusResponseSymbolRadarsItemScanHealthLastMarketEventAgeMsMin = 0;
+
 
 export const getRadarStatusResponseAlphaRankingEntriesItemRankingScoreMin = 0;
 export const getRadarStatusResponseAlphaRankingEntriesItemRankingScoreMax = 100;
@@ -174,7 +190,7 @@ export const GetRadarStatusResponse = zod.object({
   "scoring_gate_reason": zod.string()
 }),
   "scan": zod.object({
-  "lastScannedAt": zod.coerce.date(),
+  "lastScannedAt": zod.coerce.date().nullable().describe('Timestamp of the last completed local scan, or null when no scan has completed in this process.'),
   "scanIntervalMs": zod.number(),
   "scanMode": zod.enum(['normal', 'pre_open', 'opening']),
   "triggerReason": zod.string(),
@@ -449,6 +465,21 @@ export const GetRadarStatusResponse = zod.object({
 }),
   "reason": zod.string()
 }),
+  "scanHealth": zod.object({
+  "schedulerState": zod.enum(['inactive', 'scheduled', 'delayed']),
+  "scanMode": zod.enum(['normal', 'pre_open', 'opening']),
+  "scanIntervalMs": zod.number().min(getRadarStatusResponseScanHealthScanIntervalMsMin),
+  "lastScanAt": zod.coerce.date().nullable(),
+  "lastScanAgeMs": zod.number().min(getRadarStatusResponseScanHealthLastScanAgeMsMin).nullable(),
+  "nextScanAt": zod.coerce.date().nullable(),
+  "scanLagMs": zod.number().min(getRadarStatusResponseScanHealthScanLagMsMin).nullable(),
+  "lastMarketEventAt": zod.coerce.date().nullable(),
+  "lastMarketEventAgeMs": zod.number().min(getRadarStatusResponseScanHealthLastMarketEventAgeMsMin).nullable(),
+  "marketDataState": zod.enum(['fresh', 'stale', 'offline', 'insufficient']),
+  "marketDataGateReady": zod.boolean(),
+  "degradation": zod.enum(['ready', 'offline', 'stale_market_data', 'scheduler_inactive', 'scheduler_delayed', 'awaiting_live_event', 'insufficient_data']),
+  "reason": zod.string()
+}).describe('Per-symbol scheduler and market-data health. Scheduler timestamps and heartbeats are never evidence of a fresh verified market event.\n'),
   "marketUniverse": zod.object({
   "provider": zod.enum(['Databento']),
   "dataset": zod.string(),
@@ -541,7 +572,7 @@ export const GetRadarStatusResponse = zod.object({
   "scoring_gate_reason": zod.string()
 }),
   "scan": zod.object({
-  "lastScannedAt": zod.coerce.date(),
+  "lastScannedAt": zod.coerce.date().nullable().describe('Timestamp of the last completed local scan, or null when no scan has completed in this process.'),
   "scanIntervalMs": zod.number(),
   "scanMode": zod.enum(['normal', 'pre_open', 'opening']),
   "triggerReason": zod.string(),
@@ -753,6 +784,21 @@ export const GetRadarStatusResponse = zod.object({
 }),
   "reason": zod.string()
 }),
+  "scanHealth": zod.object({
+  "schedulerState": zod.enum(['inactive', 'scheduled', 'delayed']),
+  "scanMode": zod.enum(['normal', 'pre_open', 'opening']),
+  "scanIntervalMs": zod.number().min(getRadarStatusResponseSymbolRadarsItemScanHealthScanIntervalMsMin),
+  "lastScanAt": zod.coerce.date().nullable(),
+  "lastScanAgeMs": zod.number().min(getRadarStatusResponseSymbolRadarsItemScanHealthLastScanAgeMsMin).nullable(),
+  "nextScanAt": zod.coerce.date().nullable(),
+  "scanLagMs": zod.number().min(getRadarStatusResponseSymbolRadarsItemScanHealthScanLagMsMin).nullable(),
+  "lastMarketEventAt": zod.coerce.date().nullable(),
+  "lastMarketEventAgeMs": zod.number().min(getRadarStatusResponseSymbolRadarsItemScanHealthLastMarketEventAgeMsMin).nullable(),
+  "marketDataState": zod.enum(['fresh', 'stale', 'offline', 'insufficient']),
+  "marketDataGateReady": zod.boolean(),
+  "degradation": zod.enum(['ready', 'offline', 'stale_market_data', 'scheduler_inactive', 'scheduler_delayed', 'awaiting_live_event', 'insufficient_data']),
+  "reason": zod.string()
+}).describe('Per-symbol scheduler and market-data health. Scheduler timestamps and heartbeats are never evidence of a fresh verified market event.\n'),
   "error": zod.string().nullable()
 })),
   "alphaRanking": zod.object({
@@ -830,6 +876,14 @@ export const startRadarConnectionResponseLiveIngestionFreshnessCountersVolumeMin
 
 export const startRadarConnectionResponseLiveIngestionTriggerEvidenceEvidenceCountMin = 0;
 
+export const startRadarConnectionResponseScanHealthScanIntervalMsMin = 0;
+
+export const startRadarConnectionResponseScanHealthLastScanAgeMsMin = 0;
+
+export const startRadarConnectionResponseScanHealthScanLagMsMin = 0;
+
+export const startRadarConnectionResponseScanHealthLastMarketEventAgeMsMin = 0;
+
 export const startRadarConnectionResponseMarketUniverseTotalCountMin = 0;
 
 export const startRadarConnectionResponseMarketUniverseEligibleCountMin = 0;
@@ -896,6 +950,14 @@ export const startRadarConnectionResponseSymbolRadarsItemLiveIngestionFreshnessC
 
 export const startRadarConnectionResponseSymbolRadarsItemLiveIngestionTriggerEvidenceEvidenceCountMin = 0;
 
+export const startRadarConnectionResponseSymbolRadarsItemScanHealthScanIntervalMsMin = 0;
+
+export const startRadarConnectionResponseSymbolRadarsItemScanHealthLastScanAgeMsMin = 0;
+
+export const startRadarConnectionResponseSymbolRadarsItemScanHealthScanLagMsMin = 0;
+
+export const startRadarConnectionResponseSymbolRadarsItemScanHealthLastMarketEventAgeMsMin = 0;
+
 
 export const startRadarConnectionResponseAlphaRankingEntriesItemRankingScoreMin = 0;
 export const startRadarConnectionResponseAlphaRankingEntriesItemRankingScoreMax = 100;
@@ -949,7 +1011,7 @@ export const StartRadarConnectionResponse = zod.object({
   "scoring_gate_reason": zod.string()
 }),
   "scan": zod.object({
-  "lastScannedAt": zod.coerce.date(),
+  "lastScannedAt": zod.coerce.date().nullable().describe('Timestamp of the last completed local scan, or null when no scan has completed in this process.'),
   "scanIntervalMs": zod.number(),
   "scanMode": zod.enum(['normal', 'pre_open', 'opening']),
   "triggerReason": zod.string(),
@@ -1224,6 +1286,21 @@ export const StartRadarConnectionResponse = zod.object({
 }),
   "reason": zod.string()
 }),
+  "scanHealth": zod.object({
+  "schedulerState": zod.enum(['inactive', 'scheduled', 'delayed']),
+  "scanMode": zod.enum(['normal', 'pre_open', 'opening']),
+  "scanIntervalMs": zod.number().min(startRadarConnectionResponseScanHealthScanIntervalMsMin),
+  "lastScanAt": zod.coerce.date().nullable(),
+  "lastScanAgeMs": zod.number().min(startRadarConnectionResponseScanHealthLastScanAgeMsMin).nullable(),
+  "nextScanAt": zod.coerce.date().nullable(),
+  "scanLagMs": zod.number().min(startRadarConnectionResponseScanHealthScanLagMsMin).nullable(),
+  "lastMarketEventAt": zod.coerce.date().nullable(),
+  "lastMarketEventAgeMs": zod.number().min(startRadarConnectionResponseScanHealthLastMarketEventAgeMsMin).nullable(),
+  "marketDataState": zod.enum(['fresh', 'stale', 'offline', 'insufficient']),
+  "marketDataGateReady": zod.boolean(),
+  "degradation": zod.enum(['ready', 'offline', 'stale_market_data', 'scheduler_inactive', 'scheduler_delayed', 'awaiting_live_event', 'insufficient_data']),
+  "reason": zod.string()
+}).describe('Per-symbol scheduler and market-data health. Scheduler timestamps and heartbeats are never evidence of a fresh verified market event.\n'),
   "marketUniverse": zod.object({
   "provider": zod.enum(['Databento']),
   "dataset": zod.string(),
@@ -1316,7 +1393,7 @@ export const StartRadarConnectionResponse = zod.object({
   "scoring_gate_reason": zod.string()
 }),
   "scan": zod.object({
-  "lastScannedAt": zod.coerce.date(),
+  "lastScannedAt": zod.coerce.date().nullable().describe('Timestamp of the last completed local scan, or null when no scan has completed in this process.'),
   "scanIntervalMs": zod.number(),
   "scanMode": zod.enum(['normal', 'pre_open', 'opening']),
   "triggerReason": zod.string(),
@@ -1528,6 +1605,21 @@ export const StartRadarConnectionResponse = zod.object({
 }),
   "reason": zod.string()
 }),
+  "scanHealth": zod.object({
+  "schedulerState": zod.enum(['inactive', 'scheduled', 'delayed']),
+  "scanMode": zod.enum(['normal', 'pre_open', 'opening']),
+  "scanIntervalMs": zod.number().min(startRadarConnectionResponseSymbolRadarsItemScanHealthScanIntervalMsMin),
+  "lastScanAt": zod.coerce.date().nullable(),
+  "lastScanAgeMs": zod.number().min(startRadarConnectionResponseSymbolRadarsItemScanHealthLastScanAgeMsMin).nullable(),
+  "nextScanAt": zod.coerce.date().nullable(),
+  "scanLagMs": zod.number().min(startRadarConnectionResponseSymbolRadarsItemScanHealthScanLagMsMin).nullable(),
+  "lastMarketEventAt": zod.coerce.date().nullable(),
+  "lastMarketEventAgeMs": zod.number().min(startRadarConnectionResponseSymbolRadarsItemScanHealthLastMarketEventAgeMsMin).nullable(),
+  "marketDataState": zod.enum(['fresh', 'stale', 'offline', 'insufficient']),
+  "marketDataGateReady": zod.boolean(),
+  "degradation": zod.enum(['ready', 'offline', 'stale_market_data', 'scheduler_inactive', 'scheduler_delayed', 'awaiting_live_event', 'insufficient_data']),
+  "reason": zod.string()
+}).describe('Per-symbol scheduler and market-data health. Scheduler timestamps and heartbeats are never evidence of a fresh verified market event.\n'),
   "error": zod.string().nullable()
 })),
   "alphaRanking": zod.object({
@@ -1605,6 +1697,14 @@ export const stopRadarConnectionResponseLiveIngestionFreshnessCountersVolumeMin 
 
 export const stopRadarConnectionResponseLiveIngestionTriggerEvidenceEvidenceCountMin = 0;
 
+export const stopRadarConnectionResponseScanHealthScanIntervalMsMin = 0;
+
+export const stopRadarConnectionResponseScanHealthLastScanAgeMsMin = 0;
+
+export const stopRadarConnectionResponseScanHealthScanLagMsMin = 0;
+
+export const stopRadarConnectionResponseScanHealthLastMarketEventAgeMsMin = 0;
+
 export const stopRadarConnectionResponseMarketUniverseTotalCountMin = 0;
 
 export const stopRadarConnectionResponseMarketUniverseEligibleCountMin = 0;
@@ -1671,6 +1771,14 @@ export const stopRadarConnectionResponseSymbolRadarsItemLiveIngestionFreshnessCo
 
 export const stopRadarConnectionResponseSymbolRadarsItemLiveIngestionTriggerEvidenceEvidenceCountMin = 0;
 
+export const stopRadarConnectionResponseSymbolRadarsItemScanHealthScanIntervalMsMin = 0;
+
+export const stopRadarConnectionResponseSymbolRadarsItemScanHealthLastScanAgeMsMin = 0;
+
+export const stopRadarConnectionResponseSymbolRadarsItemScanHealthScanLagMsMin = 0;
+
+export const stopRadarConnectionResponseSymbolRadarsItemScanHealthLastMarketEventAgeMsMin = 0;
+
 
 export const stopRadarConnectionResponseAlphaRankingEntriesItemRankingScoreMin = 0;
 export const stopRadarConnectionResponseAlphaRankingEntriesItemRankingScoreMax = 100;
@@ -1724,7 +1832,7 @@ export const StopRadarConnectionResponse = zod.object({
   "scoring_gate_reason": zod.string()
 }),
   "scan": zod.object({
-  "lastScannedAt": zod.coerce.date(),
+  "lastScannedAt": zod.coerce.date().nullable().describe('Timestamp of the last completed local scan, or null when no scan has completed in this process.'),
   "scanIntervalMs": zod.number(),
   "scanMode": zod.enum(['normal', 'pre_open', 'opening']),
   "triggerReason": zod.string(),
@@ -1999,6 +2107,21 @@ export const StopRadarConnectionResponse = zod.object({
 }),
   "reason": zod.string()
 }),
+  "scanHealth": zod.object({
+  "schedulerState": zod.enum(['inactive', 'scheduled', 'delayed']),
+  "scanMode": zod.enum(['normal', 'pre_open', 'opening']),
+  "scanIntervalMs": zod.number().min(stopRadarConnectionResponseScanHealthScanIntervalMsMin),
+  "lastScanAt": zod.coerce.date().nullable(),
+  "lastScanAgeMs": zod.number().min(stopRadarConnectionResponseScanHealthLastScanAgeMsMin).nullable(),
+  "nextScanAt": zod.coerce.date().nullable(),
+  "scanLagMs": zod.number().min(stopRadarConnectionResponseScanHealthScanLagMsMin).nullable(),
+  "lastMarketEventAt": zod.coerce.date().nullable(),
+  "lastMarketEventAgeMs": zod.number().min(stopRadarConnectionResponseScanHealthLastMarketEventAgeMsMin).nullable(),
+  "marketDataState": zod.enum(['fresh', 'stale', 'offline', 'insufficient']),
+  "marketDataGateReady": zod.boolean(),
+  "degradation": zod.enum(['ready', 'offline', 'stale_market_data', 'scheduler_inactive', 'scheduler_delayed', 'awaiting_live_event', 'insufficient_data']),
+  "reason": zod.string()
+}).describe('Per-symbol scheduler and market-data health. Scheduler timestamps and heartbeats are never evidence of a fresh verified market event.\n'),
   "marketUniverse": zod.object({
   "provider": zod.enum(['Databento']),
   "dataset": zod.string(),
@@ -2091,7 +2214,7 @@ export const StopRadarConnectionResponse = zod.object({
   "scoring_gate_reason": zod.string()
 }),
   "scan": zod.object({
-  "lastScannedAt": zod.coerce.date(),
+  "lastScannedAt": zod.coerce.date().nullable().describe('Timestamp of the last completed local scan, or null when no scan has completed in this process.'),
   "scanIntervalMs": zod.number(),
   "scanMode": zod.enum(['normal', 'pre_open', 'opening']),
   "triggerReason": zod.string(),
@@ -2303,6 +2426,21 @@ export const StopRadarConnectionResponse = zod.object({
 }),
   "reason": zod.string()
 }),
+  "scanHealth": zod.object({
+  "schedulerState": zod.enum(['inactive', 'scheduled', 'delayed']),
+  "scanMode": zod.enum(['normal', 'pre_open', 'opening']),
+  "scanIntervalMs": zod.number().min(stopRadarConnectionResponseSymbolRadarsItemScanHealthScanIntervalMsMin),
+  "lastScanAt": zod.coerce.date().nullable(),
+  "lastScanAgeMs": zod.number().min(stopRadarConnectionResponseSymbolRadarsItemScanHealthLastScanAgeMsMin).nullable(),
+  "nextScanAt": zod.coerce.date().nullable(),
+  "scanLagMs": zod.number().min(stopRadarConnectionResponseSymbolRadarsItemScanHealthScanLagMsMin).nullable(),
+  "lastMarketEventAt": zod.coerce.date().nullable(),
+  "lastMarketEventAgeMs": zod.number().min(stopRadarConnectionResponseSymbolRadarsItemScanHealthLastMarketEventAgeMsMin).nullable(),
+  "marketDataState": zod.enum(['fresh', 'stale', 'offline', 'insufficient']),
+  "marketDataGateReady": zod.boolean(),
+  "degradation": zod.enum(['ready', 'offline', 'stale_market_data', 'scheduler_inactive', 'scheduler_delayed', 'awaiting_live_event', 'insufficient_data']),
+  "reason": zod.string()
+}).describe('Per-symbol scheduler and market-data health. Scheduler timestamps and heartbeats are never evidence of a fresh verified market event.\n'),
   "error": zod.string().nullable()
 })),
   "alphaRanking": zod.object({

@@ -3,10 +3,11 @@ import { Activity, AlertTriangle, BarChart3, Clock3, Gauge, Waves, Zap } from 'l
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { cn, formatAge, formatNumber, formatTime } from '@/lib/utils';
-import type { AlphaRadarSnapshot, RadarSignalMetric } from '@workspace/api-client-react';
+import type { AlphaRadarSnapshot, ProtectedScanHealth, RadarSignalMetric } from '@workspace/api-client-react';
 
 type RadarSignalPanelProps = {
   alphaRadar: AlphaRadarSnapshot | undefined;
+  scanHealth?: ProtectedScanHealth;
 };
 
 const qualityStyles = {
@@ -23,7 +24,7 @@ const freshnessStyles = {
   missing: 'text-muted-foreground',
 } as const;
 
-export function RadarSignalPanel({ alphaRadar }: RadarSignalPanelProps) {
+export function RadarSignalPanel({ alphaRadar, scanHealth }: RadarSignalPanelProps) {
   if (!alphaRadar) {
     return null;
   }
@@ -114,26 +115,32 @@ export function RadarSignalPanel({ alphaRadar }: RadarSignalPanelProps) {
             <div className="mt-3 flex items-end justify-between gap-3">
               <div>
                 <p className="font-mono text-sm font-semibold text-foreground">
-                  {formatTime(alphaRadar.scan.lastScannedAt)}
+                  {formatTime(scanHealth?.lastScanAt ?? alphaRadar.scan.lastScannedAt)}
                 </p>
                 <p className="mt-1 text-[10px] text-muted-foreground">
-                  {scanModeLabel(alphaRadar.scan.scanMode)} · every {formatScanInterval(alphaRadar.scan.scanIntervalMs)}
+                  {scanModeLabel(scanHealth?.scanMode ?? alphaRadar.scan.scanMode)} · every {formatScanInterval(scanHealth?.scanIntervalMs ?? alphaRadar.scan.scanIntervalMs)}
                 </p>
               </div>
               <Badge
                 variant="outline"
                 className={cn(
                   'border font-mono text-[9px] uppercase tracking-wide',
-                  alphaRadar.scan.eventTriggered
+                  scanHealth?.schedulerState === 'scheduled'
+                    ? 'border-primary/35 bg-primary/10 text-primary'
+                    : scanHealth?.schedulerState === 'delayed'
+                      ? 'border-amber-500/35 bg-amber-500/10 text-amber-700 dark:text-amber-300'
+                    : alphaRadar.scan.eventTriggered
                     ? 'border-amber-500/35 bg-amber-500/10 text-amber-700 dark:text-amber-300'
                     : 'border-border text-muted-foreground',
                 )}
               >
-                {alphaRadar.scan.eventTriggered ? 'event scan' : 'scheduled'}
+                {scanHealth
+                  ? `${scanHealth.schedulerState} scheduler`
+                  : alphaRadar.scan.eventTriggered ? 'event scan' : 'scheduled'}
               </Badge>
             </div>
             <p className="mt-3 border-t border-border/60 pt-2 font-mono text-[10px] text-muted-foreground">
-              {formatGateReason(alphaRadar.scan.triggerReason)}
+              {scanHealth?.reason ?? formatGateReason(alphaRadar.scan.triggerReason)}
             </p>
           </div>
 

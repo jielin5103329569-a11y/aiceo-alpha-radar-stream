@@ -12,6 +12,7 @@ import type { FocusedScanSnapshot } from './focusedScanSnapshot';
 import type { LiveIngestionDiagnostics } from './liveIngestionDiagnostics';
 import type { MarketFeedState } from './marketFeedState';
 import type { MarketUniverseSummary } from './marketUniverseSummary';
+import type { ProtectedScanHealth } from './protectedScanHealth';
 import type { RadarConnectionState } from './radarConnectionState';
 import type { RadarMarketSnapshot } from './radarMarketSnapshot';
 import type { RadarReconnectState } from './radarReconnectState';
@@ -47,6 +48,7 @@ export interface RadarStatus {
   radar: RadarSnapshot;
   streams: RadarStream[];
   liveIngestion: LiveIngestionDiagnostics;
+  scanHealth: ProtectedScanHealth;
   marketUniverse: MarketUniverseSummary;
   focusedScans: FocusedScanSnapshot;
   symbolRadars: RadarSymbolStatus[];

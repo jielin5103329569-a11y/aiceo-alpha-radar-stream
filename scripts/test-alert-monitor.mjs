@@ -81,6 +81,21 @@ try {
       lastUpdatedAt: new Date(),
       // streams is now a first-class field on RadarSymbolStatus (fail-closed gate)
       streams,
+      scanHealth: {
+        schedulerState: "scheduled",
+        scanMode: "opening",
+        scanIntervalMs: 1_000,
+        lastScanAt: new Date(),
+        lastScanAgeMs: 0,
+        nextScanAt: new Date(Date.now() + 1_000),
+        scanLagMs: 0,
+        lastMarketEventAt: new Date(),
+        lastMarketEventAgeMs: 0,
+        marketDataState: "fresh",
+        marketDataGateReady: true,
+        degradation: "ready",
+        reason: "Deterministic verified scan-health fixture.",
+      },
       alphaRadar: {
         score,
         scoreState,
@@ -328,6 +343,27 @@ try {
   // A scheduled scan must never turn an already-valid state into a new alert.
   const scheduledResult = evaluateAlertGates(buildPassingSnapshot({ eventTriggered: false }));
   assert.equal(scheduledResult.ok, false, "scheduled/non-event scan must be blocked");
+
+  const degradedScanHealth = buildPassingSnapshot();
+  degradedScanHealth.scanHealth = {
+    ...degradedScanHealth.scanHealth,
+    schedulerState: "delayed",
+    marketDataState: "stale",
+    marketDataGateReady: false,
+    degradation: "stale_market_data",
+    reason: "Deterministic stale protected scanner.",
+  };
+  const degradedScanHealthResult = evaluateAlertGates(degradedScanHealth);
+  assert.equal(
+    degradedScanHealthResult.ok,
+    false,
+    "a stale or delayed protected scanner must fail closed before alert creation",
+  );
+  assert.equal(
+    degradedScanHealthResult.failedGate,
+    "scanHealthMarketDataReady",
+    "scan-health rejection must be auditable as its own gate",
+  );
   assert.equal(scheduledResult.failedGate, "eventTriggeredScan", "event-triggered scan gate must explain the block");
 
   // Score movement within the same transition is not a new candidate.

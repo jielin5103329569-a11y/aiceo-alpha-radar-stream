@@ -11,6 +11,7 @@
  *  Live ingestion — subscriptionVerified, realMarketEventReceived,
  *                   enteredScoringWindow, scoringEligible,
  *                   triggerEvidenceAvailable (all true)
+ *  Scan health — current scheduler plus verified fresh market-data window
  *  Shadow / heartbeat / ranking / focused-leader / missing-stale veto
  *
  * Additionally the function enforces:
@@ -78,6 +79,7 @@ export type AlertGateSnapshot = {
   readonly enteredScoringWindow: boolean;
   readonly scoringEligible: boolean;
   readonly triggerEvidenceAvailable: boolean;
+  readonly scanHealthMarketDataReady: boolean;
   readonly eventTriggeredScan: boolean;
   readonly transitionInstanceAvailable: boolean;
   readonly noShadowVeto: boolean;
@@ -264,7 +266,29 @@ export function evaluateAlertGates(
     }
 
     // ------------------------------------------------------------------
-    // Gate 3–5: score available / good / non-null
+    // Gate 3: protected scan health. This is intentionally independent of
+    // the score: a stale/overdue/inactive scanner may retain historical score
+    // fields but must never hand them to production alert delivery.
+    // ------------------------------------------------------------------
+    const scanHealthMarketDataReady =
+      symbolStatus.scanHealth?.marketDataGateReady === true
+      && symbolStatus.scanHealth.marketDataState === "fresh"
+      && symbolStatus.scanHealth.schedulerState === "scheduled";
+    partial.scanHealthMarketDataReady = scanHealthMarketDataReady;
+    if (!scanHealthMarketDataReady) {
+      const health = symbolStatus.scanHealth;
+      return {
+        ok: false,
+        reason: health
+          ? `Protected scan health is ${health.degradation}: ${health.reason}`
+          : "Protected scan health is missing — fail closed",
+        failedGate: "scanHealthMarketDataReady",
+        gateSnapshot: partial,
+      };
+    }
+
+    // ------------------------------------------------------------------
+    // Gate 4–6: score available / good / non-null
     // ------------------------------------------------------------------
     const scoreAvailable = alpha.scoreState === "available";
     partial.scoreAvailable = scoreAvailable;
@@ -533,6 +557,7 @@ export function evaluateAlertGates(
       enteredScoringWindow: partial.enteredScoringWindow!,
       scoringEligible: partial.scoringEligible!,
       triggerEvidenceAvailable: partial.triggerEvidenceAvailable!,
+      scanHealthMarketDataReady: partial.scanHealthMarketDataReady!,
       eventTriggeredScan: partial.eventTriggeredScan!,
       transitionInstanceAvailable: partial.transitionInstanceAvailable!,
       noShadowVeto: partial.noShadowVeto!,

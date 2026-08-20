@@ -50,7 +50,8 @@ export type AlphaRadarDiagnostics = {
 export type AlphaRadarScanMode = "normal" | "pre_open" | "opening";
 
 export type AlphaRadarScanMetadata = {
-  lastScannedAt: Date;
+  /** Null until this symbol has completed a real local scan in this process. */
+  lastScannedAt: Date | null;
   scanIntervalMs: number;
   scanMode: AlphaRadarScanMode;
   triggerReason: string;

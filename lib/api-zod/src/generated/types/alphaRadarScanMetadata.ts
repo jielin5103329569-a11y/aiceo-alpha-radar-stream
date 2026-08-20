@@ -8,7 +8,11 @@
 import type { AlphaRadarScanMetadataScanMode } from './alphaRadarScanMetadataScanMode';
 
 export interface AlphaRadarScanMetadata {
-  lastScannedAt: Date;
+  /**
+     * Timestamp of the last completed local scan, or null when no scan has completed in this process.
+     * @nullable
+     */
+  lastScannedAt: Date | null;
   scanIntervalMs: number;
   scanMode: AlphaRadarScanMetadataScanMode;
   triggerReason: string;
