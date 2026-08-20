@@ -52,7 +52,7 @@ try {
    */
   function buildPassingSnapshot({
     symbol = "NVDA",
-    detectionState = "pre_breakout",
+    detectionState = "confirmed",
     confirmationStatus = "confirmed",
     score = 82,
     marketFeedState = "streaming",
@@ -68,6 +68,10 @@ try {
     triggerEvidenceAvailable = true,
     eventTriggered = true,
     transitionAt = new Date(Date.now() - 5_000),
+    postState = "unavailable",
+    postActive = false,
+    postDataFresh = false,
+    postTransitionAt = null,
     latestPrice = 134.56,
     streams = [
       { schema: "mbp-1", state: "receiving", eventCount: 100, lastEventAt: new Date() },
@@ -129,6 +133,8 @@ try {
         preBreakoutWatch: true,
         preBreakout: {
           state: detectionState,
+          latentScore: detectionState === "latent" ? 100 : null,
+          breakoutCriticalScore: detectionState === "breakout_critical" ? 80 : null,
           evidenceCount: 4,
           velocityGateSatisfied,
           reasons: ["Strong momentum", "Volume surge"],
@@ -149,6 +155,26 @@ try {
             evaluatedAt: new Date(),
             reason: "All required evidence satisfied across multiple scans.",
           },
+        },
+        postBreakout: {
+          state: postState,
+          active: postActive,
+          dataFresh: postDataFresh,
+          breakoutPrice: postActive ? 132 : null,
+          highSinceBreakout: postActive ? 135 : null,
+          drawdownFromHighPercent: postActive ? -1.2 : null,
+          latestPrice,
+          activeBuyPressure: postActive ? -22 : null,
+          l1BidPressure: postActive ? -30 : null,
+          volumeAcceleration: postActive ? -12 : null,
+          tradeRateChange: postActive ? -0.4 : null,
+          supportReasons: [],
+          deteriorationReasons: postActive ? ["Live flow weakens", "Price lost the confirmed breakout level"] : [],
+          consecutiveWeakScans: postActive ? 2 : 0,
+          consecutiveReversalScans: postState === "trend_reversal_confirmed" ? 2 : 0,
+          lastTransitionAt: postTransitionAt,
+          lastEvaluatedAt: new Date(),
+          reason: postActive ? "Post-breakout structure weakened." : "Not active.",
         },
         momentum: {
           value: 0.12,
@@ -295,9 +321,53 @@ try {
 
   const passingSnapshot = buildPassingSnapshot();
 
+  const postExitTransitionAt = new Date(Date.now() - 2_000);
+  const takeProfitSnapshot = buildPassingSnapshot({
+    detectionState: "watch",
+    confirmationStatus: "rejected",
+    velocityGateSatisfied: false,
+    postState: "take_profit_watch",
+    postActive: true,
+    postDataFresh: true,
+    postTransitionAt: postExitTransitionAt,
+  });
+  const takeProfitResult = evaluateAlertGates(takeProfitSnapshot);
+  assert.equal(takeProfitResult.ok, true, "an already-proven fresh breakout must be able to alert when current exit evidence weakens");
+  if (takeProfitResult.ok) {
+    assert.equal(takeProfitResult.candidate.triggerReason, "take_profit_watch");
+    assert.match(takeProfitResult.candidate.eventKey, /post_breakout:take_profit_watch$/);
+  }
+  const reversalSnapshot = buildPassingSnapshot({
+    detectionState: "watch",
+    confirmationStatus: "rejected",
+    velocityGateSatisfied: false,
+    postState: "trend_reversal_confirmed",
+    postActive: true,
+    postDataFresh: true,
+    postTransitionAt: new Date(Date.now() - 1_000),
+  });
+  const reversalResult = evaluateAlertGates(reversalSnapshot);
+  assert.equal(reversalResult.ok, true, "confirmed reversal must use its own post-breakout transition gate");
+  if (reversalResult.ok) {
+    assert.equal(reversalResult.candidate.triggerReason, "trend_reversal_confirmed");
+    assert.match(reversalResult.candidate.eventKey, /post_breakout:trend_reversal_confirmed$/);
+  }
+  const staleExitSnapshot = buildPassingSnapshot({
+    detectionState: "watch",
+    confirmationStatus: "rejected",
+    velocityGateSatisfied: false,
+    postState: "take_profit_watch",
+    postActive: true,
+    postDataFresh: false,
+    postTransitionAt: postExitTransitionAt,
+    dataFresh: false,
+  });
+  const staleExitResult = evaluateAlertGates(staleExitSnapshot);
+  assert.equal(staleExitResult.ok, false, "stale post-breakout observations must remain alert-gated");
+
   const eventKey = deriveEventKey("NVDA", passingSnapshot);
   assert.ok(eventKey.startsWith("alert:NVDA:"), "event key must include symbol");
-  assert.ok(eventKey.includes("pre_breakout"), "event key must include detection state");
+  assert.ok(eventKey.includes("confirmed"), "event key must include detection state");
   assert.ok(eventKey.includes("confirmed"), "event key must include confirmation status");
   assert.ok(
     eventKey.includes(passingSnapshot.alphaRadar.preBreakout.lastTransitionAt.toISOString()),
@@ -305,19 +375,18 @@ try {
   );
 
   // Different state → different key
-  const differentStateSnapshot = buildPassingSnapshot({ detectionState: "accelerating", confirmationStatus: "pending" });
+  const differentStateSnapshot = buildPassingSnapshot({ detectionState: "latent", confirmationStatus: "pending" });
   const differentKey = deriveEventKey("NVDA", differentStateSnapshot);
   assert.notEqual(eventKey, differentKey, "different detection state must produce a different event key");
 
   assert.equal(classifySeverity("confirmed", "confirmed"), "critical", "confirmed/confirmed must be critical");
-  assert.equal(classifySeverity("pre_breakout", "confirmed"), "critical", "pre_breakout with confirmed status is also critical");
-  assert.equal(classifySeverity("pre_breakout", "pending"), "alert", "pre_breakout must be alert");
-  assert.equal(classifySeverity("accelerating", "pending"), "watch", "accelerating must be watch");
+  assert.equal(classifySeverity("breakout_critical", "pending"), "alert", "breakout-critical must be alert");
+  assert.equal(classifySeverity("latent", "pending"), "watch", "latent must be watch");
   assert.equal(classifySeverity("watch", "rejected"), "info", "watch must be info");
 
-  assert.equal(classifyTriggerReason("confirmed", "confirmed"), "pre_breakout_confirmed");
-  assert.equal(classifyTriggerReason("pre_breakout", "pending"), "pre_breakout_detected");
-  assert.equal(classifyTriggerReason("accelerating", "pending"), "accelerating_state");
+  assert.equal(classifyTriggerReason("confirmed", "confirmed"), "breakout_confirmed");
+  assert.equal(classifyTriggerReason("breakout_critical", "pending"), "breakout_critical");
+  assert.equal(classifyTriggerReason("latent", "pending"), "latent_candidate");
   assert.equal(classifyTriggerReason("watch", "rejected"), "watch_state_elevated");
 
   // ---------------------------------------------------------------------------
@@ -332,6 +401,22 @@ try {
   assert.equal(passingResult.candidate.severity, "critical", "confirmed state must map to critical severity");
   assert.ok(Object.isFrozen(passingResult.candidate), "candidate must be frozen (immutable)");
   assert.ok(Object.isFrozen(passingResult.candidate.gateSnapshot), "gate snapshot must be frozen");
+
+  const latentResult = evaluateAlertGates(buildPassingSnapshot({
+    detectionState: "latent",
+    confirmationStatus: "rejected",
+  }));
+  assert.equal(
+    latentResult.ok,
+    true,
+    "a fully gated latent setup with an observed latent score may alert before final confirmation",
+  );
+  assert.equal(latentResult.candidate?.triggerReason, "latent_candidate");
+  const weakLatentSnapshot = buildPassingSnapshot({ detectionState: "latent", confirmationStatus: "rejected" });
+  weakLatentSnapshot.alphaRadar.preBreakout.latentScore = 60;
+  const weakLatentResult = evaluateAlertGates(weakLatentSnapshot);
+  assert.equal(weakLatentResult.ok, false, "a latent stage without an adequate observed score must remain blocked");
+  assert.equal(weakLatentResult.failedGate, "noRankingVeto");
   assert.ok(Object.isFrozen(passingResult.candidate.satisfiedEvidence), "satisfied evidence array must be frozen");
 
   // All gates must be true in snapshot
@@ -516,7 +601,7 @@ try {
     },
     {
       label: "confirmation status unavailable (ranking veto)",
-      override: { detectionState: "pre_breakout", confirmationStatus: "unavailable" },
+      override: { detectionState: "breakout_critical", confirmationStatus: "unavailable" },
       expectedGate: "noRankingVeto",
     },
     {
@@ -569,10 +654,47 @@ try {
   assert.equal(obs2.result.ok, false, "deduped observation must return ok=false");
 
   // Different event key but still in cooldown
-  const s2 = buildPassingSnapshot({ symbol: "NVDA", detectionState: "accelerating", confirmationStatus: "pending", score: 70 });
+  const s2 = buildPassingSnapshot({ symbol: "NVDA", detectionState: "latent", confirmationStatus: "pending", score: 70 });
   const obs3 = cooldownMonitor.observe(s2);
   assert.equal(obs3.isNewCandidate, false, "different event key but within cooldown must still be blocked");
   assert.equal(obs3.result.ok, false, "within-cooldown observation must return ok=false");
+
+  const immediateTakeProfit = buildPassingSnapshot({
+    symbol: "NVDA",
+    detectionState: "watch",
+    confirmationStatus: "rejected",
+    velocityGateSatisfied: false,
+    postState: "take_profit_watch",
+    postActive: true,
+    postDataFresh: true,
+    postTransitionAt: new Date(Date.now() - 1_000),
+  });
+  const takeProfitObservation = cooldownMonitor.observe(immediateTakeProfit);
+  assert.equal(
+    takeProfitObservation.isNewCandidate,
+    true,
+    "a fresh take-profit transition immediately after entry must use its own cooldown lane",
+  );
+  assert.equal(takeProfitObservation.result.ok, true);
+  const immediateReversal = buildPassingSnapshot({
+    symbol: "NVDA",
+    detectionState: "watch",
+    confirmationStatus: "rejected",
+    velocityGateSatisfied: false,
+    postState: "trend_reversal_confirmed",
+    postActive: true,
+    postDataFresh: true,
+    postTransitionAt: new Date(),
+  });
+  const reversalObservation = cooldownMonitor.observe(immediateReversal);
+  assert.equal(
+    reversalObservation.isNewCandidate,
+    true,
+    "a confirmed reversal immediately after take-profit watch must use its own cooldown lane",
+  );
+  assert.equal(reversalObservation.result.ok, true);
+  const duplicateReversal = cooldownMonitor.observe(immediateReversal);
+  assert.equal(duplicateReversal.isNewCandidate, false, "the exact exit transition must still be deduplicated");
 
   // ---------------------------------------------------------------------------
   // 7. AlertMonitor — different symbols are independent

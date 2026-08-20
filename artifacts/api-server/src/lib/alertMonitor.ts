@@ -30,9 +30,11 @@ import type { RadarSymbolStatus, RadarStatus } from "./databentoLive";
 export type AlertSeverity = "info" | "watch" | "alert" | "critical";
 
 export type AlertTriggerReason =
-  | "pre_breakout_confirmed"
-  | "pre_breakout_detected"
-  | "accelerating_state"
+  | "breakout_confirmed"
+  | "breakout_critical"
+  | "latent_candidate"
+  | "take_profit_watch"
+  | "trend_reversal_confirmed"
   | "watch_state_elevated";
 
 /**
@@ -133,6 +135,8 @@ export type AlertSymbolState = {
   lastEventKey: string | undefined;
   /** Epoch ms of the last successful candidate generation. */
   lastCandidateAt: number;
+  /** Independent cooldown clocks for entry, take-profit, and reversal transitions. */
+  lastCandidateAtByLane: Record<"entry" | "take_profit" | "reversal", number>;
   /** Rolling log of the last N evaluation outcomes for health diagnostics. */
   recentOutcomes: AlertOutcomeEntry[];
   /** Count of successive blocked evaluations since last success. */
@@ -152,6 +156,11 @@ export function createSymbolState(): AlertSymbolState {
   return {
     lastEventKey: undefined,
     lastCandidateAt: 0,
+    lastCandidateAtByLane: {
+      entry: 0,
+      take_profit: 0,
+      reversal: 0,
+    },
     recentOutcomes: [],
     consecutiveBlocked: 0,
     consecutiveErrors: 0,
@@ -171,6 +180,16 @@ export function createSymbolState(): AlertSymbolState {
 export function deriveEventKey(symbol: string, snapshot: RadarSymbolStatus): string {
   const alpha = snapshot.alphaRadar;
   const pb = alpha.preBreakout;
+  const post = alpha.postBreakout;
+  const postTransitionAt = post?.lastTransitionAt;
+  const postAlertable =
+    post?.active === true
+    && post.dataFresh === true
+    && (post?.state === "take_profit_watch" || post?.state === "trend_reversal_confirmed")
+    && postTransitionAt instanceof Date;
+  if (postAlertable) {
+    return `alert:${symbol}:${postTransitionAt.toISOString()}:post_breakout:${post.state}`;
+  }
   const transitionAt = pb.lastTransitionAt;
   if (!transitionAt) {
     throw new Error("Cannot derive an alert event key without preBreakout.lastTransitionAt");
@@ -184,11 +203,13 @@ export function deriveEventKey(symbol: string, snapshot: RadarSymbolStatus): str
 export function classifySeverity(
   detectionState: string,
   confirmationStatus: string,
+  postBreakoutState?: string,
 ): AlertSeverity {
-  // Confirmed confirmation status = highest severity regardless of detection state
-  if (confirmationStatus === "confirmed") return "critical";
-  if (detectionState === "pre_breakout") return "alert";
-  if (detectionState === "accelerating") return "watch";
+  if (postBreakoutState === "trend_reversal_confirmed") return "critical";
+  if (postBreakoutState === "take_profit_watch") return "alert";
+  if (detectionState === "confirmed" && confirmationStatus === "confirmed") return "critical";
+  if (detectionState === "breakout_critical") return "alert";
+  if (detectionState === "latent") return "watch";
   return "info";
 }
 
@@ -198,10 +219,13 @@ export function classifySeverity(
 export function classifyTriggerReason(
   detectionState: string,
   confirmationStatus: string,
+  postBreakoutState?: string,
 ): AlertTriggerReason {
-  if (confirmationStatus === "confirmed") return "pre_breakout_confirmed";
-  if (detectionState === "pre_breakout") return "pre_breakout_detected";
-  if (detectionState === "accelerating") return "accelerating_state";
+  if (postBreakoutState === "trend_reversal_confirmed") return "trend_reversal_confirmed";
+  if (postBreakoutState === "take_profit_watch") return "take_profit_watch";
+  if (detectionState === "confirmed" && confirmationStatus === "confirmed") return "breakout_confirmed";
+  if (detectionState === "breakout_critical") return "breakout_critical";
+  if (detectionState === "latent") return "latent_candidate";
   return "watch_state_elevated";
 }
 
@@ -225,6 +249,7 @@ export function evaluateAlertGates(
     const partial: MutableGateSnapshot = {};
     const alpha = symbolStatus.alphaRadar;
     const pb = alpha.preBreakout;
+    const post = alpha.postBreakout;
     const ingestion = symbolStatus.liveIngestion;
 
     // ------------------------------------------------------------------
@@ -439,7 +464,11 @@ export function evaluateAlertGates(
       };
     }
 
-    const transitionAt = pb.lastTransitionAt;
+    const postAlertable =
+      post?.active === true
+      && post.dataFresh === true
+      && (post.state === "take_profit_watch" || post.state === "trend_reversal_confirmed");
+    const transitionAt = postAlertable ? post.lastTransitionAt : pb.lastTransitionAt;
     const transitionInstanceAvailable =
       transitionAt instanceof Date
       && !Number.isNaN(transitionAt.getTime())
@@ -449,7 +478,7 @@ export function evaluateAlertGates(
     if (!transitionInstanceAvailable) {
       return {
         ok: false,
-        reason: "No current pre-breakout transition instance is available for alert identity",
+        reason: "No current pre-breakout or post-breakout transition instance is available for alert identity",
         failedGate: "transitionInstanceAvailable",
         gateSnapshot: partial,
       };
@@ -459,15 +488,17 @@ export function evaluateAlertGates(
     // Veto gates: shadow, heartbeat, ranking, focused leader, missing/stale
     // ------------------------------------------------------------------
 
-    // Shadow veto: preBreakout state must not be "unavailable" or "watch" (minimum "accelerating")
+    // A real latent setup is actionable, but watch/unavailable are not.
     const noShadowVeto =
-      pb.state !== "unavailable"
-      && pb.state !== "watch";
+      postAlertable
+      || pb.state === "latent"
+      || pb.state === "breakout_critical"
+      || pb.state === "confirmed";
     partial.noShadowVeto = noShadowVeto;
     if (!noShadowVeto) {
       return {
         ok: false,
-        reason: `preBreakout.state "${pb.state}" is too early — minimum is "accelerating"`,
+        reason: `preBreakout.state "${pb.state}" is too early — minimum is "latent"`,
         failedGate: "noShadowVeto",
         gateSnapshot: partial,
       };
@@ -486,10 +517,18 @@ export function evaluateAlertGates(
       };
     }
 
-    // Ranking veto: confirmation status must not be "unavailable" or "rejected"
-    const noRankingVeto =
-      pb.confirmation.status !== "unavailable"
-      && pb.confirmation.status !== "rejected";
+    // Latent qualification has its own fresh observed evidence. Critical and
+    // confirmed states still require converging confirmation evidence.
+    const noRankingVeto = postAlertable
+      ? true
+      : (
+        (pb.state === "latent" && (pb.latentScore ?? 0) >= 80)
+        || (
+          pb.state !== "latent"
+          && pb.confirmation.status !== "unavailable"
+          && pb.confirmation.status !== "rejected"
+        )
+      );
     partial.noRankingVeto = noRankingVeto;
     if (!noRankingVeto) {
       return {
@@ -503,7 +542,7 @@ export function evaluateAlertGates(
     // Focused leader veto: preBreakout detection must not be in a transient
     // state where the focused leader diverges from the alert symbol.
     // We gate on pb.velocityGateSatisfied being explicitly true.
-    const noFocusedLeaderVeto = pb.velocityGateSatisfied === true;
+    const noFocusedLeaderVeto = postAlertable || pb.velocityGateSatisfied === true;
     partial.noFocusedLeaderVeto = noFocusedLeaderVeto;
     if (!noFocusedLeaderVeto) {
       return {
@@ -571,8 +610,16 @@ export function evaluateAlertGates(
     const candidate: NotificationCandidate = Object.freeze({
       eventKey: deriveEventKey(symbolStatus.symbol, symbolStatus),
       symbol: symbolStatus.symbol,
-      severity: classifySeverity(pb.state, pb.confirmation.status),
-      triggerReason: classifyTriggerReason(pb.state, pb.confirmation.status),
+      severity: classifySeverity(
+        pb.state,
+        pb.confirmation.status,
+        postAlertable ? post?.state : undefined,
+      ),
+      triggerReason: classifyTriggerReason(
+        pb.state,
+        pb.confirmation.status,
+        postAlertable ? post?.state : undefined,
+      ),
       detectionState: pb.state,
       confirmationStatus: pb.confirmation.status,
       alphaScore: alpha.score as number,
@@ -580,8 +627,14 @@ export function evaluateAlertGates(
       confidence: alpha.confidence,
       triggerPrice: symbolStatus.market.latestPrice,
       preBreakoutState: pb.state,
-      satisfiedEvidence: Object.freeze([...pb.confirmation.satisfiedEvidence]),
-      missingEvidence: Object.freeze([...pb.confirmation.missingEvidence]),
+      satisfiedEvidence: Object.freeze([
+        ...pb.confirmation.satisfiedEvidence,
+        ...(postAlertable ? post.supportReasons : []),
+      ]),
+      missingEvidence: Object.freeze([
+        ...pb.confirmation.missingEvidence,
+        ...(postAlertable ? post.deteriorationReasons : []),
+      ]),
       transitionAt,
       generatedAt: new Date(),
       gateSnapshot: Object.freeze(gateSnapshot),
@@ -684,26 +737,13 @@ export class AlertMonitor {
 
     if (result.ok) {
       const candidate = result.candidate;
+      const cooldownLane = candidate.triggerReason === "take_profit_watch"
+        ? "take_profit"
+        : candidate.triggerReason === "trend_reversal_confirmed"
+          ? "reversal"
+          : "entry";
 
-      // Cooldown check
-      const elapsedSinceLastMs = now - state.lastCandidateAt;
-      if (elapsedSinceLastMs < this.cooldownMs && state.lastCandidateAt > 0) {
-        // Within cooldown — report blocked, not new
-        this.recordOutcome(state, now, false, `cooldown: ${Math.ceil((this.cooldownMs - elapsedSinceLastMs) / 1000)}s remaining`);
-        return {
-          symbol,
-          evaluatedAt: new Date(now),
-          result: {
-            ok: false,
-            reason: `Cooldown active: ${Math.ceil((this.cooldownMs - elapsedSinceLastMs) / 1000)}s remaining`,
-            failedGate: "noShadowVeto", // reuse closest semantic gate
-            gateSnapshot: candidate.gateSnapshot,
-          },
-          isNewCandidate: false,
-        };
-      }
-
-      // Deduplication check
+      // Exact event deduplication must take precedence over cooldown lanes.
       if (state.lastEventKey === candidate.eventKey) {
         this.recordOutcome(state, now, false, `deduped: ${candidate.eventKey}`);
         return {
@@ -719,9 +759,30 @@ export class AlertMonitor {
         };
       }
 
+      // Entry, exit-watch, and confirmed-reversal transitions have independent
+      // cooldowns. A fresh exit transition must never be delayed by its entry.
+      const lastLaneCandidateAt = state.lastCandidateAtByLane[cooldownLane];
+      const elapsedSinceLastMs = now - lastLaneCandidateAt;
+      if (elapsedSinceLastMs < this.cooldownMs && lastLaneCandidateAt > 0) {
+        // Within cooldown — report blocked, not new
+        this.recordOutcome(state, now, false, `cooldown: ${Math.ceil((this.cooldownMs - elapsedSinceLastMs) / 1000)}s remaining`);
+        return {
+          symbol,
+          evaluatedAt: new Date(now),
+          result: {
+            ok: false,
+            reason: `Cooldown active: ${Math.ceil((this.cooldownMs - elapsedSinceLastMs) / 1000)}s remaining`,
+            failedGate: "noShadowVeto", // reuse closest semantic gate
+            gateSnapshot: candidate.gateSnapshot,
+          },
+          isNewCandidate: false,
+        };
+      }
+
       // New candidate — update state
       state.lastEventKey = candidate.eventKey;
       state.lastCandidateAt = now;
+      state.lastCandidateAtByLane[cooldownLane] = now;
       state.consecutiveBlocked = 0;
       state.consecutiveErrors = 0;
       isNewCandidate = true;

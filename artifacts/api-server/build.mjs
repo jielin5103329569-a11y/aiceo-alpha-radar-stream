@@ -14,6 +14,7 @@ const validationMigrationTags = new Set([
   "0002_shadow_learning",
   "0003_shadow_learning_evidence_hashes",
   "0004_shadow_learning_cohorts",
+  "0007_shadow_learning_stage_outcomes",
 ]);
 
 async function copyValidationMigrations(distDir) {

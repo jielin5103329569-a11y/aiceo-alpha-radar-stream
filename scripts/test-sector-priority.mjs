@@ -45,7 +45,9 @@ function symbolStatus(symbol, overrides = {}) {
       dataQuality: "good",
       preBreakout: {
         dataFresh: true,
-        state: "accelerating",
+        state: "latent",
+        latentScore: 100,
+        breakoutCriticalScore: 80,
         confirmation: { status: "pending" },
       },
       momentum: { score: 86 },
@@ -145,6 +147,65 @@ try {
   assert.ok(
     snapshot.withheldCandidates[0].missing.includes("Authorized options-activity evidence"),
     "unavailable options activity must be explicit",
+  );
+  assert.ok(
+    snapshot.latentCandidates.length <= 5,
+    "the latent list must always be an upper bound rather than a minimum-size requirement",
+  );
+
+  const sixLatentSymbols = Array.from({ length: 6 }, (_, index) => symbolStatus(`LATENT${index + 1}`));
+  const fivePerSector = buildSectorPriority({
+    symbols: sixLatentSymbols,
+    alphaRanking: {
+      entries: sixLatentSymbols.map((status) => ranking(status.symbol, 90)),
+    },
+    references: sixLatentSymbols.map((status) => ({
+      symbol: status.symbol,
+      reference: reference(status.symbol, "Information Technology"),
+    })),
+    catalystRadar: catalystRadar(),
+    referenceFresh: true,
+    now,
+  });
+  assert.equal(
+    fivePerSector.latentCandidates.length,
+    5,
+    "six equally qualified latent members in one ranked sector must retain only the top five",
+  );
+  assert.deepEqual(
+    fivePerSector.latentCandidates.map((candidate) => candidate.finalRank),
+    [1, 2, 3, 4, 5],
+    "latent candidates must expose stable rank-within-sector ordering",
+  );
+  assert.deepEqual(
+    fivePerSector.latentCandidates.map((candidate) => candidate.symbol),
+    ["LATENT1", "LATENT2", "LATENT3", "LATENT4", "LATENT5"],
+    "ties must resolve deterministically before the five-candidate cap is applied",
+  );
+  const lowScoreLatent = symbolStatus("LOWSCORE", {
+    alphaRadar: {
+      ...symbolStatus("LOWSCORE").alphaRadar,
+      preBreakout: {
+        ...symbolStatus("LOWSCORE").alphaRadar.preBreakout,
+        latentScore: 60,
+      },
+    },
+  });
+  const latentScoreGate = buildSectorPriority({
+    symbols: [symbolStatus("HIGHSCORE"), lowScoreLatent],
+    alphaRanking: { entries: [ranking("HIGHSCORE", 90), ranking("LOWSCORE", 90)] },
+    references: [
+      { symbol: "HIGHSCORE", reference: reference("HIGHSCORE", "Information Technology") },
+      { symbol: "LOWSCORE", reference: reference("LOWSCORE", "Information Technology") },
+    ],
+    catalystRadar: catalystRadar(),
+    referenceFresh: true,
+    now,
+  });
+  assert.deepEqual(
+    latentScoreGate.latentCandidates.map((candidate) => candidate.symbol),
+    ["HIGHSCORE"],
+    "a low observed latent score must not enter the exported sector candidate list",
   );
 
   const noPeer = buildSectorPriority({

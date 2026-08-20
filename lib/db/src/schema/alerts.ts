@@ -55,7 +55,7 @@ export type AlertGateSnapshotJson = {
   noStaleDataVeto: boolean;
 };
 
-export type AlertSectorLeaderGrade = "strong" | "watch";
+export type AlertSectorLeaderGrade = "confirmed" | "critical" | "latent" | "watch";
 
 /**
  * Optional, immutable context captured after an alert has passed every
@@ -81,7 +81,7 @@ export const alertRecordsTable = pgTable(
     symbol: varchar("symbol", { length: 20 }).notNull(),
     /** "info" | "watch" | "alert" | "critical" */
     severity: varchar("severity", { length: 20 }).notNull(),
-    /** "pre_breakout_confirmed" | "pre_breakout_detected" | "accelerating_state" | "watch_state_elevated" */
+    /** Alpha stage or post-breakout monitoring trigger reason. */
     triggerReason: varchar("trigger_reason", { length: 60 }).notNull(),
     detectionState: varchar("detection_state", { length: 40 }).notNull(),
     confirmationStatus: varchar("confirmation_status", { length: 40 }).notNull(),

@@ -11,6 +11,8 @@ export type SectorPriorityCandidateStage = typeof SectorPriorityCandidateStage[k
 
 export const SectorPriorityCandidateStage = {
   candidate: 'candidate',
-  pre_breakout: 'pre_breakout',
+  latent: 'latent',
+  breakout_critical: 'breakout_critical',
+  confirmed: 'confirmed',
   withheld: 'withheld',
 } as const;

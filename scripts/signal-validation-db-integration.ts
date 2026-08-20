@@ -153,7 +153,7 @@ const trigger: SignalTriggerInput = {
   symbol,
   occurredAt: new Date("2026-07-01T14:30:00.000Z"),
   fromState: "watch",
-  state: "accelerating",
+  state: "latent",
   confirmationStatus: "pending",
   signalType: "state_transition",
   direction: "upside",

@@ -64,7 +64,7 @@ export interface AlertRecord {
   /** Symbol this alert pertains to (e.g. "NVDA") */
   symbol: string;
   /** Human-readable tier label */
-  tier: 'confirmed' | 'pre_breakout' | 'accelerating' | 'watch' | 'unavailable';
+  tier: 'confirmed' | 'breakout_critical' | 'latent' | 'take_profit_watch' | 'trend_reversal_confirmed' | 'watch' | 'unavailable';
   /** Score at time of alert (0-100 or null) */
   score: number | null;
   /** Confidence percentage 0-100 */
@@ -81,7 +81,7 @@ export interface AlertRecord {
     leaders: Array<{
       rank: number;
       symbol: string;
-      grade: 'strong' | 'watch';
+      grade: 'confirmed' | 'critical' | 'latent' | 'watch';
     }>;
     strongestBreakoutSymbol: string | null;
   } | null;
@@ -107,6 +107,8 @@ export interface AlertRecord {
   toConfirmationStatus: PreBreakoutConfirmationStatus;
 }
 
+type NotificationMinimumTier = 'confirmed' | 'breakout_critical' | 'latent' | 'watch';
+
 /**
  * Notification settings persisted server-side (or local-only as fallback).
  */
@@ -114,7 +116,7 @@ export interface AlertNotificationSettings {
   /** Whether the user wants browser notifications for new alerts */
   browserNotificationsEnabled: boolean;
   /** Minimum tier to trigger a notification */
-  minimumTier: AlertRecord['tier'];
+  minimumTier: NotificationMinimumTier;
   /** Whether to notify on "watch" tier specifically */
   notifyOnWatch: boolean;
 }
@@ -133,7 +135,7 @@ export interface AlertCenterMutations {
   /** Toggle browser notifications (save to server/localStorage) */
   setNotificationsEnabled: (enabled: boolean) => Promise<void>;
   /** Update minimum tier setting */
-  setMinimumTier: (tier: AlertRecord['tier']) => Promise<void>;
+  setMinimumTier: (tier: NotificationMinimumTier) => Promise<void>;
   /** Request a server-audited test Push. false means it was not delivered. */
   sendTestNotification: () => Promise<boolean>;
 }
@@ -165,18 +167,28 @@ export interface AlertCenterProps {
 // ─── Tier helpers ─────────────────────────────────────────────────────────────
 
 const TIER_ORDER: AlertRecord['tier'][] = [
+  'trend_reversal_confirmed',
+  'take_profit_watch',
   'confirmed',
-  'pre_breakout',
-  'accelerating',
+  'breakout_critical',
+  'latent',
   'watch',
   'unavailable',
+];
+const NOTIFICATION_TIER_ORDER: NotificationMinimumTier[] = [
+  'confirmed',
+  'breakout_critical',
+  'latent',
+  'watch',
 ];
 
 function tierLabel(tier: AlertRecord['tier']): string {
   switch (tier) {
-    case 'confirmed':     return 'Confirmed';
-    case 'pre_breakout':  return 'Pre-Breakout';
-    case 'accelerating':  return 'Accelerating';
+    case 'trend_reversal_confirmed': return '🔴 趋势反转/止盈确认';
+    case 'take_profit_watch': return '⚠️ 止盈/减仓关注';
+    case 'confirmed':     return '🔥 最强爆发';
+    case 'breakout_critical': return '🟠 爆发临界';
+    case 'latent':        return '🟡 潜伏候选';
     case 'watch':         return 'Watch';
     default:              return 'Unavailable';
   }
@@ -184,11 +196,15 @@ function tierLabel(tier: AlertRecord['tier']): string {
 
 function tierStyle(tier: AlertRecord['tier']): string {
   switch (tier) {
+    case 'trend_reversal_confirmed':
+      return 'border-destructive/30 bg-destructive/10 text-destructive';
+    case 'take_profit_watch':
+      return 'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400';
     case 'confirmed':
       return 'border-primary/30 bg-primary/10 text-primary';
-    case 'pre_breakout':
+    case 'breakout_critical':
       return 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400';
-    case 'accelerating':
+    case 'latent':
       return 'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400';
     case 'watch':
       return 'border-sky-500/30 bg-sky-500/10 text-sky-700 dark:text-sky-400';
@@ -249,7 +265,7 @@ interface AlertRowProps {
 }
 
 function AlertRow({ alert, onRead, onAcknowledge }: AlertRowProps) {
-  const isHighTier = alert.tier === 'confirmed' || alert.tier === 'pre_breakout';
+  const isHighTier = alert.tier === 'confirmed' || alert.tier === 'breakout_critical';
 
   return (
     <div
@@ -330,9 +346,11 @@ function AlertRow({ alert, onRead, onAcknowledge }: AlertRowProps) {
             {alert.sectorLeaderContext.leaders.map((leader) => {
               const label = alert.sectorLeaderContext?.strongestBreakoutSymbol === leader.symbol
                 ? '🔥 最强爆发'
-                : leader.grade === 'strong'
-                  ? '🟢 强'
-                  : '🟡 观察';
+                : leader.grade === 'critical'
+                  ? '🟠 爆发临界'
+                  : leader.grade === 'latent'
+                    ? '🟡 潜伏候选'
+                    : '观察';
               return (
                 <Badge
                   key={leader.symbol}
@@ -341,9 +359,11 @@ function AlertRow({ alert, onRead, onAcknowledge }: AlertRowProps) {
                     'border font-mono text-[9px]',
                     alert.sectorLeaderContext?.strongestBreakoutSymbol === leader.symbol
                       ? 'border-primary/35 bg-primary/10 text-primary'
-                      : leader.grade === 'strong'
-                        ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400'
-                        : 'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400',
+                      : leader.grade === 'critical'
+                        ? 'border-orange-500/30 bg-orange-500/10 text-orange-700 dark:text-orange-400'
+                        : leader.grade === 'latent'
+                          ? 'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400'
+                          : 'border-border bg-muted text-muted-foreground',
                   )}
                 >
                   #{leader.rank} {leader.symbol} · {label}
@@ -614,7 +634,7 @@ function NotificationPanel({ browserPushEnabled, settings, mutations }: Notifica
           Notify on tier
         </p>
         <div className="flex flex-wrap gap-2">
-          {TIER_ORDER.filter((t) => t !== 'unavailable').map((tier) => (
+          {NOTIFICATION_TIER_ORDER.map((tier) => (
             <button
               key={tier}
               onClick={() => mutations.setMinimumTier(tier)}
@@ -850,8 +870,8 @@ export function historyEntryToAlertRecord(
 ): AlertRecord {
   const tier: AlertRecord['tier'] =
     entry.toState === 'confirmed'     ? 'confirmed'
-    : entry.toState === 'pre_breakout' ? 'pre_breakout'
-    : entry.toState === 'accelerating' ? 'accelerating'
+    : entry.toState === 'breakout_critical' ? 'breakout_critical'
+    : entry.toState === 'latent' ? 'latent'
     : entry.toState === 'watch'        ? 'watch'
     : 'unavailable';
 

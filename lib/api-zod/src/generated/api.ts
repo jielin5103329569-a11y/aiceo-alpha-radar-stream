@@ -20,6 +20,21 @@ export const HealthCheckResponse = zod.object({
 /**
  * @summary Get the current safe market-data stream status
  */
+export const getRadarStatusResponseAlphaRadarDataConfidenceScoreMin = 0;
+export const getRadarStatusResponseAlphaRadarDataConfidenceScoreMax = 100;
+
+export const getRadarStatusResponseAlphaRadarDataConfidenceCompletenessMin = 0;
+export const getRadarStatusResponseAlphaRadarDataConfidenceCompletenessMax = 100;
+
+export const getRadarStatusResponseAlphaRadarDataConfidenceFreshnessMin = 0;
+export const getRadarStatusResponseAlphaRadarDataConfidenceFreshnessMax = 100;
+
+export const getRadarStatusResponseAlphaRadarDataConfidenceStabilityMin = 0;
+export const getRadarStatusResponseAlphaRadarDataConfidenceStabilityMax = 100;
+
+export const getRadarStatusResponseAlphaRadarDataConfidenceEvidenceConsistencyMin = 0;
+export const getRadarStatusResponseAlphaRadarDataConfidenceEvidenceConsistencyMax = 100;
+
 export const getRadarStatusResponseAlphaRadarDiagnosticsFreshQuotesMin = 0;
 
 export const getRadarStatusResponseAlphaRadarDiagnosticsFreshTradesMin = 0;
@@ -27,6 +42,21 @@ export const getRadarStatusResponseAlphaRadarDiagnosticsFreshTradesMin = 0;
 export const getRadarStatusResponseAlphaRadarDiagnosticsFreshPricesMin = 0;
 
 export const getRadarStatusResponseAlphaRadarDiagnosticsFreshVolumeMin = 0;
+
+
+export const getRadarStatusResponseAlphaRadarMultiTimeframeShortSampleCountMin = 0;
+
+
+export const getRadarStatusResponseAlphaRadarMultiTimeframeMediumSampleCountMin = 0;
+
+
+export const getRadarStatusResponseAlphaRadarMultiTimeframeHigherSampleCountMin = 0;
+
+export const getRadarStatusResponseAlphaRadarPreBreakoutLatentScoreMin = 0;
+export const getRadarStatusResponseAlphaRadarPreBreakoutLatentScoreMax = 100;
+
+export const getRadarStatusResponseAlphaRadarPreBreakoutBreakoutCriticalScoreMin = 0;
+export const getRadarStatusResponseAlphaRadarPreBreakoutBreakoutCriticalScoreMax = 100;
 
 export const getRadarStatusResponseAlphaRadarPreBreakoutEvidenceCountMin = 0;
 
@@ -36,6 +66,10 @@ export const getRadarStatusResponseAlphaRadarPreBreakoutCooldownRemainingMsMin =
 
 export const getRadarStatusResponseAlphaRadarPreBreakoutConfirmationPersistenceScansMin = 0;
 
+
+export const getRadarStatusResponseAlphaRadarPostBreakoutConsecutiveWeakScansMin = 0;
+
+export const getRadarStatusResponseAlphaRadarPostBreakoutConsecutiveReversalScansMin = 0;
 
 export const getRadarStatusResponseSignalHistoryItemEvidenceCountMin = 0;
 
@@ -102,6 +136,21 @@ export const getRadarStatusResponseOpportunityCenterOpportunitiesItemEvidenceCou
 
 export const getRadarStatusResponseOpportunityCenterOpportunitiesItemSectorConfirmationFreshEligiblePeerCountMin = 0;
 
+export const getRadarStatusResponseSymbolRadarsItemAlphaRadarDataConfidenceScoreMin = 0;
+export const getRadarStatusResponseSymbolRadarsItemAlphaRadarDataConfidenceScoreMax = 100;
+
+export const getRadarStatusResponseSymbolRadarsItemAlphaRadarDataConfidenceCompletenessMin = 0;
+export const getRadarStatusResponseSymbolRadarsItemAlphaRadarDataConfidenceCompletenessMax = 100;
+
+export const getRadarStatusResponseSymbolRadarsItemAlphaRadarDataConfidenceFreshnessMin = 0;
+export const getRadarStatusResponseSymbolRadarsItemAlphaRadarDataConfidenceFreshnessMax = 100;
+
+export const getRadarStatusResponseSymbolRadarsItemAlphaRadarDataConfidenceStabilityMin = 0;
+export const getRadarStatusResponseSymbolRadarsItemAlphaRadarDataConfidenceStabilityMax = 100;
+
+export const getRadarStatusResponseSymbolRadarsItemAlphaRadarDataConfidenceEvidenceConsistencyMin = 0;
+export const getRadarStatusResponseSymbolRadarsItemAlphaRadarDataConfidenceEvidenceConsistencyMax = 100;
+
 export const getRadarStatusResponseSymbolRadarsItemAlphaRadarDiagnosticsFreshQuotesMin = 0;
 
 export const getRadarStatusResponseSymbolRadarsItemAlphaRadarDiagnosticsFreshTradesMin = 0;
@@ -109,6 +158,21 @@ export const getRadarStatusResponseSymbolRadarsItemAlphaRadarDiagnosticsFreshTra
 export const getRadarStatusResponseSymbolRadarsItemAlphaRadarDiagnosticsFreshPricesMin = 0;
 
 export const getRadarStatusResponseSymbolRadarsItemAlphaRadarDiagnosticsFreshVolumeMin = 0;
+
+
+export const getRadarStatusResponseSymbolRadarsItemAlphaRadarMultiTimeframeShortSampleCountMin = 0;
+
+
+export const getRadarStatusResponseSymbolRadarsItemAlphaRadarMultiTimeframeMediumSampleCountMin = 0;
+
+
+export const getRadarStatusResponseSymbolRadarsItemAlphaRadarMultiTimeframeHigherSampleCountMin = 0;
+
+export const getRadarStatusResponseSymbolRadarsItemAlphaRadarPreBreakoutLatentScoreMin = 0;
+export const getRadarStatusResponseSymbolRadarsItemAlphaRadarPreBreakoutLatentScoreMax = 100;
+
+export const getRadarStatusResponseSymbolRadarsItemAlphaRadarPreBreakoutBreakoutCriticalScoreMin = 0;
+export const getRadarStatusResponseSymbolRadarsItemAlphaRadarPreBreakoutBreakoutCriticalScoreMax = 100;
 
 export const getRadarStatusResponseSymbolRadarsItemAlphaRadarPreBreakoutEvidenceCountMin = 0;
 
@@ -118,6 +182,10 @@ export const getRadarStatusResponseSymbolRadarsItemAlphaRadarPreBreakoutCooldown
 
 export const getRadarStatusResponseSymbolRadarsItemAlphaRadarPreBreakoutConfirmationPersistenceScansMin = 0;
 
+
+export const getRadarStatusResponseSymbolRadarsItemAlphaRadarPostBreakoutConsecutiveWeakScansMin = 0;
+
+export const getRadarStatusResponseSymbolRadarsItemAlphaRadarPostBreakoutConsecutiveReversalScansMin = 0;
 
 export const getRadarStatusResponseSymbolRadarsItemSignalHistoryItemEvidenceCountMin = 0;
 
@@ -218,6 +286,31 @@ export const getRadarStatusResponseSectorPriorityFinalCandidatesItemSectorMultip
 export const getRadarStatusResponseSectorPriorityFinalCandidatesItemBaseRankingScoreMin = 0;
 export const getRadarStatusResponseSectorPriorityFinalCandidatesItemBaseRankingScoreMax = 100;
 
+export const getRadarStatusResponseSectorPriorityFinalCandidatesItemLatentScoreMin = 0;
+export const getRadarStatusResponseSectorPriorityFinalCandidatesItemLatentScoreMax = 100;
+
+export const getRadarStatusResponseSectorPriorityFinalCandidatesItemBreakoutCriticalScoreMin = 0;
+export const getRadarStatusResponseSectorPriorityFinalCandidatesItemBreakoutCriticalScoreMax = 100;
+
+
+export const getRadarStatusResponseSectorPriorityLatentCandidatesItemFinalScoreMin = 0;
+export const getRadarStatusResponseSectorPriorityLatentCandidatesItemFinalScoreMax = 125;
+
+export const getRadarStatusResponseSectorPriorityLatentCandidatesItemSectorStrengthMin = 0;
+export const getRadarStatusResponseSectorPriorityLatentCandidatesItemSectorStrengthMax = 100;
+
+export const getRadarStatusResponseSectorPriorityLatentCandidatesItemSectorMultiplierMin = 0.75;
+export const getRadarStatusResponseSectorPriorityLatentCandidatesItemSectorMultiplierMax = 1.25;
+
+export const getRadarStatusResponseSectorPriorityLatentCandidatesItemBaseRankingScoreMin = 0;
+export const getRadarStatusResponseSectorPriorityLatentCandidatesItemBaseRankingScoreMax = 100;
+
+export const getRadarStatusResponseSectorPriorityLatentCandidatesItemLatentScoreMin = 0;
+export const getRadarStatusResponseSectorPriorityLatentCandidatesItemLatentScoreMax = 100;
+
+export const getRadarStatusResponseSectorPriorityLatentCandidatesItemBreakoutCriticalScoreMin = 0;
+export const getRadarStatusResponseSectorPriorityLatentCandidatesItemBreakoutCriticalScoreMax = 100;
+
 
 export const getRadarStatusResponseSectorPriorityPreBreakoutCandidatesItemFinalScoreMin = 0;
 export const getRadarStatusResponseSectorPriorityPreBreakoutCandidatesItemFinalScoreMax = 125;
@@ -231,6 +324,12 @@ export const getRadarStatusResponseSectorPriorityPreBreakoutCandidatesItemSector
 export const getRadarStatusResponseSectorPriorityPreBreakoutCandidatesItemBaseRankingScoreMin = 0;
 export const getRadarStatusResponseSectorPriorityPreBreakoutCandidatesItemBaseRankingScoreMax = 100;
 
+export const getRadarStatusResponseSectorPriorityPreBreakoutCandidatesItemLatentScoreMin = 0;
+export const getRadarStatusResponseSectorPriorityPreBreakoutCandidatesItemLatentScoreMax = 100;
+
+export const getRadarStatusResponseSectorPriorityPreBreakoutCandidatesItemBreakoutCriticalScoreMin = 0;
+export const getRadarStatusResponseSectorPriorityPreBreakoutCandidatesItemBreakoutCriticalScoreMax = 100;
+
 
 export const getRadarStatusResponseSectorPriorityWithheldCandidatesItemFinalScoreMin = 0;
 export const getRadarStatusResponseSectorPriorityWithheldCandidatesItemFinalScoreMax = 125;
@@ -243,6 +342,12 @@ export const getRadarStatusResponseSectorPriorityWithheldCandidatesItemSectorMul
 
 export const getRadarStatusResponseSectorPriorityWithheldCandidatesItemBaseRankingScoreMin = 0;
 export const getRadarStatusResponseSectorPriorityWithheldCandidatesItemBaseRankingScoreMax = 100;
+
+export const getRadarStatusResponseSectorPriorityWithheldCandidatesItemLatentScoreMin = 0;
+export const getRadarStatusResponseSectorPriorityWithheldCandidatesItemLatentScoreMax = 100;
+
+export const getRadarStatusResponseSectorPriorityWithheldCandidatesItemBreakoutCriticalScoreMin = 0;
+export const getRadarStatusResponseSectorPriorityWithheldCandidatesItemBreakoutCriticalScoreMax = 100;
 
 
 
@@ -264,6 +369,15 @@ export const GetRadarStatusResponse = zod.object({
   "status": zod.union([zod.enum(['Neutral', 'Watch', 'Breakout Setup']),zod.null()]),
   "scoreState": zod.enum(['available', 'stale', 'insufficient']),
   "confidence": zod.number(),
+  "dataConfidence": zod.object({
+  "score": zod.number().min(getRadarStatusResponseAlphaRadarDataConfidenceScoreMin).max(getRadarStatusResponseAlphaRadarDataConfidenceScoreMax).nullable(),
+  "state": zod.enum(['high', 'adequate', 'low', 'unavailable']),
+  "completeness": zod.number().min(getRadarStatusResponseAlphaRadarDataConfidenceCompletenessMin).max(getRadarStatusResponseAlphaRadarDataConfidenceCompletenessMax).nullable(),
+  "freshness": zod.number().min(getRadarStatusResponseAlphaRadarDataConfidenceFreshnessMin).max(getRadarStatusResponseAlphaRadarDataConfidenceFreshnessMax).nullable(),
+  "stability": zod.number().min(getRadarStatusResponseAlphaRadarDataConfidenceStabilityMin).max(getRadarStatusResponseAlphaRadarDataConfidenceStabilityMax).nullable(),
+  "evidenceConsistency": zod.number().min(getRadarStatusResponseAlphaRadarDataConfidenceEvidenceConsistencyMin).max(getRadarStatusResponseAlphaRadarDataConfidenceEvidenceConsistencyMax).nullable(),
+  "reason": zod.string()
+}),
   "dataQuality": zod.enum(['good', 'degraded', 'stale', 'missing']),
   "generatedAt": zod.coerce.date(),
   "warnings": zod.array(zod.string()),
@@ -294,9 +408,64 @@ export const GetRadarStatusResponse = zod.object({
   "orderFlowShift": zod.number().nullable().describe('Order-flow score-point change per minute between valid scans.'),
   "spreadTightening": zod.number().nullable().describe('Spread score-point change per minute; positive values indicate tightening.')
 }),
+  "multiTimeframe": zod.object({
+  "short": zod.object({
+  "windowMs": zod.number().min(1),
+  "sampleCount": zod.number().min(getRadarStatusResponseAlphaRadarMultiTimeframeShortSampleCountMin),
+  "score": zod.number().nullable(),
+  "momentumScore": zod.number().nullable(),
+  "volumeScore": zod.number().nullable(),
+  "orderFlowScore": zod.number().nullable(),
+  "spreadScore": zod.number().nullable(),
+  "direction": zod.enum(['supportive', 'weakening', 'mixed', 'unavailable']),
+  "available": zod.boolean(),
+  "reason": zod.string()
+}),
+  "medium": zod.object({
+  "windowMs": zod.number().min(1),
+  "sampleCount": zod.number().min(getRadarStatusResponseAlphaRadarMultiTimeframeMediumSampleCountMin),
+  "score": zod.number().nullable(),
+  "momentumScore": zod.number().nullable(),
+  "volumeScore": zod.number().nullable(),
+  "orderFlowScore": zod.number().nullable(),
+  "spreadScore": zod.number().nullable(),
+  "direction": zod.enum(['supportive', 'weakening', 'mixed', 'unavailable']),
+  "available": zod.boolean(),
+  "reason": zod.string()
+}),
+  "higher": zod.object({
+  "windowMs": zod.number().min(1),
+  "sampleCount": zod.number().min(getRadarStatusResponseAlphaRadarMultiTimeframeHigherSampleCountMin),
+  "score": zod.number().nullable(),
+  "momentumScore": zod.number().nullable(),
+  "volumeScore": zod.number().nullable(),
+  "orderFlowScore": zod.number().nullable(),
+  "spreadScore": zod.number().nullable(),
+  "direction": zod.enum(['supportive', 'weakening', 'mixed', 'unavailable']),
+  "available": zod.boolean(),
+  "reason": zod.string()
+}),
+  "alignment": zod.enum(['aligned', 'mixed', 'conflicted', 'unavailable']),
+  "reason": zod.string()
+}),
+  "counterEvidence": zod.object({
+  "strength": zod.enum(['none', 'moderate', 'strong', 'unavailable']),
+  "blocksHighGradeUpgrade": zod.boolean(),
+  "evidence": zod.array(zod.object({
+  "key": zod.enum(['sector_or_market_weakness', 'selling_pressure', 'price_volume_divergence', 'breakout_failure', 'structural_support_loss']),
+  "label": zod.string(),
+  "available": zod.boolean(),
+  "opposesSignal": zod.boolean(),
+  "detail": zod.string()
+})),
+  "reasons": zod.array(zod.string()),
+  "reason": zod.string()
+}),
   "preBreakoutWatch": zod.boolean(),
   "preBreakout": zod.object({
-  "state": zod.enum(['unavailable', 'watch', 'accelerating', 'pre_breakout', 'confirmed']),
+  "state": zod.enum(['unavailable', 'watch', 'latent', 'breakout_critical', 'confirmed']),
+  "latentScore": zod.number().min(getRadarStatusResponseAlphaRadarPreBreakoutLatentScoreMin).max(getRadarStatusResponseAlphaRadarPreBreakoutLatentScoreMax).nullable(),
+  "breakoutCriticalScore": zod.number().min(getRadarStatusResponseAlphaRadarPreBreakoutBreakoutCriticalScoreMin).max(getRadarStatusResponseAlphaRadarPreBreakoutBreakoutCriticalScoreMax).nullable(),
   "evidenceCount": zod.number().min(getRadarStatusResponseAlphaRadarPreBreakoutEvidenceCountMin),
   "velocityGateSatisfied": zod.boolean(),
   "reasons": zod.array(zod.string()),
@@ -322,6 +491,26 @@ export const GetRadarStatusResponse = zod.object({
   "evaluatedAt": zod.coerce.date(),
   "reason": zod.string()
 })
+}),
+  "postBreakout": zod.object({
+  "state": zod.enum(['unavailable', 'trend_continuation', 'take_profit_watch', 'trend_reversal_confirmed']),
+  "active": zod.boolean(),
+  "dataFresh": zod.boolean(),
+  "breakoutPrice": zod.number().nullable(),
+  "highSinceBreakout": zod.number().nullable(),
+  "drawdownFromHighPercent": zod.number().nullable(),
+  "latestPrice": zod.number().nullable(),
+  "activeBuyPressure": zod.number().nullable(),
+  "l1BidPressure": zod.number().nullable(),
+  "volumeAcceleration": zod.number().nullable(),
+  "tradeRateChange": zod.number().nullable(),
+  "supportReasons": zod.array(zod.string()),
+  "deteriorationReasons": zod.array(zod.string()),
+  "consecutiveWeakScans": zod.number().min(getRadarStatusResponseAlphaRadarPostBreakoutConsecutiveWeakScansMin),
+  "consecutiveReversalScans": zod.number().min(getRadarStatusResponseAlphaRadarPostBreakoutConsecutiveReversalScansMin),
+  "lastTransitionAt": zod.coerce.date().nullable(),
+  "lastEvaluatedAt": zod.coerce.date(),
+  "reason": zod.string()
 }),
   "momentum": zod.object({
   "value": zod.number().nullable(),
@@ -393,8 +582,8 @@ export const GetRadarStatusResponse = zod.object({
 }),
   "signalHistory": zod.array(zod.object({
   "occurredAt": zod.coerce.date(),
-  "fromState": zod.enum(['unavailable', 'watch', 'accelerating', 'pre_breakout', 'confirmed']),
-  "toState": zod.enum(['unavailable', 'watch', 'accelerating', 'pre_breakout', 'confirmed']),
+  "fromState": zod.enum(['unavailable', 'watch', 'latent', 'breakout_critical', 'confirmed']),
+  "toState": zod.enum(['unavailable', 'watch', 'latent', 'breakout_critical', 'confirmed']),
   "fromConfirmationStatus": zod.enum(['unavailable', 'pending', 'confirmed', 'rejected']),
   "toConfirmationStatus": zod.enum(['unavailable', 'pending', 'confirmed', 'rejected']),
   "score": zod.number().nullable(),
@@ -724,6 +913,15 @@ export const GetRadarStatusResponse = zod.object({
   "status": zod.union([zod.enum(['Neutral', 'Watch', 'Breakout Setup']),zod.null()]),
   "scoreState": zod.enum(['available', 'stale', 'insufficient']),
   "confidence": zod.number(),
+  "dataConfidence": zod.object({
+  "score": zod.number().min(getRadarStatusResponseSymbolRadarsItemAlphaRadarDataConfidenceScoreMin).max(getRadarStatusResponseSymbolRadarsItemAlphaRadarDataConfidenceScoreMax).nullable(),
+  "state": zod.enum(['high', 'adequate', 'low', 'unavailable']),
+  "completeness": zod.number().min(getRadarStatusResponseSymbolRadarsItemAlphaRadarDataConfidenceCompletenessMin).max(getRadarStatusResponseSymbolRadarsItemAlphaRadarDataConfidenceCompletenessMax).nullable(),
+  "freshness": zod.number().min(getRadarStatusResponseSymbolRadarsItemAlphaRadarDataConfidenceFreshnessMin).max(getRadarStatusResponseSymbolRadarsItemAlphaRadarDataConfidenceFreshnessMax).nullable(),
+  "stability": zod.number().min(getRadarStatusResponseSymbolRadarsItemAlphaRadarDataConfidenceStabilityMin).max(getRadarStatusResponseSymbolRadarsItemAlphaRadarDataConfidenceStabilityMax).nullable(),
+  "evidenceConsistency": zod.number().min(getRadarStatusResponseSymbolRadarsItemAlphaRadarDataConfidenceEvidenceConsistencyMin).max(getRadarStatusResponseSymbolRadarsItemAlphaRadarDataConfidenceEvidenceConsistencyMax).nullable(),
+  "reason": zod.string()
+}),
   "dataQuality": zod.enum(['good', 'degraded', 'stale', 'missing']),
   "generatedAt": zod.coerce.date(),
   "warnings": zod.array(zod.string()),
@@ -754,9 +952,64 @@ export const GetRadarStatusResponse = zod.object({
   "orderFlowShift": zod.number().nullable().describe('Order-flow score-point change per minute between valid scans.'),
   "spreadTightening": zod.number().nullable().describe('Spread score-point change per minute; positive values indicate tightening.')
 }),
+  "multiTimeframe": zod.object({
+  "short": zod.object({
+  "windowMs": zod.number().min(1),
+  "sampleCount": zod.number().min(getRadarStatusResponseSymbolRadarsItemAlphaRadarMultiTimeframeShortSampleCountMin),
+  "score": zod.number().nullable(),
+  "momentumScore": zod.number().nullable(),
+  "volumeScore": zod.number().nullable(),
+  "orderFlowScore": zod.number().nullable(),
+  "spreadScore": zod.number().nullable(),
+  "direction": zod.enum(['supportive', 'weakening', 'mixed', 'unavailable']),
+  "available": zod.boolean(),
+  "reason": zod.string()
+}),
+  "medium": zod.object({
+  "windowMs": zod.number().min(1),
+  "sampleCount": zod.number().min(getRadarStatusResponseSymbolRadarsItemAlphaRadarMultiTimeframeMediumSampleCountMin),
+  "score": zod.number().nullable(),
+  "momentumScore": zod.number().nullable(),
+  "volumeScore": zod.number().nullable(),
+  "orderFlowScore": zod.number().nullable(),
+  "spreadScore": zod.number().nullable(),
+  "direction": zod.enum(['supportive', 'weakening', 'mixed', 'unavailable']),
+  "available": zod.boolean(),
+  "reason": zod.string()
+}),
+  "higher": zod.object({
+  "windowMs": zod.number().min(1),
+  "sampleCount": zod.number().min(getRadarStatusResponseSymbolRadarsItemAlphaRadarMultiTimeframeHigherSampleCountMin),
+  "score": zod.number().nullable(),
+  "momentumScore": zod.number().nullable(),
+  "volumeScore": zod.number().nullable(),
+  "orderFlowScore": zod.number().nullable(),
+  "spreadScore": zod.number().nullable(),
+  "direction": zod.enum(['supportive', 'weakening', 'mixed', 'unavailable']),
+  "available": zod.boolean(),
+  "reason": zod.string()
+}),
+  "alignment": zod.enum(['aligned', 'mixed', 'conflicted', 'unavailable']),
+  "reason": zod.string()
+}),
+  "counterEvidence": zod.object({
+  "strength": zod.enum(['none', 'moderate', 'strong', 'unavailable']),
+  "blocksHighGradeUpgrade": zod.boolean(),
+  "evidence": zod.array(zod.object({
+  "key": zod.enum(['sector_or_market_weakness', 'selling_pressure', 'price_volume_divergence', 'breakout_failure', 'structural_support_loss']),
+  "label": zod.string(),
+  "available": zod.boolean(),
+  "opposesSignal": zod.boolean(),
+  "detail": zod.string()
+})),
+  "reasons": zod.array(zod.string()),
+  "reason": zod.string()
+}),
   "preBreakoutWatch": zod.boolean(),
   "preBreakout": zod.object({
-  "state": zod.enum(['unavailable', 'watch', 'accelerating', 'pre_breakout', 'confirmed']),
+  "state": zod.enum(['unavailable', 'watch', 'latent', 'breakout_critical', 'confirmed']),
+  "latentScore": zod.number().min(getRadarStatusResponseSymbolRadarsItemAlphaRadarPreBreakoutLatentScoreMin).max(getRadarStatusResponseSymbolRadarsItemAlphaRadarPreBreakoutLatentScoreMax).nullable(),
+  "breakoutCriticalScore": zod.number().min(getRadarStatusResponseSymbolRadarsItemAlphaRadarPreBreakoutBreakoutCriticalScoreMin).max(getRadarStatusResponseSymbolRadarsItemAlphaRadarPreBreakoutBreakoutCriticalScoreMax).nullable(),
   "evidenceCount": zod.number().min(getRadarStatusResponseSymbolRadarsItemAlphaRadarPreBreakoutEvidenceCountMin),
   "velocityGateSatisfied": zod.boolean(),
   "reasons": zod.array(zod.string()),
@@ -782,6 +1035,26 @@ export const GetRadarStatusResponse = zod.object({
   "evaluatedAt": zod.coerce.date(),
   "reason": zod.string()
 })
+}),
+  "postBreakout": zod.object({
+  "state": zod.enum(['unavailable', 'trend_continuation', 'take_profit_watch', 'trend_reversal_confirmed']),
+  "active": zod.boolean(),
+  "dataFresh": zod.boolean(),
+  "breakoutPrice": zod.number().nullable(),
+  "highSinceBreakout": zod.number().nullable(),
+  "drawdownFromHighPercent": zod.number().nullable(),
+  "latestPrice": zod.number().nullable(),
+  "activeBuyPressure": zod.number().nullable(),
+  "l1BidPressure": zod.number().nullable(),
+  "volumeAcceleration": zod.number().nullable(),
+  "tradeRateChange": zod.number().nullable(),
+  "supportReasons": zod.array(zod.string()),
+  "deteriorationReasons": zod.array(zod.string()),
+  "consecutiveWeakScans": zod.number().min(getRadarStatusResponseSymbolRadarsItemAlphaRadarPostBreakoutConsecutiveWeakScansMin),
+  "consecutiveReversalScans": zod.number().min(getRadarStatusResponseSymbolRadarsItemAlphaRadarPostBreakoutConsecutiveReversalScansMin),
+  "lastTransitionAt": zod.coerce.date().nullable(),
+  "lastEvaluatedAt": zod.coerce.date(),
+  "reason": zod.string()
 }),
   "momentum": zod.object({
   "value": zod.number().nullable(),
@@ -853,8 +1126,8 @@ export const GetRadarStatusResponse = zod.object({
 }),
   "signalHistory": zod.array(zod.object({
   "occurredAt": zod.coerce.date(),
-  "fromState": zod.enum(['unavailable', 'watch', 'accelerating', 'pre_breakout', 'confirmed']),
-  "toState": zod.enum(['unavailable', 'watch', 'accelerating', 'pre_breakout', 'confirmed']),
+  "fromState": zod.enum(['unavailable', 'watch', 'latent', 'breakout_critical', 'confirmed']),
+  "toState": zod.enum(['unavailable', 'watch', 'latent', 'breakout_critical', 'confirmed']),
   "fromConfirmationStatus": zod.enum(['unavailable', 'pending', 'confirmed', 'rejected']),
   "toConfirmationStatus": zod.enum(['unavailable', 'pending', 'confirmed', 'rejected']),
   "score": zod.number().nullable(),
@@ -981,7 +1254,7 @@ export const GetRadarStatusResponse = zod.object({
   "signalTrajectory": zod.number().min(getRadarStatusResponseAlphaRankingEntriesItemFactorContributionsOneSignalTrajectoryMin)
 }),zod.null()]),
   "alphaScore": zod.number().min(getRadarStatusResponseAlphaRankingEntriesItemAlphaScoreMin).max(getRadarStatusResponseAlphaRankingEntriesItemAlphaScoreMax).nullable(),
-  "detectionState": zod.enum(['unavailable', 'watch', 'accelerating', 'pre_breakout', 'confirmed']),
+  "detectionState": zod.enum(['unavailable', 'watch', 'latent', 'breakout_critical', 'confirmed']),
   "confirmationStatus": zod.enum(['unavailable', 'pending', 'confirmed', 'rejected']),
   "alphaVelocity": zod.number().nullable(),
   "confidence": zod.number().min(getRadarStatusResponseAlphaRankingEntriesItemConfidenceMin).max(getRadarStatusResponseAlphaRankingEntriesItemConfidenceMax),
@@ -1037,7 +1310,7 @@ export const GetRadarStatusResponse = zod.object({
   "sectorMultiplier": zod.number().min(getRadarStatusResponseSectorPrioritySectorsItemMembersItemSectorMultiplierMin).max(getRadarStatusResponseSectorPrioritySectorsItemMembersItemSectorMultiplierMax).nullable(),
   "eligibility": zod.enum(['ranked', 'building', 'ineligible']),
   "marketDataState": zod.enum(['fresh', 'stale', 'offline', 'insufficient']),
-  "preBreakoutState": zod.enum(['unavailable', 'watch', 'accelerating', 'pre_breakout', 'confirmed']),
+  "preBreakoutState": zod.enum(['unavailable', 'watch', 'latent', 'breakout_critical', 'confirmed']),
   "confirmationStatus": zod.enum(['unavailable', 'pending', 'confirmed', 'rejected']),
   "reason": zod.string()
 })),
@@ -1052,7 +1325,35 @@ export const GetRadarStatusResponse = zod.object({
   "sectorStrength": zod.number().min(getRadarStatusResponseSectorPriorityFinalCandidatesItemSectorStrengthMin).max(getRadarStatusResponseSectorPriorityFinalCandidatesItemSectorStrengthMax).nullable(),
   "sectorMultiplier": zod.number().min(getRadarStatusResponseSectorPriorityFinalCandidatesItemSectorMultiplierMin).max(getRadarStatusResponseSectorPriorityFinalCandidatesItemSectorMultiplierMax).nullable(),
   "baseRankingScore": zod.number().min(getRadarStatusResponseSectorPriorityFinalCandidatesItemBaseRankingScoreMin).max(getRadarStatusResponseSectorPriorityFinalCandidatesItemBaseRankingScoreMax).nullable(),
-  "stage": zod.enum(['candidate', 'pre_breakout', 'withheld']),
+  "latentScore": zod.number().min(getRadarStatusResponseSectorPriorityFinalCandidatesItemLatentScoreMin).max(getRadarStatusResponseSectorPriorityFinalCandidatesItemLatentScoreMax).nullable(),
+  "breakoutCriticalScore": zod.number().min(getRadarStatusResponseSectorPriorityFinalCandidatesItemBreakoutCriticalScoreMin).max(getRadarStatusResponseSectorPriorityFinalCandidatesItemBreakoutCriticalScoreMax).nullable(),
+  "stage": zod.enum(['candidate', 'latent', 'breakout_critical', 'confirmed', 'withheld']),
+  "evidence": zod.object({
+  "marketFresh": zod.boolean(),
+  "sectorStrength": zod.boolean(),
+  "unfinishedExpansion": zod.boolean(),
+  "catalyst": zod.boolean(),
+  "moneyFlow": zod.boolean(),
+  "optionsActivity": zod.boolean(),
+  "fundamentals": zod.boolean(),
+  "valuationExpectation": zod.boolean(),
+  "riskReward": zod.boolean()
+}),
+  "missing": zod.array(zod.string()),
+  "reason": zod.string()
+})),
+  "latentCandidates": zod.array(zod.object({
+  "symbol": zod.string(),
+  "finalRank": zod.number().min(1).nullable(),
+  "sector": zod.string().nullable(),
+  "industryGroup": zod.string().nullable(),
+  "finalScore": zod.number().min(getRadarStatusResponseSectorPriorityLatentCandidatesItemFinalScoreMin).max(getRadarStatusResponseSectorPriorityLatentCandidatesItemFinalScoreMax).nullable(),
+  "sectorStrength": zod.number().min(getRadarStatusResponseSectorPriorityLatentCandidatesItemSectorStrengthMin).max(getRadarStatusResponseSectorPriorityLatentCandidatesItemSectorStrengthMax).nullable(),
+  "sectorMultiplier": zod.number().min(getRadarStatusResponseSectorPriorityLatentCandidatesItemSectorMultiplierMin).max(getRadarStatusResponseSectorPriorityLatentCandidatesItemSectorMultiplierMax).nullable(),
+  "baseRankingScore": zod.number().min(getRadarStatusResponseSectorPriorityLatentCandidatesItemBaseRankingScoreMin).max(getRadarStatusResponseSectorPriorityLatentCandidatesItemBaseRankingScoreMax).nullable(),
+  "latentScore": zod.number().min(getRadarStatusResponseSectorPriorityLatentCandidatesItemLatentScoreMin).max(getRadarStatusResponseSectorPriorityLatentCandidatesItemLatentScoreMax).nullable(),
+  "breakoutCriticalScore": zod.number().min(getRadarStatusResponseSectorPriorityLatentCandidatesItemBreakoutCriticalScoreMin).max(getRadarStatusResponseSectorPriorityLatentCandidatesItemBreakoutCriticalScoreMax).nullable(),
+  "stage": zod.enum(['candidate', 'latent', 'breakout_critical', 'confirmed', 'withheld']),
   "evidence": zod.object({
   "marketFresh": zod.boolean(),
   "sectorStrength": zod.boolean(),
@@ -1076,7 +1377,9 @@ export const GetRadarStatusResponse = zod.object({
   "sectorStrength": zod.number().min(getRadarStatusResponseSectorPriorityPreBreakoutCandidatesItemSectorStrengthMin).max(getRadarStatusResponseSectorPriorityPreBreakoutCandidatesItemSectorStrengthMax).nullable(),
   "sectorMultiplier": zod.number().min(getRadarStatusResponseSectorPriorityPreBreakoutCandidatesItemSectorMultiplierMin).max(getRadarStatusResponseSectorPriorityPreBreakoutCandidatesItemSectorMultiplierMax).nullable(),
   "baseRankingScore": zod.number().min(getRadarStatusResponseSectorPriorityPreBreakoutCandidatesItemBaseRankingScoreMin).max(getRadarStatusResponseSectorPriorityPreBreakoutCandidatesItemBaseRankingScoreMax).nullable(),
-  "stage": zod.enum(['candidate', 'pre_breakout', 'withheld']),
+  "latentScore": zod.number().min(getRadarStatusResponseSectorPriorityPreBreakoutCandidatesItemLatentScoreMin).max(getRadarStatusResponseSectorPriorityPreBreakoutCandidatesItemLatentScoreMax).nullable(),
+  "breakoutCriticalScore": zod.number().min(getRadarStatusResponseSectorPriorityPreBreakoutCandidatesItemBreakoutCriticalScoreMin).max(getRadarStatusResponseSectorPriorityPreBreakoutCandidatesItemBreakoutCriticalScoreMax).nullable(),
+  "stage": zod.enum(['candidate', 'latent', 'breakout_critical', 'confirmed', 'withheld']),
   "evidence": zod.object({
   "marketFresh": zod.boolean(),
   "sectorStrength": zod.boolean(),
@@ -1100,7 +1403,9 @@ export const GetRadarStatusResponse = zod.object({
   "sectorStrength": zod.number().min(getRadarStatusResponseSectorPriorityWithheldCandidatesItemSectorStrengthMin).max(getRadarStatusResponseSectorPriorityWithheldCandidatesItemSectorStrengthMax).nullable(),
   "sectorMultiplier": zod.number().min(getRadarStatusResponseSectorPriorityWithheldCandidatesItemSectorMultiplierMin).max(getRadarStatusResponseSectorPriorityWithheldCandidatesItemSectorMultiplierMax).nullable(),
   "baseRankingScore": zod.number().min(getRadarStatusResponseSectorPriorityWithheldCandidatesItemBaseRankingScoreMin).max(getRadarStatusResponseSectorPriorityWithheldCandidatesItemBaseRankingScoreMax).nullable(),
-  "stage": zod.enum(['candidate', 'pre_breakout', 'withheld']),
+  "latentScore": zod.number().min(getRadarStatusResponseSectorPriorityWithheldCandidatesItemLatentScoreMin).max(getRadarStatusResponseSectorPriorityWithheldCandidatesItemLatentScoreMax).nullable(),
+  "breakoutCriticalScore": zod.number().min(getRadarStatusResponseSectorPriorityWithheldCandidatesItemBreakoutCriticalScoreMin).max(getRadarStatusResponseSectorPriorityWithheldCandidatesItemBreakoutCriticalScoreMax).nullable(),
+  "stage": zod.enum(['candidate', 'latent', 'breakout_critical', 'confirmed', 'withheld']),
   "evidence": zod.object({
   "marketFresh": zod.boolean(),
   "sectorStrength": zod.boolean(),
@@ -1136,7 +1441,7 @@ export const GetRadarStatusResponse = zod.object({
 }),
   "preBreakoutLeader": zod.object({
   "symbol": zod.string(),
-  "state": zod.enum(['unavailable', 'watch', 'accelerating', 'pre_breakout', 'confirmed']),
+  "state": zod.enum(['unavailable', 'watch', 'latent', 'breakout_critical', 'confirmed']),
   "confirmationStatus": zod.enum(['unavailable', 'pending', 'confirmed', 'rejected']),
   "alphaVelocity": zod.number().nullable()
 }).nullable()
@@ -1146,6 +1451,21 @@ export const GetRadarStatusResponse = zod.object({
 /**
  * @summary Start the server-side Databento live connection
  */
+export const startRadarConnectionResponseAlphaRadarDataConfidenceScoreMin = 0;
+export const startRadarConnectionResponseAlphaRadarDataConfidenceScoreMax = 100;
+
+export const startRadarConnectionResponseAlphaRadarDataConfidenceCompletenessMin = 0;
+export const startRadarConnectionResponseAlphaRadarDataConfidenceCompletenessMax = 100;
+
+export const startRadarConnectionResponseAlphaRadarDataConfidenceFreshnessMin = 0;
+export const startRadarConnectionResponseAlphaRadarDataConfidenceFreshnessMax = 100;
+
+export const startRadarConnectionResponseAlphaRadarDataConfidenceStabilityMin = 0;
+export const startRadarConnectionResponseAlphaRadarDataConfidenceStabilityMax = 100;
+
+export const startRadarConnectionResponseAlphaRadarDataConfidenceEvidenceConsistencyMin = 0;
+export const startRadarConnectionResponseAlphaRadarDataConfidenceEvidenceConsistencyMax = 100;
+
 export const startRadarConnectionResponseAlphaRadarDiagnosticsFreshQuotesMin = 0;
 
 export const startRadarConnectionResponseAlphaRadarDiagnosticsFreshTradesMin = 0;
@@ -1153,6 +1473,21 @@ export const startRadarConnectionResponseAlphaRadarDiagnosticsFreshTradesMin = 0
 export const startRadarConnectionResponseAlphaRadarDiagnosticsFreshPricesMin = 0;
 
 export const startRadarConnectionResponseAlphaRadarDiagnosticsFreshVolumeMin = 0;
+
+
+export const startRadarConnectionResponseAlphaRadarMultiTimeframeShortSampleCountMin = 0;
+
+
+export const startRadarConnectionResponseAlphaRadarMultiTimeframeMediumSampleCountMin = 0;
+
+
+export const startRadarConnectionResponseAlphaRadarMultiTimeframeHigherSampleCountMin = 0;
+
+export const startRadarConnectionResponseAlphaRadarPreBreakoutLatentScoreMin = 0;
+export const startRadarConnectionResponseAlphaRadarPreBreakoutLatentScoreMax = 100;
+
+export const startRadarConnectionResponseAlphaRadarPreBreakoutBreakoutCriticalScoreMin = 0;
+export const startRadarConnectionResponseAlphaRadarPreBreakoutBreakoutCriticalScoreMax = 100;
 
 export const startRadarConnectionResponseAlphaRadarPreBreakoutEvidenceCountMin = 0;
 
@@ -1162,6 +1497,10 @@ export const startRadarConnectionResponseAlphaRadarPreBreakoutCooldownRemainingM
 
 export const startRadarConnectionResponseAlphaRadarPreBreakoutConfirmationPersistenceScansMin = 0;
 
+
+export const startRadarConnectionResponseAlphaRadarPostBreakoutConsecutiveWeakScansMin = 0;
+
+export const startRadarConnectionResponseAlphaRadarPostBreakoutConsecutiveReversalScansMin = 0;
 
 export const startRadarConnectionResponseSignalHistoryItemEvidenceCountMin = 0;
 
@@ -1228,6 +1567,21 @@ export const startRadarConnectionResponseOpportunityCenterOpportunitiesItemEvide
 
 export const startRadarConnectionResponseOpportunityCenterOpportunitiesItemSectorConfirmationFreshEligiblePeerCountMin = 0;
 
+export const startRadarConnectionResponseSymbolRadarsItemAlphaRadarDataConfidenceScoreMin = 0;
+export const startRadarConnectionResponseSymbolRadarsItemAlphaRadarDataConfidenceScoreMax = 100;
+
+export const startRadarConnectionResponseSymbolRadarsItemAlphaRadarDataConfidenceCompletenessMin = 0;
+export const startRadarConnectionResponseSymbolRadarsItemAlphaRadarDataConfidenceCompletenessMax = 100;
+
+export const startRadarConnectionResponseSymbolRadarsItemAlphaRadarDataConfidenceFreshnessMin = 0;
+export const startRadarConnectionResponseSymbolRadarsItemAlphaRadarDataConfidenceFreshnessMax = 100;
+
+export const startRadarConnectionResponseSymbolRadarsItemAlphaRadarDataConfidenceStabilityMin = 0;
+export const startRadarConnectionResponseSymbolRadarsItemAlphaRadarDataConfidenceStabilityMax = 100;
+
+export const startRadarConnectionResponseSymbolRadarsItemAlphaRadarDataConfidenceEvidenceConsistencyMin = 0;
+export const startRadarConnectionResponseSymbolRadarsItemAlphaRadarDataConfidenceEvidenceConsistencyMax = 100;
+
 export const startRadarConnectionResponseSymbolRadarsItemAlphaRadarDiagnosticsFreshQuotesMin = 0;
 
 export const startRadarConnectionResponseSymbolRadarsItemAlphaRadarDiagnosticsFreshTradesMin = 0;
@@ -1235,6 +1589,21 @@ export const startRadarConnectionResponseSymbolRadarsItemAlphaRadarDiagnosticsFr
 export const startRadarConnectionResponseSymbolRadarsItemAlphaRadarDiagnosticsFreshPricesMin = 0;
 
 export const startRadarConnectionResponseSymbolRadarsItemAlphaRadarDiagnosticsFreshVolumeMin = 0;
+
+
+export const startRadarConnectionResponseSymbolRadarsItemAlphaRadarMultiTimeframeShortSampleCountMin = 0;
+
+
+export const startRadarConnectionResponseSymbolRadarsItemAlphaRadarMultiTimeframeMediumSampleCountMin = 0;
+
+
+export const startRadarConnectionResponseSymbolRadarsItemAlphaRadarMultiTimeframeHigherSampleCountMin = 0;
+
+export const startRadarConnectionResponseSymbolRadarsItemAlphaRadarPreBreakoutLatentScoreMin = 0;
+export const startRadarConnectionResponseSymbolRadarsItemAlphaRadarPreBreakoutLatentScoreMax = 100;
+
+export const startRadarConnectionResponseSymbolRadarsItemAlphaRadarPreBreakoutBreakoutCriticalScoreMin = 0;
+export const startRadarConnectionResponseSymbolRadarsItemAlphaRadarPreBreakoutBreakoutCriticalScoreMax = 100;
 
 export const startRadarConnectionResponseSymbolRadarsItemAlphaRadarPreBreakoutEvidenceCountMin = 0;
 
@@ -1244,6 +1613,10 @@ export const startRadarConnectionResponseSymbolRadarsItemAlphaRadarPreBreakoutCo
 
 export const startRadarConnectionResponseSymbolRadarsItemAlphaRadarPreBreakoutConfirmationPersistenceScansMin = 0;
 
+
+export const startRadarConnectionResponseSymbolRadarsItemAlphaRadarPostBreakoutConsecutiveWeakScansMin = 0;
+
+export const startRadarConnectionResponseSymbolRadarsItemAlphaRadarPostBreakoutConsecutiveReversalScansMin = 0;
 
 export const startRadarConnectionResponseSymbolRadarsItemSignalHistoryItemEvidenceCountMin = 0;
 
@@ -1344,6 +1717,31 @@ export const startRadarConnectionResponseSectorPriorityFinalCandidatesItemSector
 export const startRadarConnectionResponseSectorPriorityFinalCandidatesItemBaseRankingScoreMin = 0;
 export const startRadarConnectionResponseSectorPriorityFinalCandidatesItemBaseRankingScoreMax = 100;
 
+export const startRadarConnectionResponseSectorPriorityFinalCandidatesItemLatentScoreMin = 0;
+export const startRadarConnectionResponseSectorPriorityFinalCandidatesItemLatentScoreMax = 100;
+
+export const startRadarConnectionResponseSectorPriorityFinalCandidatesItemBreakoutCriticalScoreMin = 0;
+export const startRadarConnectionResponseSectorPriorityFinalCandidatesItemBreakoutCriticalScoreMax = 100;
+
+
+export const startRadarConnectionResponseSectorPriorityLatentCandidatesItemFinalScoreMin = 0;
+export const startRadarConnectionResponseSectorPriorityLatentCandidatesItemFinalScoreMax = 125;
+
+export const startRadarConnectionResponseSectorPriorityLatentCandidatesItemSectorStrengthMin = 0;
+export const startRadarConnectionResponseSectorPriorityLatentCandidatesItemSectorStrengthMax = 100;
+
+export const startRadarConnectionResponseSectorPriorityLatentCandidatesItemSectorMultiplierMin = 0.75;
+export const startRadarConnectionResponseSectorPriorityLatentCandidatesItemSectorMultiplierMax = 1.25;
+
+export const startRadarConnectionResponseSectorPriorityLatentCandidatesItemBaseRankingScoreMin = 0;
+export const startRadarConnectionResponseSectorPriorityLatentCandidatesItemBaseRankingScoreMax = 100;
+
+export const startRadarConnectionResponseSectorPriorityLatentCandidatesItemLatentScoreMin = 0;
+export const startRadarConnectionResponseSectorPriorityLatentCandidatesItemLatentScoreMax = 100;
+
+export const startRadarConnectionResponseSectorPriorityLatentCandidatesItemBreakoutCriticalScoreMin = 0;
+export const startRadarConnectionResponseSectorPriorityLatentCandidatesItemBreakoutCriticalScoreMax = 100;
+
 
 export const startRadarConnectionResponseSectorPriorityPreBreakoutCandidatesItemFinalScoreMin = 0;
 export const startRadarConnectionResponseSectorPriorityPreBreakoutCandidatesItemFinalScoreMax = 125;
@@ -1357,6 +1755,12 @@ export const startRadarConnectionResponseSectorPriorityPreBreakoutCandidatesItem
 export const startRadarConnectionResponseSectorPriorityPreBreakoutCandidatesItemBaseRankingScoreMin = 0;
 export const startRadarConnectionResponseSectorPriorityPreBreakoutCandidatesItemBaseRankingScoreMax = 100;
 
+export const startRadarConnectionResponseSectorPriorityPreBreakoutCandidatesItemLatentScoreMin = 0;
+export const startRadarConnectionResponseSectorPriorityPreBreakoutCandidatesItemLatentScoreMax = 100;
+
+export const startRadarConnectionResponseSectorPriorityPreBreakoutCandidatesItemBreakoutCriticalScoreMin = 0;
+export const startRadarConnectionResponseSectorPriorityPreBreakoutCandidatesItemBreakoutCriticalScoreMax = 100;
+
 
 export const startRadarConnectionResponseSectorPriorityWithheldCandidatesItemFinalScoreMin = 0;
 export const startRadarConnectionResponseSectorPriorityWithheldCandidatesItemFinalScoreMax = 125;
@@ -1369,6 +1773,12 @@ export const startRadarConnectionResponseSectorPriorityWithheldCandidatesItemSec
 
 export const startRadarConnectionResponseSectorPriorityWithheldCandidatesItemBaseRankingScoreMin = 0;
 export const startRadarConnectionResponseSectorPriorityWithheldCandidatesItemBaseRankingScoreMax = 100;
+
+export const startRadarConnectionResponseSectorPriorityWithheldCandidatesItemLatentScoreMin = 0;
+export const startRadarConnectionResponseSectorPriorityWithheldCandidatesItemLatentScoreMax = 100;
+
+export const startRadarConnectionResponseSectorPriorityWithheldCandidatesItemBreakoutCriticalScoreMin = 0;
+export const startRadarConnectionResponseSectorPriorityWithheldCandidatesItemBreakoutCriticalScoreMax = 100;
 
 
 
@@ -1390,6 +1800,15 @@ export const StartRadarConnectionResponse = zod.object({
   "status": zod.union([zod.enum(['Neutral', 'Watch', 'Breakout Setup']),zod.null()]),
   "scoreState": zod.enum(['available', 'stale', 'insufficient']),
   "confidence": zod.number(),
+  "dataConfidence": zod.object({
+  "score": zod.number().min(startRadarConnectionResponseAlphaRadarDataConfidenceScoreMin).max(startRadarConnectionResponseAlphaRadarDataConfidenceScoreMax).nullable(),
+  "state": zod.enum(['high', 'adequate', 'low', 'unavailable']),
+  "completeness": zod.number().min(startRadarConnectionResponseAlphaRadarDataConfidenceCompletenessMin).max(startRadarConnectionResponseAlphaRadarDataConfidenceCompletenessMax).nullable(),
+  "freshness": zod.number().min(startRadarConnectionResponseAlphaRadarDataConfidenceFreshnessMin).max(startRadarConnectionResponseAlphaRadarDataConfidenceFreshnessMax).nullable(),
+  "stability": zod.number().min(startRadarConnectionResponseAlphaRadarDataConfidenceStabilityMin).max(startRadarConnectionResponseAlphaRadarDataConfidenceStabilityMax).nullable(),
+  "evidenceConsistency": zod.number().min(startRadarConnectionResponseAlphaRadarDataConfidenceEvidenceConsistencyMin).max(startRadarConnectionResponseAlphaRadarDataConfidenceEvidenceConsistencyMax).nullable(),
+  "reason": zod.string()
+}),
   "dataQuality": zod.enum(['good', 'degraded', 'stale', 'missing']),
   "generatedAt": zod.coerce.date(),
   "warnings": zod.array(zod.string()),
@@ -1420,9 +1839,64 @@ export const StartRadarConnectionResponse = zod.object({
   "orderFlowShift": zod.number().nullable().describe('Order-flow score-point change per minute between valid scans.'),
   "spreadTightening": zod.number().nullable().describe('Spread score-point change per minute; positive values indicate tightening.')
 }),
+  "multiTimeframe": zod.object({
+  "short": zod.object({
+  "windowMs": zod.number().min(1),
+  "sampleCount": zod.number().min(startRadarConnectionResponseAlphaRadarMultiTimeframeShortSampleCountMin),
+  "score": zod.number().nullable(),
+  "momentumScore": zod.number().nullable(),
+  "volumeScore": zod.number().nullable(),
+  "orderFlowScore": zod.number().nullable(),
+  "spreadScore": zod.number().nullable(),
+  "direction": zod.enum(['supportive', 'weakening', 'mixed', 'unavailable']),
+  "available": zod.boolean(),
+  "reason": zod.string()
+}),
+  "medium": zod.object({
+  "windowMs": zod.number().min(1),
+  "sampleCount": zod.number().min(startRadarConnectionResponseAlphaRadarMultiTimeframeMediumSampleCountMin),
+  "score": zod.number().nullable(),
+  "momentumScore": zod.number().nullable(),
+  "volumeScore": zod.number().nullable(),
+  "orderFlowScore": zod.number().nullable(),
+  "spreadScore": zod.number().nullable(),
+  "direction": zod.enum(['supportive', 'weakening', 'mixed', 'unavailable']),
+  "available": zod.boolean(),
+  "reason": zod.string()
+}),
+  "higher": zod.object({
+  "windowMs": zod.number().min(1),
+  "sampleCount": zod.number().min(startRadarConnectionResponseAlphaRadarMultiTimeframeHigherSampleCountMin),
+  "score": zod.number().nullable(),
+  "momentumScore": zod.number().nullable(),
+  "volumeScore": zod.number().nullable(),
+  "orderFlowScore": zod.number().nullable(),
+  "spreadScore": zod.number().nullable(),
+  "direction": zod.enum(['supportive', 'weakening', 'mixed', 'unavailable']),
+  "available": zod.boolean(),
+  "reason": zod.string()
+}),
+  "alignment": zod.enum(['aligned', 'mixed', 'conflicted', 'unavailable']),
+  "reason": zod.string()
+}),
+  "counterEvidence": zod.object({
+  "strength": zod.enum(['none', 'moderate', 'strong', 'unavailable']),
+  "blocksHighGradeUpgrade": zod.boolean(),
+  "evidence": zod.array(zod.object({
+  "key": zod.enum(['sector_or_market_weakness', 'selling_pressure', 'price_volume_divergence', 'breakout_failure', 'structural_support_loss']),
+  "label": zod.string(),
+  "available": zod.boolean(),
+  "opposesSignal": zod.boolean(),
+  "detail": zod.string()
+})),
+  "reasons": zod.array(zod.string()),
+  "reason": zod.string()
+}),
   "preBreakoutWatch": zod.boolean(),
   "preBreakout": zod.object({
-  "state": zod.enum(['unavailable', 'watch', 'accelerating', 'pre_breakout', 'confirmed']),
+  "state": zod.enum(['unavailable', 'watch', 'latent', 'breakout_critical', 'confirmed']),
+  "latentScore": zod.number().min(startRadarConnectionResponseAlphaRadarPreBreakoutLatentScoreMin).max(startRadarConnectionResponseAlphaRadarPreBreakoutLatentScoreMax).nullable(),
+  "breakoutCriticalScore": zod.number().min(startRadarConnectionResponseAlphaRadarPreBreakoutBreakoutCriticalScoreMin).max(startRadarConnectionResponseAlphaRadarPreBreakoutBreakoutCriticalScoreMax).nullable(),
   "evidenceCount": zod.number().min(startRadarConnectionResponseAlphaRadarPreBreakoutEvidenceCountMin),
   "velocityGateSatisfied": zod.boolean(),
   "reasons": zod.array(zod.string()),
@@ -1448,6 +1922,26 @@ export const StartRadarConnectionResponse = zod.object({
   "evaluatedAt": zod.coerce.date(),
   "reason": zod.string()
 })
+}),
+  "postBreakout": zod.object({
+  "state": zod.enum(['unavailable', 'trend_continuation', 'take_profit_watch', 'trend_reversal_confirmed']),
+  "active": zod.boolean(),
+  "dataFresh": zod.boolean(),
+  "breakoutPrice": zod.number().nullable(),
+  "highSinceBreakout": zod.number().nullable(),
+  "drawdownFromHighPercent": zod.number().nullable(),
+  "latestPrice": zod.number().nullable(),
+  "activeBuyPressure": zod.number().nullable(),
+  "l1BidPressure": zod.number().nullable(),
+  "volumeAcceleration": zod.number().nullable(),
+  "tradeRateChange": zod.number().nullable(),
+  "supportReasons": zod.array(zod.string()),
+  "deteriorationReasons": zod.array(zod.string()),
+  "consecutiveWeakScans": zod.number().min(startRadarConnectionResponseAlphaRadarPostBreakoutConsecutiveWeakScansMin),
+  "consecutiveReversalScans": zod.number().min(startRadarConnectionResponseAlphaRadarPostBreakoutConsecutiveReversalScansMin),
+  "lastTransitionAt": zod.coerce.date().nullable(),
+  "lastEvaluatedAt": zod.coerce.date(),
+  "reason": zod.string()
 }),
   "momentum": zod.object({
   "value": zod.number().nullable(),
@@ -1519,8 +2013,8 @@ export const StartRadarConnectionResponse = zod.object({
 }),
   "signalHistory": zod.array(zod.object({
   "occurredAt": zod.coerce.date(),
-  "fromState": zod.enum(['unavailable', 'watch', 'accelerating', 'pre_breakout', 'confirmed']),
-  "toState": zod.enum(['unavailable', 'watch', 'accelerating', 'pre_breakout', 'confirmed']),
+  "fromState": zod.enum(['unavailable', 'watch', 'latent', 'breakout_critical', 'confirmed']),
+  "toState": zod.enum(['unavailable', 'watch', 'latent', 'breakout_critical', 'confirmed']),
   "fromConfirmationStatus": zod.enum(['unavailable', 'pending', 'confirmed', 'rejected']),
   "toConfirmationStatus": zod.enum(['unavailable', 'pending', 'confirmed', 'rejected']),
   "score": zod.number().nullable(),
@@ -1850,6 +2344,15 @@ export const StartRadarConnectionResponse = zod.object({
   "status": zod.union([zod.enum(['Neutral', 'Watch', 'Breakout Setup']),zod.null()]),
   "scoreState": zod.enum(['available', 'stale', 'insufficient']),
   "confidence": zod.number(),
+  "dataConfidence": zod.object({
+  "score": zod.number().min(startRadarConnectionResponseSymbolRadarsItemAlphaRadarDataConfidenceScoreMin).max(startRadarConnectionResponseSymbolRadarsItemAlphaRadarDataConfidenceScoreMax).nullable(),
+  "state": zod.enum(['high', 'adequate', 'low', 'unavailable']),
+  "completeness": zod.number().min(startRadarConnectionResponseSymbolRadarsItemAlphaRadarDataConfidenceCompletenessMin).max(startRadarConnectionResponseSymbolRadarsItemAlphaRadarDataConfidenceCompletenessMax).nullable(),
+  "freshness": zod.number().min(startRadarConnectionResponseSymbolRadarsItemAlphaRadarDataConfidenceFreshnessMin).max(startRadarConnectionResponseSymbolRadarsItemAlphaRadarDataConfidenceFreshnessMax).nullable(),
+  "stability": zod.number().min(startRadarConnectionResponseSymbolRadarsItemAlphaRadarDataConfidenceStabilityMin).max(startRadarConnectionResponseSymbolRadarsItemAlphaRadarDataConfidenceStabilityMax).nullable(),
+  "evidenceConsistency": zod.number().min(startRadarConnectionResponseSymbolRadarsItemAlphaRadarDataConfidenceEvidenceConsistencyMin).max(startRadarConnectionResponseSymbolRadarsItemAlphaRadarDataConfidenceEvidenceConsistencyMax).nullable(),
+  "reason": zod.string()
+}),
   "dataQuality": zod.enum(['good', 'degraded', 'stale', 'missing']),
   "generatedAt": zod.coerce.date(),
   "warnings": zod.array(zod.string()),
@@ -1880,9 +2383,64 @@ export const StartRadarConnectionResponse = zod.object({
   "orderFlowShift": zod.number().nullable().describe('Order-flow score-point change per minute between valid scans.'),
   "spreadTightening": zod.number().nullable().describe('Spread score-point change per minute; positive values indicate tightening.')
 }),
+  "multiTimeframe": zod.object({
+  "short": zod.object({
+  "windowMs": zod.number().min(1),
+  "sampleCount": zod.number().min(startRadarConnectionResponseSymbolRadarsItemAlphaRadarMultiTimeframeShortSampleCountMin),
+  "score": zod.number().nullable(),
+  "momentumScore": zod.number().nullable(),
+  "volumeScore": zod.number().nullable(),
+  "orderFlowScore": zod.number().nullable(),
+  "spreadScore": zod.number().nullable(),
+  "direction": zod.enum(['supportive', 'weakening', 'mixed', 'unavailable']),
+  "available": zod.boolean(),
+  "reason": zod.string()
+}),
+  "medium": zod.object({
+  "windowMs": zod.number().min(1),
+  "sampleCount": zod.number().min(startRadarConnectionResponseSymbolRadarsItemAlphaRadarMultiTimeframeMediumSampleCountMin),
+  "score": zod.number().nullable(),
+  "momentumScore": zod.number().nullable(),
+  "volumeScore": zod.number().nullable(),
+  "orderFlowScore": zod.number().nullable(),
+  "spreadScore": zod.number().nullable(),
+  "direction": zod.enum(['supportive', 'weakening', 'mixed', 'unavailable']),
+  "available": zod.boolean(),
+  "reason": zod.string()
+}),
+  "higher": zod.object({
+  "windowMs": zod.number().min(1),
+  "sampleCount": zod.number().min(startRadarConnectionResponseSymbolRadarsItemAlphaRadarMultiTimeframeHigherSampleCountMin),
+  "score": zod.number().nullable(),
+  "momentumScore": zod.number().nullable(),
+  "volumeScore": zod.number().nullable(),
+  "orderFlowScore": zod.number().nullable(),
+  "spreadScore": zod.number().nullable(),
+  "direction": zod.enum(['supportive', 'weakening', 'mixed', 'unavailable']),
+  "available": zod.boolean(),
+  "reason": zod.string()
+}),
+  "alignment": zod.enum(['aligned', 'mixed', 'conflicted', 'unavailable']),
+  "reason": zod.string()
+}),
+  "counterEvidence": zod.object({
+  "strength": zod.enum(['none', 'moderate', 'strong', 'unavailable']),
+  "blocksHighGradeUpgrade": zod.boolean(),
+  "evidence": zod.array(zod.object({
+  "key": zod.enum(['sector_or_market_weakness', 'selling_pressure', 'price_volume_divergence', 'breakout_failure', 'structural_support_loss']),
+  "label": zod.string(),
+  "available": zod.boolean(),
+  "opposesSignal": zod.boolean(),
+  "detail": zod.string()
+})),
+  "reasons": zod.array(zod.string()),
+  "reason": zod.string()
+}),
   "preBreakoutWatch": zod.boolean(),
   "preBreakout": zod.object({
-  "state": zod.enum(['unavailable', 'watch', 'accelerating', 'pre_breakout', 'confirmed']),
+  "state": zod.enum(['unavailable', 'watch', 'latent', 'breakout_critical', 'confirmed']),
+  "latentScore": zod.number().min(startRadarConnectionResponseSymbolRadarsItemAlphaRadarPreBreakoutLatentScoreMin).max(startRadarConnectionResponseSymbolRadarsItemAlphaRadarPreBreakoutLatentScoreMax).nullable(),
+  "breakoutCriticalScore": zod.number().min(startRadarConnectionResponseSymbolRadarsItemAlphaRadarPreBreakoutBreakoutCriticalScoreMin).max(startRadarConnectionResponseSymbolRadarsItemAlphaRadarPreBreakoutBreakoutCriticalScoreMax).nullable(),
   "evidenceCount": zod.number().min(startRadarConnectionResponseSymbolRadarsItemAlphaRadarPreBreakoutEvidenceCountMin),
   "velocityGateSatisfied": zod.boolean(),
   "reasons": zod.array(zod.string()),
@@ -1908,6 +2466,26 @@ export const StartRadarConnectionResponse = zod.object({
   "evaluatedAt": zod.coerce.date(),
   "reason": zod.string()
 })
+}),
+  "postBreakout": zod.object({
+  "state": zod.enum(['unavailable', 'trend_continuation', 'take_profit_watch', 'trend_reversal_confirmed']),
+  "active": zod.boolean(),
+  "dataFresh": zod.boolean(),
+  "breakoutPrice": zod.number().nullable(),
+  "highSinceBreakout": zod.number().nullable(),
+  "drawdownFromHighPercent": zod.number().nullable(),
+  "latestPrice": zod.number().nullable(),
+  "activeBuyPressure": zod.number().nullable(),
+  "l1BidPressure": zod.number().nullable(),
+  "volumeAcceleration": zod.number().nullable(),
+  "tradeRateChange": zod.number().nullable(),
+  "supportReasons": zod.array(zod.string()),
+  "deteriorationReasons": zod.array(zod.string()),
+  "consecutiveWeakScans": zod.number().min(startRadarConnectionResponseSymbolRadarsItemAlphaRadarPostBreakoutConsecutiveWeakScansMin),
+  "consecutiveReversalScans": zod.number().min(startRadarConnectionResponseSymbolRadarsItemAlphaRadarPostBreakoutConsecutiveReversalScansMin),
+  "lastTransitionAt": zod.coerce.date().nullable(),
+  "lastEvaluatedAt": zod.coerce.date(),
+  "reason": zod.string()
 }),
   "momentum": zod.object({
   "value": zod.number().nullable(),
@@ -1979,8 +2557,8 @@ export const StartRadarConnectionResponse = zod.object({
 }),
   "signalHistory": zod.array(zod.object({
   "occurredAt": zod.coerce.date(),
-  "fromState": zod.enum(['unavailable', 'watch', 'accelerating', 'pre_breakout', 'confirmed']),
-  "toState": zod.enum(['unavailable', 'watch', 'accelerating', 'pre_breakout', 'confirmed']),
+  "fromState": zod.enum(['unavailable', 'watch', 'latent', 'breakout_critical', 'confirmed']),
+  "toState": zod.enum(['unavailable', 'watch', 'latent', 'breakout_critical', 'confirmed']),
   "fromConfirmationStatus": zod.enum(['unavailable', 'pending', 'confirmed', 'rejected']),
   "toConfirmationStatus": zod.enum(['unavailable', 'pending', 'confirmed', 'rejected']),
   "score": zod.number().nullable(),
@@ -2107,7 +2685,7 @@ export const StartRadarConnectionResponse = zod.object({
   "signalTrajectory": zod.number().min(startRadarConnectionResponseAlphaRankingEntriesItemFactorContributionsOneSignalTrajectoryMin)
 }),zod.null()]),
   "alphaScore": zod.number().min(startRadarConnectionResponseAlphaRankingEntriesItemAlphaScoreMin).max(startRadarConnectionResponseAlphaRankingEntriesItemAlphaScoreMax).nullable(),
-  "detectionState": zod.enum(['unavailable', 'watch', 'accelerating', 'pre_breakout', 'confirmed']),
+  "detectionState": zod.enum(['unavailable', 'watch', 'latent', 'breakout_critical', 'confirmed']),
   "confirmationStatus": zod.enum(['unavailable', 'pending', 'confirmed', 'rejected']),
   "alphaVelocity": zod.number().nullable(),
   "confidence": zod.number().min(startRadarConnectionResponseAlphaRankingEntriesItemConfidenceMin).max(startRadarConnectionResponseAlphaRankingEntriesItemConfidenceMax),
@@ -2163,7 +2741,7 @@ export const StartRadarConnectionResponse = zod.object({
   "sectorMultiplier": zod.number().min(startRadarConnectionResponseSectorPrioritySectorsItemMembersItemSectorMultiplierMin).max(startRadarConnectionResponseSectorPrioritySectorsItemMembersItemSectorMultiplierMax).nullable(),
   "eligibility": zod.enum(['ranked', 'building', 'ineligible']),
   "marketDataState": zod.enum(['fresh', 'stale', 'offline', 'insufficient']),
-  "preBreakoutState": zod.enum(['unavailable', 'watch', 'accelerating', 'pre_breakout', 'confirmed']),
+  "preBreakoutState": zod.enum(['unavailable', 'watch', 'latent', 'breakout_critical', 'confirmed']),
   "confirmationStatus": zod.enum(['unavailable', 'pending', 'confirmed', 'rejected']),
   "reason": zod.string()
 })),
@@ -2178,7 +2756,35 @@ export const StartRadarConnectionResponse = zod.object({
   "sectorStrength": zod.number().min(startRadarConnectionResponseSectorPriorityFinalCandidatesItemSectorStrengthMin).max(startRadarConnectionResponseSectorPriorityFinalCandidatesItemSectorStrengthMax).nullable(),
   "sectorMultiplier": zod.number().min(startRadarConnectionResponseSectorPriorityFinalCandidatesItemSectorMultiplierMin).max(startRadarConnectionResponseSectorPriorityFinalCandidatesItemSectorMultiplierMax).nullable(),
   "baseRankingScore": zod.number().min(startRadarConnectionResponseSectorPriorityFinalCandidatesItemBaseRankingScoreMin).max(startRadarConnectionResponseSectorPriorityFinalCandidatesItemBaseRankingScoreMax).nullable(),
-  "stage": zod.enum(['candidate', 'pre_breakout', 'withheld']),
+  "latentScore": zod.number().min(startRadarConnectionResponseSectorPriorityFinalCandidatesItemLatentScoreMin).max(startRadarConnectionResponseSectorPriorityFinalCandidatesItemLatentScoreMax).nullable(),
+  "breakoutCriticalScore": zod.number().min(startRadarConnectionResponseSectorPriorityFinalCandidatesItemBreakoutCriticalScoreMin).max(startRadarConnectionResponseSectorPriorityFinalCandidatesItemBreakoutCriticalScoreMax).nullable(),
+  "stage": zod.enum(['candidate', 'latent', 'breakout_critical', 'confirmed', 'withheld']),
+  "evidence": zod.object({
+  "marketFresh": zod.boolean(),
+  "sectorStrength": zod.boolean(),
+  "unfinishedExpansion": zod.boolean(),
+  "catalyst": zod.boolean(),
+  "moneyFlow": zod.boolean(),
+  "optionsActivity": zod.boolean(),
+  "fundamentals": zod.boolean(),
+  "valuationExpectation": zod.boolean(),
+  "riskReward": zod.boolean()
+}),
+  "missing": zod.array(zod.string()),
+  "reason": zod.string()
+})),
+  "latentCandidates": zod.array(zod.object({
+  "symbol": zod.string(),
+  "finalRank": zod.number().min(1).nullable(),
+  "sector": zod.string().nullable(),
+  "industryGroup": zod.string().nullable(),
+  "finalScore": zod.number().min(startRadarConnectionResponseSectorPriorityLatentCandidatesItemFinalScoreMin).max(startRadarConnectionResponseSectorPriorityLatentCandidatesItemFinalScoreMax).nullable(),
+  "sectorStrength": zod.number().min(startRadarConnectionResponseSectorPriorityLatentCandidatesItemSectorStrengthMin).max(startRadarConnectionResponseSectorPriorityLatentCandidatesItemSectorStrengthMax).nullable(),
+  "sectorMultiplier": zod.number().min(startRadarConnectionResponseSectorPriorityLatentCandidatesItemSectorMultiplierMin).max(startRadarConnectionResponseSectorPriorityLatentCandidatesItemSectorMultiplierMax).nullable(),
+  "baseRankingScore": zod.number().min(startRadarConnectionResponseSectorPriorityLatentCandidatesItemBaseRankingScoreMin).max(startRadarConnectionResponseSectorPriorityLatentCandidatesItemBaseRankingScoreMax).nullable(),
+  "latentScore": zod.number().min(startRadarConnectionResponseSectorPriorityLatentCandidatesItemLatentScoreMin).max(startRadarConnectionResponseSectorPriorityLatentCandidatesItemLatentScoreMax).nullable(),
+  "breakoutCriticalScore": zod.number().min(startRadarConnectionResponseSectorPriorityLatentCandidatesItemBreakoutCriticalScoreMin).max(startRadarConnectionResponseSectorPriorityLatentCandidatesItemBreakoutCriticalScoreMax).nullable(),
+  "stage": zod.enum(['candidate', 'latent', 'breakout_critical', 'confirmed', 'withheld']),
   "evidence": zod.object({
   "marketFresh": zod.boolean(),
   "sectorStrength": zod.boolean(),
@@ -2202,7 +2808,9 @@ export const StartRadarConnectionResponse = zod.object({
   "sectorStrength": zod.number().min(startRadarConnectionResponseSectorPriorityPreBreakoutCandidatesItemSectorStrengthMin).max(startRadarConnectionResponseSectorPriorityPreBreakoutCandidatesItemSectorStrengthMax).nullable(),
   "sectorMultiplier": zod.number().min(startRadarConnectionResponseSectorPriorityPreBreakoutCandidatesItemSectorMultiplierMin).max(startRadarConnectionResponseSectorPriorityPreBreakoutCandidatesItemSectorMultiplierMax).nullable(),
   "baseRankingScore": zod.number().min(startRadarConnectionResponseSectorPriorityPreBreakoutCandidatesItemBaseRankingScoreMin).max(startRadarConnectionResponseSectorPriorityPreBreakoutCandidatesItemBaseRankingScoreMax).nullable(),
-  "stage": zod.enum(['candidate', 'pre_breakout', 'withheld']),
+  "latentScore": zod.number().min(startRadarConnectionResponseSectorPriorityPreBreakoutCandidatesItemLatentScoreMin).max(startRadarConnectionResponseSectorPriorityPreBreakoutCandidatesItemLatentScoreMax).nullable(),
+  "breakoutCriticalScore": zod.number().min(startRadarConnectionResponseSectorPriorityPreBreakoutCandidatesItemBreakoutCriticalScoreMin).max(startRadarConnectionResponseSectorPriorityPreBreakoutCandidatesItemBreakoutCriticalScoreMax).nullable(),
+  "stage": zod.enum(['candidate', 'latent', 'breakout_critical', 'confirmed', 'withheld']),
   "evidence": zod.object({
   "marketFresh": zod.boolean(),
   "sectorStrength": zod.boolean(),
@@ -2226,7 +2834,9 @@ export const StartRadarConnectionResponse = zod.object({
   "sectorStrength": zod.number().min(startRadarConnectionResponseSectorPriorityWithheldCandidatesItemSectorStrengthMin).max(startRadarConnectionResponseSectorPriorityWithheldCandidatesItemSectorStrengthMax).nullable(),
   "sectorMultiplier": zod.number().min(startRadarConnectionResponseSectorPriorityWithheldCandidatesItemSectorMultiplierMin).max(startRadarConnectionResponseSectorPriorityWithheldCandidatesItemSectorMultiplierMax).nullable(),
   "baseRankingScore": zod.number().min(startRadarConnectionResponseSectorPriorityWithheldCandidatesItemBaseRankingScoreMin).max(startRadarConnectionResponseSectorPriorityWithheldCandidatesItemBaseRankingScoreMax).nullable(),
-  "stage": zod.enum(['candidate', 'pre_breakout', 'withheld']),
+  "latentScore": zod.number().min(startRadarConnectionResponseSectorPriorityWithheldCandidatesItemLatentScoreMin).max(startRadarConnectionResponseSectorPriorityWithheldCandidatesItemLatentScoreMax).nullable(),
+  "breakoutCriticalScore": zod.number().min(startRadarConnectionResponseSectorPriorityWithheldCandidatesItemBreakoutCriticalScoreMin).max(startRadarConnectionResponseSectorPriorityWithheldCandidatesItemBreakoutCriticalScoreMax).nullable(),
+  "stage": zod.enum(['candidate', 'latent', 'breakout_critical', 'confirmed', 'withheld']),
   "evidence": zod.object({
   "marketFresh": zod.boolean(),
   "sectorStrength": zod.boolean(),
@@ -2262,7 +2872,7 @@ export const StartRadarConnectionResponse = zod.object({
 }),
   "preBreakoutLeader": zod.object({
   "symbol": zod.string(),
-  "state": zod.enum(['unavailable', 'watch', 'accelerating', 'pre_breakout', 'confirmed']),
+  "state": zod.enum(['unavailable', 'watch', 'latent', 'breakout_critical', 'confirmed']),
   "confirmationStatus": zod.enum(['unavailable', 'pending', 'confirmed', 'rejected']),
   "alphaVelocity": zod.number().nullable()
 }).nullable()
@@ -2272,6 +2882,21 @@ export const StartRadarConnectionResponse = zod.object({
 /**
  * @summary Stop the server-side Databento live connection
  */
+export const stopRadarConnectionResponseAlphaRadarDataConfidenceScoreMin = 0;
+export const stopRadarConnectionResponseAlphaRadarDataConfidenceScoreMax = 100;
+
+export const stopRadarConnectionResponseAlphaRadarDataConfidenceCompletenessMin = 0;
+export const stopRadarConnectionResponseAlphaRadarDataConfidenceCompletenessMax = 100;
+
+export const stopRadarConnectionResponseAlphaRadarDataConfidenceFreshnessMin = 0;
+export const stopRadarConnectionResponseAlphaRadarDataConfidenceFreshnessMax = 100;
+
+export const stopRadarConnectionResponseAlphaRadarDataConfidenceStabilityMin = 0;
+export const stopRadarConnectionResponseAlphaRadarDataConfidenceStabilityMax = 100;
+
+export const stopRadarConnectionResponseAlphaRadarDataConfidenceEvidenceConsistencyMin = 0;
+export const stopRadarConnectionResponseAlphaRadarDataConfidenceEvidenceConsistencyMax = 100;
+
 export const stopRadarConnectionResponseAlphaRadarDiagnosticsFreshQuotesMin = 0;
 
 export const stopRadarConnectionResponseAlphaRadarDiagnosticsFreshTradesMin = 0;
@@ -2279,6 +2904,21 @@ export const stopRadarConnectionResponseAlphaRadarDiagnosticsFreshTradesMin = 0;
 export const stopRadarConnectionResponseAlphaRadarDiagnosticsFreshPricesMin = 0;
 
 export const stopRadarConnectionResponseAlphaRadarDiagnosticsFreshVolumeMin = 0;
+
+
+export const stopRadarConnectionResponseAlphaRadarMultiTimeframeShortSampleCountMin = 0;
+
+
+export const stopRadarConnectionResponseAlphaRadarMultiTimeframeMediumSampleCountMin = 0;
+
+
+export const stopRadarConnectionResponseAlphaRadarMultiTimeframeHigherSampleCountMin = 0;
+
+export const stopRadarConnectionResponseAlphaRadarPreBreakoutLatentScoreMin = 0;
+export const stopRadarConnectionResponseAlphaRadarPreBreakoutLatentScoreMax = 100;
+
+export const stopRadarConnectionResponseAlphaRadarPreBreakoutBreakoutCriticalScoreMin = 0;
+export const stopRadarConnectionResponseAlphaRadarPreBreakoutBreakoutCriticalScoreMax = 100;
 
 export const stopRadarConnectionResponseAlphaRadarPreBreakoutEvidenceCountMin = 0;
 
@@ -2288,6 +2928,10 @@ export const stopRadarConnectionResponseAlphaRadarPreBreakoutCooldownRemainingMs
 
 export const stopRadarConnectionResponseAlphaRadarPreBreakoutConfirmationPersistenceScansMin = 0;
 
+
+export const stopRadarConnectionResponseAlphaRadarPostBreakoutConsecutiveWeakScansMin = 0;
+
+export const stopRadarConnectionResponseAlphaRadarPostBreakoutConsecutiveReversalScansMin = 0;
 
 export const stopRadarConnectionResponseSignalHistoryItemEvidenceCountMin = 0;
 
@@ -2354,6 +2998,21 @@ export const stopRadarConnectionResponseOpportunityCenterOpportunitiesItemEviden
 
 export const stopRadarConnectionResponseOpportunityCenterOpportunitiesItemSectorConfirmationFreshEligiblePeerCountMin = 0;
 
+export const stopRadarConnectionResponseSymbolRadarsItemAlphaRadarDataConfidenceScoreMin = 0;
+export const stopRadarConnectionResponseSymbolRadarsItemAlphaRadarDataConfidenceScoreMax = 100;
+
+export const stopRadarConnectionResponseSymbolRadarsItemAlphaRadarDataConfidenceCompletenessMin = 0;
+export const stopRadarConnectionResponseSymbolRadarsItemAlphaRadarDataConfidenceCompletenessMax = 100;
+
+export const stopRadarConnectionResponseSymbolRadarsItemAlphaRadarDataConfidenceFreshnessMin = 0;
+export const stopRadarConnectionResponseSymbolRadarsItemAlphaRadarDataConfidenceFreshnessMax = 100;
+
+export const stopRadarConnectionResponseSymbolRadarsItemAlphaRadarDataConfidenceStabilityMin = 0;
+export const stopRadarConnectionResponseSymbolRadarsItemAlphaRadarDataConfidenceStabilityMax = 100;
+
+export const stopRadarConnectionResponseSymbolRadarsItemAlphaRadarDataConfidenceEvidenceConsistencyMin = 0;
+export const stopRadarConnectionResponseSymbolRadarsItemAlphaRadarDataConfidenceEvidenceConsistencyMax = 100;
+
 export const stopRadarConnectionResponseSymbolRadarsItemAlphaRadarDiagnosticsFreshQuotesMin = 0;
 
 export const stopRadarConnectionResponseSymbolRadarsItemAlphaRadarDiagnosticsFreshTradesMin = 0;
@@ -2361,6 +3020,21 @@ export const stopRadarConnectionResponseSymbolRadarsItemAlphaRadarDiagnosticsFre
 export const stopRadarConnectionResponseSymbolRadarsItemAlphaRadarDiagnosticsFreshPricesMin = 0;
 
 export const stopRadarConnectionResponseSymbolRadarsItemAlphaRadarDiagnosticsFreshVolumeMin = 0;
+
+
+export const stopRadarConnectionResponseSymbolRadarsItemAlphaRadarMultiTimeframeShortSampleCountMin = 0;
+
+
+export const stopRadarConnectionResponseSymbolRadarsItemAlphaRadarMultiTimeframeMediumSampleCountMin = 0;
+
+
+export const stopRadarConnectionResponseSymbolRadarsItemAlphaRadarMultiTimeframeHigherSampleCountMin = 0;
+
+export const stopRadarConnectionResponseSymbolRadarsItemAlphaRadarPreBreakoutLatentScoreMin = 0;
+export const stopRadarConnectionResponseSymbolRadarsItemAlphaRadarPreBreakoutLatentScoreMax = 100;
+
+export const stopRadarConnectionResponseSymbolRadarsItemAlphaRadarPreBreakoutBreakoutCriticalScoreMin = 0;
+export const stopRadarConnectionResponseSymbolRadarsItemAlphaRadarPreBreakoutBreakoutCriticalScoreMax = 100;
 
 export const stopRadarConnectionResponseSymbolRadarsItemAlphaRadarPreBreakoutEvidenceCountMin = 0;
 
@@ -2370,6 +3044,10 @@ export const stopRadarConnectionResponseSymbolRadarsItemAlphaRadarPreBreakoutCoo
 
 export const stopRadarConnectionResponseSymbolRadarsItemAlphaRadarPreBreakoutConfirmationPersistenceScansMin = 0;
 
+
+export const stopRadarConnectionResponseSymbolRadarsItemAlphaRadarPostBreakoutConsecutiveWeakScansMin = 0;
+
+export const stopRadarConnectionResponseSymbolRadarsItemAlphaRadarPostBreakoutConsecutiveReversalScansMin = 0;
 
 export const stopRadarConnectionResponseSymbolRadarsItemSignalHistoryItemEvidenceCountMin = 0;
 
@@ -2470,6 +3148,31 @@ export const stopRadarConnectionResponseSectorPriorityFinalCandidatesItemSectorM
 export const stopRadarConnectionResponseSectorPriorityFinalCandidatesItemBaseRankingScoreMin = 0;
 export const stopRadarConnectionResponseSectorPriorityFinalCandidatesItemBaseRankingScoreMax = 100;
 
+export const stopRadarConnectionResponseSectorPriorityFinalCandidatesItemLatentScoreMin = 0;
+export const stopRadarConnectionResponseSectorPriorityFinalCandidatesItemLatentScoreMax = 100;
+
+export const stopRadarConnectionResponseSectorPriorityFinalCandidatesItemBreakoutCriticalScoreMin = 0;
+export const stopRadarConnectionResponseSectorPriorityFinalCandidatesItemBreakoutCriticalScoreMax = 100;
+
+
+export const stopRadarConnectionResponseSectorPriorityLatentCandidatesItemFinalScoreMin = 0;
+export const stopRadarConnectionResponseSectorPriorityLatentCandidatesItemFinalScoreMax = 125;
+
+export const stopRadarConnectionResponseSectorPriorityLatentCandidatesItemSectorStrengthMin = 0;
+export const stopRadarConnectionResponseSectorPriorityLatentCandidatesItemSectorStrengthMax = 100;
+
+export const stopRadarConnectionResponseSectorPriorityLatentCandidatesItemSectorMultiplierMin = 0.75;
+export const stopRadarConnectionResponseSectorPriorityLatentCandidatesItemSectorMultiplierMax = 1.25;
+
+export const stopRadarConnectionResponseSectorPriorityLatentCandidatesItemBaseRankingScoreMin = 0;
+export const stopRadarConnectionResponseSectorPriorityLatentCandidatesItemBaseRankingScoreMax = 100;
+
+export const stopRadarConnectionResponseSectorPriorityLatentCandidatesItemLatentScoreMin = 0;
+export const stopRadarConnectionResponseSectorPriorityLatentCandidatesItemLatentScoreMax = 100;
+
+export const stopRadarConnectionResponseSectorPriorityLatentCandidatesItemBreakoutCriticalScoreMin = 0;
+export const stopRadarConnectionResponseSectorPriorityLatentCandidatesItemBreakoutCriticalScoreMax = 100;
+
 
 export const stopRadarConnectionResponseSectorPriorityPreBreakoutCandidatesItemFinalScoreMin = 0;
 export const stopRadarConnectionResponseSectorPriorityPreBreakoutCandidatesItemFinalScoreMax = 125;
@@ -2483,6 +3186,12 @@ export const stopRadarConnectionResponseSectorPriorityPreBreakoutCandidatesItemS
 export const stopRadarConnectionResponseSectorPriorityPreBreakoutCandidatesItemBaseRankingScoreMin = 0;
 export const stopRadarConnectionResponseSectorPriorityPreBreakoutCandidatesItemBaseRankingScoreMax = 100;
 
+export const stopRadarConnectionResponseSectorPriorityPreBreakoutCandidatesItemLatentScoreMin = 0;
+export const stopRadarConnectionResponseSectorPriorityPreBreakoutCandidatesItemLatentScoreMax = 100;
+
+export const stopRadarConnectionResponseSectorPriorityPreBreakoutCandidatesItemBreakoutCriticalScoreMin = 0;
+export const stopRadarConnectionResponseSectorPriorityPreBreakoutCandidatesItemBreakoutCriticalScoreMax = 100;
+
 
 export const stopRadarConnectionResponseSectorPriorityWithheldCandidatesItemFinalScoreMin = 0;
 export const stopRadarConnectionResponseSectorPriorityWithheldCandidatesItemFinalScoreMax = 125;
@@ -2495,6 +3204,12 @@ export const stopRadarConnectionResponseSectorPriorityWithheldCandidatesItemSect
 
 export const stopRadarConnectionResponseSectorPriorityWithheldCandidatesItemBaseRankingScoreMin = 0;
 export const stopRadarConnectionResponseSectorPriorityWithheldCandidatesItemBaseRankingScoreMax = 100;
+
+export const stopRadarConnectionResponseSectorPriorityWithheldCandidatesItemLatentScoreMin = 0;
+export const stopRadarConnectionResponseSectorPriorityWithheldCandidatesItemLatentScoreMax = 100;
+
+export const stopRadarConnectionResponseSectorPriorityWithheldCandidatesItemBreakoutCriticalScoreMin = 0;
+export const stopRadarConnectionResponseSectorPriorityWithheldCandidatesItemBreakoutCriticalScoreMax = 100;
 
 
 
@@ -2516,6 +3231,15 @@ export const StopRadarConnectionResponse = zod.object({
   "status": zod.union([zod.enum(['Neutral', 'Watch', 'Breakout Setup']),zod.null()]),
   "scoreState": zod.enum(['available', 'stale', 'insufficient']),
   "confidence": zod.number(),
+  "dataConfidence": zod.object({
+  "score": zod.number().min(stopRadarConnectionResponseAlphaRadarDataConfidenceScoreMin).max(stopRadarConnectionResponseAlphaRadarDataConfidenceScoreMax).nullable(),
+  "state": zod.enum(['high', 'adequate', 'low', 'unavailable']),
+  "completeness": zod.number().min(stopRadarConnectionResponseAlphaRadarDataConfidenceCompletenessMin).max(stopRadarConnectionResponseAlphaRadarDataConfidenceCompletenessMax).nullable(),
+  "freshness": zod.number().min(stopRadarConnectionResponseAlphaRadarDataConfidenceFreshnessMin).max(stopRadarConnectionResponseAlphaRadarDataConfidenceFreshnessMax).nullable(),
+  "stability": zod.number().min(stopRadarConnectionResponseAlphaRadarDataConfidenceStabilityMin).max(stopRadarConnectionResponseAlphaRadarDataConfidenceStabilityMax).nullable(),
+  "evidenceConsistency": zod.number().min(stopRadarConnectionResponseAlphaRadarDataConfidenceEvidenceConsistencyMin).max(stopRadarConnectionResponseAlphaRadarDataConfidenceEvidenceConsistencyMax).nullable(),
+  "reason": zod.string()
+}),
   "dataQuality": zod.enum(['good', 'degraded', 'stale', 'missing']),
   "generatedAt": zod.coerce.date(),
   "warnings": zod.array(zod.string()),
@@ -2546,9 +3270,64 @@ export const StopRadarConnectionResponse = zod.object({
   "orderFlowShift": zod.number().nullable().describe('Order-flow score-point change per minute between valid scans.'),
   "spreadTightening": zod.number().nullable().describe('Spread score-point change per minute; positive values indicate tightening.')
 }),
+  "multiTimeframe": zod.object({
+  "short": zod.object({
+  "windowMs": zod.number().min(1),
+  "sampleCount": zod.number().min(stopRadarConnectionResponseAlphaRadarMultiTimeframeShortSampleCountMin),
+  "score": zod.number().nullable(),
+  "momentumScore": zod.number().nullable(),
+  "volumeScore": zod.number().nullable(),
+  "orderFlowScore": zod.number().nullable(),
+  "spreadScore": zod.number().nullable(),
+  "direction": zod.enum(['supportive', 'weakening', 'mixed', 'unavailable']),
+  "available": zod.boolean(),
+  "reason": zod.string()
+}),
+  "medium": zod.object({
+  "windowMs": zod.number().min(1),
+  "sampleCount": zod.number().min(stopRadarConnectionResponseAlphaRadarMultiTimeframeMediumSampleCountMin),
+  "score": zod.number().nullable(),
+  "momentumScore": zod.number().nullable(),
+  "volumeScore": zod.number().nullable(),
+  "orderFlowScore": zod.number().nullable(),
+  "spreadScore": zod.number().nullable(),
+  "direction": zod.enum(['supportive', 'weakening', 'mixed', 'unavailable']),
+  "available": zod.boolean(),
+  "reason": zod.string()
+}),
+  "higher": zod.object({
+  "windowMs": zod.number().min(1),
+  "sampleCount": zod.number().min(stopRadarConnectionResponseAlphaRadarMultiTimeframeHigherSampleCountMin),
+  "score": zod.number().nullable(),
+  "momentumScore": zod.number().nullable(),
+  "volumeScore": zod.number().nullable(),
+  "orderFlowScore": zod.number().nullable(),
+  "spreadScore": zod.number().nullable(),
+  "direction": zod.enum(['supportive', 'weakening', 'mixed', 'unavailable']),
+  "available": zod.boolean(),
+  "reason": zod.string()
+}),
+  "alignment": zod.enum(['aligned', 'mixed', 'conflicted', 'unavailable']),
+  "reason": zod.string()
+}),
+  "counterEvidence": zod.object({
+  "strength": zod.enum(['none', 'moderate', 'strong', 'unavailable']),
+  "blocksHighGradeUpgrade": zod.boolean(),
+  "evidence": zod.array(zod.object({
+  "key": zod.enum(['sector_or_market_weakness', 'selling_pressure', 'price_volume_divergence', 'breakout_failure', 'structural_support_loss']),
+  "label": zod.string(),
+  "available": zod.boolean(),
+  "opposesSignal": zod.boolean(),
+  "detail": zod.string()
+})),
+  "reasons": zod.array(zod.string()),
+  "reason": zod.string()
+}),
   "preBreakoutWatch": zod.boolean(),
   "preBreakout": zod.object({
-  "state": zod.enum(['unavailable', 'watch', 'accelerating', 'pre_breakout', 'confirmed']),
+  "state": zod.enum(['unavailable', 'watch', 'latent', 'breakout_critical', 'confirmed']),
+  "latentScore": zod.number().min(stopRadarConnectionResponseAlphaRadarPreBreakoutLatentScoreMin).max(stopRadarConnectionResponseAlphaRadarPreBreakoutLatentScoreMax).nullable(),
+  "breakoutCriticalScore": zod.number().min(stopRadarConnectionResponseAlphaRadarPreBreakoutBreakoutCriticalScoreMin).max(stopRadarConnectionResponseAlphaRadarPreBreakoutBreakoutCriticalScoreMax).nullable(),
   "evidenceCount": zod.number().min(stopRadarConnectionResponseAlphaRadarPreBreakoutEvidenceCountMin),
   "velocityGateSatisfied": zod.boolean(),
   "reasons": zod.array(zod.string()),
@@ -2574,6 +3353,26 @@ export const StopRadarConnectionResponse = zod.object({
   "evaluatedAt": zod.coerce.date(),
   "reason": zod.string()
 })
+}),
+  "postBreakout": zod.object({
+  "state": zod.enum(['unavailable', 'trend_continuation', 'take_profit_watch', 'trend_reversal_confirmed']),
+  "active": zod.boolean(),
+  "dataFresh": zod.boolean(),
+  "breakoutPrice": zod.number().nullable(),
+  "highSinceBreakout": zod.number().nullable(),
+  "drawdownFromHighPercent": zod.number().nullable(),
+  "latestPrice": zod.number().nullable(),
+  "activeBuyPressure": zod.number().nullable(),
+  "l1BidPressure": zod.number().nullable(),
+  "volumeAcceleration": zod.number().nullable(),
+  "tradeRateChange": zod.number().nullable(),
+  "supportReasons": zod.array(zod.string()),
+  "deteriorationReasons": zod.array(zod.string()),
+  "consecutiveWeakScans": zod.number().min(stopRadarConnectionResponseAlphaRadarPostBreakoutConsecutiveWeakScansMin),
+  "consecutiveReversalScans": zod.number().min(stopRadarConnectionResponseAlphaRadarPostBreakoutConsecutiveReversalScansMin),
+  "lastTransitionAt": zod.coerce.date().nullable(),
+  "lastEvaluatedAt": zod.coerce.date(),
+  "reason": zod.string()
 }),
   "momentum": zod.object({
   "value": zod.number().nullable(),
@@ -2645,8 +3444,8 @@ export const StopRadarConnectionResponse = zod.object({
 }),
   "signalHistory": zod.array(zod.object({
   "occurredAt": zod.coerce.date(),
-  "fromState": zod.enum(['unavailable', 'watch', 'accelerating', 'pre_breakout', 'confirmed']),
-  "toState": zod.enum(['unavailable', 'watch', 'accelerating', 'pre_breakout', 'confirmed']),
+  "fromState": zod.enum(['unavailable', 'watch', 'latent', 'breakout_critical', 'confirmed']),
+  "toState": zod.enum(['unavailable', 'watch', 'latent', 'breakout_critical', 'confirmed']),
   "fromConfirmationStatus": zod.enum(['unavailable', 'pending', 'confirmed', 'rejected']),
   "toConfirmationStatus": zod.enum(['unavailable', 'pending', 'confirmed', 'rejected']),
   "score": zod.number().nullable(),
@@ -2976,6 +3775,15 @@ export const StopRadarConnectionResponse = zod.object({
   "status": zod.union([zod.enum(['Neutral', 'Watch', 'Breakout Setup']),zod.null()]),
   "scoreState": zod.enum(['available', 'stale', 'insufficient']),
   "confidence": zod.number(),
+  "dataConfidence": zod.object({
+  "score": zod.number().min(stopRadarConnectionResponseSymbolRadarsItemAlphaRadarDataConfidenceScoreMin).max(stopRadarConnectionResponseSymbolRadarsItemAlphaRadarDataConfidenceScoreMax).nullable(),
+  "state": zod.enum(['high', 'adequate', 'low', 'unavailable']),
+  "completeness": zod.number().min(stopRadarConnectionResponseSymbolRadarsItemAlphaRadarDataConfidenceCompletenessMin).max(stopRadarConnectionResponseSymbolRadarsItemAlphaRadarDataConfidenceCompletenessMax).nullable(),
+  "freshness": zod.number().min(stopRadarConnectionResponseSymbolRadarsItemAlphaRadarDataConfidenceFreshnessMin).max(stopRadarConnectionResponseSymbolRadarsItemAlphaRadarDataConfidenceFreshnessMax).nullable(),
+  "stability": zod.number().min(stopRadarConnectionResponseSymbolRadarsItemAlphaRadarDataConfidenceStabilityMin).max(stopRadarConnectionResponseSymbolRadarsItemAlphaRadarDataConfidenceStabilityMax).nullable(),
+  "evidenceConsistency": zod.number().min(stopRadarConnectionResponseSymbolRadarsItemAlphaRadarDataConfidenceEvidenceConsistencyMin).max(stopRadarConnectionResponseSymbolRadarsItemAlphaRadarDataConfidenceEvidenceConsistencyMax).nullable(),
+  "reason": zod.string()
+}),
   "dataQuality": zod.enum(['good', 'degraded', 'stale', 'missing']),
   "generatedAt": zod.coerce.date(),
   "warnings": zod.array(zod.string()),
@@ -3006,9 +3814,64 @@ export const StopRadarConnectionResponse = zod.object({
   "orderFlowShift": zod.number().nullable().describe('Order-flow score-point change per minute between valid scans.'),
   "spreadTightening": zod.number().nullable().describe('Spread score-point change per minute; positive values indicate tightening.')
 }),
+  "multiTimeframe": zod.object({
+  "short": zod.object({
+  "windowMs": zod.number().min(1),
+  "sampleCount": zod.number().min(stopRadarConnectionResponseSymbolRadarsItemAlphaRadarMultiTimeframeShortSampleCountMin),
+  "score": zod.number().nullable(),
+  "momentumScore": zod.number().nullable(),
+  "volumeScore": zod.number().nullable(),
+  "orderFlowScore": zod.number().nullable(),
+  "spreadScore": zod.number().nullable(),
+  "direction": zod.enum(['supportive', 'weakening', 'mixed', 'unavailable']),
+  "available": zod.boolean(),
+  "reason": zod.string()
+}),
+  "medium": zod.object({
+  "windowMs": zod.number().min(1),
+  "sampleCount": zod.number().min(stopRadarConnectionResponseSymbolRadarsItemAlphaRadarMultiTimeframeMediumSampleCountMin),
+  "score": zod.number().nullable(),
+  "momentumScore": zod.number().nullable(),
+  "volumeScore": zod.number().nullable(),
+  "orderFlowScore": zod.number().nullable(),
+  "spreadScore": zod.number().nullable(),
+  "direction": zod.enum(['supportive', 'weakening', 'mixed', 'unavailable']),
+  "available": zod.boolean(),
+  "reason": zod.string()
+}),
+  "higher": zod.object({
+  "windowMs": zod.number().min(1),
+  "sampleCount": zod.number().min(stopRadarConnectionResponseSymbolRadarsItemAlphaRadarMultiTimeframeHigherSampleCountMin),
+  "score": zod.number().nullable(),
+  "momentumScore": zod.number().nullable(),
+  "volumeScore": zod.number().nullable(),
+  "orderFlowScore": zod.number().nullable(),
+  "spreadScore": zod.number().nullable(),
+  "direction": zod.enum(['supportive', 'weakening', 'mixed', 'unavailable']),
+  "available": zod.boolean(),
+  "reason": zod.string()
+}),
+  "alignment": zod.enum(['aligned', 'mixed', 'conflicted', 'unavailable']),
+  "reason": zod.string()
+}),
+  "counterEvidence": zod.object({
+  "strength": zod.enum(['none', 'moderate', 'strong', 'unavailable']),
+  "blocksHighGradeUpgrade": zod.boolean(),
+  "evidence": zod.array(zod.object({
+  "key": zod.enum(['sector_or_market_weakness', 'selling_pressure', 'price_volume_divergence', 'breakout_failure', 'structural_support_loss']),
+  "label": zod.string(),
+  "available": zod.boolean(),
+  "opposesSignal": zod.boolean(),
+  "detail": zod.string()
+})),
+  "reasons": zod.array(zod.string()),
+  "reason": zod.string()
+}),
   "preBreakoutWatch": zod.boolean(),
   "preBreakout": zod.object({
-  "state": zod.enum(['unavailable', 'watch', 'accelerating', 'pre_breakout', 'confirmed']),
+  "state": zod.enum(['unavailable', 'watch', 'latent', 'breakout_critical', 'confirmed']),
+  "latentScore": zod.number().min(stopRadarConnectionResponseSymbolRadarsItemAlphaRadarPreBreakoutLatentScoreMin).max(stopRadarConnectionResponseSymbolRadarsItemAlphaRadarPreBreakoutLatentScoreMax).nullable(),
+  "breakoutCriticalScore": zod.number().min(stopRadarConnectionResponseSymbolRadarsItemAlphaRadarPreBreakoutBreakoutCriticalScoreMin).max(stopRadarConnectionResponseSymbolRadarsItemAlphaRadarPreBreakoutBreakoutCriticalScoreMax).nullable(),
   "evidenceCount": zod.number().min(stopRadarConnectionResponseSymbolRadarsItemAlphaRadarPreBreakoutEvidenceCountMin),
   "velocityGateSatisfied": zod.boolean(),
   "reasons": zod.array(zod.string()),
@@ -3034,6 +3897,26 @@ export const StopRadarConnectionResponse = zod.object({
   "evaluatedAt": zod.coerce.date(),
   "reason": zod.string()
 })
+}),
+  "postBreakout": zod.object({
+  "state": zod.enum(['unavailable', 'trend_continuation', 'take_profit_watch', 'trend_reversal_confirmed']),
+  "active": zod.boolean(),
+  "dataFresh": zod.boolean(),
+  "breakoutPrice": zod.number().nullable(),
+  "highSinceBreakout": zod.number().nullable(),
+  "drawdownFromHighPercent": zod.number().nullable(),
+  "latestPrice": zod.number().nullable(),
+  "activeBuyPressure": zod.number().nullable(),
+  "l1BidPressure": zod.number().nullable(),
+  "volumeAcceleration": zod.number().nullable(),
+  "tradeRateChange": zod.number().nullable(),
+  "supportReasons": zod.array(zod.string()),
+  "deteriorationReasons": zod.array(zod.string()),
+  "consecutiveWeakScans": zod.number().min(stopRadarConnectionResponseSymbolRadarsItemAlphaRadarPostBreakoutConsecutiveWeakScansMin),
+  "consecutiveReversalScans": zod.number().min(stopRadarConnectionResponseSymbolRadarsItemAlphaRadarPostBreakoutConsecutiveReversalScansMin),
+  "lastTransitionAt": zod.coerce.date().nullable(),
+  "lastEvaluatedAt": zod.coerce.date(),
+  "reason": zod.string()
 }),
   "momentum": zod.object({
   "value": zod.number().nullable(),
@@ -3105,8 +3988,8 @@ export const StopRadarConnectionResponse = zod.object({
 }),
   "signalHistory": zod.array(zod.object({
   "occurredAt": zod.coerce.date(),
-  "fromState": zod.enum(['unavailable', 'watch', 'accelerating', 'pre_breakout', 'confirmed']),
-  "toState": zod.enum(['unavailable', 'watch', 'accelerating', 'pre_breakout', 'confirmed']),
+  "fromState": zod.enum(['unavailable', 'watch', 'latent', 'breakout_critical', 'confirmed']),
+  "toState": zod.enum(['unavailable', 'watch', 'latent', 'breakout_critical', 'confirmed']),
   "fromConfirmationStatus": zod.enum(['unavailable', 'pending', 'confirmed', 'rejected']),
   "toConfirmationStatus": zod.enum(['unavailable', 'pending', 'confirmed', 'rejected']),
   "score": zod.number().nullable(),
@@ -3233,7 +4116,7 @@ export const StopRadarConnectionResponse = zod.object({
   "signalTrajectory": zod.number().min(stopRadarConnectionResponseAlphaRankingEntriesItemFactorContributionsOneSignalTrajectoryMin)
 }),zod.null()]),
   "alphaScore": zod.number().min(stopRadarConnectionResponseAlphaRankingEntriesItemAlphaScoreMin).max(stopRadarConnectionResponseAlphaRankingEntriesItemAlphaScoreMax).nullable(),
-  "detectionState": zod.enum(['unavailable', 'watch', 'accelerating', 'pre_breakout', 'confirmed']),
+  "detectionState": zod.enum(['unavailable', 'watch', 'latent', 'breakout_critical', 'confirmed']),
   "confirmationStatus": zod.enum(['unavailable', 'pending', 'confirmed', 'rejected']),
   "alphaVelocity": zod.number().nullable(),
   "confidence": zod.number().min(stopRadarConnectionResponseAlphaRankingEntriesItemConfidenceMin).max(stopRadarConnectionResponseAlphaRankingEntriesItemConfidenceMax),
@@ -3289,7 +4172,7 @@ export const StopRadarConnectionResponse = zod.object({
   "sectorMultiplier": zod.number().min(stopRadarConnectionResponseSectorPrioritySectorsItemMembersItemSectorMultiplierMin).max(stopRadarConnectionResponseSectorPrioritySectorsItemMembersItemSectorMultiplierMax).nullable(),
   "eligibility": zod.enum(['ranked', 'building', 'ineligible']),
   "marketDataState": zod.enum(['fresh', 'stale', 'offline', 'insufficient']),
-  "preBreakoutState": zod.enum(['unavailable', 'watch', 'accelerating', 'pre_breakout', 'confirmed']),
+  "preBreakoutState": zod.enum(['unavailable', 'watch', 'latent', 'breakout_critical', 'confirmed']),
   "confirmationStatus": zod.enum(['unavailable', 'pending', 'confirmed', 'rejected']),
   "reason": zod.string()
 })),
@@ -3304,7 +4187,35 @@ export const StopRadarConnectionResponse = zod.object({
   "sectorStrength": zod.number().min(stopRadarConnectionResponseSectorPriorityFinalCandidatesItemSectorStrengthMin).max(stopRadarConnectionResponseSectorPriorityFinalCandidatesItemSectorStrengthMax).nullable(),
   "sectorMultiplier": zod.number().min(stopRadarConnectionResponseSectorPriorityFinalCandidatesItemSectorMultiplierMin).max(stopRadarConnectionResponseSectorPriorityFinalCandidatesItemSectorMultiplierMax).nullable(),
   "baseRankingScore": zod.number().min(stopRadarConnectionResponseSectorPriorityFinalCandidatesItemBaseRankingScoreMin).max(stopRadarConnectionResponseSectorPriorityFinalCandidatesItemBaseRankingScoreMax).nullable(),
-  "stage": zod.enum(['candidate', 'pre_breakout', 'withheld']),
+  "latentScore": zod.number().min(stopRadarConnectionResponseSectorPriorityFinalCandidatesItemLatentScoreMin).max(stopRadarConnectionResponseSectorPriorityFinalCandidatesItemLatentScoreMax).nullable(),
+  "breakoutCriticalScore": zod.number().min(stopRadarConnectionResponseSectorPriorityFinalCandidatesItemBreakoutCriticalScoreMin).max(stopRadarConnectionResponseSectorPriorityFinalCandidatesItemBreakoutCriticalScoreMax).nullable(),
+  "stage": zod.enum(['candidate', 'latent', 'breakout_critical', 'confirmed', 'withheld']),
+  "evidence": zod.object({
+  "marketFresh": zod.boolean(),
+  "sectorStrength": zod.boolean(),
+  "unfinishedExpansion": zod.boolean(),
+  "catalyst": zod.boolean(),
+  "moneyFlow": zod.boolean(),
+  "optionsActivity": zod.boolean(),
+  "fundamentals": zod.boolean(),
+  "valuationExpectation": zod.boolean(),
+  "riskReward": zod.boolean()
+}),
+  "missing": zod.array(zod.string()),
+  "reason": zod.string()
+})),
+  "latentCandidates": zod.array(zod.object({
+  "symbol": zod.string(),
+  "finalRank": zod.number().min(1).nullable(),
+  "sector": zod.string().nullable(),
+  "industryGroup": zod.string().nullable(),
+  "finalScore": zod.number().min(stopRadarConnectionResponseSectorPriorityLatentCandidatesItemFinalScoreMin).max(stopRadarConnectionResponseSectorPriorityLatentCandidatesItemFinalScoreMax).nullable(),
+  "sectorStrength": zod.number().min(stopRadarConnectionResponseSectorPriorityLatentCandidatesItemSectorStrengthMin).max(stopRadarConnectionResponseSectorPriorityLatentCandidatesItemSectorStrengthMax).nullable(),
+  "sectorMultiplier": zod.number().min(stopRadarConnectionResponseSectorPriorityLatentCandidatesItemSectorMultiplierMin).max(stopRadarConnectionResponseSectorPriorityLatentCandidatesItemSectorMultiplierMax).nullable(),
+  "baseRankingScore": zod.number().min(stopRadarConnectionResponseSectorPriorityLatentCandidatesItemBaseRankingScoreMin).max(stopRadarConnectionResponseSectorPriorityLatentCandidatesItemBaseRankingScoreMax).nullable(),
+  "latentScore": zod.number().min(stopRadarConnectionResponseSectorPriorityLatentCandidatesItemLatentScoreMin).max(stopRadarConnectionResponseSectorPriorityLatentCandidatesItemLatentScoreMax).nullable(),
+  "breakoutCriticalScore": zod.number().min(stopRadarConnectionResponseSectorPriorityLatentCandidatesItemBreakoutCriticalScoreMin).max(stopRadarConnectionResponseSectorPriorityLatentCandidatesItemBreakoutCriticalScoreMax).nullable(),
+  "stage": zod.enum(['candidate', 'latent', 'breakout_critical', 'confirmed', 'withheld']),
   "evidence": zod.object({
   "marketFresh": zod.boolean(),
   "sectorStrength": zod.boolean(),
@@ -3328,7 +4239,9 @@ export const StopRadarConnectionResponse = zod.object({
   "sectorStrength": zod.number().min(stopRadarConnectionResponseSectorPriorityPreBreakoutCandidatesItemSectorStrengthMin).max(stopRadarConnectionResponseSectorPriorityPreBreakoutCandidatesItemSectorStrengthMax).nullable(),
   "sectorMultiplier": zod.number().min(stopRadarConnectionResponseSectorPriorityPreBreakoutCandidatesItemSectorMultiplierMin).max(stopRadarConnectionResponseSectorPriorityPreBreakoutCandidatesItemSectorMultiplierMax).nullable(),
   "baseRankingScore": zod.number().min(stopRadarConnectionResponseSectorPriorityPreBreakoutCandidatesItemBaseRankingScoreMin).max(stopRadarConnectionResponseSectorPriorityPreBreakoutCandidatesItemBaseRankingScoreMax).nullable(),
-  "stage": zod.enum(['candidate', 'pre_breakout', 'withheld']),
+  "latentScore": zod.number().min(stopRadarConnectionResponseSectorPriorityPreBreakoutCandidatesItemLatentScoreMin).max(stopRadarConnectionResponseSectorPriorityPreBreakoutCandidatesItemLatentScoreMax).nullable(),
+  "breakoutCriticalScore": zod.number().min(stopRadarConnectionResponseSectorPriorityPreBreakoutCandidatesItemBreakoutCriticalScoreMin).max(stopRadarConnectionResponseSectorPriorityPreBreakoutCandidatesItemBreakoutCriticalScoreMax).nullable(),
+  "stage": zod.enum(['candidate', 'latent', 'breakout_critical', 'confirmed', 'withheld']),
   "evidence": zod.object({
   "marketFresh": zod.boolean(),
   "sectorStrength": zod.boolean(),
@@ -3352,7 +4265,9 @@ export const StopRadarConnectionResponse = zod.object({
   "sectorStrength": zod.number().min(stopRadarConnectionResponseSectorPriorityWithheldCandidatesItemSectorStrengthMin).max(stopRadarConnectionResponseSectorPriorityWithheldCandidatesItemSectorStrengthMax).nullable(),
   "sectorMultiplier": zod.number().min(stopRadarConnectionResponseSectorPriorityWithheldCandidatesItemSectorMultiplierMin).max(stopRadarConnectionResponseSectorPriorityWithheldCandidatesItemSectorMultiplierMax).nullable(),
   "baseRankingScore": zod.number().min(stopRadarConnectionResponseSectorPriorityWithheldCandidatesItemBaseRankingScoreMin).max(stopRadarConnectionResponseSectorPriorityWithheldCandidatesItemBaseRankingScoreMax).nullable(),
-  "stage": zod.enum(['candidate', 'pre_breakout', 'withheld']),
+  "latentScore": zod.number().min(stopRadarConnectionResponseSectorPriorityWithheldCandidatesItemLatentScoreMin).max(stopRadarConnectionResponseSectorPriorityWithheldCandidatesItemLatentScoreMax).nullable(),
+  "breakoutCriticalScore": zod.number().min(stopRadarConnectionResponseSectorPriorityWithheldCandidatesItemBreakoutCriticalScoreMin).max(stopRadarConnectionResponseSectorPriorityWithheldCandidatesItemBreakoutCriticalScoreMax).nullable(),
+  "stage": zod.enum(['candidate', 'latent', 'breakout_critical', 'confirmed', 'withheld']),
   "evidence": zod.object({
   "marketFresh": zod.boolean(),
   "sectorStrength": zod.boolean(),
@@ -3388,7 +4303,7 @@ export const StopRadarConnectionResponse = zod.object({
 }),
   "preBreakoutLeader": zod.object({
   "symbol": zod.string(),
-  "state": zod.enum(['unavailable', 'watch', 'accelerating', 'pre_breakout', 'confirmed']),
+  "state": zod.enum(['unavailable', 'watch', 'latent', 'breakout_critical', 'confirmed']),
   "confirmationStatus": zod.enum(['unavailable', 'pending', 'confirmed', 'rejected']),
   "alphaVelocity": zod.number().nullable()
 }).nullable()
@@ -3679,7 +4594,7 @@ export const getSignalValidationQueryLimitMax = 100;
 
 
 export const GetSignalValidationQueryParams = zod.object({
-  "state": zod.enum(['watch', 'accelerating', 'pre_breakout', 'confirmed']).optional(),
+  "state": zod.enum(['watch', 'latent', 'breakout_critical', 'confirmed']).optional(),
   "sector": zod.coerce.string().max(getSignalValidationQuerySectorMax).optional(),
   "signalType": zod.enum(['state_transition', 'confirmation_transition']).optional(),
   "horizonDays": zod.union([zod.literal(1),zod.literal(3),zod.literal(5),zod.literal(10),zod.literal(20)]).default(getSignalValidationQueryHorizonDaysDefault),
@@ -3726,7 +4641,7 @@ export const GetSignalValidationResponse = zod.object({
   "symbol": zod.string(),
   "occurredAt": zod.coerce.date(),
   "fromState": zod.string(),
-  "state": zod.enum(['watch', 'accelerating', 'pre_breakout', 'confirmed']),
+  "state": zod.enum(['watch', 'latent', 'breakout_critical', 'confirmed']),
   "confirmationStatus": zod.string(),
   "signalType": zod.enum(['state_transition', 'confirmation_transition']),
   "direction": zod.enum(['upside', 'downside', 'neutral']),
@@ -3808,7 +4723,7 @@ export const GetSignalValidationAuditResponse = zod.object({
   "symbol": zod.string(),
   "occurredAt": zod.coerce.date(),
   "fromState": zod.string(),
-  "state": zod.enum(['watch', 'accelerating', 'pre_breakout', 'confirmed']),
+  "state": zod.enum(['watch', 'latent', 'breakout_critical', 'confirmed']),
   "confirmationStatus": zod.string(),
   "signalType": zod.enum(['state_transition', 'confirmation_transition']),
   "direction": zod.enum(['upside', 'downside', 'neutral']),
@@ -3892,6 +4807,8 @@ export const getShadowLearningValidationResponseBaselineSampleSizeMin = 0;
 export const getShadowLearningValidationResponseShadowSampleSizeMin = 0;
 
 
+export const getShadowLearningValidationResponseStageFeatureAssessmentsItemSampleSizeMin = 0;
+
 
 
 export const GetShadowLearningValidationResponse = zod.object({
@@ -3938,6 +4855,32 @@ export const GetShadowLearningValidationResponse = zod.object({
   "independentSplit": zod.string()
 })
 }),
+  "learningPolicy": zod.object({
+  "version": zod.string(),
+  "priority": zod.enum(['highest']),
+  "directions": zod.record(zod.string(), zod.object({
+  "label": zod.string(),
+  "objective": zod.string()
+})),
+  "sharedValueCriteria": zod.array(zod.enum(['predictive_power', 'earliness', 'risk_reward_improvement', 'incremental_information_value', 'stability', 'noise_false_signal_rate'])),
+  "coreAdmissionRule": zod.string()
+}),
+  "stageFeatureAssessments": zod.array(zod.object({
+  "stage": zod.enum(['pre_breakout', 'true_breakout', 'post_breakout']),
+  "featureKey": zod.string(),
+  "tier": zod.enum(['A_core', 'B_supporting', 'C_redundant', 'D_noise', 'unavailable']),
+  "sampleState": zod.enum(['available', 'insufficient_sample', 'unavailable']),
+  "sampleSize": zod.number().min(getShadowLearningValidationResponseStageFeatureAssessmentsItemSampleSizeMin),
+  "predictiveAdvantagePercent": zod.number().nullable(),
+  "averageLeadTimeMinutes": zod.number().nullable(),
+  "riskRewardAdvantagePercent": zod.number().nullable(),
+  "incrementalValuePercent": zod.number().nullable(),
+  "stabilityPercent": zod.number().nullable(),
+  "noiseRatePercent": zod.number().nullable(),
+  "redundancyPercent": zod.number().nullable(),
+  "coreEligible": zod.boolean(),
+  "reason": zod.string()
+})),
   "recentTriggers": zod.array(zod.object({
   "eventKey": zod.string(),
   "recordHash": zod.string(),
@@ -3994,7 +4937,7 @@ export const GetAlertsResponse = zod.object({
   "leaders": zod.array(zod.object({
   "rank": zod.number().min(1).max(getAlertsResponseAlertsItemSectorLeaderContextOneLeadersItemRankMax),
   "symbol": zod.string(),
-  "grade": zod.enum(['strong', 'watch'])
+  "grade": zod.enum(['confirmed', 'critical', 'latent', 'watch'])
 })).min(1).max(getAlertsResponseAlertsItemSectorLeaderContextOneLeadersMax),
   "strongestBreakoutSymbol": zod.string().nullable()
 }),zod.null()]).optional(),

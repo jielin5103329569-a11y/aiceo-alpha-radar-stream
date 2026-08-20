@@ -10,6 +10,7 @@ import {
   Clock3,
   FileLock2,
   ShieldAlert,
+  Target,
 } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
@@ -88,6 +89,7 @@ export function ShadowLearningStatusPanel() {
   const unavailable = data.persistenceState === 'unavailable';
   const insufficient = data.promotion.status === 'insufficient_sample';
   const candidate = data.promotion.status === 'candidate';
+  const learningDirections = Object.entries(data.learningPolicy.directions);
   const statusClass = candidate
     ? 'border-emerald-500/40 bg-emerald-500/5 text-emerald-700 dark:text-emerald-400'
     : unavailable
@@ -135,6 +137,24 @@ export function ShadowLearningStatusPanel() {
             <div className="text-[9px] uppercase tracking-wider text-muted-foreground">Evidence state</div>
             <div className="mt-1 font-medium">{data.promotion.evidenceState === 'complete' ? 'Immutable archive complete' : 'Withheld'}</div>
             <div className="mt-1 text-[10px] leading-relaxed text-muted-foreground">{data.reason}</div>
+          </div>
+        </div>
+
+        <div className="rounded-md border border-primary/25 bg-primary/5 p-3">
+          <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wider text-primary">
+            <Target className="h-3.5 w-3.5" /> {data.learningPolicy.priority}-priority learning framework
+          </div>
+          <div className="mt-2 grid gap-2 text-[11px] leading-relaxed text-muted-foreground md:grid-cols-3">
+            {learningDirections.map(([stage, direction], index) => (
+              <div key={stage}>
+                <span className="font-medium text-foreground">{index + 1} · {direction.label}</span>
+                <br />
+                {direction.objective}
+              </div>
+            ))}
+          </div>
+          <div className="mt-2 text-[10px] leading-relaxed text-muted-foreground">
+            {data.learningPolicy.coreAdmissionRule} Shared controls: {data.learningPolicy.sharedValueCriteria.join(' · ').replaceAll('_', ' ')}. Each stage keeps separate features, weights, and outcome statistics.
           </div>
         </div>
 

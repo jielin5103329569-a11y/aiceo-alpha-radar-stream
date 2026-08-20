@@ -8,7 +8,12 @@ import type { SecurityReference } from "./marketUniverse";
 
 export type SectorPriorityState = "ranked" | "insufficient" | "unavailable";
 export type SectorPriorityEligibility = "ranked" | "insufficient" | "unavailable";
-export type SectorPriorityCandidateStage = "candidate" | "pre_breakout" | "withheld";
+export type SectorPriorityCandidateStage =
+  | "candidate"
+  | "latent"
+  | "breakout_critical"
+  | "confirmed"
+  | "withheld";
 
 export type SectorPriorityMember = {
   symbol: string;
@@ -54,6 +59,8 @@ export type SectorPriorityCandidate = {
   sectorStrength: number | null;
   sectorMultiplier: number | null;
   baseRankingScore: number | null;
+  latentScore: number | null;
+  breakoutCriticalScore: number | null;
   stage: SectorPriorityCandidateStage;
   evidence: {
     marketFresh: boolean;
@@ -84,6 +91,8 @@ export type SectorPrioritySnapshot = {
   };
   sectors: SectorPrioritySector[];
   finalCandidates: SectorPriorityCandidate[];
+  /** Up to five observed latent/critical/confirmed candidates per ranked sector. */
+  latentCandidates: SectorPriorityCandidate[];
   preBreakoutCandidates: SectorPriorityCandidate[];
   withheldCandidates: SectorPriorityCandidate[];
   reason: string;
@@ -240,11 +249,17 @@ function candidateReason(
   stage: SectorPriorityCandidateStage,
   missing: string[],
 ): string {
-  if (stage === "pre_breakout") {
-    return "Strong verified sector context, fresh individual market evidence, unfinished expansion, and all independent confirmation inputs are available.";
+  if (stage === "confirmed") {
+    return "Every final confirmation input is available and the live breakout is confirmed.";
+  }
+  if (stage === "breakout_critical") {
+    return "Every final confirmation input is available and the live setup is at breakout-critical stage.";
+  }
+  if (stage === "latent") {
+    return "Every final confirmation input is available and the live setup is a verified latent candidate.";
   }
   if (stage === "candidate") {
-    return "This final candidate passed every independent confirmation input. Pre-breakout qualification remains separate until unfinished expansion is present.";
+    return "This final candidate passed every independent confirmation input.";
   }
   return `Final-candidate promotion is withheld: ${missing.join("; ")}.`;
 }
@@ -259,7 +274,7 @@ function buildCandidate(
   const alpha = context.status.alphaRadar;
   const marketFresh = context.rankingEligible;
   const sectorStrength = sector.eligibility === "ranked" && sector.strength !== null;
-  const unfinishedExpansion = ["accelerating", "pre_breakout"].includes(alpha.preBreakout.state);
+  const unfinishedExpansion = ["latent", "breakout_critical"].includes(alpha.preBreakout.state);
   const evidence = {
     marketFresh,
     sectorStrength,
@@ -282,8 +297,12 @@ function buildCandidate(
     && evidence.valuationExpectation
     && evidence.riskReward
   );
-  const stage: SectorPriorityCandidateStage = finalCandidateComplete && evidence.unfinishedExpansion
-    ? "pre_breakout"
+  const stage: SectorPriorityCandidateStage = finalCandidateComplete && alpha.preBreakout.state === "confirmed"
+    ? "confirmed"
+    : finalCandidateComplete && alpha.preBreakout.state === "breakout_critical"
+      ? "breakout_critical"
+      : finalCandidateComplete && alpha.preBreakout.state === "latent"
+        ? "latent"
     : finalCandidateComplete
       ? "candidate"
       : "withheld";
@@ -297,6 +316,8 @@ function buildCandidate(
     sectorStrength: sector.strength,
     sectorMultiplier: member.sectorMultiplier,
     baseRankingScore: member.baseRankingScore,
+    latentScore: alpha.preBreakout.latentScore,
+    breakoutCriticalScore: alpha.preBreakout.breakoutCriticalScore,
     stage,
     evidence,
     missing,
@@ -464,7 +485,61 @@ export function buildSectorPriority(input: SectorPriorityInput): SectorPriorityS
   const finalCandidates = evaluatedCandidates
     .filter((candidate) => candidate.stage !== "withheld")
     .map((candidate) => ({ ...candidate, finalRank: ++finalRank }));
-  const preBreakoutCandidates = finalCandidates.filter((candidate) => candidate.stage === "pre_breakout");
+  const preBreakoutCandidates = finalCandidates.filter((candidate) =>
+    candidate.stage === "breakout_critical" || candidate.stage === "confirmed",
+  );
+  const latentCandidatePool = contexts
+    .flatMap((context) => {
+      const reference = context.reference;
+      if (!context.trustedClassification || !reference?.sector) return [];
+      const sector = sectorByName.get(reference.sector);
+      const member = sector?.members.find((item) => item.symbol === context.status.symbol);
+      const stage = context.status.alphaRadar.preBreakout.state;
+      const sectorRelativeStrength = sector?.evidence.relativeStrength ?? null;
+      const latentScore = context.status.alphaRadar.preBreakout.latentScore;
+      const relativeStrengthImproving = Boolean(
+        member
+        && sectorRelativeStrength !== null
+        && (member.baseRankingScore ?? Number.NEGATIVE_INFINITY) >= sectorRelativeStrength,
+      );
+      if (
+        !sector
+        || !member
+        || sector.eligibility !== "ranked"
+        || !context.rankingEligible
+        || !relativeStrengthImproving
+        || (
+          stage === "latent"
+          && (typeof latentScore !== "number" || !Number.isFinite(latentScore) || latentScore < 80)
+        )
+        || !["latent", "breakout_critical", "confirmed"].includes(stage)
+      ) return [];
+      const candidate = buildCandidate(context, sector, member, input.catalystRadar, now);
+      return [{
+        ...candidate,
+        finalRank: null,
+        stage: stage as Extract<SectorPriorityCandidateStage, "latent" | "breakout_critical" | "confirmed">,
+        reason: stage === "latent"
+          ? "Fresh verified sector strength, relative sector improvement, and observed latent microstructure evidence are present."
+          : stage === "breakout_critical"
+            ? "Fresh verified sector strength, relative sector improvement, and observed breakout-critical evidence are present."
+            : "Fresh verified sector strength, relative sector improvement, and confirmed breakout evidence are present.",
+      }];
+    })
+    .sort((left, right) => (
+      (left.sector ?? "").localeCompare(right.sector ?? "")
+      || (right.finalScore ?? Number.NEGATIVE_INFINITY) - (left.finalScore ?? Number.NEGATIVE_INFINITY)
+      || left.symbol.localeCompare(right.symbol)
+    ))
+    .filter((candidate, index, all) => all
+      .findIndex((item) => item.sector === candidate.sector && item.symbol === candidate.symbol) === index);
+  const latentCountsBySector = new Map<string | null, number>();
+  const latentCandidates = latentCandidatePool.flatMap((candidate) => {
+    const nextRank = (latentCountsBySector.get(candidate.sector) ?? 0) + 1;
+    latentCountsBySector.set(candidate.sector, nextRank);
+    // This is an upper bound per sector, not a population requirement.
+    return nextRank <= 5 ? [{ ...candidate, finalRank: nextRank }] : [];
+  });
   const withheldCandidates = evaluatedCandidates
     .filter((candidate) => candidate.stage === "withheld")
     .map((candidate) => ({ ...candidate, finalRank: null }));
@@ -509,6 +584,7 @@ export function buildSectorPriority(input: SectorPriorityInput): SectorPriorityS
     },
     sectors: rankedSectors,
     finalCandidates,
+    latentCandidates,
     preBreakoutCandidates,
     withheldCandidates,
     reason,

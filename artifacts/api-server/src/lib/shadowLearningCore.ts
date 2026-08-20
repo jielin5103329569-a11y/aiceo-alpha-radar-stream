@@ -22,10 +22,201 @@ export const SHADOW_MINIMUM_COMPLETE_SAMPLE = MINIMUM_VALIDATION_SAMPLE;
 export const SHADOW_MINIMUM_HOLDOUT_SAMPLE = 8;
 export const SHADOW_REQUIRED_HIT_RATE_ADVANTAGE_PERCENT = 8;
 export const SHADOW_REQUIRED_RETURN_ADVANTAGE_PERCENT = 0.5;
+export const SHADOW_MINIMUM_CORE_LEAD_TIME_MINUTES = 1;
+export const SHADOW_MINIMUM_CORE_INCREMENTAL_VALUE_PERCENT = 4;
+export const SHADOW_MAXIMUM_CORE_REDUNDANCY_PERCENT = 50;
 
-export type ShadowSignalType = "shadow_pre_breakout";
+export type ShadowSignalType =
+  | "shadow_pre_breakout"
+  | "shadow_true_breakout"
+  | "shadow_post_breakout";
 export type ShadowTriggerStatus = "triggered";
 export type ShadowPersistenceState = "available" | "unavailable";
+/**
+ * Learning stages are intentionally sidecar-only. They describe which
+ * independently versioned feature screen an immutable shadow observation used;
+ * they are never read by live Alpha Radar scoring or alert gates.
+ */
+export type ShadowLearningStage = "pre_breakout" | "true_breakout" | "post_breakout";
+export type ShadowCoreLearningPolicy = {
+  version: string;
+  priority: "highest";
+  directions: Readonly<Record<ShadowLearningStage, {
+    label: string;
+    objective: string;
+  }>>;
+  sharedValueCriteria: readonly [
+    "predictive_power",
+    "earliness",
+    "risk_reward_improvement",
+    "incremental_information_value",
+    "stability",
+    "noise_false_signal_rate",
+  ];
+  coreAdmissionRule: string;
+};
+
+/**
+ * The only core-learning directions for Alpha Radar. New data, indicators,
+ * features, and learning results must be attributable to one of these
+ * directions and pass the shared future-outcome value standard before they
+ * may become a core candidate. This policy never changes live scoring.
+ */
+export const SHADOW_CORE_LEARNING_POLICY: ShadowCoreLearningPolicy = {
+  version: "alpha-radar-three-stage-core-v1",
+  priority: "highest",
+  directions: {
+    pre_breakout: {
+      label: "爆发前 / 潜伏",
+      objective: "Earlier and more accurate identification of internal strength changes and favourable risk/reward setups at low or reasonable locations.",
+    },
+    true_breakout: {
+      label: "真突破",
+      objective: "More accurately distinguish valid structural breaks from false breaks and confirm breakout reality and persistence.",
+    },
+    post_breakout: {
+      label: "突破后趋势 / 止盈",
+      objective: "More accurately assess trend life, continuation, exhaustion, scale-down, and profit-taking timing.",
+    },
+  },
+  sharedValueCriteria: [
+    "predictive_power",
+    "earliness",
+    "risk_reward_improvement",
+    "incremental_information_value",
+    "stability",
+    "noise_false_signal_rate",
+  ],
+  coreAdmissionRule: "A new item may enter core learning only when it maps to one stage and independently demonstrates future-outcome value under every shared criterion; all other items remain outside core learning.",
+};
+export type ShadowFeatureKey =
+  | "relative_strength_improvement"
+  | "price_structure"
+  | "volatility_contraction"
+  | "dense_trading_zone"
+  | "sell_pressure_decay"
+  | "active_buy_improvement"
+  | "volume_structure"
+  | "breakout_distance"
+  | "structure_breakout"
+  | "breakout_volume_confirmation"
+  | "aggressive_trade_direction"
+  | "l1_bid_ask_tilt"
+  | "post_breakout_trade_persistence"
+  | "post_breakout_active_flow"
+  | "volume_trade_speed"
+  | "new_high_quality"
+  | "price_volume_divergence"
+  | "breakout_support_integrity"
+  | "multi_timeframe_alignment"
+  | "counter_evidence_resilience"
+  | "data_confidence";
+
+export type ShadowStageRule = {
+  label: string;
+  objective: string;
+  featureWeights: Readonly<Record<ShadowFeatureKey, number> | Partial<Record<ShadowFeatureKey, number>>>;
+};
+
+/**
+ * Fixed, versioned stage screens. Weighting belongs only to shadow experiments:
+ * a value has to pass later outcome evaluation before any separately approved
+ * production configuration can use it.
+ */
+export const SHADOW_STAGE_RULES: Readonly<Record<ShadowLearningStage, ShadowStageRule>> = {
+  pre_breakout: {
+    label: "爆发前 / 潜伏",
+    objective: "Discover internal strength changes and favourable asymmetric setups before a verified break.",
+    featureWeights: {
+      relative_strength_improvement: 0.16,
+      price_structure: 0.14,
+      volatility_contraction: 0.12,
+      dense_trading_zone: 0.10,
+      sell_pressure_decay: 0.12,
+      active_buy_improvement: 0.14,
+      volume_structure: 0.12,
+      breakout_distance: 0.10,
+      // Quality mechanisms are observed and evaluated in Shadow Learning first.
+      // Zero weight ensures they cannot alter a shadow screen before real
+      // future-outcome validation supports an explicitly reviewed experiment.
+      multi_timeframe_alignment: 0,
+      counter_evidence_resilience: 0,
+      data_confidence: 0,
+    },
+  },
+  true_breakout: {
+    label: "真突破",
+    objective: "Distinguish a verified structural break from a false break using real execution evidence.",
+    featureWeights: {
+      structure_breakout: 0.28,
+      breakout_volume_confirmation: 0.20,
+      aggressive_trade_direction: 0.18,
+      l1_bid_ask_tilt: 0.16,
+      post_breakout_trade_persistence: 0.18,
+      multi_timeframe_alignment: 0,
+      counter_evidence_resilience: 0,
+      data_confidence: 0,
+    },
+  },
+  post_breakout: {
+    label: "突破后趋势 / 止盈",
+    objective: "Assess trend life, support integrity, and whether exit evidence has become material.",
+    featureWeights: {
+      post_breakout_active_flow: 0.22,
+      volume_trade_speed: 0.20,
+      new_high_quality: 0.20,
+      price_volume_divergence: 0.18,
+      breakout_support_integrity: 0.20,
+      multi_timeframe_alignment: 0,
+      counter_evidence_resilience: 0,
+      data_confidence: 0,
+    },
+  },
+} as const;
+
+export type ShadowFeatureTier = "A_core" | "B_supporting" | "C_redundant" | "D_noise" | "unavailable";
+export type ShadowStageFeatureSnapshot = Partial<Record<ShadowFeatureKey, number | null>>;
+
+export type ShadowStageFeatureSample = {
+  eventKey: string;
+  featureValue: number | null;
+  hit: boolean;
+  favorableReturnPercent: number;
+  maxAdversePercent: number;
+  leadTimeMinutes: number | null;
+  falseSignal: boolean | null;
+};
+
+export type ShadowStageFeatureValueAssessment = {
+  stage: ShadowLearningStage;
+  featureKey: ShadowFeatureKey;
+  tier: ShadowFeatureTier;
+  sampleState: "available" | "insufficient_sample" | "unavailable";
+  sampleSize: number;
+  predictiveAdvantagePercent: number | null;
+  averageLeadTimeMinutes: number | null;
+  riskRewardAdvantagePercent: number | null;
+  incrementalValuePercent: number | null;
+  stabilityPercent: number | null;
+  noiseRatePercent: number | null;
+  redundancyPercent: number | null;
+  /** Only A-tier, stage-mapped, fully audited evidence may enter core learning. */
+  coreEligible: boolean;
+  reason: string;
+};
+
+/** Maps a verified signed percentage (-100 to 100) to a shadow-only 0–100 feature value. */
+export function normalizeSignedPercentFeature(value: number | null): number | null {
+  if (value === null || !Number.isFinite(value)) return null;
+  return Math.max(0, Math.min(100, (value + 100) / 2));
+}
+
+export function isCoreLearningFeature(
+  stage: ShadowLearningStage,
+  featureKey: ShadowFeatureKey,
+): boolean {
+  return Object.hasOwn(SHADOW_STAGE_RULES[stage].featureWeights, featureKey);
+}
 export type ShadowPromotionStatus =
   | "candidate"
   | "not_eligible"
@@ -51,6 +242,9 @@ export type ShadowInputSummary = {
   orderFlowShift: number | null;
   spreadTightening: number | null;
   evidenceCount: number;
+  /** Normalized 0–100 stage values; null means no verified source existed. */
+  stageFeatures?: ShadowStageFeatureSnapshot;
+  learningStage?: ShadowLearningStage;
 };
 
 export type ShadowCohortEligibilitySnapshot = {
@@ -74,6 +268,7 @@ export type ShadowTriggerInput = {
   triggerPrice: number;
   direction: ValidationDirection;
   state: string;
+  learningStage: ShadowLearningStage;
   shadowScore: number;
   status: ShadowTriggerStatus;
   evidenceSnapshot: TriggerEvidenceItem[];
@@ -97,12 +292,33 @@ export type ShadowPriceObservation = {
   price: number;
   source: string;
   freshness: "fresh";
+  lifecycleSnapshot?: ShadowLifecycleSnapshot;
+};
+
+export type ShadowLifecycleSnapshot = {
+  learningStage: ShadowLearningStage;
+  postBreakoutState: "unavailable" | "trend_continuation" | "take_profit_watch" | "trend_reversal_confirmed";
+  postBreakoutActive: boolean;
+  dataFresh: true;
+};
+
+export type ShadowStageOutcomeSummary = {
+  maximumFavorableExcursionPercent: number | null;
+  maximumAdverseExcursionPercent: number | null;
+  breakoutObserved: boolean | null;
+  falseBreakoutObserved: boolean | null;
+  enteredTrendContinuation: boolean | null;
+  enteredTakeProfitWatch: boolean | null;
+  enteredTrendReversal: boolean | null;
+  lifecycleEvidenceState: "available" | "unavailable";
+  reason: string;
 };
 
 export type ShadowOutcomeRecord = CalculatedCheckpoint & {
   outcomeKey: string;
   recordHash: string;
   triggerEventKey: string;
+  stageOutcome: ShadowStageOutcomeSummary;
 };
 
 export type ShadowCohortOutcome<T> = {
@@ -199,6 +415,7 @@ function shadowTriggerEventKey(input: ShadowTriggerInput): string {
     symbol: input.symbol.trim().toUpperCase(),
     occurredAt: input.occurredAt,
     modelVersion: input.modelVersion,
+    learningStage: input.learningStage,
   });
 }
 
@@ -208,7 +425,13 @@ export function buildImmutableShadowTrigger(input: ShadowTriggerInput): Immutabl
     symbol: input.symbol.trim().toUpperCase(),
     evidenceSnapshot: input.evidenceSnapshot.map((item) => ({ ...item })),
     freshnessSnapshot: { ...input.freshnessSnapshot },
-    inputSummary: { ...input.inputSummary },
+    inputSummary: {
+      ...input.inputSummary,
+      learningStage: input.learningStage,
+      stageFeatures: input.inputSummary.stageFeatures
+        ? { ...input.inputSummary.stageFeatures }
+        : undefined,
+    },
     cohortEligibilitySnapshot: {
       ...input.cohortEligibilitySnapshot,
       requiredEvidenceKeys: [...input.cohortEligibilitySnapshot.requiredEvidenceKeys],
@@ -247,6 +470,7 @@ export function isEligibleShadowObservation(input: ShadowTriggerInput): boolean 
     && input.cohortEligibilitySnapshot.matchingWindowSeconds === 60
     && input.cohortEligibilitySnapshot.dataFreshRequired
     && input.cohortEligibilitySnapshot.requiredEvidenceKeys.length > 0
+    && Object.hasOwn(SHADOW_STAGE_RULES, input.learningStage)
     && Number.isFinite(input.triggerPrice)
     && input.triggerPrice > 0
     && Number.isFinite(input.shadowScore)
@@ -299,7 +523,163 @@ export function matchShadowBaselineCohorts<T>(
     });
 }
 
-export function evaluateShadowPreBreakout(input: Omit<ShadowTriggerInput, "shadowScore" | "status">): ShadowTriggerInput | null {
+function average(values: number[]): number | null {
+  if (values.length === 0) return null;
+  return values.reduce((total, value) => total + value, 0) / values.length;
+}
+
+function hitRatePercent(values: ShadowStageFeatureSample[]): number | null {
+  if (values.length === 0) return null;
+  return (values.filter((sample) => sample.hit).length / values.length) * 100;
+}
+
+function stageScore(
+  stage: ShadowLearningStage,
+  features: ShadowStageFeatureSnapshot | undefined,
+): number | null {
+  if (!features) return null;
+  const weights = SHADOW_STAGE_RULES[stage].featureWeights as Partial<Record<ShadowFeatureKey, number>>;
+  const scored = (Object.entries(weights) as Array<[ShadowFeatureKey, number]>)
+    .flatMap(([key, weight]) => {
+      const value = features[key];
+      return value === null || value === undefined || !Number.isFinite(value)
+        ? []
+        : [{ value: Math.min(100, Math.max(0, value)), weight }];
+    });
+  const totalWeight = scored.reduce((total, item) => total + item.weight, 0);
+  if (totalWeight === 0) return null;
+  return Math.round(
+    (scored.reduce((total, item) => total + item.value * item.weight, 0) / totalWeight) * 100,
+  ) / 100;
+}
+
+/**
+ * Evaluates a feature only against future, immutable outcome records. This is
+ * deliberately a low-frequency reporting primitive, not a live score input.
+ */
+export function assessStageFeatureValue(input: {
+  stage: ShadowLearningStage;
+  featureKey: ShadowFeatureKey;
+  samples: ShadowStageFeatureSample[];
+  redundancyPercent?: number | null;
+  persistenceState: ShadowPersistenceState;
+  auditComplete: boolean;
+}): ShadowStageFeatureValueAssessment {
+  const unavailable = (reason: string): ShadowStageFeatureValueAssessment => ({
+    stage: input.stage,
+    featureKey: input.featureKey,
+    tier: "unavailable",
+    sampleState: "unavailable",
+    sampleSize: 0,
+    predictiveAdvantagePercent: null,
+    averageLeadTimeMinutes: null,
+    riskRewardAdvantagePercent: null,
+    incrementalValuePercent: null,
+    stabilityPercent: null,
+    noiseRatePercent: null,
+    redundancyPercent: input.redundancyPercent ?? null,
+    coreEligible: false,
+    reason,
+  });
+  if (!input.auditComplete || input.persistenceState !== "available") {
+    return unavailable("Value assessment is withheld until immutable outcome evidence and archive recovery are complete.");
+  }
+  if (!isCoreLearningFeature(input.stage, input.featureKey)) {
+    return unavailable("This feature is not part of the fixed screen for the selected learning stage.");
+  }
+  const samples = input.samples.filter((sample) => (
+    Number.isFinite(sample.featureValue)
+    && Number.isFinite(sample.favorableReturnPercent)
+    && Number.isFinite(sample.maxAdversePercent)
+  ));
+  if (samples.length < SHADOW_MINIMUM_COMPLETE_SAMPLE) {
+    return {
+      ...unavailable("Insufficient Sample: value tiers require the fixed complete-outcome minimum."),
+      sampleState: "insufficient_sample",
+      sampleSize: samples.length,
+    };
+  }
+  const ordered = [...samples].sort((left, right) => (left.featureValue! - right.featureValue!));
+  const median = ordered[Math.floor(ordered.length / 2)]!.featureValue!;
+  const high = samples.filter((sample) => sample.featureValue! >= median);
+  const low = samples.filter((sample) => sample.featureValue! < median);
+  if (high.length === 0 || low.length === 0) {
+    return {
+      ...unavailable("Insufficient variation: the feature has no independently comparable high and low observations."),
+      sampleState: "insufficient_sample",
+      sampleSize: samples.length,
+    };
+  }
+  const predictiveAdvantagePercent = (hitRatePercent(high) ?? 0) - (hitRatePercent(low) ?? 0);
+  const highRiskReward = (average(high.map((sample) => sample.favorableReturnPercent)) ?? 0)
+    - (average(high.map((sample) => sample.maxAdversePercent)) ?? 0);
+  const lowRiskReward = (average(low.map((sample) => sample.favorableReturnPercent)) ?? 0)
+    - (average(low.map((sample) => sample.maxAdversePercent)) ?? 0);
+  const riskRewardAdvantagePercent = highRiskReward - lowRiskReward;
+  const highLeadTimes = high
+    .filter((sample) => sample.hit && sample.leadTimeMinutes !== null)
+    .map((sample) => sample.leadTimeMinutes as number);
+  const averageLeadTimeMinutes = average(highLeadTimes);
+  const foldOne = high.filter((sample) => Number.parseInt(hash(sample.eventKey).slice(0, 2), 16) % 2 === 0);
+  const foldTwo = high.filter((sample) => Number.parseInt(hash(sample.eventKey).slice(0, 2), 16) % 2 === 1);
+  const foldDifference = Math.abs((hitRatePercent(foldOne) ?? 0) - (hitRatePercent(foldTwo) ?? 0));
+  const stabilityPercent = Math.max(0, 100 - foldDifference);
+  const noiseRatePercent = (
+    high.filter((sample) => sample.falseSignal === true || !sample.hit).length / high.length
+  ) * 100;
+  const redundancyPercent = input.redundancyPercent ?? null;
+  // Incremental value is deliberately unavailable without an independently
+  // measured feature-overlap value. Predictive power alone is not evidence
+  // that a feature adds information beyond the existing stage screen.
+  const incrementalValuePercent = redundancyPercent === null
+    ? null
+    : predictiveAdvantagePercent * (1 - Math.min(100, Math.max(0, redundancyPercent)) / 100);
+  const hasRequiredCoreValueEvidence = (
+    averageLeadTimeMinutes !== null
+    && averageLeadTimeMinutes >= SHADOW_MINIMUM_CORE_LEAD_TIME_MINUTES
+    && incrementalValuePercent !== null
+    && incrementalValuePercent >= SHADOW_MINIMUM_CORE_INCREMENTAL_VALUE_PERCENT
+    && redundancyPercent !== null
+    && redundancyPercent <= SHADOW_MAXIMUM_CORE_REDUNDANCY_PERCENT
+  );
+  const tier: ShadowFeatureTier = (
+    noiseRatePercent >= 50 || predictiveAdvantagePercent <= -5 || riskRewardAdvantagePercent < -0.5
+      ? "D_noise"
+      : redundancyPercent !== null && redundancyPercent >= 85
+        ? "C_redundant"
+        : predictiveAdvantagePercent >= 8
+          && riskRewardAdvantagePercent >= 0.3
+          && stabilityPercent >= 60
+          && noiseRatePercent <= 30
+           && hasRequiredCoreValueEvidence
+          ? "A_core"
+          : "B_supporting"
+  );
+  return {
+    stage: input.stage,
+    featureKey: input.featureKey,
+    tier,
+    sampleState: "available",
+    sampleSize: samples.length,
+    predictiveAdvantagePercent,
+    averageLeadTimeMinutes,
+    riskRewardAdvantagePercent,
+    incrementalValuePercent,
+    stabilityPercent,
+    noiseRatePercent,
+    redundancyPercent,
+    coreEligible: tier === "A_core",
+    reason: tier === "A_core"
+      ? "Core candidate: independent future outcomes show predictive, early, risk/reward, incremental, stable, low-noise value."
+      : tier === "B_supporting"
+        ? "Supporting only: retained in shadow evaluation but incomplete earliness or independently measured incremental-value evidence prevents core treatment."
+        : tier === "C_redundant"
+          ? "Redundant: outcome value overlaps an existing feature and may only be reduced or removed in a shadow configuration."
+          : "Noise: weak or adverse future-outcome value; never promoted to production from this assessment.",
+  };
+}
+
+export function evaluateShadowStage(input: Omit<ShadowTriggerInput, "shadowScore" | "status">): ShadowTriggerInput | null {
   if (!isEligibleShadowObservation({ ...input, shadowScore: 0, status: "triggered" })) {
     return null;
   }
@@ -311,7 +691,7 @@ export function evaluateShadowPreBreakout(input: Omit<ShadowTriggerInput, "shado
     input.inputSummary.orderFlowShift,
     input.inputSummary.spreadTightening,
   ].filter((value) => value !== null && value > 0).length;
-  const score = Math.round(Math.min(
+  const genericScore = Math.round(Math.min(
     100,
     (input.inputSummary.alphaScore ?? 0) * 0.55
       + input.inputSummary.confidence * 0.25
@@ -319,18 +699,102 @@ export function evaluateShadowPreBreakout(input: Omit<ShadowTriggerInput, "shado
       + Math.min(10, velocity * 2)
       + acceleration * 2.5,
   ) * 100) / 100;
+  const phaseScore = stageScore(input.learningStage, input.inputSummary.stageFeatures);
+  const score = phaseScore === null
+    ? genericScore
+    : Math.round((genericScore * 0.6 + phaseScore * 0.4) * 100) / 100;
   if (score < 60 || evidenceSatisfied < 3) return null;
-  return { ...input, shadowScore: score, status: "triggered" };
+  return {
+    ...input,
+    // The persisted trigger row stores its stage-specific input as JSON. Keep
+    // the stage in that immutable summary as well as on the trigger envelope,
+    // so dashboard feature assessment can isolate stages after DB recovery.
+    inputSummary: {
+      ...input.inputSummary,
+      learningStage: input.learningStage,
+    },
+    shadowScore: score,
+    status: "triggered",
+  };
+}
+
+/** Backwards-compatible sidecar entry point for the only currently verified live stage. */
+export function evaluateShadowPreBreakout(input: Omit<ShadowTriggerInput, "shadowScore" | "status">): ShadowTriggerInput | null {
+  return input.learningStage === "pre_breakout"
+    ? evaluateShadowStage(input)
+    : null;
+}
+
+function stageOutcomeSummary(
+  trigger: ImmutableShadowTrigger,
+  checkpoint: CalculatedCheckpoint,
+  observations: Array<ValidationPriceObservation & { lifecycleSnapshot?: ShadowLifecycleSnapshot }>,
+): ShadowStageOutcomeSummary {
+  if (checkpoint.checkpointStatus !== "complete" || checkpoint.observedAt === null) {
+    return {
+      maximumFavorableExcursionPercent: null,
+      maximumAdverseExcursionPercent: null,
+      breakoutObserved: null,
+      falseBreakoutObserved: null,
+      enteredTrendContinuation: null,
+      enteredTakeProfitWatch: null,
+      enteredTrendReversal: null,
+      lifecycleEvidenceState: "unavailable",
+      reason: "Outcome is not complete; future stage evidence is withheld.",
+    };
+  }
+  const window = observations.filter((observation) => (
+    observation.observedAt.getTime() > trigger.occurredAt.getTime()
+    && observation.observedAt.getTime() <= checkpoint.observedAt!.getTime()
+    && Number.isFinite(observation.price)
+    && observation.price > 0
+  ));
+  const returns = window.map((observation) => {
+    const raw = ((observation.price - trigger.triggerPrice) / trigger.triggerPrice) * 100;
+    return trigger.direction === "downside" ? -raw : raw;
+  });
+  const lifecycle = window
+    .map((observation) => observation.lifecycleSnapshot)
+    .filter((snapshot): snapshot is ShadowLifecycleSnapshot => snapshot !== undefined);
+  if (lifecycle.length === 0) {
+    return {
+      maximumFavorableExcursionPercent: returns.length ? Math.max(0, ...returns) : null,
+      maximumAdverseExcursionPercent: returns.length ? Math.max(0, ...returns.map((value) => -value)) : null,
+      breakoutObserved: null,
+      falseBreakoutObserved: null,
+      enteredTrendContinuation: null,
+      enteredTakeProfitWatch: null,
+      enteredTrendReversal: null,
+      lifecycleEvidenceState: "unavailable",
+      reason: "Price outcome is complete, but no verified lifecycle snapshots were archived for this window.",
+    };
+  }
+  const breakoutObserved = lifecycle.some((snapshot) => snapshot.postBreakoutActive);
+  const enteredTrendContinuation = lifecycle.some((snapshot) => snapshot.postBreakoutState === "trend_continuation");
+  const enteredTakeProfitWatch = lifecycle.some((snapshot) => snapshot.postBreakoutState === "take_profit_watch");
+  const enteredTrendReversal = lifecycle.some((snapshot) => snapshot.postBreakoutState === "trend_reversal_confirmed");
+  return {
+    maximumFavorableExcursionPercent: returns.length ? Math.max(0, ...returns) : null,
+    maximumAdverseExcursionPercent: returns.length ? Math.max(0, ...returns.map((value) => -value)) : null,
+    breakoutObserved,
+    falseBreakoutObserved: breakoutObserved ? enteredTrendReversal : false,
+    enteredTrendContinuation,
+    enteredTakeProfitWatch,
+    enteredTrendReversal,
+    lifecycleEvidenceState: "available",
+    reason: "Outcome uses only post-trigger fresh price and lifecycle observations captured in the immutable archive.",
+  };
 }
 
 export function buildShadowOutcome(
   trigger: ImmutableShadowTrigger,
   horizonDays: ValidationHorizonDays,
-  observations: ValidationPriceObservation[],
+  observations: Array<ValidationPriceObservation & { lifecycleSnapshot?: ShadowLifecycleSnapshot }>,
 ): ShadowOutcomeRecord {
   const checkpoint = calculateOutcomeCheckpoint(trigger, observations, horizonDays);
   const immutableOutcome = {
     ...checkpoint,
+    stageOutcome: stageOutcomeSummary(trigger, checkpoint, observations),
     triggerEventKey: trigger.eventKey,
     outcomeKey: hash({
       triggerEventKey: trigger.eventKey,

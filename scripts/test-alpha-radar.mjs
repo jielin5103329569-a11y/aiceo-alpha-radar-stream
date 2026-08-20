@@ -26,6 +26,7 @@ try {
     addAlphaRadarDynamics,
     appendSignalHistoryEntry,
     calculateAlphaRadar,
+    updatePostBreakoutMonitoring,
     updatePreBreakoutDetection,
   } = require(outputPath);
   const now = new Date("2026-08-19T14:30:00.000Z");
@@ -77,6 +78,125 @@ try {
   assert.ok(active.diagnostics.fresh_volume >= 2, "diagnostics should count fresh volume observations");
   assert.ok((active.diagnostics.valid_window_age ?? 0) >= 0, "diagnostics should report the valid window age");
 
+  const confirmedSnapshot = {
+    ...active,
+    preBreakout: {
+      ...active.preBreakout,
+      state: "confirmed",
+      dataFresh: true,
+      confirmation: { ...active.preBreakout.confirmation, status: "confirmed" },
+    },
+    changeIndicators: { ...active.changeIndicators, volumeAcceleration: 2 },
+    orderFlowPressure: { ...active.orderFlowPressure, value: 25 },
+  };
+  const breakoutTrades = [29_000, 24_000, 19_000, 14_000, 9_000, 0].map((offset, index) => ({
+    timestamp: new Date(now.getTime() - offset),
+    price: index === 5 ? 100.6 : 100 + index * 0.1,
+    size: 10,
+    side: "B",
+  }));
+  const postStart = updatePostBreakoutMonitoring(
+    confirmedSnapshot,
+    {
+      active: false,
+      state: "unavailable",
+      breakoutPrice: null,
+      highSinceBreakout: null,
+      consecutiveWeakScans: 0,
+      consecutiveReversalScans: 0,
+      lastTransitionAt: null,
+    },
+    {
+      now,
+      connectionState: "streaming",
+      quotes,
+      trades: breakoutTrades,
+      bars: [],
+    },
+  );
+  assert.equal(
+    postStart.snapshot.postBreakout.state,
+    "trend_continuation",
+    `a confirmed real rolling-high break should activate follow monitoring: ${postStart.snapshot.postBreakout.reason}`,
+  );
+  assert.equal(postStart.snapshot.postBreakout.active, true, "only a proven live break should activate monitoring");
+  assert.ok(
+    (postStart.snapshot.postBreakout.breakoutPrice ?? 0) > 100
+      && (postStart.snapshot.postBreakout.breakoutPrice ?? 0) < (postStart.snapshot.postBreakout.latestPrice ?? Infinity),
+    "monitoring should retain an observed prior high, not invent a target",
+  );
+
+  const weakSnapshot = {
+    ...confirmedSnapshot,
+    changeIndicators: { ...confirmedSnapshot.changeIndicators, volumeAcceleration: -12 },
+    orderFlowPressure: { ...confirmedSnapshot.orderFlowPressure, value: -25 },
+  };
+  const weakTrades = breakoutTrades.map((trade, index) => ({
+    ...trade,
+    price: index === breakoutTrades.length - 1 ? 99.7 : trade.price,
+    side: "A",
+  }));
+  const weakQuotes = [...quotes, {
+    timestamp: now,
+    bidPrice: 99.69,
+    askPrice: 99.71,
+    bidSize: 50,
+    askSize: 400,
+  }];
+  const firstWeak = updatePostBreakoutMonitoring(postStart.snapshot, postStart.machine, {
+    now,
+    connectionState: "streaming",
+    quotes: weakQuotes,
+    trades: weakTrades,
+    bars: [],
+  });
+  assert.equal(firstWeak.snapshot.postBreakout.state, "take_profit_watch", "weak live flow and a lost break should warn without a fixed-percent target");
+  assert.equal(
+    firstWeak.snapshot.counterEvidence.strength,
+    "strong",
+    "a lost real breakout and weakening post-breakout structure must be published as strong counter-evidence",
+  );
+  const secondWeak = updatePostBreakoutMonitoring(firstWeak.snapshot, firstWeak.machine, {
+    now: new Date(now.getTime() + 1_000),
+    connectionState: "streaming",
+    quotes: weakQuotes.map((quote) => ({ ...quote, timestamp: new Date(now.getTime() + 1_000) })),
+    trades: weakTrades.map((trade) => ({ ...trade, timestamp: new Date(now.getTime() + 1_000) })),
+    bars: [],
+  });
+  assert.equal(secondWeak.snapshot.postBreakout.state, "trend_reversal_confirmed", "reversal requires consecutive real weak scans");
+  const stalePost = updatePostBreakoutMonitoring(secondWeak.snapshot, secondWeak.machine, {
+    now: new Date(now.getTime() + 30_000),
+    connectionState: "streaming",
+    quotes: weakQuotes,
+    trades: weakTrades,
+    bars: [],
+  });
+  assert.equal(stalePost.snapshot.postBreakout.state, "unavailable", "stale observations must suppress post-breakout exit signals");
+  assert.equal(stalePost.machine.active, false, "a stale interval must discard the prior breakout context");
+  const recoveredWithoutBreak = updatePostBreakoutMonitoring(stalePost.snapshot, stalePost.machine, {
+    now: new Date(now.getTime() + 31_000),
+    connectionState: "streaming",
+    quotes: [{
+      timestamp: new Date(now.getTime() + 31_000),
+      bidPrice: 99.69,
+      askPrice: 99.71,
+      bidSize: 50,
+      askSize: 400,
+    }],
+    trades: [31_000, 25_000, 20_000, 15_000, 10_000, 0].map((offset) => ({
+      timestamp: new Date(now.getTime() + 31_000 - offset),
+      price: 99.7,
+      size: 10,
+      side: "A",
+    })),
+    bars: [],
+  });
+  assert.equal(
+    recoveredWithoutBreak.snapshot.postBreakout.state,
+    "unavailable",
+    "fresh recovery without a newly confirmed crossing must not resume old exit monitoring",
+  );
+
   const validHistory = [
     {
       generatedAt: new Date(now.getTime() - 65_000),
@@ -123,6 +243,21 @@ try {
   assert.equal(dynamicActive.preBreakoutWatch, true, "multiple improving fresh components should enable the advisory watch");
   assert.equal(dynamicActive.scan.scanMode, "opening", "scan metadata should retain the adaptive opening mode");
   assert.equal(dynamicActive.scan.eventTriggered, true, "scan metadata should retain the event trigger");
+  assert.equal(
+    dynamicActive.multiTimeframe.alignment,
+    "aligned",
+    "short-window strength must be explained by supportive observed medium and higher contexts",
+  );
+  assert.equal(
+    dynamicActive.dataConfidence.state,
+    "high",
+    "complete fresh evidence with aligned observed contexts should earn high Data Confidence",
+  );
+  assert.equal(
+    dynamicActive.score,
+    active.score,
+    "Data Confidence and timeframe context must not alter the Signal Score opportunity-strength formula",
+  );
 
   const stronglyImproving = {
     ...dynamicActive,
@@ -161,17 +296,17 @@ try {
     detected.snapshot.preBreakout.confirmation.missingEvidence.includes("Persistent multi-scan trajectory"),
     "single-scan confirmation should explain the missing trajectory persistence",
   );
-  for (const expectedState of ["accelerating", "pre_breakout", "confirmed"]) {
+  for (const expectedState of ["latent", "breakout_critical", "confirmed"]) {
     detected = updatePreBreakoutDetection(
       stronglyImproving,
       machine,
-      new Date(now.getTime() + (expectedState === "accelerating" ? 2 : expectedState === "pre_breakout" ? 4 : 6) * 1_000),
+      new Date(now.getTime() + (expectedState === "latent" ? 2 : expectedState === "breakout_critical" ? 4 : 6) * 1_000),
     );
     machine = detected.machine;
     detected = updatePreBreakoutDetection(
       stronglyImproving,
       machine,
-      new Date(now.getTime() + (expectedState === "accelerating" ? 3 : expectedState === "pre_breakout" ? 5 : 7) * 1_000),
+      new Date(now.getTime() + (expectedState === "latent" ? 3 : expectedState === "breakout_critical" ? 5 : 7) * 1_000),
     );
     machine = detected.machine;
     assert.equal(detected.snapshot.preBreakout.state, expectedState, `two confirming scans should promote ${expectedState}`);
@@ -191,6 +326,35 @@ try {
     detected.snapshot.preBreakout.confirmation.missingEvidence,
     [],
     "confirmed evidence should not report missing categories",
+  );
+  const strongCounterEvidence = updatePreBreakoutDetection(
+    {
+      ...stronglyImproving,
+      dataConfidence: { ...stronglyImproving.dataConfidence, state: "high", score: 100 },
+      orderFlowPressure: { ...stronglyImproving.orderFlowPressure, value: -25 },
+      changeIndicators: {
+        ...stronglyImproving.changeIndicators,
+        orderFlowShift: -12,
+        volumeAcceleration: -12,
+      },
+    },
+    detected.machine,
+    new Date(now.getTime() + 9_000),
+  );
+  assert.equal(
+    strongCounterEvidence.snapshot.counterEvidence.strength,
+    "strong",
+    "independent observed selling pressure and price/volume divergence must be recorded as strong counter-evidence",
+  );
+  assert.notEqual(
+    strongCounterEvidence.snapshot.preBreakout.state,
+    "confirmed",
+    "strong counter-evidence must prevent a highest-grade stage from persisting",
+  );
+  assert.equal(
+    strongCounterEvidence.snapshot.preBreakout.state,
+    "watch",
+    "a confirmed signal losing confirmation under strong counter-evidence must not degrade into an alertable breakout-critical state",
   );
   const strongestEvidenceLossCases = [
     {
@@ -226,13 +390,12 @@ try {
     );
     assert.notEqual(
       forcedDowngrade.snapshot.preBreakout.state,
-      "pre_breakout",
-      `losing ${lossCase.label} must immediately remove PRE-BREAKOUT`,
-    );
-    assert.notEqual(
-      forcedDowngrade.snapshot.preBreakout.state,
       "confirmed",
       `losing ${lossCase.label} must immediately remove CONFIRMED`,
+    );
+    assert.ok(
+      ["watch", "latent", "breakout_critical"].includes(forcedDowngrade.snapshot.preBreakout.state),
+      `losing ${lossCase.label} must immediately downgrade to a non-confirmed stage`,
     );
     assert.notEqual(
       forcedDowngrade.snapshot.preBreakout.confirmation.status,
@@ -274,8 +437,8 @@ try {
     twoSignalMachine = result.machine;
     assert.notEqual(
       result.snapshot.preBreakout.state,
-      "pre_breakout",
-      "two direct components plus derived Alpha Velocity must not reach pre-breakout",
+      "breakout_critical",
+      "two direct components plus derived Alpha Velocity must not reach breakout-critical",
     );
     assert.notEqual(
       result.snapshot.preBreakout.state,
@@ -305,8 +468,8 @@ try {
   );
   assert.notEqual(
     isolatedSpike.snapshot.preBreakout.state,
-    "pre_breakout",
-    "the confirmation gate must block PRE-BREAKOUT after one spike",
+    "breakout_critical",
+    "the confirmation gate must block BREAKOUT-CRITICAL after one spike",
   );
   assert.notEqual(
     isolatedSpike.snapshot.preBreakout.state,
@@ -361,8 +524,8 @@ try {
 
   const historyEntry = (index, overrides = {}) => ({
     occurredAt: new Date(now.getTime() + index * 1_000),
-    fromState: index % 2 === 0 ? "watch" : "accelerating",
-    toState: index % 2 === 0 ? "accelerating" : "watch",
+    fromState: index % 2 === 0 ? "watch" : "latent",
+    toState: index % 2 === 0 ? "latent" : "watch",
     fromConfirmationStatus: index % 2 === 0 ? "rejected" : "pending",
     toConfirmationStatus: index % 2 === 0 ? "pending" : "rejected",
     score: 60 + index,
@@ -379,8 +542,8 @@ try {
   signalHistory = appendSignalHistoryEntry(
     signalHistory,
     historyEntry(1, {
-      fromState: "accelerating",
-      toState: "accelerating",
+      fromState: "latent",
+      toState: "latent",
       fromConfirmationStatus: "pending",
       toConfirmationStatus: "pending",
     }),

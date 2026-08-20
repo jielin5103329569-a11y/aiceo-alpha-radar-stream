@@ -579,7 +579,7 @@ try {
     const historyEntry = {
       occurredAt: new Date(scanAt.getTime() - 1_000),
       fromState: strengthening ? "watch" : "confirmed",
-      toState: strengthening ? "accelerating" : "watch",
+      toState: strengthening ? "latent" : "watch",
       fromConfirmationStatus: strengthening ? "rejected" : "confirmed",
       toConfirmationStatus: strengthening ? "pending" : "rejected",
       score,
@@ -615,7 +615,7 @@ try {
         },
         preBreakout: {
           ...freshAlpha.preBreakout,
-          state: marketFeedState === "streaming" ? "accelerating" : "unavailable",
+          state: marketFeedState === "streaming" ? "latent" : "unavailable",
           dataFresh: marketFeedState === "streaming",
           confirmation: {
             ...freshAlpha.preBreakout.confirmation,

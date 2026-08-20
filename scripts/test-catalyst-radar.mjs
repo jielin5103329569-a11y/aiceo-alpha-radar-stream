@@ -9,7 +9,7 @@ import typescript from "typescript";
 const outputDirectory = mkdtempSync(join(tmpdir(), "catalyst-radar-test-"));
 const outputPath = join(outputDirectory, "catalystRadar.cjs");
 
-function freshAlphaRadar({ state = "pre_breakout", confirmation = "confirmed" } = {}) {
+function freshAlphaRadar({ state = "breakout_critical", confirmation = "confirmed" } = {}) {
   const evidence = [
     { key: "price_momentum", label: "Fresh price momentum", satisfied: true, detail: "Positive." },
     { key: "volume_acceleration", label: "Volume acceleration", satisfied: true, detail: "Elevated." },

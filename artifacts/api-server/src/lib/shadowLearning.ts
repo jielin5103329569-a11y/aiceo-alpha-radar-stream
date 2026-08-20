@@ -14,6 +14,7 @@ import {
   buildShadowOutcome,
   comparableMetrics,
   evaluateShadowPromotion,
+  assessStageFeatureValue,
   isEligibleShadowObservation,
   isIndependentHoldout,
   matchShadowBaselineCohorts,
@@ -25,6 +26,14 @@ import {
   type ShadowPromotionRecommendation,
   type ShadowTriggerInput,
   type ShadowPersistenceState,
+  type ShadowLifecycleSnapshot,
+  type ShadowFeatureKey,
+  type ShadowLearningStage,
+  type ShadowInputSummary,
+  type ShadowStageFeatureValueAssessment,
+  type ShadowCoreLearningPolicy,
+  SHADOW_CORE_LEARNING_POLICY,
+  SHADOW_STAGE_RULES,
   SHADOW_SCAN_WINDOW,
   SHADOW_STRATEGY_VERSION,
   VALIDATION_HORIZONS,
@@ -59,6 +68,8 @@ export type ShadowLearningDashboard = {
     candidateSource: string;
   } | null;
   promotion: ShadowPromotionRecommendation;
+  learningPolicy: ShadowCoreLearningPolicy;
+  stageFeatureAssessments: ShadowStageFeatureValueAssessment[];
   recentTriggers: Array<{
     eventKey: string;
     recordHash: string;
@@ -88,6 +99,7 @@ type PriceInput = {
     complete: boolean;
     eligible: boolean;
   };
+  lifecycleSnapshot: ShadowLifecycleSnapshot;
 };
 
 function metricInput(outcome: {
@@ -124,6 +136,119 @@ function maskedMetrics(inputs: ValidationMetricInput[]): ShadowMetricComparison 
         falsePositiveRatePercent: null,
         averageLeadTimeMinutes: null,
       };
+}
+
+function isStoredShadowInputSummary(value: unknown): value is ShadowInputSummary {
+  if (!value || typeof value !== "object") return false;
+  const candidate = value as { learningStage?: unknown };
+  return candidate.learningStage === "pre_breakout"
+    || candidate.learningStage === "true_breakout"
+    || candidate.learningStage === "post_breakout";
+}
+
+function stageFeatureAssessments(
+  triggers: Array<{
+    id: string;
+    inputSummary: unknown;
+  }>,
+  outcomes: Array<{
+    triggerId: string;
+    outcome: {
+      hit: boolean | null;
+      favorableReturnPercent: number | null;
+      maxDrawdownPercent: number | null;
+      leadTimeMinutes: number | null;
+      stageOutcome: unknown;
+    };
+  }>,
+): ShadowStageFeatureValueAssessment[] {
+  const correlationPercent = (pairs: Array<{ left: number; right: number }>): number | null => {
+    if (pairs.length < 2) return null;
+    const leftMean = pairs.reduce((total, pair) => total + pair.left, 0) / pairs.length;
+    const rightMean = pairs.reduce((total, pair) => total + pair.right, 0) / pairs.length;
+    const numerator = pairs.reduce(
+      (total, pair) => total + (pair.left - leftMean) * (pair.right - rightMean),
+      0,
+    );
+    const leftMagnitude = Math.sqrt(pairs.reduce(
+      (total, pair) => total + (pair.left - leftMean) ** 2,
+      0,
+    ));
+    const rightMagnitude = Math.sqrt(pairs.reduce(
+      (total, pair) => total + (pair.right - rightMean) ** 2,
+      0,
+    ));
+    if (leftMagnitude === 0 || rightMagnitude === 0) return null;
+    return Math.abs(numerator / (leftMagnitude * rightMagnitude)) * 100;
+  };
+  const triggerById = new Map(triggers.map((trigger) => [trigger.id, trigger]));
+  const stages = Object.keys(SHADOW_STAGE_RULES) as ShadowLearningStage[];
+  return stages.flatMap((stage) => {
+    const featureKeys = Object.keys(SHADOW_STAGE_RULES[stage].featureWeights) as ShadowFeatureKey[];
+    const completeStageRows = outcomes.flatMap(({ triggerId, outcome }) => {
+      const trigger = triggerById.get(triggerId);
+      const inputSummary = trigger?.inputSummary;
+      if (
+        !trigger
+        || !isStoredShadowInputSummary(inputSummary)
+        || inputSummary.learningStage !== stage
+        || outcome.hit === null
+        || outcome.favorableReturnPercent === null
+        || outcome.maxDrawdownPercent === null
+      ) return [];
+      const stageOutcome = outcome.stageOutcome as {
+        maximumAdverseExcursionPercent?: number | null;
+        falseBreakoutObserved?: boolean | null;
+      } | null;
+      return [{
+        eventKey: trigger.id,
+        inputSummary,
+        hit: outcome.hit,
+        favorableReturnPercent: outcome.favorableReturnPercent,
+        maxAdversePercent: stageOutcome?.maximumAdverseExcursionPercent
+          ?? Math.max(0, outcome.maxDrawdownPercent),
+        leadTimeMinutes: outcome.leadTimeMinutes,
+        falseSignal: stageOutcome?.falseBreakoutObserved ?? null,
+      }];
+    });
+    return featureKeys.map((featureKey) => {
+      const stageRows = completeStageRows.map((row) => ({
+        eventKey: row.eventKey,
+        featureValue: row.inputSummary.stageFeatures?.[featureKey] ?? null,
+        hit: row.hit,
+        favorableReturnPercent: row.favorableReturnPercent,
+        maxAdversePercent: row.maxAdversePercent,
+        leadTimeMinutes: row.leadTimeMinutes,
+        falseSignal: row.falseSignal,
+      }));
+      const redundancyPercent = (() => {
+        const overlap = featureKeys
+          .filter((peerKey) => peerKey !== featureKey)
+          .map((peerKey) => correlationPercent(completeStageRows.flatMap((row) => {
+            const featureValue = row.inputSummary.stageFeatures?.[featureKey];
+            const peerValue = row.inputSummary.stageFeatures?.[peerKey];
+            return (
+              typeof featureValue === "number"
+              && Number.isFinite(featureValue)
+              && typeof peerValue === "number"
+              && Number.isFinite(peerValue)
+            )
+              ? [{ left: featureValue, right: peerValue }]
+              : [];
+          })))
+          .filter((value): value is number => value !== null);
+        return overlap.length > 0 ? Math.max(...overlap) : null;
+      })();
+      return assessStageFeatureValue({
+        stage,
+        featureKey,
+        samples: stageRows,
+        redundancyPercent,
+        persistenceState: "available",
+        auditComplete: stageRows.every((row) => row.falseSignal !== null),
+      });
+    });
+  });
 }
 
 function shadowObservationKey(input: PriceInput): string {
@@ -191,6 +316,7 @@ export class ShadowLearningService {
       price: input.price,
       source: input.source,
       freshness: "fresh",
+      lifecycleSnapshot: input.lifecycleSnapshot,
     });
     if (this.pendingPriceKeys.has(observation.observationKey)) return;
     this.pendingPriceKeys.add(observation.observationKey);
@@ -387,6 +513,8 @@ export class ShadowLearningService {
             }
           : null,
         promotion,
+        learningPolicy: SHADOW_CORE_LEARNING_POLICY,
+        stageFeatureAssessments: stageFeatureAssessments(triggers, shadowOutcomes),
         recentTriggers: triggers.slice(0, 10).map((trigger) => ({
           eventKey: trigger.eventKey,
           recordHash: trigger.recordHash,
@@ -431,6 +559,8 @@ export class ShadowLearningService {
       shadow: maskedMetrics([]),
       strategy: null,
       promotion: withheld,
+      learningPolicy: SHADOW_CORE_LEARNING_POLICY,
+      stageFeatureAssessments: [],
       recentTriggers: [],
     };
   }
@@ -515,8 +645,16 @@ export class ShadowLearningService {
     if (existing && existing.recordHash !== observation.recordHash) {
       throw new Error("Shadow price database record conflicts with immutable archive evidence.");
     }
-    await dbModule.db.insert(dbModule.shadowLearningPriceObservationsTable).values(observation)
-      .onConflictDoNothing();
+    await dbModule.db.insert(dbModule.shadowLearningPriceObservationsTable).values({
+      observationKey: observation.observationKey,
+      recordHash: observation.recordHash,
+      symbol: observation.symbol,
+      observedAt: observation.observedAt,
+      price: observation.price,
+      source: observation.source,
+      freshness: observation.freshness,
+      contextSnapshot: observation.lifecycleSnapshot ?? null,
+    }).onConflictDoNothing();
   }
 
   private async materializeOutcomes(symbol: string): Promise<void> {
@@ -530,9 +668,19 @@ export class ShadowLearningService {
     const observations = prices.map((price) => ({
       observedAt: price.observedAt,
       price: price.price,
+      lifecycleSnapshot: price.contextSnapshot as ShadowLifecycleSnapshot | undefined,
     }));
     for (const trigger of triggers) {
-      const immutable = trigger as ImmutableShadowTrigger;
+      const storedInputSummary = trigger.inputSummary as ShadowInputSummary;
+      const learningStage = storedInputSummary.learningStage ?? "pre_breakout";
+      const immutable = {
+        ...trigger,
+        learningStage,
+        inputSummary: {
+          ...storedInputSummary,
+          learningStage,
+        },
+      } as unknown as ImmutableShadowTrigger;
       for (const horizonDays of VALIDATION_HORIZONS) {
         const outcome = buildShadowOutcome(immutable, horizonDays, observations);
         if (outcome.checkpointStatus !== "complete" || this.pendingOutcomeKeys.has(outcome.outcomeKey)) continue;
@@ -576,6 +724,7 @@ export class ShadowLearningService {
       maxDrawdownPercent: outcome.maxDrawdownPercent,
       hit: outcome.hit,
       leadTimeMinutes: outcome.leadTimeMinutes,
+      stageOutcome: outcome.stageOutcome,
       reason: outcome.reason,
     }).onConflictDoNothing();
   }

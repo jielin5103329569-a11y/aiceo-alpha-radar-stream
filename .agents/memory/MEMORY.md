@@ -11,3 +11,6 @@
 - [Artifact workflow port ownership](artifact-workflow-port-ownership.md) — Managed API and web workflows need exclusive listener ownership; never add substitute workflows for port conflicts.
 - [Shadow Learning isolation](shadow-learning-isolation.md) — Experimental strategy evidence is archive-backed, sidecar-only, and can never alter production radar behavior.
 - [Sector-first priority](sector-first-priority.md) — Sector strength is a live-evidence multiplier and final promotion remains fail-closed across every independent input.
+- [Three-stage core learning](three-stage-core-learning.md) — All future background learning must serve one of the three independent Alpha Radar stages.
+- [Signal quality mechanisms](signal-quality-mechanisms.md) — Signal strength stays separate from confidence; multi-timeframe and counter-evidence constrain high-grade upgrades.
+- [Post-breakout production policy](post-breakout-production-policy.md) — Keep the verified production trend, take-profit, and reversal monitor as the third-stage capability.

@@ -19,7 +19,9 @@ export type AlertSectorLeaderGrade = typeof AlertSectorLeaderGrade[keyof typeof 
 
 
 export const AlertSectorLeaderGrade = {
-  strong: 'strong',
+  confirmed: 'confirmed',
+  critical: 'critical',
+  latent: 'latent',
   watch: 'watch',
 } as const;
 
@@ -764,15 +766,155 @@ export interface AlphaChangeIndicators {
   spreadTightening: number | null;
 }
 
+export type AlphaRadarTimeframeContextDirection = typeof AlphaRadarTimeframeContextDirection[keyof typeof AlphaRadarTimeframeContextDirection];
+
+
+export const AlphaRadarTimeframeContextDirection = {
+  supportive: 'supportive',
+  weakening: 'weakening',
+  mixed: 'mixed',
+  unavailable: 'unavailable',
+} as const;
+
+export interface AlphaRadarTimeframeContext {
+  /** @minimum 1 */
+  windowMs: number;
+  /** @minimum 0 */
+  sampleCount: number;
+  /** @nullable */
+  score: number | null;
+  /** @nullable */
+  momentumScore: number | null;
+  /** @nullable */
+  volumeScore: number | null;
+  /** @nullable */
+  orderFlowScore: number | null;
+  /** @nullable */
+  spreadScore: number | null;
+  direction: AlphaRadarTimeframeContextDirection;
+  available: boolean;
+  reason: string;
+}
+
+export type AlphaRadarMultiTimeframeContextAlignment = typeof AlphaRadarMultiTimeframeContextAlignment[keyof typeof AlphaRadarMultiTimeframeContextAlignment];
+
+
+export const AlphaRadarMultiTimeframeContextAlignment = {
+  aligned: 'aligned',
+  mixed: 'mixed',
+  conflicted: 'conflicted',
+  unavailable: 'unavailable',
+} as const;
+
+export interface AlphaRadarMultiTimeframeContext {
+  short: AlphaRadarTimeframeContext;
+  medium: AlphaRadarTimeframeContext;
+  higher: AlphaRadarTimeframeContext;
+  alignment: AlphaRadarMultiTimeframeContextAlignment;
+  reason: string;
+}
+
+export type AlphaRadarDataConfidenceState = typeof AlphaRadarDataConfidenceState[keyof typeof AlphaRadarDataConfidenceState];
+
+
+export const AlphaRadarDataConfidenceState = {
+  high: 'high',
+  adequate: 'adequate',
+  low: 'low',
+  unavailable: 'unavailable',
+} as const;
+
+export interface AlphaRadarDataConfidence {
+  /**
+     * @minimum 0
+     * @maximum 100
+     * @nullable
+     */
+  score: number | null;
+  state: AlphaRadarDataConfidenceState;
+  /**
+     * @minimum 0
+     * @maximum 100
+     * @nullable
+     */
+  completeness: number | null;
+  /**
+     * @minimum 0
+     * @maximum 100
+     * @nullable
+     */
+  freshness: number | null;
+  /**
+     * @minimum 0
+     * @maximum 100
+     * @nullable
+     */
+  stability: number | null;
+  /**
+     * @minimum 0
+     * @maximum 100
+     * @nullable
+     */
+  evidenceConsistency: number | null;
+  reason: string;
+}
+
+export type AlphaRadarCounterEvidenceKey = typeof AlphaRadarCounterEvidenceKey[keyof typeof AlphaRadarCounterEvidenceKey];
+
+
+export const AlphaRadarCounterEvidenceKey = {
+  sector_or_market_weakness: 'sector_or_market_weakness',
+  selling_pressure: 'selling_pressure',
+  price_volume_divergence: 'price_volume_divergence',
+  breakout_failure: 'breakout_failure',
+  structural_support_loss: 'structural_support_loss',
+} as const;
+
+export interface AlphaRadarCounterEvidence {
+  key: AlphaRadarCounterEvidenceKey;
+  label: string;
+  available: boolean;
+  opposesSignal: boolean;
+  detail: string;
+}
+
+export type AlphaRadarCounterEvidenceAssessmentStrength = typeof AlphaRadarCounterEvidenceAssessmentStrength[keyof typeof AlphaRadarCounterEvidenceAssessmentStrength];
+
+
+export const AlphaRadarCounterEvidenceAssessmentStrength = {
+  none: 'none',
+  moderate: 'moderate',
+  strong: 'strong',
+  unavailable: 'unavailable',
+} as const;
+
+export interface AlphaRadarCounterEvidenceAssessment {
+  strength: AlphaRadarCounterEvidenceAssessmentStrength;
+  blocksHighGradeUpgrade: boolean;
+  evidence: AlphaRadarCounterEvidence[];
+  reasons: string[];
+  reason: string;
+}
+
 export type PreBreakoutDetectionState = typeof PreBreakoutDetectionState[keyof typeof PreBreakoutDetectionState];
 
 
 export const PreBreakoutDetectionState = {
   unavailable: 'unavailable',
   watch: 'watch',
-  accelerating: 'accelerating',
-  pre_breakout: 'pre_breakout',
+  latent: 'latent',
+  breakout_critical: 'breakout_critical',
   confirmed: 'confirmed',
+} as const;
+
+export type PostBreakoutState = typeof PostBreakoutState[keyof typeof PostBreakoutState];
+
+
+export const PostBreakoutState = {
+  unavailable: 'unavailable',
+  trend_continuation: 'trend_continuation',
+  take_profit_watch: 'take_profit_watch',
+  trend_reversal_confirmed: 'trend_reversal_confirmed',
 } as const;
 
 export type PreBreakoutConfirmationStatus = typeof PreBreakoutConfirmationStatus[keyof typeof PreBreakoutConfirmationStatus];
@@ -820,6 +962,18 @@ export interface PreBreakoutConfirmation {
 
 export interface PreBreakoutDetection {
   state: PreBreakoutDetectionState;
+  /**
+     * @minimum 0
+     * @maximum 100
+     * @nullable
+     */
+  latentScore: number | null;
+  /**
+     * @minimum 0
+     * @maximum 100
+     * @nullable
+     */
+  breakoutCriticalScore: number | null;
   /** @minimum 0 */
   evidenceCount: number;
   velocityGateSatisfied: boolean;
@@ -838,6 +992,38 @@ export interface PreBreakoutDetection {
      */
   cooldownRemainingMs: number | null;
   confirmation: PreBreakoutConfirmation;
+}
+
+export interface PostBreakoutMonitoring {
+  state: PostBreakoutState;
+  active: boolean;
+  dataFresh: boolean;
+  /** @nullable */
+  breakoutPrice: number | null;
+  /** @nullable */
+  highSinceBreakout: number | null;
+  /** @nullable */
+  drawdownFromHighPercent: number | null;
+  /** @nullable */
+  latestPrice: number | null;
+  /** @nullable */
+  activeBuyPressure: number | null;
+  /** @nullable */
+  l1BidPressure: number | null;
+  /** @nullable */
+  volumeAcceleration: number | null;
+  /** @nullable */
+  tradeRateChange: number | null;
+  supportReasons: string[];
+  deteriorationReasons: string[];
+  /** @minimum 0 */
+  consecutiveWeakScans: number;
+  /** @minimum 0 */
+  consecutiveReversalScans: number;
+  /** @nullable */
+  lastTransitionAt: string | null;
+  lastEvaluatedAt: string;
+  reason: string;
 }
 
 export interface RadarSignalMetric {
@@ -870,6 +1056,7 @@ export interface AlphaRadarSnapshot {
   status: AlphaRadarSignalState | null;
   scoreState: AlphaRadarScoreState;
   confidence: number;
+  dataConfidence: AlphaRadarDataConfidence;
   dataQuality: RadarSignalDataQuality;
   generatedAt: string;
   warnings: string[];
@@ -877,8 +1064,11 @@ export interface AlphaRadarSnapshot {
   scan: AlphaRadarScanMetadata;
   alphaVelocity: AlphaVelocity;
   changeIndicators: AlphaChangeIndicators;
+  multiTimeframe: AlphaRadarMultiTimeframeContext;
+  counterEvidence: AlphaRadarCounterEvidenceAssessment;
   preBreakoutWatch: boolean;
   preBreakout: PreBreakoutDetection;
+  postBreakout: PostBreakoutMonitoring;
   momentum: RadarSignalMetric;
   spread: RadarSignalMetric;
   volumeIntensity: RadarSignalMetric;
@@ -1284,7 +1474,9 @@ export type SectorPriorityCandidateStage = typeof SectorPriorityCandidateStage[k
 
 export const SectorPriorityCandidateStage = {
   candidate: 'candidate',
-  pre_breakout: 'pre_breakout',
+  latent: 'latent',
+  breakout_critical: 'breakout_critical',
+  confirmed: 'confirmed',
   withheld: 'withheld',
 } as const;
 
@@ -1453,6 +1645,18 @@ export interface SectorPriorityCandidate {
      * @nullable
      */
   baseRankingScore: number | null;
+  /**
+     * @minimum 0
+     * @maximum 100
+     * @nullable
+     */
+  latentScore: number | null;
+  /**
+     * @minimum 0
+     * @maximum 100
+     * @nullable
+     */
+  breakoutCriticalScore: number | null;
   stage: SectorPriorityCandidateStage;
   evidence: SectorPriorityCandidateEvidence;
   missing: string[];
@@ -1465,6 +1669,7 @@ export interface SectorPrioritySnapshot {
   coverage: SectorPriorityCoverage;
   sectors: SectorPrioritySector[];
   finalCandidates: SectorPriorityCandidate[];
+  latentCandidates: SectorPriorityCandidate[];
   preBreakoutCandidates: SectorPriorityCandidate[];
   withheldCandidates: SectorPriorityCandidate[];
   reason: string;
@@ -1475,8 +1680,8 @@ export type ValidationSignalState = typeof ValidationSignalState[keyof typeof Va
 
 export const ValidationSignalState = {
   watch: 'watch',
-  accelerating: 'accelerating',
-  pre_breakout: 'pre_breakout',
+  latent: 'latent',
+  breakout_critical: 'breakout_critical',
   confirmed: 'confirmed',
 } as const;
 
@@ -1788,6 +1993,92 @@ export const ShadowLearningDashboardSelectedHorizonDays = {
   NUMBER_20: 20,
 } as const;
 
+export type ShadowCoreLearningPolicyPriority = typeof ShadowCoreLearningPolicyPriority[keyof typeof ShadowCoreLearningPolicyPriority];
+
+
+export const ShadowCoreLearningPolicyPriority = {
+  highest: 'highest',
+} as const;
+
+export type ShadowCoreLearningPolicySharedValueCriteriaItem = typeof ShadowCoreLearningPolicySharedValueCriteriaItem[keyof typeof ShadowCoreLearningPolicySharedValueCriteriaItem];
+
+
+export const ShadowCoreLearningPolicySharedValueCriteriaItem = {
+  predictive_power: 'predictive_power',
+  earliness: 'earliness',
+  risk_reward_improvement: 'risk_reward_improvement',
+  incremental_information_value: 'incremental_information_value',
+  stability: 'stability',
+  noise_false_signal_rate: 'noise_false_signal_rate',
+} as const;
+
+export type ShadowCoreLearningPolicyDirections = {[key: string]: {
+  label: string;
+  objective: string;
+}};
+
+export interface ShadowCoreLearningPolicy {
+  version: string;
+  priority: ShadowCoreLearningPolicyPriority;
+  directions: ShadowCoreLearningPolicyDirections;
+  sharedValueCriteria: ShadowCoreLearningPolicySharedValueCriteriaItem[];
+  coreAdmissionRule: string;
+}
+
+export type ShadowStageFeatureValueAssessmentStage = typeof ShadowStageFeatureValueAssessmentStage[keyof typeof ShadowStageFeatureValueAssessmentStage];
+
+
+export const ShadowStageFeatureValueAssessmentStage = {
+  pre_breakout: 'pre_breakout',
+  true_breakout: 'true_breakout',
+  post_breakout: 'post_breakout',
+} as const;
+
+export type ShadowStageFeatureValueAssessmentTier = typeof ShadowStageFeatureValueAssessmentTier[keyof typeof ShadowStageFeatureValueAssessmentTier];
+
+
+export const ShadowStageFeatureValueAssessmentTier = {
+  A_core: 'A_core',
+  B_supporting: 'B_supporting',
+  C_redundant: 'C_redundant',
+  D_noise: 'D_noise',
+  unavailable: 'unavailable',
+} as const;
+
+export type ShadowStageFeatureValueAssessmentSampleState = typeof ShadowStageFeatureValueAssessmentSampleState[keyof typeof ShadowStageFeatureValueAssessmentSampleState];
+
+
+export const ShadowStageFeatureValueAssessmentSampleState = {
+  available: 'available',
+  insufficient_sample: 'insufficient_sample',
+  unavailable: 'unavailable',
+} as const;
+
+export interface ShadowStageFeatureValueAssessment {
+  stage: ShadowStageFeatureValueAssessmentStage;
+  featureKey: string;
+  tier: ShadowStageFeatureValueAssessmentTier;
+  sampleState: ShadowStageFeatureValueAssessmentSampleState;
+  /** @minimum 0 */
+  sampleSize: number;
+  /** @nullable */
+  predictiveAdvantagePercent: number | null;
+  /** @nullable */
+  averageLeadTimeMinutes: number | null;
+  /** @nullable */
+  riskRewardAdvantagePercent: number | null;
+  /** @nullable */
+  incrementalValuePercent: number | null;
+  /** @nullable */
+  stabilityPercent: number | null;
+  /** @nullable */
+  noiseRatePercent: number | null;
+  /** @nullable */
+  redundancyPercent: number | null;
+  coreEligible: boolean;
+  reason: string;
+}
+
 export interface ShadowLearningDashboard {
   generatedAt: string;
   persistenceState: ShadowLearningDashboardPersistenceState;
@@ -1797,6 +2088,8 @@ export interface ShadowLearningDashboard {
   shadow: ShadowMetricComparison;
   strategy: ShadowLearningStrategy | null;
   promotion: ShadowPromotionRecommendation;
+  learningPolicy: ShadowCoreLearningPolicy;
+  stageFeatureAssessments: ShadowStageFeatureValueAssessment[];
   recentTriggers: ShadowLearningTriggerSummary[];
 }
 

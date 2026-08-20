@@ -12,7 +12,7 @@ export type PreBreakoutDetectionState = typeof PreBreakoutDetectionState[keyof t
 export const PreBreakoutDetectionState = {
   unavailable: 'unavailable',
   watch: 'watch',
-  accelerating: 'accelerating',
-  pre_breakout: 'pre_breakout',
+  latent: 'latent',
+  breakout_critical: 'breakout_critical',
   confirmed: 'confirmed',
 } as const;

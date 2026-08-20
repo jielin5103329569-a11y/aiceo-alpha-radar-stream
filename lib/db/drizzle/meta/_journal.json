@@ -50,6 +50,13 @@
       "when": 1787236800000,
       "tag": "0006_alert_record_sector_leaders",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1787240400000,
+      "tag": "0007_shadow_learning_stage_outcomes",
+      "breakpoints": true
     }
   ]
 }

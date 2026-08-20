@@ -16,6 +16,7 @@ export interface SectorPrioritySnapshot {
   coverage: SectorPriorityCoverage;
   sectors: SectorPrioritySector[];
   finalCandidates: SectorPriorityCandidate[];
+  latentCandidates: SectorPriorityCandidate[];
   preBreakoutCandidates: SectorPriorityCandidate[];
   withheldCandidates: SectorPriorityCandidate[];
   reason: string;

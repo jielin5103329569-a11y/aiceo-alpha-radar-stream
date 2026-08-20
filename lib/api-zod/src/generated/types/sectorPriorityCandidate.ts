@@ -43,6 +43,18 @@ export interface SectorPriorityCandidate {
      * @nullable
      */
   baseRankingScore: number | null;
+  /**
+     * @minimum 0
+     * @maximum 100
+     * @nullable
+     */
+  latentScore: number | null;
+  /**
+     * @minimum 0
+     * @maximum 100
+     * @nullable
+     */
+  breakoutCriticalScore: number | null;
   stage: SectorPriorityCandidateStage;
   evidence: SectorPriorityCandidateEvidence;
   missing: string[];

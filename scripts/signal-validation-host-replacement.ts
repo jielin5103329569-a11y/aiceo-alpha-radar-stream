@@ -152,7 +152,7 @@ const trigger: SignalTriggerInput = {
   symbol: "NVDA",
   occurredAt: new Date("2026-07-07T14:30:00.000Z"),
   fromState: "watch",
-  state: "accelerating",
+  state: "latent",
   confirmationStatus: "pending",
   signalType: "state_transition",
   direction: "upside",

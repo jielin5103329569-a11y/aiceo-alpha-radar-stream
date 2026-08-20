@@ -251,7 +251,7 @@ exports.inArray = (col, vals) => ({ col, vals, type: "inArray" });
   function buildPassingSymbolStatus({
     symbol = "NVDA",
     score = 82,
-    detectionState = "pre_breakout",
+    detectionState = "confirmed",
     confirmationStatus = "confirmed",
   } = {}) {
     return {
@@ -293,6 +293,8 @@ exports.inArray = (col, vals) => ({ col, vals, type: "inArray" });
         preBreakoutWatch: true,
         preBreakout: {
           state: detectionState,
+          latentScore: detectionState === "latent" ? 100 : null,
+          breakoutCriticalScore: detectionState === "breakout_critical" ? 80 : null,
           evidenceCount: 4,
           velocityGateSatisfied: true,
           reasons: [],
@@ -439,7 +441,7 @@ exports.inArray = (col, vals) => ({ col, vals, type: "inArray" });
   assert.equal(db._records.length, 1, "one passing snapshot must produce one alert record");
   assert.equal(db._records[0].symbol, "NVDA", "alert record must carry the correct symbol");
   assert.ok(db._records[0].eventKey.startsWith("alert:NVDA:"), "alert record must have deterministic event key");
-  assert.equal(db._records[0].severity, "critical", "pre_breakout/confirmed must be critical");
+  assert.equal(db._records[0].severity, "critical", "confirmed breakout must be critical");
   assert.equal(db._records[0].sector, null, "missing trusted classifications must remain absent");
   assert.equal(db._records[0].industry, null, "missing trusted classifications must remain absent");
 
@@ -447,7 +449,7 @@ exports.inArray = (col, vals) => ({ col, vals, type: "inArray" });
     {
       symbol: "NVDA",
       severity: "critical",
-      triggerReason: "pre_breakout_confirmed",
+      triggerReason: "breakout_confirmed",
       alphaScore: 82,
       eventKey: "alert:NVDA:classification-test",
     },
@@ -457,7 +459,7 @@ exports.inArray = (col, vals) => ({ col, vals, type: "inArray" });
   );
   assert.equal(
     classifiedPush.body,
-    "pre breakout confirmed · Alpha 82 · Information Technology / Semiconductors",
+    "breakout confirmed · Alpha 82 · Information Technology / Semiconductors",
     "push body must append only the trusted sector and industry names",
   );
   assert.deepEqual(
@@ -465,7 +467,7 @@ exports.inArray = (col, vals) => ({ col, vals, type: "inArray" });
     {
       symbol: "NVDA",
       severity: "critical",
-      triggerReason: "pre_breakout_confirmed",
+      triggerReason: "breakout_confirmed",
       alertRecordId: "alert-record-classification-test",
       eventKey: "alert:NVDA:classification-test",
       sector: "Information Technology",
@@ -495,8 +497,8 @@ exports.inArray = (col, vals) => ({ col, vals, type: "inArray" });
   const leaderContext = buildAlertSectorLeaderContext(
     {
       sectorPriority: sectorLeaderSnapshot([
-        leaderMember("SECTORTEST", 99, { preBreakoutState: "pre_breakout", confirmationStatus: "confirmed" }),
-        leaderMember("MU", 94, { preBreakoutState: "accelerating" }),
+        leaderMember("SECTORTEST", 99, { preBreakoutState: "confirmed", confirmationStatus: "confirmed" }),
+        leaderMember("MU", 94, { preBreakoutState: "breakout_critical" }),
         leaderMember("AMD", 91),
         leaderMember("AVGO", 89),
         leaderMember("NVDA", 87),
@@ -512,8 +514,8 @@ exports.inArray = (col, vals) => ({ col, vals, type: "inArray" });
     {
       sector: "Information Technology",
       leaders: [
-        { rank: 1, symbol: "SECTORTEST", grade: "strong" },
-        { rank: 2, symbol: "MU", grade: "strong" },
+        { rank: 1, symbol: "SECTORTEST", grade: "confirmed" },
+        { rank: 2, symbol: "MU", grade: "critical" },
         { rank: 3, symbol: "AMD", grade: "watch" },
         { rank: 4, symbol: "AVGO", grade: "watch" },
         { rank: 5, symbol: "NVDA", grade: "watch" },
@@ -531,7 +533,7 @@ exports.inArray = (col, vals) => ({ col, vals, type: "inArray" });
             `PARTIAL${index + 1}`,
             100 - index,
             index === 0
-              ? { preBreakoutState: "pre_breakout", confirmationStatus: "confirmed" }
+              ? { preBreakoutState: "confirmed", confirmationStatus: "confirmed" }
               : { preBreakoutState: "watch" },
           )),
         ),
@@ -553,7 +555,7 @@ exports.inArray = (col, vals) => ({ col, vals, type: "inArray" });
   const singleUnconfirmedContext = buildAlertSectorLeaderContext(
     {
       sectorPriority: sectorLeaderSnapshot([
-        leaderMember("SINGLEPENDING", 99, { preBreakoutState: "pre_breakout", confirmationStatus: "pending" }),
+        leaderMember("SINGLEPENDING", 99, { preBreakoutState: "breakout_critical", confirmationStatus: "pending" }),
       ]),
     },
     { sector: "Information Technology", industry: "Semiconductors" },
@@ -562,7 +564,7 @@ exports.inArray = (col, vals) => ({ col, vals, type: "inArray" });
     singleUnconfirmedContext,
     {
       sector: "Information Technology",
-      leaders: [{ rank: 1, symbol: "SINGLEPENDING", grade: "strong" }],
+      leaders: [{ rank: 1, symbol: "SINGLEPENDING", grade: "critical" }],
       strongestBreakoutSymbol: null,
     },
     "a single unconfirmed stock must remain visible but must not be labeled as strongest breakout",
@@ -571,7 +573,7 @@ exports.inArray = (col, vals) => ({ col, vals, type: "inArray" });
   const noConfirmedBreakout = buildAlertSectorLeaderContext(
     {
       sectorPriority: sectorLeaderSnapshot([
-        leaderMember("MU", 94, { preBreakoutState: "accelerating" }),
+        leaderMember("MU", 94, { preBreakoutState: "latent" }),
         leaderMember("AMD", 91),
         leaderMember("AVGO", 89),
       ]),
@@ -597,7 +599,7 @@ exports.inArray = (col, vals) => ({ col, vals, type: "inArray" });
     {
       symbol: "SECTORTEST",
       severity: "critical",
-      triggerReason: "pre_breakout_confirmed",
+      triggerReason: "breakout_confirmed",
       alphaScore: 99,
       eventKey: "alert:SECTORTEST:leader-test",
     },
@@ -607,7 +609,7 @@ exports.inArray = (col, vals) => ({ col, vals, type: "inArray" });
   );
   assert.match(
     leaderPush.body,
-    /#1 SECTORTEST 🔥 最强爆发; #2 MU 🟢 强; #3 AMD 🟡 观察/,
+    /#1 SECTORTEST 🔥 最强爆发; #2 MU 🟠 爆发临界; #3 AMD 观察/,
     "push body must provide the same concise ranking and only label #1 as strongest breakout",
   );
   assert.equal(
@@ -655,7 +657,7 @@ exports.inArray = (col, vals) => ({ col, vals, type: "inArray" });
   databentoLive.emit("status", {
     symbolRadars: [buildPassingSymbolStatus({ symbol: "SINGLEBREAKOUT" })],
     sectorPriority: sectorLeaderSnapshot([
-      leaderMember("SINGLEBREAKOUT", 99, { preBreakoutState: "pre_breakout", confirmationStatus: "confirmed" }),
+      leaderMember("SINGLEBREAKOUT", 99, { preBreakoutState: "confirmed", confirmationStatus: "confirmed" }),
     ]),
   });
   await sleep(50);
@@ -666,14 +668,14 @@ exports.inArray = (col, vals) => ({ col, vals, type: "inArray" });
   assert.equal(db._records[0].industry, "Semiconductors");
   assert.deepEqual(db._records[0].sectorLeaderContext, {
     sector: "Information Technology",
-    leaders: [{ rank: 1, symbol: "SINGLEBREAKOUT", grade: "strong" }],
+    leaders: [{ rank: 1, symbol: "SINGLEBREAKOUT", grade: "confirmed" }],
     strongestBreakoutSymbol: "SINGLEBREAKOUT",
   });
   const singleBreakoutPush = buildAlertPushPayload(
     {
       symbol: "SINGLEBREAKOUT",
       severity: "critical",
-      triggerReason: "pre_breakout_confirmed",
+      triggerReason: "breakout_confirmed",
       alphaScore: 82,
       eventKey: db._records[0].eventKey,
     },
@@ -753,7 +755,7 @@ exports.inArray = (col, vals) => ({ col, vals, type: "inArray" });
     // Pre-seed a record with the exact transition identity the same status
     // object will replay. Score is intentionally absent from this identity.
     const transitionAt = passingStatus.symbolRadars[0].alphaRadar.preBreakout.lastTransitionAt;
-    const expectedEventKey = `alert:NVDA:${transitionAt.toISOString()}:pre_breakout:confirmed`;
+    const expectedEventKey = `alert:NVDA:${transitionAt.toISOString()}:confirmed:confirmed`;
     db._records.push({ id: "existing-uuid", eventKey: expectedEventKey, symbol: "NVDA" });
 
     service6.start();
@@ -857,9 +859,9 @@ exports.inArray = (col, vals) => ({ col, vals, type: "inArray" });
     },
   });
 
-  // Emit a "watch"-severity snapshot (accelerating/pending)
+  // Emit a "watch"-severity snapshot (latent/pending)
   databentoLive.emit("status", {
-    symbolRadars: [buildPassingSymbolStatus({ symbol: "VRT", detectionState: "accelerating", confirmationStatus: "pending", score: 72 })],
+    symbolRadars: [buildPassingSymbolStatus({ symbol: "VRT", detectionState: "latent", confirmationStatus: "pending", score: 72 })],
   });
   await sleep(50);
 

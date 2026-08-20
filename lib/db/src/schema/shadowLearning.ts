@@ -63,6 +63,7 @@ export const shadowLearningPriceObservationsTable = pgTable(
     price: doublePrecision("price").notNull(),
     source: text("source").notNull(),
     freshness: text("freshness").notNull(),
+    contextSnapshot: jsonb("context_snapshot"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
@@ -90,6 +91,7 @@ export const shadowLearningOutcomesTable = pgTable(
     maxDrawdownPercent: doublePrecision("max_drawdown_percent"),
     hit: boolean("hit"),
     leadTimeMinutes: doublePrecision("lead_time_minutes"),
+    stageOutcome: jsonb("stage_outcome"),
     reason: text("reason").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },

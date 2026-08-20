@@ -10,6 +10,18 @@ import type { PreBreakoutDetectionState } from './preBreakoutDetectionState';
 
 export interface PreBreakoutDetection {
   state: PreBreakoutDetectionState;
+  /**
+     * @minimum 0
+     * @maximum 100
+     * @nullable
+     */
+  latentScore: number | null;
+  /**
+     * @minimum 0
+     * @maximum 100
+     * @nullable
+     */
+  breakoutCriticalScore: number | null;
   /** @minimum 0 */
   evidenceCount: number;
   velocityGateSatisfied: boolean;

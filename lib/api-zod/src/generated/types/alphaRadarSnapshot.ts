@@ -6,12 +6,16 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { AlphaChangeIndicators } from './alphaChangeIndicators';
+import type { AlphaRadarCounterEvidenceAssessment } from './alphaRadarCounterEvidenceAssessment';
+import type { AlphaRadarDataConfidence } from './alphaRadarDataConfidence';
 import type { AlphaRadarDiagnostics } from './alphaRadarDiagnostics';
+import type { AlphaRadarMultiTimeframeContext } from './alphaRadarMultiTimeframeContext';
 import type { AlphaRadarScanMetadata } from './alphaRadarScanMetadata';
 import type { AlphaRadarScoreState } from './alphaRadarScoreState';
 import type { AlphaRadarSignalState } from './alphaRadarSignalState';
 import type { AlphaRadarSnapshotUnusualActivity } from './alphaRadarSnapshotUnusualActivity';
 import type { AlphaVelocity } from './alphaVelocity';
+import type { PostBreakoutMonitoring } from './postBreakoutMonitoring';
 import type { PreBreakoutDetection } from './preBreakoutDetection';
 import type { RadarSignalDataQuality } from './radarSignalDataQuality';
 import type { RadarSignalMetric } from './radarSignalMetric';
@@ -22,6 +26,7 @@ export interface AlphaRadarSnapshot {
   status: AlphaRadarSignalState | null;
   scoreState: AlphaRadarScoreState;
   confidence: number;
+  dataConfidence: AlphaRadarDataConfidence;
   dataQuality: RadarSignalDataQuality;
   generatedAt: Date;
   warnings: string[];
@@ -29,8 +34,11 @@ export interface AlphaRadarSnapshot {
   scan: AlphaRadarScanMetadata;
   alphaVelocity: AlphaVelocity;
   changeIndicators: AlphaChangeIndicators;
+  multiTimeframe: AlphaRadarMultiTimeframeContext;
+  counterEvidence: AlphaRadarCounterEvidenceAssessment;
   preBreakoutWatch: boolean;
   preBreakout: PreBreakoutDetection;
+  postBreakout: PostBreakoutMonitoring;
   momentum: RadarSignalMetric;
   spread: RadarSignalMetric;
   volumeIntensity: RadarSignalMetric;

@@ -25,10 +25,17 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 
 const tierBySeverity: Record<string, AlertRecord["tier"]> = {
   critical: "confirmed",
-  alert: "pre_breakout",
-  watch: "accelerating",
+  alert: "breakout_critical",
+  watch: "latent",
   info: "watch",
 };
+
+function apiMinimumSeverity(tier: AlertRecord["tier"]): "confirmed" | "pre_breakout" | "accelerating" | "watch" {
+  if (tier === "confirmed") return "confirmed";
+  if (tier === "breakout_critical") return "pre_breakout";
+  if (tier === "latent") return "accelerating";
+  return "watch";
+}
 
 function normalizeEvidence(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
@@ -39,7 +46,11 @@ function normalizeEvidence(value: unknown): string[] {
 }
 
 function mapAlert(alert: VerifiedAlphaAlert): AlertRecord {
-  const tier = tierBySeverity[alert.severity] ?? "unavailable";
+  const tier = alert.triggerReason === "trend_reversal_confirmed"
+    ? "trend_reversal_confirmed"
+    : alert.triggerReason === "take_profit_watch"
+      ? "take_profit_watch"
+      : tierBySeverity[alert.severity] ?? "unavailable";
   const satisfiedEvidence = normalizeEvidence(alert.satisfiedEvidence);
   const missingEvidence = normalizeEvidence(alert.missingEvidence);
   return {
@@ -70,7 +81,7 @@ function mapAlert(alert: VerifiedAlphaAlert): AlertRecord {
 function mapSettings(settings: AlertSettings | undefined): AlertNotificationSettings {
   return {
     browserNotificationsEnabled: settings?.browserNotificationsEnabled ?? false,
-    minimumTier: tierBySeverity[settings?.minimumSeverity ?? "watch"] ?? "accelerating",
+    minimumTier: (tierBySeverity[settings?.minimumSeverity ?? "watch"] ?? "latent") as AlertNotificationSettings["minimumTier"],
     notifyOnWatch: settings?.minimumSeverity === "info",
   };
 }
@@ -117,7 +128,7 @@ export function AccountAlerts() {
       await updateSettings.mutateAsync({
         data: {
           browserNotificationsEnabled: next.browserNotificationsEnabled,
-          minimumTier: next.minimumTier === "unavailable" ? "accelerating" : next.minimumTier,
+          minimumTier: apiMinimumSeverity(next.minimumTier),
           notifyOnWatch: next.notifyOnWatch,
         },
       });

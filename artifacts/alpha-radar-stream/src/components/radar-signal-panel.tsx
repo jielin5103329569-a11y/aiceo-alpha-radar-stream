@@ -58,18 +58,27 @@ export function RadarSignalPanel({ alphaRadar, scanHealth }: RadarSignalPanelPro
           )}>
             <span className="text-2xl font-bold">{alphaRadar.score === null ? '—' : Math.round(alphaRadar.score)}</span>
             <span className="text-[9px] uppercase tracking-wider text-muted-foreground">
-              {scoreAvailable ? '/ 100' : alphaRadar.scoreState === 'stale' ? 'Data stale' : 'Collecting'}
+              {scoreAvailable ? 'Signal score' : alphaRadar.scoreState === 'stale' ? 'Data stale' : 'Collecting'}
             </span>
           </div>
           <div className="min-w-0 self-center">
             <div className="flex items-center justify-between gap-3 text-xs uppercase tracking-wider text-muted-foreground">
               <span>Data confidence</span>
-              <span className="font-mono text-foreground">{alphaRadar.confidence}%</span>
+              <span className="font-mono text-foreground">
+                {alphaRadar.dataConfidence.score === null ? '—' : `${alphaRadar.dataConfidence.score}%`}
+              </span>
             </div>
             <div className="mt-2 h-2 overflow-hidden rounded-full bg-border">
               <div
-                className={cn('h-full rounded-full transition-all', alphaRadar.confidence >= 65 ? 'bg-primary' : alphaRadar.confidence >= 35 ? 'bg-amber-500' : 'bg-muted-foreground')}
-                style={{ width: `${alphaRadar.confidence}%` }}
+                className={cn(
+                  'h-full rounded-full transition-all',
+                  alphaRadar.dataConfidence.state === 'high'
+                    ? 'bg-primary'
+                    : alphaRadar.dataConfidence.state === 'adequate'
+                      ? 'bg-amber-500'
+                      : 'bg-muted-foreground',
+                )}
+                style={{ width: `${alphaRadar.dataConfidence.score ?? 0}%` }}
               />
             </div>
             <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -79,6 +88,9 @@ export function RadarSignalPanel({ alphaRadar, scanHealth }: RadarSignalPanelPro
               <span className="font-mono text-[10px] text-muted-foreground">
                 Updated {formatTime(alphaRadar.generatedAt)} · {formatAge(alphaRadar.generatedAt)}
               </span>
+              <Badge variant="outline" className={cn('border px-2 py-0.5 font-mono text-[10px] uppercase', dataConfidenceStyle(alphaRadar.dataConfidence.state))}>
+                {alphaRadar.dataConfidence.state} confidence
+              </Badge>
             </div>
           </div>
         </div>
@@ -172,7 +184,41 @@ export function RadarSignalPanel({ alphaRadar, scanHealth }: RadarSignalPanelPro
           </div>
         </div>
 
+        <div className="grid gap-3 lg:grid-cols-2" data-testid="alpha-radar-quality-mechanisms">
+          <div className="rounded-lg border border-border/70 bg-card p-3">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Multi-timeframe context</p>
+              <Badge variant="outline" className="font-mono text-[9px] uppercase">
+                {alphaRadar.multiTimeframe.alignment}
+              </Badge>
+            </div>
+            <div className="mt-3 grid grid-cols-3 gap-2">
+              <TimeframeValue label="Short" context={alphaRadar.multiTimeframe.short} />
+              <TimeframeValue label="Medium" context={alphaRadar.multiTimeframe.medium} />
+              <TimeframeValue label="Higher" context={alphaRadar.multiTimeframe.higher} />
+            </div>
+            <p className="mt-3 text-[10px] leading-relaxed text-muted-foreground">{alphaRadar.multiTimeframe.reason}</p>
+          </div>
+          <div className="rounded-lg border border-border/70 bg-card p-3">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Counter-evidence check</p>
+              <Badge variant="outline" className={cn('font-mono text-[9px] uppercase', counterEvidenceStyle(alphaRadar.counterEvidence.strength))}>
+                {alphaRadar.counterEvidence.strength}
+              </Badge>
+            </div>
+            <p className="mt-3 text-[10px] leading-relaxed text-muted-foreground">{alphaRadar.counterEvidence.reason}</p>
+            <div className="mt-3 flex flex-wrap gap-1.5">
+              {alphaRadar.counterEvidence.evidence.map((item) => (
+                <Badge key={item.key} variant="outline" className={cn('font-mono text-[9px]', item.opposesSignal ? 'border-destructive/40 bg-destructive/10 text-destructive' : 'text-muted-foreground')}>
+                  {item.available ? item.label : `${item.label} unavailable`}
+                </Badge>
+              ))}
+            </div>
+          </div>
+        </div>
+
         <PreBreakoutDetectionCard alphaRadar={alphaRadar} />
+        <PostBreakoutMonitoringCard alphaRadar={alphaRadar} />
 
         <div className="grid gap-3 sm:grid-cols-2">
           <SignalMetricCard icon={<Activity className="h-4 w-4" />} label="Price momentum" metric={alphaRadar.momentum} />
@@ -251,6 +297,40 @@ function ChangeIndicator({ label, value }: { label: string; value: number | null
 function formatSignedValue(value: number | null, suffix: string): string {
   if (value === null) return '—';
   return `${value >= 0 ? '+' : ''}${formatNumber(value, 1)}${suffix}`;
+}
+
+function TimeframeValue({
+  label,
+  context,
+}: {
+  label: string;
+  context: AlphaRadarSnapshot['multiTimeframe']['short'];
+}) {
+  return (
+    <div className="rounded-md border border-border/60 bg-background/60 px-2.5 py-2">
+      <p className="text-[9px] uppercase tracking-wide text-muted-foreground">{label}</p>
+      <p className={cn('mt-1 text-xs font-semibold capitalize', context.direction === 'supportive' ? 'text-primary' : context.direction === 'weakening' ? 'text-destructive' : 'text-foreground')}>
+        {context.direction}
+      </p>
+      <p className="mt-1 font-mono text-[9px] text-muted-foreground">
+        {context.score === null ? '—' : `${formatNumber(context.score, 0)} score`} · {context.sampleCount} scans
+      </p>
+    </div>
+  );
+}
+
+function dataConfidenceStyle(state: AlphaRadarSnapshot['dataConfidence']['state']): string {
+  if (state === 'high') return 'border-primary/40 bg-primary/10 text-primary';
+  if (state === 'adequate') return 'border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300';
+  if (state === 'low') return 'border-destructive/40 bg-destructive/10 text-destructive';
+  return 'border-border text-muted-foreground';
+}
+
+function counterEvidenceStyle(strength: AlphaRadarSnapshot['counterEvidence']['strength']): string {
+  if (strength === 'strong') return 'border-destructive/40 bg-destructive/10 text-destructive';
+  if (strength === 'moderate') return 'border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300';
+  if (strength === 'none') return 'border-primary/40 bg-primary/10 text-primary';
+  return 'border-border text-muted-foreground';
 }
 
 function PreBreakoutDetectionCard({ alphaRadar }: { alphaRadar: AlphaRadarSnapshot }) {
@@ -367,14 +447,81 @@ function PreBreakoutDetectionCard({ alphaRadar }: { alphaRadar: AlphaRadarSnapsh
   );
 }
 
+function PostBreakoutMonitoringCard({ alphaRadar }: { alphaRadar: AlphaRadarSnapshot }) {
+  const monitor = alphaRadar.postBreakout;
+  const stateLabel = {
+    unavailable: 'NOT ACTIVE',
+    trend_continuation: '持有 / 趋势延续',
+    take_profit_watch: '⚠️ 止盈 / 减仓关注',
+    trend_reversal_confirmed: '🔴 趋势反转 / 止盈确认',
+  }[monitor.state];
+  const stateClass = {
+    unavailable: 'border-border bg-muted text-muted-foreground',
+    trend_continuation: 'border-primary/30 bg-primary/10 text-primary',
+    take_profit_watch: 'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-300',
+    trend_reversal_confirmed: 'border-destructive/30 bg-destructive/10 text-destructive',
+  }[monitor.state];
+  return (
+    <div className="rounded-lg border border-border/70 bg-card p-3" data-testid="post-breakout-monitoring">
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div>
+          <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Post-breakout follow</p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Real trades, classified flow, volume cadence, and L1 bid/ask only. Not a fixed-percent exit target.
+          </p>
+        </div>
+        <Badge variant="outline" className={cn('border font-mono text-[9px] uppercase tracking-wide', stateClass)}>
+          {stateLabel}
+        </Badge>
+      </div>
+      {monitor.active && monitor.dataFresh ? (
+        <>
+          <div className="mt-3 grid gap-2 sm:grid-cols-3">
+            <PostBreakoutValue label="突破参考位" value={monitor.breakoutPrice === null ? '—' : formatNumber(monitor.breakoutPrice, 2)} />
+            <PostBreakoutValue label="突破后最高" value={monitor.highSinceBreakout === null ? '—' : formatNumber(monitor.highSinceBreakout, 2)} />
+            <PostBreakoutValue
+              label="距高点"
+              value={monitor.drawdownFromHighPercent === null ? '—' : `${formatNumber(monitor.drawdownFromHighPercent, 2)}%`}
+            />
+            <PostBreakoutValue label="主动买盘" value={monitor.activeBuyPressure === null ? '—' : `${formatNumber(monitor.activeBuyPressure, 1)}%`} />
+            <PostBreakoutValue label="L1 买盘压力" value={monitor.l1BidPressure === null ? '—' : `${formatNumber(monitor.l1BidPressure, 1)}%`} />
+            <PostBreakoutValue label="成交速率变化" value={monitor.tradeRateChange === null ? '—' : `${formatNumber(monitor.tradeRateChange * 100, 0)}%`} />
+          </div>
+          {monitor.deteriorationReasons.length > 0 ? (
+            <p className="mt-3 rounded-md bg-amber-500/10 px-2.5 py-2 text-xs text-amber-800 dark:text-amber-300">
+              {monitor.deteriorationReasons.join(' · ')}
+            </p>
+          ) : (
+            <p className="mt-3 text-xs text-primary">{monitor.supportReasons.join(' · ') || monitor.reason}</p>
+          )}
+        </>
+      ) : (
+        <p className="mt-3 rounded-md bg-muted px-2.5 py-2 text-xs text-muted-foreground">{monitor.reason}</p>
+      )}
+    </div>
+  );
+}
+
+function PostBreakoutValue({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-md border border-border/60 bg-background/60 px-2.5 py-2">
+      <p className="text-[9px] uppercase tracking-wide text-muted-foreground">{label}</p>
+      <p className="mt-1 font-mono text-sm font-semibold text-foreground">{value}</p>
+    </div>
+  );
+}
+
 function preBreakoutStateLabel(state: AlphaRadarSnapshot['preBreakout']['state']): string {
+  if (state === 'latent') return '潜伏候选';
+  if (state === 'breakout_critical') return '爆发临界';
+  if (state === 'confirmed') return '最强爆发';
   return state.replaceAll('_', ' ');
 }
 
 function preBreakoutStateStyle(state: AlphaRadarSnapshot['preBreakout']['state']): string {
   if (state === 'confirmed') return 'border-primary/50 bg-primary/15 text-primary';
-  if (state === 'pre_breakout') return 'border-amber-500/45 bg-amber-500/10 text-amber-700 dark:text-amber-300';
-  if (state === 'accelerating') return 'border-sky-500/35 bg-sky-500/10 text-sky-700 dark:text-sky-300';
+  if (state === 'breakout_critical') return 'border-amber-500/45 bg-amber-500/10 text-amber-700 dark:text-amber-300';
+  if (state === 'latent') return 'border-sky-500/35 bg-sky-500/10 text-sky-700 dark:text-sky-300';
   if (state === 'watch') return 'border-border bg-muted text-muted-foreground';
   return 'border-border text-muted-foreground';
 }

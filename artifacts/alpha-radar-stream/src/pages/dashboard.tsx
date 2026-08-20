@@ -937,8 +937,8 @@ function RadarUniverseCard({
 
 function detectionStateColor(state: RadarSymbolStatus['alphaRadar']['preBreakout']['state']): string {
   if (state === 'confirmed') return 'text-primary';
-  if (state === 'pre_breakout') return 'text-amber-600 dark:text-amber-300';
-  if (state === 'accelerating') return 'text-sky-600 dark:text-sky-300';
+  if (state === 'breakout_critical') return 'text-amber-600 dark:text-amber-300';
+  if (state === 'latent') return 'text-sky-600 dark:text-sky-300';
   return 'text-muted-foreground';
 }
 

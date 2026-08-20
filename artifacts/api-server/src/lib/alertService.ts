@@ -117,12 +117,16 @@ export function buildAlertSectorLeaderContext(
     leaders: rankedMembers.map((member, index) => ({
       rank: index + 1,
       symbol: member.symbol,
-      grade: ["accelerating", "pre_breakout"].includes(member.preBreakoutState)
-        ? "strong"
-        : "watch",
+      grade: member.preBreakoutState === "confirmed" && member.confirmationStatus === "confirmed"
+        ? "confirmed"
+        : member.preBreakoutState === "breakout_critical"
+          ? "critical"
+          : member.preBreakoutState === "latent"
+            ? "latent"
+            : "watch",
     })),
     strongestBreakoutSymbol: (
-      topMember.preBreakoutState === "pre_breakout"
+      topMember.preBreakoutState === "confirmed"
       && topMember.confirmationStatus === "confirmed"
     )
       ? topMember.symbol
@@ -135,9 +139,11 @@ function sectorLeaderPushSuffix(context: AlertSectorLeaderContext | null): strin
   const leaders = context.leaders.map((leader) => {
     const label = context.strongestBreakoutSymbol === leader.symbol
       ? "🔥 最强爆发"
-      : leader.grade === "strong"
-        ? "🟢 强"
-        : "🟡 观察";
+      : leader.grade === "critical"
+        ? "🟠 爆发临界"
+        : leader.grade === "latent"
+          ? "🟡 潜伏候选"
+          : "观察";
     return `#${leader.rank} ${leader.symbol} ${label}`;
   }).join("; ");
   const breakout = context.strongestBreakoutSymbol
@@ -156,8 +162,19 @@ export function buildAlertPushPayload(
     ? ` · ${classification.sector} / ${classification.industry}`
     : "";
 
+  const stageLabel = candidate.triggerReason === "breakout_confirmed"
+    ? "🔥 最强爆发"
+    : candidate.triggerReason === "breakout_critical"
+      ? "🟠 爆发临界"
+      : candidate.triggerReason === "latent_candidate"
+        ? "🟡 潜伏候选"
+        : candidate.triggerReason === "take_profit_watch"
+          ? "⚠️ 止盈/减仓关注"
+          : candidate.triggerReason === "trend_reversal_confirmed"
+            ? "🔴 趋势反转/止盈确认"
+        : candidate.severity.toUpperCase();
   return {
-    title: `${candidate.symbol} — ${candidate.severity.toUpperCase()}`,
+    title: `${candidate.symbol} — ${stageLabel}`,
     body: `${candidate.triggerReason.replace(/_/g, " ")} · Alpha ${candidate.alphaScore}${classificationSuffix}${sectorLeaderPushSuffix(sectorLeaderContext)}`,
     data: {
       symbol: candidate.symbol,

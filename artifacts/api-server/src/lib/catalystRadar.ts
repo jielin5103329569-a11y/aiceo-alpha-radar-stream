@@ -330,7 +330,7 @@ export function fuseOpportunity(
   const preBreakout = input.alphaRadar.preBreakout;
   const hasMarketSetup = liveMarket
     && satisfiedMarketEvidence.length >= 2
-    && ["accelerating", "pre_breakout", "confirmed"].includes(preBreakout.state);
+    && ["latent", "breakout_critical", "confirmed"].includes(preBreakout.state);
   const catalystEvent = authorizedFreshCatalystEvent(catalyst, input.symbol, now);
   const catalystSatisfied = catalystEvent !== null;
   const confirmationSatisfied = preBreakout.confirmation.status === "confirmed";

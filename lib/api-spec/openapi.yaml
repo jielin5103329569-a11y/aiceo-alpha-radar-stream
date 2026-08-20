@@ -1075,9 +1075,68 @@ components:
           type: [number, "null"]
           description: Spread score-point change per minute; positive values indicate tightening.
       required: [momentumAcceleration, volumeAcceleration, orderFlowShift, spreadTightening]
+    AlphaRadarTimeframeContext:
+      type: object
+      properties:
+        windowMs: { type: number, minimum: 1 }
+        sampleCount: { type: number, minimum: 0 }
+        score: { type: [number, "null"] }
+        momentumScore: { type: [number, "null"] }
+        volumeScore: { type: [number, "null"] }
+        orderFlowScore: { type: [number, "null"] }
+        spreadScore: { type: [number, "null"] }
+        direction: { type: string, enum: [supportive, weakening, mixed, unavailable] }
+        available: { type: boolean }
+        reason: { type: string }
+      required: [windowMs, sampleCount, score, momentumScore, volumeScore, orderFlowScore, spreadScore, direction, available, reason]
+    AlphaRadarMultiTimeframeContext:
+      type: object
+      properties:
+        short: { $ref: "#/components/schemas/AlphaRadarTimeframeContext" }
+        medium: { $ref: "#/components/schemas/AlphaRadarTimeframeContext" }
+        higher: { $ref: "#/components/schemas/AlphaRadarTimeframeContext" }
+        alignment: { type: string, enum: [aligned, mixed, conflicted, unavailable] }
+        reason: { type: string }
+      required: [short, medium, higher, alignment, reason]
+    AlphaRadarDataConfidence:
+      type: object
+      properties:
+        score: { type: [number, "null"], minimum: 0, maximum: 100 }
+        state: { type: string, enum: [high, adequate, low, unavailable] }
+        completeness: { type: [number, "null"], minimum: 0, maximum: 100 }
+        freshness: { type: [number, "null"], minimum: 0, maximum: 100 }
+        stability: { type: [number, "null"], minimum: 0, maximum: 100 }
+        evidenceConsistency: { type: [number, "null"], minimum: 0, maximum: 100 }
+        reason: { type: string }
+      required: [score, state, completeness, freshness, stability, evidenceConsistency, reason]
+    AlphaRadarCounterEvidence:
+      type: object
+      properties:
+        key: { type: string, enum: [sector_or_market_weakness, selling_pressure, price_volume_divergence, breakout_failure, structural_support_loss] }
+        label: { type: string }
+        available: { type: boolean }
+        opposesSignal: { type: boolean }
+        detail: { type: string }
+      required: [key, label, available, opposesSignal, detail]
+    AlphaRadarCounterEvidenceAssessment:
+      type: object
+      properties:
+        strength: { type: string, enum: [none, moderate, strong, unavailable] }
+        blocksHighGradeUpgrade: { type: boolean }
+        evidence:
+          type: array
+          items: { $ref: "#/components/schemas/AlphaRadarCounterEvidence" }
+        reasons:
+          type: array
+          items: { type: string }
+        reason: { type: string }
+      required: [strength, blocksHighGradeUpgrade, evidence, reasons, reason]
     PreBreakoutDetectionState:
       type: string
-      enum: [unavailable, watch, accelerating, pre_breakout, confirmed]
+      enum: [unavailable, watch, latent, breakout_critical, confirmed]
+    PostBreakoutState:
+      type: string
+      enum: [unavailable, trend_continuation, take_profit_watch, trend_reversal_confirmed]
     PreBreakoutConfirmationStatus:
       type: string
       enum: [unavailable, pending, confirmed, rejected]
@@ -1145,6 +1204,14 @@ components:
       properties:
         state:
           $ref: "#/components/schemas/PreBreakoutDetectionState"
+        latentScore:
+          type: [number, "null"]
+          minimum: 0
+          maximum: 100
+        breakoutCriticalScore:
+          type: [number, "null"]
+          minimum: 0
+          maximum: 100
         evidenceCount:
           type: number
           minimum: 0
@@ -1180,6 +1247,8 @@ components:
           $ref: "#/components/schemas/PreBreakoutConfirmation"
       required:
         - state
+        - latentScore
+        - breakoutCriticalScore
         - evidenceCount
         - velocityGateSatisfied
         - reasons
@@ -1191,6 +1260,32 @@ components:
         - dataFresh
         - cooldownRemainingMs
         - confirmation
+    PostBreakoutMonitoring:
+      type: object
+      properties:
+        state: { $ref: "#/components/schemas/PostBreakoutState" }
+        active: { type: boolean }
+        dataFresh: { type: boolean }
+        breakoutPrice: { type: [number, "null"] }
+        highSinceBreakout: { type: [number, "null"] }
+        drawdownFromHighPercent: { type: [number, "null"] }
+        latestPrice: { type: [number, "null"] }
+        activeBuyPressure: { type: [number, "null"] }
+        l1BidPressure: { type: [number, "null"] }
+        volumeAcceleration: { type: [number, "null"] }
+        tradeRateChange: { type: [number, "null"] }
+        supportReasons:
+          type: array
+          items: { type: string }
+        deteriorationReasons:
+          type: array
+          items: { type: string }
+        consecutiveWeakScans: { type: number, minimum: 0 }
+        consecutiveReversalScans: { type: number, minimum: 0 }
+        lastTransitionAt: { type: [string, "null"], format: date-time }
+        lastEvaluatedAt: { type: string, format: date-time }
+        reason: { type: string }
+      required: [state, active, dataFresh, breakoutPrice, highSinceBreakout, drawdownFromHighPercent, latestPrice, activeBuyPressure, l1BidPressure, volumeAcceleration, tradeRateChange, supportReasons, deteriorationReasons, consecutiveWeakScans, consecutiveReversalScans, lastTransitionAt, lastEvaluatedAt, reason]
     RadarSignalMetric:
       type: object
       properties:
@@ -1242,6 +1337,8 @@ components:
           $ref: "#/components/schemas/AlphaRadarScoreState"
         confidence:
           type: number
+        dataConfidence:
+          $ref: "#/components/schemas/AlphaRadarDataConfidence"
         dataQuality:
           $ref: "#/components/schemas/RadarSignalDataQuality"
         generatedAt:
@@ -1259,10 +1356,16 @@ components:
           $ref: "#/components/schemas/AlphaVelocity"
         changeIndicators:
           $ref: "#/components/schemas/AlphaChangeIndicators"
+        multiTimeframe:
+          $ref: "#/components/schemas/AlphaRadarMultiTimeframeContext"
+        counterEvidence:
+          $ref: "#/components/schemas/AlphaRadarCounterEvidenceAssessment"
         preBreakoutWatch:
           type: boolean
         preBreakout:
           $ref: "#/components/schemas/PreBreakoutDetection"
+        postBreakout:
+          $ref: "#/components/schemas/PostBreakoutMonitoring"
         momentum:
           $ref: "#/components/schemas/RadarSignalMetric"
         spread:
@@ -1284,6 +1387,7 @@ components:
         - status
         - scoreState
         - confidence
+        - dataConfidence
         - dataQuality
         - generatedAt
         - warnings
@@ -1291,8 +1395,11 @@ components:
         - scan
         - alphaVelocity
         - changeIndicators
+        - multiTimeframe
+        - counterEvidence
         - preBreakoutWatch
         - preBreakout
+        - postBreakout
         - momentum
         - spread
         - volumeIntensity
@@ -1552,10 +1659,10 @@ components:
       enum: [ranked, insufficient, unavailable]
     SectorPriorityCandidateStage:
       type: string
-      enum: [candidate, pre_breakout, withheld]
+      enum: [candidate, latent, breakout_critical, confirmed, withheld]
     AlertSectorLeaderGrade:
       type: string
-      enum: [strong, watch]
+      enum: [confirmed, critical, latent, watch]
     AlertSectorLeader:
       type: object
       properties:
@@ -1708,6 +1815,8 @@ components:
         sectorStrength: { type: [number, "null"], minimum: 0, maximum: 100 }
         sectorMultiplier: { type: [number, "null"], minimum: 0.75, maximum: 1.25 }
         baseRankingScore: { type: [number, "null"], minimum: 0, maximum: 100 }
+        latentScore: { type: [number, "null"], minimum: 0, maximum: 100 }
+        breakoutCriticalScore: { type: [number, "null"], minimum: 0, maximum: 100 }
         stage: { $ref: "#/components/schemas/SectorPriorityCandidateStage" }
         evidence: { $ref: "#/components/schemas/SectorPriorityCandidateEvidence" }
         missing:
@@ -1723,6 +1832,8 @@ components:
         - sectorStrength
         - sectorMultiplier
         - baseRankingScore
+        - latentScore
+        - breakoutCriticalScore
         - stage
         - evidence
         - missing
@@ -1739,6 +1850,9 @@ components:
         finalCandidates:
           type: array
           items: { $ref: "#/components/schemas/SectorPriorityCandidate" }
+        latentCandidates:
+          type: array
+          items: { $ref: "#/components/schemas/SectorPriorityCandidate" }
         preBreakoutCandidates:
           type: array
           items: { $ref: "#/components/schemas/SectorPriorityCandidate" }
@@ -1752,6 +1866,7 @@ components:
         - coverage
         - sectors
         - finalCandidates
+        - latentCandidates
         - preBreakoutCandidates
         - withheldCandidates
         - reason
@@ -1806,7 +1921,7 @@ components:
         - reason
     ValidationSignalState:
       type: string
-      enum: [watch, accelerating, pre_breakout, confirmed]
+      enum: [watch, latent, breakout_critical, confirmed]
     ValidationSignalType:
       type: string
       enum: [state_transition, confirmation_transition]
@@ -2248,6 +2363,12 @@ components:
             - type: "null"
         promotion:
           $ref: "#/components/schemas/ShadowPromotionRecommendation"
+        learningPolicy:
+          $ref: "#/components/schemas/ShadowCoreLearningPolicy"
+        stageFeatureAssessments:
+          type: array
+          items:
+            $ref: "#/components/schemas/ShadowStageFeatureValueAssessment"
         recentTriggers:
           type: array
           items:
@@ -2261,7 +2382,91 @@ components:
         - shadow
         - strategy
         - promotion
+        - learningPolicy
+        - stageFeatureAssessments
         - recentTriggers
+    ShadowCoreLearningPolicy:
+      type: object
+      properties:
+        version:
+          type: string
+        priority:
+          type: string
+          enum: [highest]
+        directions:
+          type: object
+          additionalProperties:
+            type: object
+            properties:
+              label:
+                type: string
+              objective:
+                type: string
+            required: [label, objective]
+        sharedValueCriteria:
+          type: array
+          items:
+            type: string
+            enum:
+              - predictive_power
+              - earliness
+              - risk_reward_improvement
+              - incremental_information_value
+              - stability
+              - noise_false_signal_rate
+        coreAdmissionRule:
+          type: string
+      required: [version, priority, directions, sharedValueCriteria, coreAdmissionRule]
+    ShadowStageFeatureValueAssessment:
+      type: object
+      properties:
+        stage:
+          type: string
+          enum: [pre_breakout, true_breakout, post_breakout]
+        featureKey:
+          type: string
+        tier:
+          type: string
+          enum: [A_core, B_supporting, C_redundant, D_noise, unavailable]
+        sampleState:
+          type: string
+          enum: [available, insufficient_sample, unavailable]
+        sampleSize:
+          type: number
+          minimum: 0
+        predictiveAdvantagePercent:
+          type: [number, "null"]
+        averageLeadTimeMinutes:
+          type: [number, "null"]
+        riskRewardAdvantagePercent:
+          type: [number, "null"]
+        incrementalValuePercent:
+          type: [number, "null"]
+        stabilityPercent:
+          type: [number, "null"]
+        noiseRatePercent:
+          type: [number, "null"]
+        redundancyPercent:
+          type: [number, "null"]
+        coreEligible:
+          type: boolean
+        reason:
+          type: string
+      required:
+        - stage
+        - featureKey
+        - tier
+        - sampleState
+        - sampleSize
+        - predictiveAdvantagePercent
+        - averageLeadTimeMinutes
+        - riskRewardAdvantagePercent
+        - incrementalValuePercent
+        - stabilityPercent
+        - noiseRatePercent
+        - redundancyPercent
+        - coreEligible
+        - reason
     RadarTrade:
       type: object
       properties:

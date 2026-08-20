@@ -10,6 +10,8 @@ export type AlertSectorLeaderGrade = typeof AlertSectorLeaderGrade[keyof typeof 
 
 
 export const AlertSectorLeaderGrade = {
-  strong: 'strong',
+  confirmed: 'confirmed',
+  critical: 'critical',
+  latent: 'latent',
   watch: 'watch',
 } as const;

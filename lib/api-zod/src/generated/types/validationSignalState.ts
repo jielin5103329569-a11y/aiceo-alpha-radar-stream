@@ -11,7 +11,7 @@ export type ValidationSignalState = typeof ValidationSignalState[keyof typeof Va
 
 export const ValidationSignalState = {
   watch: 'watch',
-  accelerating: 'accelerating',
-  pre_breakout: 'pre_breakout',
+  latent: 'latent',
+  breakout_critical: 'breakout_critical',
   confirmed: 'confirmed',
 } as const;

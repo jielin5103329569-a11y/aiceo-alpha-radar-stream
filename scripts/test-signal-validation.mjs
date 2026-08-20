@@ -56,7 +56,7 @@ try {
     symbol: "NVDA",
     occurredAt,
     fromState: "watch",
-    state: "accelerating",
+    state: "latent",
     confirmationStatus: "pending",
     signalType: "state_transition",
     direction: "upside",

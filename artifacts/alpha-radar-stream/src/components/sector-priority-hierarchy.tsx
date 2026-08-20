@@ -32,7 +32,9 @@ function sectorEligibilityTone(eligibility: string) {
 
 function candidateStageTone(stage: string) {
   if (stage === 'candidate') return 'border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300';
-  if (stage === 'pre_breakout') return 'border-primary/40 bg-primary/10 text-primary';
+  if (stage === 'confirmed') return 'border-primary/40 bg-primary/10 text-primary';
+  if (stage === 'breakout_critical') return 'border-orange-500/40 bg-orange-500/10 text-orange-700 dark:text-orange-300';
+  if (stage === 'latent') return 'border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300';
   return 'border-muted-foreground/30 bg-muted/50 text-muted-foreground';
 }
 
@@ -61,7 +63,7 @@ export function SectorPriorityHierarchy({ snapshot }: SectorPriorityHierarchyPro
     coverage,
     sectors,
     finalCandidates,
-    preBreakoutCandidates,
+    latentCandidates,
     withheldCandidates,
     reason,
     generatedAt,
@@ -164,10 +166,10 @@ export function SectorPriorityHierarchy({ snapshot }: SectorPriorityHierarchyPro
           emptyText="No symbols have achieved final alpha candidate status."
         />
         <CandidatePanel
-          title="Pre-Breakout Watchlist"
+          title="潜伏候选（每个板块最多 5 只）"
           icon={<TrendingUp className="h-4 w-4 text-primary" />}
-          candidates={preBreakoutCandidates}
-          emptyText="No pre-breakout candidates currently meeting criteria."
+          candidates={latentCandidates}
+          emptyText="No fresh sector-relative latent candidates currently meet the criteria."
         />
       </div>
       <CandidatePanel
@@ -370,6 +372,12 @@ function CandidatePanel({
                 <div className="text-[11px] text-muted-foreground mb-3">
                    {cand.sector ?? 'Sector unavailable'} · {cand.industryGroup ?? 'Industry group unavailable'}
                 </div>
+                {(cand.stage === 'latent' || cand.stage === 'breakout_critical' || cand.stage === 'confirmed') && (
+                  <div className="mb-3 flex flex-wrap gap-x-4 gap-y-1 font-mono text-[10px] text-muted-foreground">
+                    <span>潜伏评分 <strong className="text-foreground">{formatNumber(cand.latentScore, 0)}</strong></span>
+                    <span>临界评分 <strong className="text-foreground">{formatNumber(cand.breakoutCriticalScore, 0)}</strong></span>
+                  </div>
+                )}
 
                 <div className="grid grid-cols-3 sm:grid-cols-5 gap-1 mb-3">
                   <CandEvidence label="Mkt Fresh" passed={cand.evidence.marketFresh} />

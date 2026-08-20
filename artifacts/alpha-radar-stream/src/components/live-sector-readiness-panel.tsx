@@ -139,7 +139,7 @@ export function LiveSectorReadinessPanel({ status }: LiveSectorReadinessPanelPro
           <SummaryCard title="Candidate Promotion">
             <MetricRow label="State" value={status.sectorPriority.state} />
             <MetricRow label="Final Candidates" value={formatNumber(status.sectorPriority.finalCandidates.length, 0)} />
-            <MetricRow label="Pre-Breakout" value={formatNumber(status.sectorPriority.preBreakoutCandidates.length, 0)} />
+            <MetricRow label="潜伏候选（每板块最多 5）" value={formatNumber(status.sectorPriority.latentCandidates.length, 0)} />
             <MetricRow label="Withheld" value={formatNumber(status.sectorPriority.withheldCandidates.length, 0)} />
           </SummaryCard>
         </div>

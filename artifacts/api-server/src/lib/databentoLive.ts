@@ -8,11 +8,14 @@ import {
   appendSignalHistoryEntry,
   calculateAlphaRadar,
   createEmptyAlphaRadar,
+  unavailablePostBreakout,
+  updatePostBreakoutMonitoring,
   updatePreBreakoutDetection,
   type AlphaRadarHistoryPoint,
   type AlphaRadarScanMode,
   type AlphaRadarSignalHistoryEntry,
   type AlphaRadarSnapshot,
+  type PostBreakoutStateMachine,
   type PreBreakoutStateMachine,
 } from "./alphaRadar";
 import {
@@ -47,6 +50,8 @@ import {
   SHADOW_SCAN_WINDOW,
   SHADOW_STRATEGY_VERSION,
   shadowCohortKey,
+  normalizeSignedPercentFeature,
+  evaluateShadowStage,
   evaluateShadowPreBreakout,
 } from "./shadowLearningCore";
 import { shadowLearning } from "./shadowLearning";
@@ -658,6 +663,32 @@ function round(value: number, digits = 4): number {
   return Math.round(value * factor) / factor;
 }
 
+function qualityAlignmentScore(alphaRadar: AlphaRadarSnapshot): number | null {
+  switch (alphaRadar.multiTimeframe.alignment) {
+    case "aligned":
+      return 100;
+    case "mixed":
+      return 60;
+    case "conflicted":
+      return 20;
+    default:
+      return null;
+  }
+}
+
+function counterEvidenceResilienceScore(alphaRadar: AlphaRadarSnapshot): number | null {
+  switch (alphaRadar.counterEvidence.strength) {
+    case "none":
+      return 100;
+    case "moderate":
+      return 50;
+    case "strong":
+      return 0;
+    default:
+      return null;
+  }
+}
+
 function freshnessFor(timestamp: Date | null, now: Date, hasEnoughData: boolean): RadarFreshness {
   if (!hasEnoughData || !timestamp) return "insufficient";
   const age = now.getTime() - timestamp.getTime();
@@ -800,6 +831,15 @@ export class DatabentoLiveService extends EventEmitter {
     lastTransitionReasons: [],
     confirmationPersistenceScans: 0,
   };
+  private postBreakoutMachine: PostBreakoutStateMachine = {
+    active: false,
+    state: "unavailable",
+    breakoutPrice: null,
+    highSinceBreakout: null,
+    consecutiveWeakScans: 0,
+    consecutiveReversalScans: 0,
+    lastTransitionAt: null,
+  };
   private pendingScanReason = "scheduled_scan";
   private pendingScanEventTriggered = false;
 
@@ -837,8 +877,23 @@ export class DatabentoLiveService extends EventEmitter {
         this.preBreakoutMachine,
         now,
       );
-      alphaRadar = invalidDetection.snapshot;
+      alphaRadar = {
+        ...invalidDetection.snapshot,
+        postBreakout: unavailablePostBreakout(
+          now,
+          "Post-breakout monitoring is unavailable because the live market feed is not streaming; a new confirmed live breakout is required after recovery.",
+        ),
+      };
       this.preBreakoutMachine = invalidDetection.machine;
+      this.postBreakoutMachine = {
+        active: false,
+        state: "unavailable",
+        breakoutPrice: null,
+        highSinceBreakout: null,
+        consecutiveWeakScans: 0,
+        consecutiveReversalScans: 0,
+        lastTransitionAt: null,
+      };
       this.recordSignalHistory(
         this.status.alphaRadar,
         alphaRadar,
@@ -1618,8 +1673,20 @@ export class DatabentoLiveService extends EventEmitter {
       this.preBreakoutMachine,
       now,
     );
-    const alphaRadar = detection.snapshot;
+    const postBreakout = updatePostBreakoutMonitoring(
+      detection.snapshot,
+      this.postBreakoutMachine,
+      {
+        now,
+        connectionState: this.status.connectionState,
+        quotes: this.quotes,
+        trades: this.trades,
+        bars: this.bars,
+      },
+    );
+    const alphaRadar = postBreakout.snapshot;
     this.preBreakoutMachine = detection.machine;
+    this.postBreakoutMachine = postBreakout.machine;
     const radar = this.calculateRadar(now);
     this.recordSignalHistory(
       this.status.alphaRadar,
@@ -1685,7 +1752,14 @@ export class DatabentoLiveService extends EventEmitter {
             && alphaRadar.spread.available,
           eligible: alphaRadar.preBreakout.dataFresh,
         },
+        lifecycleSnapshot: {
+          learningStage: alphaRadar.postBreakout.active ? "post_breakout" : "pre_breakout",
+          postBreakoutState: alphaRadar.postBreakout.state,
+          postBreakoutActive: alphaRadar.postBreakout.active,
+          dataFresh: true,
+        },
       });
+      this.capturePostBreakoutShadowStages(alphaRadar);
     }
     this.publish();
     } finally {
@@ -1835,6 +1909,15 @@ export class DatabentoLiveService extends EventEmitter {
       lastTransitionReasons: [],
       confirmationPersistenceScans: 0,
     };
+    this.postBreakoutMachine = {
+      active: false,
+      state: "unavailable",
+      breakoutPrice: null,
+      highSinceBreakout: null,
+      consecutiveWeakScans: 0,
+      consecutiveReversalScans: 0,
+      lastTransitionAt: null,
+    };
     this.recordSignalHistory(
       previousAlphaRadar,
       unavailableAlphaRadar,
@@ -1851,6 +1934,148 @@ export class DatabentoLiveService extends EventEmitter {
         windowStartedAt: null,
       },
     };
+  }
+
+  /**
+   * Records verified breakout and post-breakout observations in the shadow
+   * archive only. It is intentionally called after the live snapshot has been
+   * published and never feeds a score, scan decision, alert gate, or push path.
+   */
+  private capturePostBreakoutShadowStages(alphaRadar: AlphaRadarSnapshot): void {
+    const post = alphaRadar.postBreakout;
+    const triggerPrice = this.status.market.latestPrice;
+    const occurredAt = post.lastTransitionAt;
+    if (
+      !post.active
+      || !post.dataFresh
+      || !occurredAt
+      || triggerPrice === null
+      || triggerPrice <= 0
+      || alphaRadar.scoreState !== "available"
+      || alphaRadar.dataQuality !== "good"
+      || !alphaRadar.momentum.available
+      || !alphaRadar.volumeIntensity.available
+      || !alphaRadar.orderFlowPressure.available
+      || !alphaRadar.spread.available
+    ) return;
+
+    const reference = marketUniverse
+      .query({ search: this.configuredSymbol, eligibility: "all", limit: 20 })
+      .items
+      .find((item) => item.symbol === this.configuredSymbol);
+    const postFlow = normalizeSignedPercentFeature(post.activeBuyPressure);
+    const l1Tilt = normalizeSignedPercentFeature(post.l1BidPressure);
+    const tradePersistence = normalizeSignedPercentFeature(post.tradeRateChange);
+    const state = alphaRadar.preBreakout.state;
+    const common = {
+      strategyVersion: SHADOW_STRATEGY_VERSION,
+      scanWindow: SHADOW_SCAN_WINDOW,
+      scanProfile: "fresh-streaming-verified-breakout-sidecar",
+      modelVersion: SHADOW_MODEL_VERSION,
+      candidateSource: "fresh-production-snapshot-sidecar",
+      symbol: this.configuredSymbol,
+      sector: reference?.sector ?? null,
+      occurredAt,
+      triggerPrice,
+      direction: "upside" as const,
+      state,
+      freshnessSnapshot: {
+        marketFeedState: this.marketFeedStateAt(occurredAt),
+        dataQuality: alphaRadar.dataQuality,
+        scoreState: alphaRadar.scoreState,
+        streaming: this.status.connectionState === "streaming",
+        complete: true,
+        eligible: true,
+      },
+      cohortKey: shadowCohortKey({
+        symbol: this.configuredSymbol,
+        occurredAt,
+        state,
+        sector: reference?.sector ?? null,
+      }),
+      cohortEligibilitySnapshot: {
+        baselineSignalType: "state_transition" as const,
+        baselineState: state,
+        matchingWindowSeconds: 60,
+        requiredEvidenceKeys: ["verified_post_breakout", "fresh_volume", "fresh_order_flow"],
+        dataFreshRequired: true as const,
+      },
+    };
+    const trueBreakoutEvidence = [
+      { key: "verified_post_breakout", label: "Verified structure break", satisfied: post.active, detail: post.reason },
+      { key: "fresh_volume", label: "Fresh volume confirmation", satisfied: alphaRadar.volumeIntensity.available, detail: alphaRadar.volumeIntensity.source },
+      { key: "fresh_order_flow", label: "Fresh aggressive trade direction", satisfied: postFlow !== null, detail: "Derived from fresh post-breakout trade direction." },
+      { key: "fresh_l1", label: "Fresh L1 bid/ask tilt", satisfied: l1Tilt !== null, detail: "Derived from fresh best-bid/best-ask observations." },
+      { key: "fresh_trade_persistence", label: "Fresh post-breakout trade persistence", satisfied: tradePersistence !== null, detail: "Derived from fresh post-breakout trade rate." },
+    ];
+    if (post.state === "trend_continuation") {
+      const candidate = evaluateShadowStage({
+        ...common,
+        signalType: "shadow_true_breakout",
+        learningStage: "true_breakout",
+        evidenceSnapshot: trueBreakoutEvidence,
+        inputSummary: {
+          alphaScore: alphaRadar.score,
+          confidence: alphaRadar.confidence,
+          velocity30s: alphaRadar.alphaVelocity.rate30s,
+          velocity60s: alphaRadar.alphaVelocity.rate60s,
+          momentumAcceleration: alphaRadar.changeIndicators.momentumAcceleration,
+          volumeAcceleration: alphaRadar.changeIndicators.volumeAcceleration,
+          orderFlowShift: alphaRadar.changeIndicators.orderFlowShift,
+          spreadTightening: alphaRadar.changeIndicators.spreadTightening,
+          evidenceCount: trueBreakoutEvidence.filter((item) => item.satisfied).length,
+          stageFeatures: {
+            structure_breakout: 100,
+            breakout_volume_confirmation: alphaRadar.volumeIntensity.score,
+            aggressive_trade_direction: postFlow,
+            l1_bid_ask_tilt: l1Tilt,
+            post_breakout_trade_persistence: tradePersistence,
+            multi_timeframe_alignment: qualityAlignmentScore(alphaRadar),
+            counter_evidence_resilience: counterEvidenceResilienceScore(alphaRadar),
+            data_confidence: alphaRadar.dataConfidence.score,
+          },
+        },
+      });
+      if (candidate) void shadowLearning.captureObservation(candidate);
+    }
+
+    const postEvidence = [
+      ...trueBreakoutEvidence,
+      { key: "post_breakout_state", label: "Post-breakout state", satisfied: true, detail: post.state },
+    ];
+    const supportIntegrity = post.state === "trend_continuation"
+      ? 100
+      : post.state === "take_profit_watch"
+        ? 50
+        : 0;
+    const postCandidate = evaluateShadowStage({
+      ...common,
+      signalType: "shadow_post_breakout",
+      learningStage: "post_breakout",
+      evidenceSnapshot: postEvidence,
+      inputSummary: {
+        alphaScore: alphaRadar.score,
+        confidence: alphaRadar.confidence,
+        velocity30s: alphaRadar.alphaVelocity.rate30s,
+        velocity60s: alphaRadar.alphaVelocity.rate60s,
+        momentumAcceleration: alphaRadar.changeIndicators.momentumAcceleration,
+        volumeAcceleration: alphaRadar.changeIndicators.volumeAcceleration,
+        orderFlowShift: alphaRadar.changeIndicators.orderFlowShift,
+        spreadTightening: alphaRadar.changeIndicators.spreadTightening,
+        evidenceCount: postEvidence.filter((item) => item.satisfied).length,
+        stageFeatures: {
+          post_breakout_active_flow: postFlow,
+          volume_trade_speed: alphaRadar.volumeIntensity.score,
+          new_high_quality: post.highSinceBreakout === null ? null : (triggerPrice >= post.highSinceBreakout ? 100 : 50),
+          price_volume_divergence: null,
+          breakout_support_integrity: supportIntegrity,
+            multi_timeframe_alignment: qualityAlignmentScore(alphaRadar),
+            counter_evidence_resilience: counterEvidenceResilienceScore(alphaRadar),
+            data_confidence: alphaRadar.dataConfidence.score,
+        },
+      },
+    });
+    if (postCandidate) void shadowLearning.captureObservation(postCandidate);
   }
 
   private recordSignalHistory(
@@ -1887,8 +2112,8 @@ export class DatabentoLiveService extends EventEmitter {
       && latestEntry?.occurredAt.getTime() === occurredAt.getTime();
     const persistableStates = new Set([
       "watch",
-      "accelerating",
-      "pre_breakout",
+      "latent",
+      "breakout_critical",
       "confirmed",
     ]);
     if (
@@ -1918,7 +2143,7 @@ export class DatabentoLiveService extends EventEmitter {
       symbol: this.configuredSymbol,
       occurredAt,
       fromState,
-      state: toState as "watch" | "accelerating" | "pre_breakout" | "confirmed",
+      state: toState as "watch" | "latent" | "breakout_critical" | "confirmed",
       confirmationStatus: toConfirmationStatus,
       signalType: fromState !== toState ? "state_transition" : "confirmation_transition",
       direction,
@@ -1972,6 +2197,7 @@ export class DatabentoLiveService extends EventEmitter {
       triggerPrice: this.status.market.latestPrice,
       direction,
       state: toState,
+      learningStage: "pre_breakout",
       evidenceSnapshot: next.preBreakout.confirmation.evidence.map((evidence) => ({
         key: evidence.key,
         label: evidence.label,
@@ -1999,6 +2225,19 @@ export class DatabentoLiveService extends EventEmitter {
         orderFlowShift: next.changeIndicators.orderFlowShift,
         spreadTightening: next.changeIndicators.spreadTightening,
         evidenceCount: next.preBreakout.evidenceCount,
+        stageFeatures: {
+          relative_strength_improvement: next.momentum.score,
+          price_structure: null,
+          volatility_contraction: next.spread.score,
+          dense_trading_zone: null,
+          sell_pressure_decay: next.orderFlowPressure.score,
+          active_buy_improvement: next.orderFlowPressure.score,
+          volume_structure: next.volumeIntensity.score,
+          breakout_distance: null,
+          multi_timeframe_alignment: qualityAlignmentScore(next),
+          counter_evidence_resilience: counterEvidenceResilienceScore(next),
+          data_confidence: next.dataConfidence.score,
+        },
       },
       cohortKey: shadowCohortKey({
         symbol: this.configuredSymbol,
@@ -2316,8 +2555,8 @@ function preBreakoutRank(state: AlphaRadarSnapshot["preBreakout"]["state"]): num
   return {
     unavailable: 0,
     watch: 1,
-    accelerating: 2,
-    pre_breakout: 3,
+    latent: 2,
+    breakout_critical: 3,
     confirmed: 4,
   }[state];
 }

@@ -9,8 +9,8 @@ export const MAX_CHECKPOINT_OBSERVATION_DELAY_MS = 4 * 60 * 60 * 1_000;
 export type ValidationHorizonDays = (typeof VALIDATION_HORIZONS)[number];
 export type ValidationSignalState =
   | "watch"
-  | "accelerating"
-  | "pre_breakout"
+  | "latent"
+  | "breakout_critical"
   | "confirmed";
 export type ValidationSignalType = "state_transition" | "confirmation_transition";
 export type ValidationDirection = "upside" | "downside" | "neutral";

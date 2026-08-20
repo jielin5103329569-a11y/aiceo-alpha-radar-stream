@@ -72,11 +72,69 @@ export type AlphaChangeIndicators = {
   spreadTightening: number | null;
 };
 
+export type AlphaRadarTimeframeDirection = "supportive" | "weakening" | "mixed" | "unavailable";
+
+export type AlphaRadarTimeframeContext = {
+  windowMs: number;
+  sampleCount: number;
+  score: number | null;
+  momentumScore: number | null;
+  volumeScore: number | null;
+  orderFlowScore: number | null;
+  spreadScore: number | null;
+  direction: AlphaRadarTimeframeDirection;
+  available: boolean;
+  reason: string;
+};
+
+export type AlphaRadarMultiTimeframeContext = {
+  short: AlphaRadarTimeframeContext;
+  medium: AlphaRadarTimeframeContext;
+  higher: AlphaRadarTimeframeContext;
+  alignment: "aligned" | "mixed" | "conflicted" | "unavailable";
+  reason: string;
+};
+
+export type DataConfidenceState = "high" | "adequate" | "low" | "unavailable";
+
+export type AlphaRadarDataConfidence = {
+  score: number | null;
+  state: DataConfidenceState;
+  completeness: number | null;
+  freshness: number | null;
+  stability: number | null;
+  evidenceConsistency: number | null;
+  reason: string;
+};
+
+export type AlphaRadarCounterEvidenceKey =
+  | "sector_or_market_weakness"
+  | "selling_pressure"
+  | "price_volume_divergence"
+  | "breakout_failure"
+  | "structural_support_loss";
+
+export type AlphaRadarCounterEvidence = {
+  key: AlphaRadarCounterEvidenceKey;
+  label: string;
+  available: boolean;
+  opposesSignal: boolean;
+  detail: string;
+};
+
+export type AlphaRadarCounterEvidenceAssessment = {
+  strength: "none" | "moderate" | "strong" | "unavailable";
+  blocksHighGradeUpgrade: boolean;
+  evidence: AlphaRadarCounterEvidence[];
+  reasons: string[];
+  reason: string;
+};
+
 export type PreBreakoutDetectionState =
   | "unavailable"
   | "watch"
-  | "accelerating"
-  | "pre_breakout"
+  | "latent"
+  | "breakout_critical"
   | "confirmed";
 
 export type PreBreakoutConfirmationStatus =
@@ -114,6 +172,10 @@ export type PreBreakoutConfirmation = {
 
 export type PreBreakoutDetection = {
   state: PreBreakoutDetectionState;
+  /** 0–100 score from fresh, observed pre-breakout behavior only. */
+  latentScore: number | null;
+  /** 0–100 score for the transition from latent behavior toward breakout. */
+  breakoutCriticalScore: number | null;
   evidenceCount: number;
   velocityGateSatisfied: boolean;
   reasons: string[];
@@ -137,11 +199,51 @@ export type PreBreakoutStateMachine = {
   confirmationPersistenceScans: number;
 };
 
+export type PostBreakoutState =
+  | "unavailable"
+  | "trend_continuation"
+  | "take_profit_watch"
+  | "trend_reversal_confirmed";
+
+export type PostBreakoutMonitoring = {
+  state: PostBreakoutState;
+  /** True only after a confirmed Alpha state crosses a real, observed prior high. */
+  active: boolean;
+  dataFresh: boolean;
+  breakoutPrice: number | null;
+  highSinceBreakout: number | null;
+  drawdownFromHighPercent: number | null;
+  latestPrice: number | null;
+  activeBuyPressure: number | null;
+  l1BidPressure: number | null;
+  volumeAcceleration: number | null;
+  tradeRateChange: number | null;
+  supportReasons: string[];
+  deteriorationReasons: string[];
+  consecutiveWeakScans: number;
+  consecutiveReversalScans: number;
+  lastTransitionAt: Date | null;
+  lastEvaluatedAt: Date;
+  reason: string;
+};
+
+export type PostBreakoutStateMachine = {
+  active: boolean;
+  state: PostBreakoutState;
+  breakoutPrice: number | null;
+  highSinceBreakout: number | null;
+  consecutiveWeakScans: number;
+  consecutiveReversalScans: number;
+  lastTransitionAt: Date | null;
+};
+
 export type AlphaRadarSnapshot = {
   score: number | null;
   status: AlphaRadarSignalState | null;
   scoreState: AlphaRadarScoreState;
+  /** Opportunity strength only. Data quality is tracked independently below. */
   confidence: number;
+  dataConfidence: AlphaRadarDataConfidence;
   dataQuality: SignalDataQuality;
   generatedAt: Date;
   warnings: string[];
@@ -149,8 +251,11 @@ export type AlphaRadarSnapshot = {
   scan: AlphaRadarScanMetadata;
   alphaVelocity: AlphaVelocity;
   changeIndicators: AlphaChangeIndicators;
+  multiTimeframe: AlphaRadarMultiTimeframeContext;
+  counterEvidence: AlphaRadarCounterEvidenceAssessment;
   preBreakoutWatch: boolean;
   preBreakout: PreBreakoutDetection;
+  postBreakout: PostBreakoutMonitoring;
   momentum: RadarSignalMetric;
   spread: RadarSignalMetric;
   volumeIntensity: RadarSignalMetric;
@@ -205,6 +310,7 @@ const MULTI_FACTOR_CONFIRMATION_SCANS = 3;
 export const MAX_SIGNAL_HISTORY_ENTRIES = 24;
 
 const SHORT_WINDOW_MS = 30_000;
+const MEDIUM_CONTEXT_WINDOW_MS = 60_000;
 const BASELINE_WINDOW_MS = 300_000;
 const FRESH_MS = 15_000;
 const DELAYED_MS = 60_000;
@@ -334,6 +440,53 @@ function emptyChangeIndicators(): AlphaChangeIndicators {
   };
 }
 
+function unavailableTimeframe(windowMs: number, reason: string): AlphaRadarTimeframeContext {
+  return {
+    windowMs,
+    sampleCount: 0,
+    score: null,
+    momentumScore: null,
+    volumeScore: null,
+    orderFlowScore: null,
+    spreadScore: null,
+    direction: "unavailable",
+    available: false,
+    reason,
+  };
+}
+
+function unavailableMultiTimeframe(reason: string): AlphaRadarMultiTimeframeContext {
+  return {
+    short: unavailableTimeframe(SHORT_WINDOW_MS, reason),
+    medium: unavailableTimeframe(MEDIUM_CONTEXT_WINDOW_MS, reason),
+    higher: unavailableTimeframe(BASELINE_WINDOW_MS, reason),
+    alignment: "unavailable",
+    reason,
+  };
+}
+
+function unavailableDataConfidence(reason: string): AlphaRadarDataConfidence {
+  return {
+    score: null,
+    state: "unavailable",
+    completeness: null,
+    freshness: null,
+    stability: null,
+    evidenceConsistency: null,
+    reason,
+  };
+}
+
+function unavailableCounterEvidence(reason: string): AlphaRadarCounterEvidenceAssessment {
+  return {
+    strength: "unavailable",
+    blocksHighGradeUpgrade: true,
+    evidence: [],
+    reasons: [],
+    reason,
+  };
+}
+
 function unavailableConfirmation(
   now: Date,
   reason = "Confirmation is unavailable until a complete fresh live window is rebuilt.",
@@ -361,6 +514,8 @@ function unavailableConfirmation(
 function unavailablePreBreakout(now: Date): PreBreakoutDetection {
   return {
     state: "unavailable",
+    latentScore: null,
+    breakoutCriticalScore: null,
     evidenceCount: 0,
     velocityGateSatisfied: false,
     reasons: [],
@@ -372,6 +527,32 @@ function unavailablePreBreakout(now: Date): PreBreakoutDetection {
     dataFresh: false,
     cooldownRemainingMs: null,
     confirmation: unavailableConfirmation(now),
+  };
+}
+
+export function unavailablePostBreakout(
+  now: Date,
+  reason = "Post-breakout monitoring is unavailable until a confirmed, fresh live breakout is observed.",
+): PostBreakoutMonitoring {
+  return {
+    state: "unavailable",
+    active: false,
+    dataFresh: false,
+    breakoutPrice: null,
+    highSinceBreakout: null,
+    drawdownFromHighPercent: null,
+    latestPrice: null,
+    activeBuyPressure: null,
+    l1BidPressure: null,
+    volumeAcceleration: null,
+    tradeRateChange: null,
+    supportReasons: [],
+    deteriorationReasons: [],
+    consecutiveWeakScans: 0,
+    consecutiveReversalScans: 0,
+    lastTransitionAt: null,
+    lastEvaluatedAt: now,
+    reason,
   };
 }
 
@@ -408,6 +589,231 @@ function historyPointAtOrBefore(
     .find((point) => point.generatedAt.getTime() <= targetMs) ?? null;
 }
 
+function averageHistoryValue(points: AlphaRadarHistoryPoint[], key: keyof Omit<AlphaRadarHistoryPoint, "generatedAt">): number | null {
+  if (points.length === 0) return null;
+  return round(sum(points.map((point) => point[key])) / points.length);
+}
+
+function timeframeContext(
+  points: AlphaRadarHistoryPoint[],
+  nowMs: number,
+  windowMs: number,
+): AlphaRadarTimeframeContext {
+  const inWindow = points.filter((point) => point.generatedAt.getTime() > nowMs - windowMs);
+  if (inWindow.length < 2) {
+    return unavailableTimeframe(
+      windowMs,
+      `Awaiting at least two complete live scans across the ${Math.round(windowMs / 1000)}s context window.`,
+    );
+  }
+  const first = inWindow[0];
+  const last = inWindow.at(-1)!;
+  const scoreDelta = last.score - first.score;
+  const componentDeltas = [
+    last.momentumScore - first.momentumScore,
+    last.volumeScore - first.volumeScore,
+    last.orderFlowScore - first.orderFlowScore,
+    last.spreadScore - first.spreadScore,
+  ];
+  const positive = componentDeltas.filter((delta) => delta >= 1).length;
+  const negative = componentDeltas.filter((delta) => delta <= -1).length;
+  const direction: AlphaRadarTimeframeDirection =
+    scoreDelta >= 1 && positive >= negative ? "supportive"
+      : scoreDelta <= -1 && negative > positive ? "weakening"
+        : "mixed";
+  return {
+    windowMs,
+    sampleCount: inWindow.length,
+    score: averageHistoryValue(inWindow, "score"),
+    momentumScore: averageHistoryValue(inWindow, "momentumScore"),
+    volumeScore: averageHistoryValue(inWindow, "volumeScore"),
+    orderFlowScore: averageHistoryValue(inWindow, "orderFlowScore"),
+    spreadScore: averageHistoryValue(inWindow, "spreadScore"),
+    direction,
+    available: true,
+    reason: direction === "supportive"
+      ? "Existing Alpha components are strengthening across this observed context."
+      : direction === "weakening"
+        ? "Existing Alpha components are weakening across this observed context."
+        : "Existing Alpha components are mixed across this observed context.",
+  };
+}
+
+function multiTimeframeContext(
+  history: AlphaRadarHistoryPoint[],
+  current: AlphaRadarHistoryPoint,
+): AlphaRadarMultiTimeframeContext {
+  const allPoints = [...history, current];
+  const nowMs = current.generatedAt.getTime();
+  const short = timeframeContext(allPoints, nowMs, SHORT_WINDOW_MS);
+  const medium = timeframeContext(allPoints, nowMs, MEDIUM_CONTEXT_WINDOW_MS);
+  const higher = timeframeContext(allPoints, nowMs, BASELINE_WINDOW_MS);
+  if (!short.available || !medium.available || !higher.available) {
+    return {
+      short,
+      medium,
+      higher,
+      alignment: "unavailable",
+      reason: "A short, medium, or higher observed context is still rebuilding; no high-grade upgrade may rely on a single window.",
+    };
+  }
+  const directions = [short.direction, medium.direction, higher.direction];
+  const alignment = (
+    short.direction === "supportive"
+    && medium.direction !== "weakening"
+    && higher.direction !== "weakening"
+  )
+    ? "aligned"
+    : directions.includes("supportive") && directions.includes("weakening")
+      ? "conflicted"
+      : "mixed";
+  return {
+    short,
+    medium,
+    higher,
+    alignment,
+    reason: alignment === "aligned"
+      ? "Short-window strength is not contradicted by the observed medium or higher structure."
+      : alignment === "conflicted"
+        ? "Observed timeframes disagree; a short-window move cannot independently justify a high-grade upgrade."
+        : "Observed timeframes are mixed; additional consistent evidence is required for a high-grade upgrade.",
+  };
+}
+
+function calculateDataConfidence(
+  snapshot: AlphaRadarSnapshot,
+  multiTimeframe: AlphaRadarMultiTimeframeContext,
+): AlphaRadarDataConfidence {
+  const components = [
+    snapshot.momentum,
+    snapshot.spread,
+    snapshot.volumeIntensity,
+    snapshot.orderFlowPressure,
+  ];
+  const completeness = Math.round(
+    (components.filter((metric) => metric.available).length / components.length) * 100,
+  );
+  const freshness = Math.round(
+    (components.filter((metric) => metric.freshness === "fresh").length / components.length) * 100,
+  );
+  if (snapshot.scoreState !== "available" || snapshot.dataQuality !== "good") {
+    return unavailableDataConfidence(
+      "Data Confidence is unavailable until a complete fresh live score window exists.",
+    );
+  }
+  const stability = multiTimeframe.alignment === "aligned"
+    ? 100
+    : multiTimeframe.alignment === "mixed"
+      ? 60
+      : multiTimeframe.alignment === "conflicted"
+        ? 25
+        : 0;
+  const consistency = components.filter((metric) => metric.scoreEligible).length === components.length
+    ? 100
+    : 0;
+  const score = Math.round((completeness * 0.3) + (freshness * 0.3) + (stability * 0.25) + (consistency * 0.15));
+  const state: DataConfidenceState = score >= 85 ? "high" : score >= 65 ? "adequate" : "low";
+  return {
+    score,
+    state,
+    completeness,
+    freshness,
+    stability,
+    evidenceConsistency: consistency,
+    reason: state === "high"
+      ? "Complete, fresh, stable, and cross-context-consistent evidence is available."
+      : state === "adequate"
+        ? "The live window is complete and fresh, but cross-context stability is not yet high."
+        : "The live window is present, but evidence stability or agreement is too low for a high-grade upgrade.",
+  };
+}
+
+function evaluateCounterEvidence(snapshot: AlphaRadarSnapshot): AlphaRadarCounterEvidenceAssessment {
+  const sellingPressure = (
+    (snapshot.orderFlowPressure.value !== null && snapshot.orderFlowPressure.value <= -10)
+    || (snapshot.changeIndicators.orderFlowShift !== null && snapshot.changeIndicators.orderFlowShift <= -1)
+  );
+  const priceVolumeDivergence = (
+    snapshot.changeIndicators.momentumAcceleration !== null
+    && snapshot.changeIndicators.momentumAcceleration >= 1
+    && snapshot.changeIndicators.volumeAcceleration !== null
+    && snapshot.changeIndicators.volumeAcceleration <= -1
+  );
+  const post = snapshot.postBreakout;
+  const breakoutFailureAvailable = post.active && post.breakoutPrice !== null && post.latestPrice !== null;
+  const breakoutFailure = breakoutFailureAvailable && post.latestPrice! < post.breakoutPrice!;
+  const supportLossAvailable = post.active;
+  const supportLoss = supportLossAvailable && (
+    post.state === "take_profit_watch" || post.state === "trend_reversal_confirmed"
+  );
+  const evidence: AlphaRadarCounterEvidence[] = [
+    {
+      key: "sector_or_market_weakness",
+      label: "Sector / market weakening",
+      available: false,
+      opposesSignal: false,
+      detail: "No independent live sector or market-index evidence is available in this symbol-level window; it is not inferred.",
+    },
+    {
+      key: "selling_pressure",
+      label: "Selling pressure",
+      available: snapshot.orderFlowPressure.available || snapshot.changeIndicators.orderFlowShift !== null,
+      opposesSignal: sellingPressure,
+      detail: sellingPressure
+        ? "Observed order-flow evidence shows active selling pressure or a worsening flow shift."
+        : "No observed active-selling contradiction is present in the current live window.",
+    },
+    {
+      key: "price_volume_divergence",
+      label: "Price / volume divergence",
+      available: snapshot.changeIndicators.momentumAcceleration !== null && snapshot.changeIndicators.volumeAcceleration !== null,
+      opposesSignal: priceVolumeDivergence,
+      detail: priceVolumeDivergence
+        ? "Price momentum is improving while volume acceleration is weakening."
+        : "No observed price-up/volume-down divergence is present.",
+    },
+    {
+      key: "breakout_failure",
+      label: "Breakout failure",
+      available: breakoutFailureAvailable,
+      opposesSignal: breakoutFailure,
+      detail: breakoutFailureAvailable
+        ? breakoutFailure
+          ? "Price has fallen back below the real observed breakout price."
+          : "Price remains at or above the real observed breakout price."
+        : "A real post-breakout reference is not available yet.",
+    },
+    {
+      key: "structural_support_loss",
+      label: "Structural support loss",
+      available: supportLossAvailable,
+      opposesSignal: supportLoss,
+      detail: supportLossAvailable
+        ? supportLoss
+          ? "Post-breakout buy, volume, trade-rate, or price structure is deteriorating."
+          : "Observed post-breakout structure remains supportive."
+        : "Post-breakout structure is not active yet.",
+    },
+  ];
+  const opposed = evidence.filter((item) => item.available && item.opposesSignal);
+  const strong = breakoutFailure || supportLoss || opposed.length >= 2;
+  const moderate = opposed.length === 1;
+  const strength = strong ? "strong" : moderate ? "moderate" : evidence.some((item) => item.available) ? "none" : "unavailable";
+  return {
+    strength,
+    blocksHighGradeUpgrade: strong || snapshot.dataConfidence.state !== "high",
+    evidence,
+    reasons: opposed.map((item) => item.label),
+    reason: strength === "strong"
+      ? "Strong observed counter-evidence blocks a high-grade upgrade."
+      : strength === "moderate"
+        ? "Observed counter-evidence limits the next stage until it clears."
+        : strength === "none"
+          ? "No observed counter-evidence currently opposes the signal."
+          : "Counter-evidence is incomplete; missing independent sources are not inferred.",
+  };
+}
+
 export function addAlphaRadarDynamics(
   snapshot: AlphaRadarSnapshot,
   history: AlphaRadarHistoryPoint[],
@@ -424,8 +830,18 @@ export function addAlphaRadarDynamics(
     scan,
     alphaVelocity: emptyAlphaVelocity(),
     changeIndicators: emptyChangeIndicators(),
+    multiTimeframe: unavailableMultiTimeframe(
+      "Cross-context evidence is unavailable until a complete fresh live score window is rebuilt.",
+    ),
+    dataConfidence: unavailableDataConfidence(
+      "Data Confidence is unavailable until a complete fresh live score window is rebuilt.",
+    ),
+    counterEvidence: unavailableCounterEvidence(
+      "Counter-evidence is unavailable until a complete fresh live score window is rebuilt.",
+    ),
     preBreakoutWatch: false,
     preBreakout: unavailablePreBreakout(context.lastScannedAt),
+    postBreakout: unavailablePostBreakout(context.lastScannedAt),
   };
 
   if (
@@ -485,15 +901,30 @@ export function addAlphaRadarDynamics(
     && velocity.rate30s !== null
     && velocity.rate30s > 0
     && improvingComponents >= 2;
+  const multiTimeframe = multiTimeframeContext(history, current);
+  const snapshotWithTimeframes = {
+    ...snapshot,
+    multiTimeframe,
+  };
+  const dataConfidence = calculateDataConfidence(snapshotWithTimeframes, multiTimeframe);
+  const counterEvidence = evaluateCounterEvidence({
+    ...snapshotWithTimeframes,
+    dataConfidence,
+  });
 
   return {
     ...snapshot,
     ...invalidDynamics,
     alphaVelocity: velocity,
     changeIndicators: indicators,
+    multiTimeframe,
+    dataConfidence,
+    counterEvidence,
     preBreakoutWatch,
     preBreakout: {
-      state: preBreakoutWatch ? "pre_breakout" : "watch",
+      state: preBreakoutWatch ? "latent" : "watch",
+      latentScore: null,
+      breakoutCriticalScore: null,
       evidenceCount: improvingComponents,
       velocityGateSatisfied: velocity.rate30s !== null && velocity.rate30s > 0,
       reasons: [],
@@ -516,9 +947,9 @@ function detectionRank(state: PreBreakoutDetectionState): number {
   switch (state) {
     case "watch":
       return 0;
-    case "accelerating":
+    case "latent":
       return 1;
-    case "pre_breakout":
+    case "breakout_critical":
       return 2;
     case "confirmed":
       return 3;
@@ -528,7 +959,37 @@ function detectionRank(state: PreBreakoutDetectionState): number {
 }
 
 function stateAtRank(rank: number): Exclude<PreBreakoutDetectionState, "unavailable"> {
-  return (["watch", "accelerating", "pre_breakout", "confirmed"] as const)[rank] ?? "watch";
+  return (["watch", "latent", "breakout_critical", "confirmed"] as const)[rank] ?? "watch";
+}
+
+/**
+ * Scores only observable, fresh microstructure behavior. It intentionally does
+ * not infer a low price, institutional ownership, depth-of-book activity, or
+ * external fundamentals that EQUS.MINI cannot prove.
+ */
+function latentEvidence(snapshot: AlphaRadarSnapshot): string[] {
+  const momentum = snapshot.momentum.value;
+  const orderFlow = snapshot.orderFlowPressure.value;
+  const { changeIndicators } = snapshot;
+  return [
+    momentum !== null && Math.abs(momentum) <= 0.35
+      ? "Fresh short-window price remains unextended"
+      : null,
+    (snapshot.spread.score ?? 0) >= 60
+      ? "Fresh quoted liquidity remains orderly"
+      : null,
+    orderFlow !== null && orderFlow >= -10
+      ? "Observed sell pressure is not dominant"
+      : null,
+    changeIndicators.orderFlowShift !== null && changeIndicators.orderFlowShift >= 1
+      ? "Observed buy pressure is improving"
+      : null,
+    (snapshot.volumeIntensity.score ?? 0) >= 50
+      && changeIndicators.volumeAcceleration !== null
+      && changeIndicators.volumeAcceleration >= 1
+      ? "Observed participation is building"
+      : null,
+  ].filter((reason): reason is string => reason !== null);
 }
 
 function positiveEvidence(snapshot: AlphaRadarSnapshot): string[] {
@@ -688,13 +1149,39 @@ function evaluateConfirmation(
   };
 }
 
-function candidateDetectionState(snapshot: AlphaRadarSnapshot, evidenceCount: number): PreBreakoutDetectionState {
+function candidateDetectionState(
+  snapshot: AlphaRadarSnapshot,
+  evidenceCount: number,
+  latentScore: number,
+  confirmation: PreBreakoutConfirmation,
+): PreBreakoutDetectionState {
   const velocity = snapshot.alphaVelocity.rate30s ?? Number.NEGATIVE_INFINITY;
   const score = snapshot.score ?? Number.NEGATIVE_INFINITY;
-  if (evidenceCount >= 4 && velocity >= 12 && score >= 70) return "confirmed";
-  if (evidenceCount >= 3 && velocity >= 6 && score >= 55) return "pre_breakout";
-  if (evidenceCount >= 2 && velocity >= 3) return "accelerating";
+  if (confirmation.status === "confirmed") return "confirmed";
+  if (evidenceCount >= 3 && velocity >= 6 && score >= 55) return "breakout_critical";
+  if (latentScore >= 80 && velocity >= 3 && score >= 50) return "latent";
   return "watch";
+}
+
+function qualityCappedCandidate(
+  candidate: PreBreakoutDetectionState,
+  confidence: AlphaRadarDataConfidence,
+  counterEvidence: AlphaRadarCounterEvidenceAssessment,
+): Exclude<PreBreakoutDetectionState, "unavailable"> {
+  const candidateRank = detectionRank(candidate);
+  const confidenceCap = confidence.state === "high"
+    ? 3
+    : confidence.state === "adequate"
+      ? 2
+      : confidence.state === "low"
+        ? 1
+        : 0;
+  const counterCap = counterEvidence.strength === "strong"
+    ? 0
+    : counterEvidence.strength === "moderate"
+      ? 1
+      : 3;
+  return stateAtRank(Math.min(candidateRank, confidenceCap, counterCap));
 }
 
 export function updatePreBreakoutDetection(
@@ -729,19 +1216,22 @@ export function updatePreBreakoutDetection(
     };
   }
 
+  const baseCounterEvidence = evaluateCounterEvidence(snapshot);
+  const counterEvidence = {
+    ...baseCounterEvidence,
+    blocksHighGradeUpgrade: baseCounterEvidence.blocksHighGradeUpgrade || snapshot.dataConfidence.state !== "high",
+  };
   const reasons = positiveEvidence(snapshot);
+  const latentReasons = latentEvidence(snapshot);
+  const latentScore = latentReasons.length * 20;
   const deteriorationReasons = deteriorationEvidence(snapshot);
   const confirmation = evaluateConfirmation(
     snapshot,
     machine.confirmationPersistenceScans ?? 0,
     now,
   );
-  const ungatedCandidate = candidateDetectionState(snapshot, reasons.length);
-  const candidate =
-    detectionRank(ungatedCandidate) >= detectionRank("pre_breakout")
-    && confirmation.status !== "confirmed"
-      ? "accelerating"
-      : ungatedCandidate;
+  const ungatedCandidate = candidateDetectionState(snapshot, reasons.length, latentScore, confirmation);
+  const candidate = qualityCappedCandidate(ungatedCandidate, snapshot.dataConfidence, counterEvidence);
   const priorState = machine.state === "unavailable" ? "watch" : machine.state;
   const priorRank = detectionRank(priorState);
   const candidateRank = detectionRank(candidate);
@@ -757,15 +1247,14 @@ export function updatePreBreakoutDetection(
   let cooldownRemainingMs: number | null = null;
   const confirmationHardCapRequired =
     confirmation.status !== "confirmed"
-    && priorRank >= detectionRank("pre_breakout");
+    && priorRank >= detectionRank("confirmed");
 
   if (confirmationHardCapRequired) {
-    const immediateCandidate =
-      ungatedCandidate === "unavailable" ? "watch" : ungatedCandidate;
-    nextState =
-      detectionRank(immediateCandidate) < detectionRank("accelerating")
-        ? immediateCandidate
-        : "accelerating";
+    // Confirmation loss must never bypass the independent confidence and
+    // counter-evidence cap. This is intentionally the quality-capped
+    // candidate, rather than the raw predicate, so a previously confirmed
+    // signal cannot degrade into an alertable high grade on weak evidence.
+    nextState = candidate;
     pendingState = null;
     pendingCount = 0;
     lastTransitionAt = now;
@@ -811,10 +1300,20 @@ export function updatePreBreakoutDetection(
 
   const detection: PreBreakoutDetection = {
     state: nextState,
+    latentScore,
+    breakoutCriticalScore: Math.min(
+      100,
+      Math.max(0, reasons.length * 20 + ((snapshot.alphaVelocity.rate30s ?? 0) >= 6 ? 20 : 0)),
+    ),
     evidenceCount: reasons.length,
     velocityGateSatisfied: (snapshot.alphaVelocity.rate30s ?? Number.NEGATIVE_INFINITY) >= 3,
     reasons,
-    deteriorationReasons,
+    deteriorationReasons: [
+      ...deteriorationReasons,
+      ...(counterEvidence.strength === "none" || counterEvidence.strength === "unavailable"
+        ? []
+        : counterEvidence.reasons.map((reason) => `Counter-evidence: ${reason}`)),
+    ],
     transitionEvidenceCount: lastTransitionEvidenceCount,
     transitionReasons: lastTransitionReasons,
     lastTransitionAt,
@@ -826,8 +1325,9 @@ export function updatePreBreakoutDetection(
   return {
     snapshot: {
       ...snapshot,
-      preBreakoutWatch: nextState === "pre_breakout" || nextState === "confirmed",
+      preBreakoutWatch: nextState === "latent" || nextState === "breakout_critical" || nextState === "confirmed",
       preBreakout: detection,
+      counterEvidence,
     },
     machine: {
       state: nextState,
@@ -837,6 +1337,209 @@ export function updatePreBreakoutDetection(
       lastTransitionEvidenceCount,
       lastTransitionReasons,
       confirmationPersistenceScans: confirmation.persistenceScans,
+    },
+  };
+}
+
+/**
+ * Tracks only a breakout that can be proven from the current fresh stream:
+ * the confirmed Alpha state must cross a prior, independently observed rolling
+ * high. It deliberately does not invent a target price or retain a stale trend.
+ */
+export function updatePostBreakoutMonitoring(
+  snapshot: AlphaRadarSnapshot,
+  machine: PostBreakoutStateMachine,
+  input: AlphaRadarInput,
+): { snapshot: AlphaRadarSnapshot; machine: PostBreakoutStateMachine } {
+  const now = input.now;
+  const prices = [
+    ...input.trades.map((trade) => ({ timestamp: trade.timestamp, price: trade.price })),
+    ...input.bars
+      .filter((bar) => bar.close !== null && bar.close > 0)
+      .map((bar) => ({ timestamp: bar.timestamp, price: bar.close as number })),
+    ...input.quotes
+      .map((quote) => ({ timestamp: quote.timestamp, price: quoteMidpoint(quote) }))
+      .filter((point): point is { timestamp: Date; price: number } => point.price !== null),
+  ].filter((point) => point.price > 0)
+    .sort((left, right) => left.timestamp.getTime() - right.timestamp.getTime());
+  const latest = prices.at(-1) ?? null;
+  const fresh =
+    snapshot.preBreakout.dataFresh
+    && snapshot.scoreState === "available"
+    && snapshot.dataQuality === "good"
+    && latest !== null
+    && observationIsFresh(latest.timestamp, now);
+
+  if (!fresh || latest === null) {
+    const resetMachine: PostBreakoutStateMachine = {
+      active: false,
+      state: "unavailable",
+      breakoutPrice: null,
+      highSinceBreakout: null,
+      consecutiveWeakScans: 0,
+      consecutiveReversalScans: 0,
+      lastTransitionAt: null,
+    };
+    return {
+      snapshot: {
+        ...snapshot,
+        postBreakout: unavailablePostBreakout(
+          now,
+          "Post-breakout monitoring is unavailable because the current market window is not fresh and complete; a new confirmed live breakout is required after recovery.",
+        ),
+        counterEvidence: evaluateCounterEvidence({
+          ...snapshot,
+          postBreakout: unavailablePostBreakout(
+            now,
+            "Post-breakout monitoring is unavailable because the current market window is not fresh and complete; a new confirmed live breakout is required after recovery.",
+          ),
+        }),
+      },
+      machine: resetMachine,
+    };
+  }
+
+  const confirmed =
+    snapshot.preBreakout.state === "confirmed"
+    && snapshot.preBreakout.confirmation.status === "confirmed";
+  const priorPrices = prices.filter((point) => (
+    point.timestamp.getTime() <= latest.timestamp.getTime() - 5_000
+  ));
+  const priorHigh = priorPrices.length >= 4
+    ? Math.max(...priorPrices.map((point) => point.price))
+    : null;
+  const newlyBroken =
+    confirmed
+    && priorHigh !== null
+    && latest.price > priorHigh;
+
+  if (!machine.active && !newlyBroken) {
+    return {
+      snapshot: {
+        ...snapshot,
+        postBreakout: {
+          ...unavailablePostBreakout(
+            now,
+            !confirmed
+              ? "Post-breakout monitoring waits for existing multi-factor breakout confirmation."
+              : priorHigh === null
+                ? "Post-breakout monitoring requires at least four prior, observed live prices to establish a real breakout reference."
+                : "Confirmation is present, but price has not yet crossed the observed rolling high by the required margin.",
+          ),
+          latestPrice: latest.price,
+        },
+        counterEvidence: evaluateCounterEvidence({
+          ...snapshot,
+          postBreakout: {
+            ...unavailablePostBreakout(
+              now,
+              !confirmed
+                ? "Post-breakout monitoring waits for existing multi-factor breakout confirmation."
+                : priorHigh === null
+                  ? "Post-breakout monitoring requires at least four prior, observed live prices to establish a real breakout reference."
+                  : "Confirmation is present, but price has not yet crossed the observed rolling high by the required margin.",
+            ),
+            latestPrice: latest.price,
+          },
+        }),
+      },
+      machine,
+    };
+  }
+
+  const breakoutPrice = machine.breakoutPrice ?? priorHigh ?? latest.price;
+  const highSinceBreakout = Math.max(machine.highSinceBreakout ?? breakoutPrice, latest.price);
+  const drawdownFromHighPercent = highSinceBreakout > 0
+    ? round(((latest.price - highSinceBreakout) / highSinceBreakout) * 100, 3)
+    : null;
+  const latestQuote = [...input.quotes]
+    .filter((quote) => observationIsFresh(quote.timestamp, now))
+    .sort((left, right) => left.timestamp.getTime() - right.timestamp.getTime())
+    .at(-1) ?? null;
+  const l1BidPressure = latestQuote
+    && latestQuote.bidSize !== null
+    && latestQuote.askSize !== null
+    && latestQuote.bidSize + latestQuote.askSize > 0
+    ? round(((latestQuote.bidSize - latestQuote.askSize) / (latestQuote.bidSize + latestQuote.askSize)) * 100, 2)
+    : null;
+  const recentTrades = getWindow(input.trades, now.getTime() - 30_000, now.getTime());
+  const priorTrades = getWindow(input.trades, now.getTime() - 60_000, now.getTime() - 30_000);
+  const tradeRateChange = priorTrades.length > 0
+    ? round((recentTrades.length - priorTrades.length) / priorTrades.length, 3)
+    : null;
+  const buyPressure = snapshot.orderFlowPressure.value;
+  const volumeAcceleration = snapshot.changeIndicators.volumeAcceleration;
+  const priceMakingHigh = latest.price >= highSinceBreakout;
+  const lostBreakout = latest.price < breakoutPrice;
+  const supportReasons = [
+    buyPressure !== null && buyPressure >= 0 ? "主动买盘未转弱" : null,
+    l1BidPressure !== null && l1BidPressure >= 0 ? "L1 买盘不弱于卖盘" : null,
+    volumeAcceleration !== null && volumeAcceleration >= 0 ? "成交量未衰竭" : null,
+    tradeRateChange !== null && tradeRateChange >= 0 ? "成交速率未下降" : null,
+    priceMakingHigh ? "价格仍在接近或刷新突破后高点" : null,
+  ].filter((reason): reason is string => reason !== null);
+  const deteriorationReasons = [
+    buyPressure !== null && buyPressure <= -10 ? "主动买盘明显下降，卖方成交压力增强" : null,
+    l1BidPressure !== null && l1BidPressure <= -20 ? "L1 卖盘压力增强" : null,
+    volumeAcceleration !== null && volumeAcceleration <= -10 ? "成交量出现衰竭" : null,
+    tradeRateChange !== null && tradeRateChange <= -0.3 ? "成交速率明显下降" : null,
+    !priceMakingHigh ? "价格未能继续接近或刷新突破后高点" : null,
+    lostBreakout ? "价格失守已确认的突破位" : null,
+  ].filter((reason): reason is string => reason !== null);
+  const weakNow = deteriorationReasons.length >= 2 || lostBreakout;
+  const consecutiveWeakScans = weakNow ? machine.consecutiveWeakScans + 1 : 0;
+  const reversalNow = (
+    (lostBreakout && (buyPressure ?? 0) < 0)
+    || deteriorationReasons.length >= 3
+  );
+  const consecutiveReversalScans = reversalNow ? machine.consecutiveReversalScans + 1 : 0;
+  const nextState: PostBreakoutState =
+    consecutiveReversalScans >= 2
+      ? "trend_reversal_confirmed"
+      : weakNow
+        ? "take_profit_watch"
+        : "trend_continuation";
+  const transitioned = !machine.active || machine.state !== nextState;
+  const lastTransitionAt = transitioned ? now : machine.lastTransitionAt;
+  const reason = nextState === "trend_reversal_confirmed"
+    ? "🔴 趋势反转/止盈确认：连续真实成交结构与突破位均显示反转。"
+    : nextState === "take_profit_watch"
+      ? "⚠️ 止盈/减仓关注：上涨过程的实时买盘、成交或价格结构正在转弱。"
+      : "持有/趋势延续：当前上涨仍获得真实买盘、成交和 L1 结构支持。";
+  const postBreakout: PostBreakoutMonitoring = {
+    state: nextState,
+    active: true,
+    dataFresh: true,
+    breakoutPrice,
+    highSinceBreakout,
+    drawdownFromHighPercent,
+    latestPrice: latest.price,
+    activeBuyPressure: buyPressure,
+    l1BidPressure,
+    volumeAcceleration,
+    tradeRateChange,
+    supportReasons,
+    deteriorationReasons,
+    consecutiveWeakScans,
+    consecutiveReversalScans,
+    lastTransitionAt,
+    lastEvaluatedAt: now,
+    reason,
+  };
+  return {
+    snapshot: {
+      ...snapshot,
+      postBreakout,
+      counterEvidence: evaluateCounterEvidence({ ...snapshot, postBreakout }),
+    },
+    machine: {
+      active: true,
+      state: nextState,
+      breakoutPrice,
+      highSinceBreakout,
+      consecutiveWeakScans,
+      consecutiveReversalScans,
+      lastTransitionAt,
     },
   };
 }
@@ -1206,6 +1909,9 @@ export function createEmptyAlphaRadar(now: Date, symbol = "NVDA"): AlphaRadarSna
     status: null,
     scoreState: "insufficient",
     confidence: 0,
+    dataConfidence: unavailableDataConfidence(
+      "Data Confidence is awaiting a complete fresh live score window.",
+    ),
     dataQuality: "missing",
     generatedAt: now,
     warnings: [`Waiting for live ${symbol} market observations. No Alpha Radar score is available.`],
@@ -1226,8 +1932,15 @@ export function createEmptyAlphaRadar(now: Date, symbol = "NVDA"): AlphaRadarSna
     },
     alphaVelocity: emptyAlphaVelocity(),
     changeIndicators: emptyChangeIndicators(),
+    multiTimeframe: unavailableMultiTimeframe(
+      "Cross-context evidence is awaiting complete fresh live scans.",
+    ),
+    counterEvidence: unavailableCounterEvidence(
+      "Counter-evidence is awaiting a complete fresh live score window.",
+    ),
     preBreakoutWatch: false,
     preBreakout: unavailablePreBreakout(now),
+    postBreakout: unavailablePostBreakout(now),
     momentum: { ...unavailable, unit: "%" },
     spread: { ...unavailable, unit: "bps" },
     volumeIntensity: { ...unavailable, unit: "x baseline" },
@@ -1357,6 +2070,16 @@ export function calculateAlphaRadar(input: AlphaRadarInput): AlphaRadarSnapshot 
     changeIndicators: emptyChangeIndicators(),
     preBreakoutWatch: false,
     preBreakout: unavailablePreBreakout(input.now),
+    postBreakout: unavailablePostBreakout(input.now),
+    multiTimeframe: unavailableMultiTimeframe(
+      "Cross-context evidence is awaiting complete fresh live scans.",
+    ),
+    dataConfidence: unavailableDataConfidence(
+      "Data Confidence is awaiting a complete fresh live score window.",
+    ),
+    counterEvidence: unavailableCounterEvidence(
+      "Counter-evidence is awaiting a complete fresh live score window.",
+    ),
     momentum,
     spread,
     volumeIntensity,
