@@ -35,7 +35,9 @@ import type {
   MarketUniverseResult,
   OpportunityCenterSnapshot,
   PushCapability,
+  PushSubscriptionEndpoint,
   PushSubscriptionRequest,
+  PushSubscriptionStatus,
   RadarStatus,
   RuntimeSupervisorError,
   RuntimeSupervisorIncidentRecord,
@@ -1706,6 +1708,83 @@ export function useGetPushCapability<TData = Awaited<ReturnType<typeof getPushCa
 
 
 
+export const getGetPushSubscriptionStatusUrl = () => {
+
+
+
+
+  return `/api/alerts/push-status`
+}
+
+/**
+ * @summary Get the current account's non-sensitive Web Push readiness state
+ */
+export const getPushSubscriptionStatus = async ( options?: Parameters<typeof customFetch>[1]): Promise<PushSubscriptionStatus> => {
+
+  return customFetch<PushSubscriptionStatus>(getGetPushSubscriptionStatusUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetPushSubscriptionStatusQueryKey = () => {
+    return [
+    `/api/alerts/push-status`
+    ] as const;
+    }
+
+
+export const getGetPushSubscriptionStatusQueryOptions = <TData = Awaited<ReturnType<typeof getPushSubscriptionStatus>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPushSubscriptionStatus>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetPushSubscriptionStatusQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getPushSubscriptionStatus>>> = ({ signal }) => getPushSubscriptionStatus({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getPushSubscriptionStatus>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetPushSubscriptionStatusQueryResult = NonNullable<Awaited<ReturnType<typeof getPushSubscriptionStatus>>>
+export type GetPushSubscriptionStatusQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get the current account's non-sensitive Web Push readiness state
+ */
+
+export function useGetPushSubscriptionStatus<TData = Awaited<ReturnType<typeof getPushSubscriptionStatus>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPushSubscriptionStatus>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetPushSubscriptionStatusQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
 export const getCreatePushSubscriptionUrl = () => {
 
 
@@ -1775,6 +1854,77 @@ export const useCreatePushSubscription = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getCreatePushSubscriptionMutationOptions(options));
+    }
+
+export const getDeleteCurrentPushSubscriptionUrl = () => {
+
+
+
+
+  return `/api/alerts/push-subscriptions`
+}
+
+/**
+ * @summary Deactivate the current browser subscription by its endpoint
+ */
+export const deleteCurrentPushSubscription = async (pushSubscriptionEndpoint: PushSubscriptionEndpoint, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+  return customFetch<void>(getDeleteCurrentPushSubscriptionUrl(),
+  {
+    ...options,
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(pushSubscriptionEndpoint)
+  }
+);}
+
+
+
+
+
+export const getDeleteCurrentPushSubscriptionMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteCurrentPushSubscription>>, TError,{data: BodyType<PushSubscriptionEndpoint>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteCurrentPushSubscription>>, TError,{data: BodyType<PushSubscriptionEndpoint>}, TContext> => {
+
+const mutationKey = ['deleteCurrentPushSubscription'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteCurrentPushSubscription>>, {data: BodyType<PushSubscriptionEndpoint>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  deleteCurrentPushSubscription(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteCurrentPushSubscriptionMutationResult = NonNullable<Awaited<ReturnType<typeof deleteCurrentPushSubscription>>>
+    export type DeleteCurrentPushSubscriptionMutationBody = BodyType<PushSubscriptionEndpoint>
+    export type DeleteCurrentPushSubscriptionMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Deactivate the current browser subscription by its endpoint
+ */
+export const useDeleteCurrentPushSubscription = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteCurrentPushSubscription>>, TError,{data: BodyType<PushSubscriptionEndpoint>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteCurrentPushSubscription>>,
+        TError,
+        {data: BodyType<PushSubscriptionEndpoint>},
+        TContext
+      > => {
+      return useMutation(getDeleteCurrentPushSubscriptionMutationOptions(options));
     }
 
 export const getDeletePushSubscriptionUrl = (subscriptionId: string,) => {

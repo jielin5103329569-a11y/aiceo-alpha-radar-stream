@@ -8,8 +8,10 @@
 
 export type PushCapability = {
   available: true;
+  state: 'ready';
   publicKey: string;
 } | {
   available: false;
+  state: 'configuration_required' | 'invalid_configuration';
   reason: string;
 };

@@ -110,11 +110,31 @@ export interface UpdateAlertSettingsRequest {
 
 export type PushCapability = {
   available: true;
+  state: 'ready';
   publicKey: string;
 } | {
   available: false;
+  state: 'configuration_required' | 'invalid_configuration';
   reason: string;
 };
+
+export type PushSubscriptionStatusState = typeof PushSubscriptionStatusState[keyof typeof PushSubscriptionStatusState];
+
+
+export const PushSubscriptionStatusState = {
+  configuration_required: 'configuration_required',
+  invalid_configuration: 'invalid_configuration',
+  ready_to_subscribe: 'ready_to_subscribe',
+  active: 'active',
+} as const;
+
+export interface PushSubscriptionStatus {
+  capability: PushCapability;
+  state: PushSubscriptionStatusState;
+  /** @minimum 0 */
+  activeSubscriptionCount: number;
+  reason: string;
+}
 
 export type PushSubscriptionRequestKeys = {
   p256dh: string;
@@ -126,6 +146,11 @@ export interface PushSubscriptionRequest {
   keys: PushSubscriptionRequestKeys;
   /** @maxLength 120 */
   deviceLabel?: string;
+}
+
+export interface PushSubscriptionEndpoint {
+  /** @minLength 1 */
+  endpoint: string;
 }
 
 export type TestNotificationResponseStatus = typeof TestNotificationResponseStatus[keyof typeof TestNotificationResponseStatus];
@@ -287,6 +312,22 @@ export interface MarketUniverseLifecycleCounts {
   unknown: number;
 }
 
+export type ReferenceAuthorizationState = typeof ReferenceAuthorizationState[keyof typeof ReferenceAuthorizationState];
+
+
+export const ReferenceAuthorizationState = {
+  verified: 'verified',
+  blocked: 'blocked',
+  unavailable: 'unavailable',
+  unknown: 'unknown',
+} as const;
+
+export interface ReferenceAuthorization {
+  state: ReferenceAuthorizationState;
+  reason: string;
+  nextAction: string;
+}
+
 export type MarketUniverseSummaryProvider = typeof MarketUniverseSummaryProvider[keyof typeof MarketUniverseSummaryProvider];
 
 
@@ -329,6 +370,7 @@ export interface MarketUniverseSummary {
   /** @minimum 0 */
   classificationCoverageCount: number;
   lifecycleCounts: MarketUniverseLifecycleCounts;
+  authorization: ReferenceAuthorization;
   eligibleSample: string[];
 }
 
@@ -458,6 +500,17 @@ export const CatalystSourceAvailability = {
   blocked: 'blocked',
 } as const;
 
+export type CatalystSourceReadiness = typeof CatalystSourceReadiness[keyof typeof CatalystSourceReadiness];
+
+
+export const CatalystSourceReadiness = {
+  unconfigured: 'unconfigured',
+  authorization_required: 'authorization_required',
+  ready: 'ready',
+  stale: 'stale',
+  blocked: 'blocked',
+} as const;
+
 export type CatalystFreshness = typeof CatalystFreshness[keyof typeof CatalystFreshness];
 
 
@@ -526,6 +579,8 @@ export interface CatalystSourceStatus {
   /** @nullable */
   lastEventAt: string | null;
   reason: string;
+  readiness: CatalystSourceReadiness;
+  nextAction: string;
 }
 
 export interface CatalystEvent {

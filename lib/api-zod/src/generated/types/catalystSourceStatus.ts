@@ -9,6 +9,7 @@ import type { CatalystCategory } from './catalystCategory';
 import type { CatalystDataQuality } from './catalystDataQuality';
 import type { CatalystFreshness } from './catalystFreshness';
 import type { CatalystSourceAvailability } from './catalystSourceAvailability';
+import type { CatalystSourceReadiness } from './catalystSourceReadiness';
 
 export interface CatalystSourceStatus {
   category: CatalystCategory;
@@ -22,4 +23,6 @@ export interface CatalystSourceStatus {
   /** @nullable */
   lastEventAt: Date | null;
   reason: string;
+  readiness: CatalystSourceReadiness;
+  nextAction: string;
 }

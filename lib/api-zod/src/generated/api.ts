@@ -805,6 +805,11 @@ export const GetRadarStatusResponse = zod.object({
   "delisted": zod.number().min(getRadarStatusResponseMarketUniverseLifecycleCountsDelistedMin),
   "unknown": zod.number().min(getRadarStatusResponseMarketUniverseLifecycleCountsUnknownMin)
 }),
+  "authorization": zod.object({
+  "state": zod.enum(['verified', 'blocked', 'unavailable', 'unknown']),
+  "reason": zod.string(),
+  "nextAction": zod.string()
+}),
   "eligibleSample": zod.array(zod.string())
 }),
   "focusedScans": zod.object({
@@ -864,7 +869,9 @@ export const GetRadarStatusResponse = zod.object({
   "freshness": zod.enum(['fresh', 'delayed', 'stale', 'insufficient', 'missing']),
   "dataQuality": zod.enum(['good', 'degraded', 'unavailable']),
   "lastEventAt": zod.coerce.date().nullable(),
-  "reason": zod.string()
+  "reason": zod.string(),
+  "readiness": zod.enum(['unconfigured', 'authorization_required', 'ready', 'stale', 'blocked']),
+  "nextAction": zod.string()
 })),
   "events": zod.array(zod.object({
   "id": zod.string(),
@@ -2113,6 +2120,11 @@ export const GetMarketUniverseResponse = zod.object({
   "delisted": zod.number().min(getMarketUniverseResponseSummaryLifecycleCountsDelistedMin),
   "unknown": zod.number().min(getMarketUniverseResponseSummaryLifecycleCountsUnknownMin)
 }),
+  "authorization": zod.object({
+  "state": zod.enum(['verified', 'blocked', 'unavailable', 'unknown']),
+  "reason": zod.string(),
+  "nextAction": zod.string()
+}),
   "eligibleSample": zod.array(zod.string())
 }),
   "items": zod.array(zod.object({
@@ -2226,7 +2238,9 @@ export const GetCatalystRadarResponse = zod.object({
   "freshness": zod.enum(['fresh', 'delayed', 'stale', 'insufficient', 'missing']),
   "dataQuality": zod.enum(['good', 'degraded', 'unavailable']),
   "lastEventAt": zod.coerce.date().nullable(),
-  "reason": zod.string()
+  "reason": zod.string(),
+  "readiness": zod.enum(['unconfigured', 'authorization_required', 'ready', 'stale', 'blocked']),
+  "nextAction": zod.string()
 })),
   "events": zod.array(zod.object({
   "id": zod.string(),
@@ -2811,11 +2825,36 @@ export const AcknowledgeAlertResponse = zod.void()
  */
 export const GetPushCapabilityResponse = zod.union([zod.object({
   "available": zod.literal(true),
+  "state": zod.literal("ready"),
   "publicKey": zod.string()
 }),zod.object({
   "available": zod.literal(false),
+  "state": zod.enum(['configuration_required', 'invalid_configuration']),
   "reason": zod.string()
 })])
+
+
+/**
+ * @summary Get the current account's non-sensitive Web Push readiness state
+ */
+export const getPushSubscriptionStatusResponseActiveSubscriptionCountMin = 0;
+
+
+
+export const GetPushSubscriptionStatusResponse = zod.object({
+  "capability": zod.union([zod.object({
+  "available": zod.literal(true),
+  "state": zod.literal("ready"),
+  "publicKey": zod.string()
+}),zod.object({
+  "available": zod.literal(false),
+  "state": zod.enum(['configuration_required', 'invalid_configuration']),
+  "reason": zod.string()
+})]),
+  "state": zod.enum(['configuration_required', 'invalid_configuration', 'ready_to_subscribe', 'active']),
+  "activeSubscriptionCount": zod.number().min(getPushSubscriptionStatusResponseActiveSubscriptionCountMin),
+  "reason": zod.string()
+})
 
 
 /**
@@ -2835,6 +2874,19 @@ export const CreatePushSubscriptionBody = zod.object({
 })
 
 export const CreatePushSubscriptionResponse = zod.void()
+
+
+/**
+ * @summary Deactivate the current browser subscription by its endpoint
+ */
+
+
+
+export const DeleteCurrentPushSubscriptionBody = zod.object({
+  "endpoint": zod.string().min(1)
+})
+
+export const DeleteCurrentPushSubscriptionResponse = zod.void()
 
 
 /**

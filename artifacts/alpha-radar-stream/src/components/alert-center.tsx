@@ -158,6 +158,12 @@ export interface AlertCenterProps {
    * The component NEVER claims push is enabled unless this is explicitly true.
    */
   browserPushEnabled: boolean;
+  /** Server-confirmed, non-sensitive delivery readiness for this account. */
+  pushReadiness?: {
+    state: 'configuration_required' | 'invalid_configuration' | 'ready_to_subscribe' | 'active';
+    activeSubscriptionCount: number;
+    reason: string;
+  };
   /** Mutation callbacks */
   mutations: AlertCenterMutations;
   /** Optional class for outer wrapper */
@@ -450,11 +456,12 @@ function AlertRow({ alert, onRead, onAcknowledge }: AlertRowProps) {
 
 interface NotificationPanelProps {
   browserPushEnabled: boolean;
+  pushReadiness: AlertCenterProps['pushReadiness'];
   settings: AlertNotificationSettings;
   mutations: AlertCenterMutations;
 }
 
-function NotificationPanel({ browserPushEnabled, settings, mutations }: NotificationPanelProps) {
+function NotificationPanel({ browserPushEnabled, pushReadiness, settings, mutations }: NotificationPanelProps) {
   const [supportStatus, setSupportStatus] = useState<NotificationSupportStatus>('default');
   const [isRequesting, setIsRequesting] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -492,7 +499,8 @@ function NotificationPanel({ browserPushEnabled, settings, mutations }: Notifica
     setTimeout(() => setTestFired(false), 2500);
   }, [mutations]);
 
-  const canEnable = supportStatus === 'granted' || supportStatus === 'default';
+  const serverReady = pushReadiness?.state === 'ready_to_subscribe' || pushReadiness?.state === 'active';
+  const canEnable = serverReady && (supportStatus === 'granted' || supportStatus === 'default');
   const effectivelyEnabled = browserPushEnabled && supportStatus === 'granted';
 
   return (
@@ -583,7 +591,19 @@ function NotificationPanel({ browserPushEnabled, settings, mutations }: Notifica
         </div>
       )}
 
-      {/* Test button – only shown when permission is granted */}
+      {pushReadiness && !serverReady && (
+        <div className="rounded-md border border-amber-500/30 bg-amber-500/5 px-4 py-3">
+          <div className="flex items-start gap-2">
+            <CircleAlert className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+            <div className="space-y-1">
+              <p className="text-sm font-semibold text-amber-700 dark:text-amber-400">Server Push configuration required</p>
+              <p className="text-xs text-muted-foreground">{pushReadiness.reason}</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Test button – only enabled after server and browser agree this device is active. */}
       {supportStatus === 'granted' && (
         <div className="flex items-center gap-3">
           <Button
@@ -591,7 +611,7 @@ function NotificationPanel({ browserPushEnabled, settings, mutations }: Notifica
             size="sm"
             className="gap-2"
             onClick={handleTest}
-            disabled={testFired}
+            disabled={testFired || !effectivelyEnabled}
             data-testid="button-test-notification"
           >
             {testFired ? (
@@ -619,13 +639,17 @@ function NotificationPanel({ browserPushEnabled, settings, mutations }: Notifica
           className={cn('font-semibold', effectivelyEnabled ? 'text-primary' : 'text-muted-foreground')}
           data-testid="text-push-delivery-status"
         >
-          {effectivelyEnabled ? 'Active' : 'Inactive'}
+          {effectivelyEnabled ? 'Active' : pushReadiness?.state === 'ready_to_subscribe' ? 'Ready to subscribe' : 'Inactive'}
         </span>
         {' · '}
         Browser permission:{' '}
         <span className="font-mono">
           {supportStatus === 'granted' ? 'granted' : supportStatus === 'blocked' ? 'denied' : supportStatus}
         </span>
+        {' · '}
+        Server: <span className="font-mono">{pushReadiness?.state ?? 'checking'}</span>
+        {' · '}
+        Saved subscriptions: <span className="font-mono">{pushReadiness?.activeSubscriptionCount ?? 0}</span>
       </div>
 
       {/* Tier threshold */}
@@ -665,6 +689,7 @@ export function AlertCenter({
   isError,
   actionError,
   browserPushEnabled,
+  pushReadiness,
   mutations,
   className,
 }: AlertCenterProps) {
@@ -792,6 +817,7 @@ export function AlertCenter({
               </p>
               <NotificationPanel
                 browserPushEnabled={browserPushEnabled}
+                pushReadiness={pushReadiness}
                 settings={settings}
                 mutations={mutations}
               />

@@ -195,8 +195,12 @@ export function buildAlertPushPayload(
 // ---------------------------------------------------------------------------
 
 export type VapidCapability =
-  | { available: true; publicKey: string; subject: string }
-  | { available: false; reason: string };
+  | { available: true; state: "ready"; publicKey: string; subject: string }
+  | {
+      available: false;
+      state: "configuration_required" | "invalid_configuration";
+      reason: string;
+    };
 
 function detectVapid(): VapidCapability {
   const privateKey = process.env.VAPID_PRIVATE_KEY;
@@ -205,16 +209,25 @@ function detectVapid(): VapidCapability {
   if (!privateKey || !publicKey) {
     return {
       available: false,
+      state: "configuration_required",
       reason: "VAPID_PRIVATE_KEY and/or VAPID_PUBLIC_KEY environment variables are not set",
     };
   }
   if (!subject) {
     return {
       available: false,
+      state: "configuration_required",
       reason: "VAPID_SUBJECT (or VAPID_EMAIL) environment variable is not set",
     };
   }
-  return { available: true, publicKey, subject };
+  if (!subject.startsWith("mailto:") && !subject.startsWith("https://")) {
+    return {
+      available: false,
+      state: "invalid_configuration",
+      reason: "VAPID_SUBJECT must be a mailto: address or an https:// contact URL.",
+    };
+  }
+  return { available: true, state: "ready", publicKey, subject };
 }
 
 export const vapidCapability: VapidCapability = detectVapid();
@@ -379,6 +392,37 @@ export class AlertService {
         eq(pushSubscriptionsTable.userId, userId),
         eq(pushSubscriptionsTable.active, true),
       ));
+  }
+
+  /**
+   * Account-scoped delivery readiness. This is intentionally separate from
+   * alert eligibility: VAPID and subscriptions only affect notification
+   * delivery, never candidate, Alert, or Buy authority.
+   */
+  async getPushSubscriptionStatus(userId: string): Promise<{
+    capability: VapidCapability;
+    state: "configuration_required" | "invalid_configuration" | "ready_to_subscribe" | "active";
+    activeSubscriptionCount: number;
+    reason: string;
+  }> {
+    if (!vapidCapability.available) {
+      return {
+        capability: vapidCapability,
+        state: vapidCapability.state,
+        activeSubscriptionCount: 0,
+        reason: vapidCapability.reason,
+      };
+    }
+
+    const activeSubscriptionCount = (await this.listPushSubscriptions(userId)).length;
+    return {
+      capability: vapidCapability,
+      state: activeSubscriptionCount > 0 ? "active" : "ready_to_subscribe",
+      activeSubscriptionCount,
+      reason: activeSubscriptionCount > 0
+        ? "An active Web Push subscription is saved for this account."
+        : "Web Push is configured, but this browser has not saved an active subscription yet.",
+    };
   }
 
   /** Get or create notification settings for a user (for future route). */

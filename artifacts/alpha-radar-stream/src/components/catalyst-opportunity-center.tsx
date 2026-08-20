@@ -121,7 +121,7 @@ export function CatalystOpportunityCenter({
                         className={cn('border font-mono text-[9px] uppercase', sourceTone(source))}
                         data-testid={`catalyst-source-status-${source.category}`}
                       >
-                        {source.availability}
+                        {source.readiness}
                       </Badge>
                     </div>
                     <p className="mt-3 text-xs font-medium text-foreground">{source.label}</p>
@@ -130,6 +130,9 @@ export function CatalystOpportunityCenter({
                     </p>
                     <p className="mt-2 text-[10px] leading-relaxed text-muted-foreground">
                       {source.reason}
+                    </p>
+                    <p className="mt-2 border-t border-border/50 pt-2 text-[10px] leading-relaxed text-muted-foreground">
+                      Next: {source.nextAction}
                     </p>
                   </div>
                 );

@@ -409,6 +409,18 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/PushCapability"
+  /alerts/push-status:
+    get:
+      operationId: getPushSubscriptionStatus
+      tags: [alerts]
+      summary: Get the current account's non-sensitive Web Push readiness state
+      responses:
+        "200":
+          description: Push readiness and active subscription count
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PushSubscriptionStatus"
   /alerts/push-subscriptions:
     post:
       operationId: createPushSubscription
@@ -423,6 +435,19 @@ paths:
       responses:
         "204":
           description: Subscription saved
+    delete:
+      operationId: deleteCurrentPushSubscription
+      tags: [alerts]
+      summary: Deactivate the current browser subscription by its endpoint
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PushSubscriptionEndpoint"
+      responses:
+        "204":
+          description: Current browser subscription deactivated
   /alerts/push-subscriptions/{subscriptionId}:
     delete:
       operationId: deletePushSubscription
@@ -522,15 +547,33 @@ components:
     PushCapability:
       oneOf:
         - type: object
-          required: [available, publicKey]
+          required: [available, state, publicKey]
           properties:
             available: { const: true }
+            state: { const: ready }
             publicKey: { type: string }
         - type: object
-          required: [available, reason]
+          required: [available, state, reason]
           properties:
             available: { const: false }
+            state:
+              type: string
+              enum: [configuration_required, invalid_configuration]
             reason: { type: string }
+    PushSubscriptionStatus:
+      type: object
+      required: [capability, state, activeSubscriptionCount, reason]
+      properties:
+        capability:
+          $ref: "#/components/schemas/PushCapability"
+        state:
+          type: string
+          enum: [configuration_required, invalid_configuration, ready_to_subscribe, active]
+        activeSubscriptionCount:
+          type: number
+          minimum: 0
+        reason:
+          type: string
     PushSubscriptionRequest:
       type: object
       required: [endpoint, keys]
@@ -543,6 +586,11 @@ components:
             p256dh: { type: string }
             auth: { type: string }
         deviceLabel: { type: string, maxLength: 120 }
+    PushSubscriptionEndpoint:
+      type: object
+      required: [endpoint]
+      properties:
+        endpoint: { type: string, minLength: 1 }
     TestNotificationResponse:
       type: object
       required: [status, attempted]
@@ -668,6 +716,17 @@ components:
           type: number
           minimum: 0
       required: [active, halted, inactive, delisted, unknown]
+    ReferenceAuthorization:
+      type: object
+      properties:
+        state:
+          type: string
+          enum: [verified, blocked, unavailable, unknown]
+        reason:
+          type: string
+        nextAction:
+          type: string
+      required: [state, reason, nextAction]
     MarketUniverseSummary:
       type: object
       properties:
@@ -718,6 +777,8 @@ components:
           minimum: 0
         lifecycleCounts:
           $ref: "#/components/schemas/MarketUniverseLifecycleCounts"
+        authorization:
+          $ref: "#/components/schemas/ReferenceAuthorization"
         eligibleSample:
           type: array
           items:
@@ -741,6 +802,7 @@ components:
         - commonEquityVerifiedCount
         - classificationCoverageCount
         - lifecycleCounts
+        - authorization
         - eligibleSample
     MarketUniverseResult:
       type: object
@@ -905,6 +967,9 @@ components:
     CatalystSourceAvailability:
       type: string
       enum: [unavailable, available, stale, blocked]
+    CatalystSourceReadiness:
+      type: string
+      enum: [unconfigured, authorization_required, ready, stale, blocked]
     CatalystFreshness:
       type: string
       enum: [fresh, delayed, stale, insufficient, missing]
@@ -935,7 +1000,9 @@ components:
         dataQuality: { $ref: "#/components/schemas/CatalystDataQuality" }
         lastEventAt: { type: [string, "null"], format: date-time }
         reason: { type: string }
-      required: [category, label, availability, authorized, source, freshness, dataQuality, lastEventAt, reason]
+        readiness: { $ref: "#/components/schemas/CatalystSourceReadiness" }
+        nextAction: { type: string }
+      required: [category, label, availability, authorized, source, freshness, dataQuality, lastEventAt, reason, readiness, nextAction]
     CatalystEvent:
       type: object
       properties:

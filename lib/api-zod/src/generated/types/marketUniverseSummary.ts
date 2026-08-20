@@ -9,6 +9,7 @@ import type { MarketUniverseLifecycleCounts } from './marketUniverseLifecycleCou
 import type { MarketUniverseRefreshState } from './marketUniverseRefreshState';
 import type { MarketUniverseSummaryDeliveryMode } from './marketUniverseSummaryDeliveryMode';
 import type { MarketUniverseSummaryProvider } from './marketUniverseSummaryProvider';
+import type { ReferenceAuthorization } from './referenceAuthorization';
 import type { ReferenceDataQuality } from './referenceDataQuality';
 import type { ReferenceFreshness } from './referenceFreshness';
 
@@ -40,5 +41,6 @@ export interface MarketUniverseSummary {
   /** @minimum 0 */
   classificationCoverageCount: number;
   lifecycleCounts: MarketUniverseLifecycleCounts;
+  authorization: ReferenceAuthorization;
   eligibleSample: string[];
 }

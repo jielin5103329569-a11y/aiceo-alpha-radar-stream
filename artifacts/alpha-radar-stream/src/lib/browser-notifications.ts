@@ -14,6 +14,11 @@ export type NotificationSupportStatus =
   | 'granted'              // User has granted permission
   | 'default';             // Not yet asked
 
+export type BrowserPushAvailability =
+  | 'ready'
+  | 'service-worker-unsupported'
+  | 'push-unsupported';
+
 /**
  * Detect iPhone Safari without PWA wrapper.
  * On iOS < 16.4 (and sometimes later) Notification is only available
@@ -59,6 +64,50 @@ export async function requestNotificationPermission(): Promise<NotificationSuppo
   if (result === 'granted') return 'granted';
   if (result === 'denied') return 'blocked';
   return 'default';
+}
+
+export function getBrowserPushAvailability(): BrowserPushAvailability {
+  if (typeof window === 'undefined' || !('serviceWorker' in navigator)) {
+    return 'service-worker-unsupported';
+  }
+  if (!('PushManager' in window)) return 'push-unsupported';
+  return 'ready';
+}
+
+function serviceWorkerScope(): string {
+  const basePath = import.meta.env.BASE_URL || '/';
+  return basePath.endsWith('/') ? basePath : `${basePath}/`;
+}
+
+function serviceWorkerUrl(): string {
+  return `${serviceWorkerScope()}sw.js`;
+}
+
+/**
+ * Register this artifact's service worker explicitly. A base-aware URL keeps
+ * the worker inside the Alpha Radar artifact rather than accidentally taking
+ * control of a sibling app mounted at the same origin.
+ */
+export async function ensurePushServiceWorker(): Promise<ServiceWorkerRegistration> {
+  const availability = getBrowserPushAvailability();
+  if (availability !== 'ready') {
+    throw new Error(
+      availability === 'service-worker-unsupported'
+        ? 'This browser does not support Service Workers.'
+        : 'This browser does not support the Push API.',
+    );
+  }
+  const registration = await navigator.serviceWorker.register(serviceWorkerUrl(), {
+    scope: serviceWorkerScope(),
+  });
+  return navigator.serviceWorker.ready.then(() => registration);
+}
+
+/** Read the saved browser subscription without requesting permission or registering a worker. */
+export async function getCurrentPushSubscription(): Promise<PushSubscription | null> {
+  if (getBrowserPushAvailability() !== 'ready') return null;
+  const registration = await navigator.serviceWorker.getRegistration(serviceWorkerScope());
+  return registration ? registration.pushManager.getSubscription() : null;
 }
 
 /**

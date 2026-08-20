@@ -4,11 +4,14 @@ import {
   getGetAlertSettingsQueryKey,
   getGetAlertsQueryKey,
   getGetPushCapabilityQueryKey,
+  getGetPushSubscriptionStatusQueryKey,
   useAcknowledgeAlert,
   useCreatePushSubscription,
+  useDeleteCurrentPushSubscription,
   useGetAlertSettings,
   useGetAlerts,
   useGetPushCapability,
+  useGetPushSubscriptionStatus,
   useMarkAlertRead,
   useMarkAllAlertsRead,
   useSendAlertTestNotification,
@@ -17,11 +20,16 @@ import {
   type VerifiedAlphaAlert,
 } from "@workspace/api-client-react";
 import { Bell, LogIn } from "lucide-react";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import { AlertCenter, type AlertRecord, type AlertNotificationSettings } from "@/components/alert-center";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  ensurePushServiceWorker,
+  getBrowserPushAvailability,
+  getCurrentPushSubscription,
+} from "@/lib/browser-notifications";
 
 const tierBySeverity: Record<string, AlertRecord["tier"]> = {
   critical: "confirmed",
@@ -99,6 +107,7 @@ export function AccountAlerts() {
   const [, setLocation] = useLocation();
   const client = useQueryClient();
   const [actionError, setActionError] = useState<string | null>(null);
+  const [browserSubscriptionActive, setBrowserSubscriptionActive] = useState(false);
   const alerts = useGetAlerts(undefined, {
     query: { queryKey: getGetAlertsQueryKey(), enabled: isSignedIn === true, refetchInterval: 20_000 },
   });
@@ -108,17 +117,39 @@ export function AccountAlerts() {
   const pushCapability = useGetPushCapability({
     query: { queryKey: getGetPushCapabilityQueryKey(), enabled: isSignedIn === true, staleTime: 60_000 },
   });
+  const pushStatus = useGetPushSubscriptionStatus({
+    query: { queryKey: getGetPushSubscriptionStatusQueryKey(), enabled: isSignedIn === true, refetchInterval: 30_000 },
+  });
   const updateSettings = useUpdateAlertSettings();
   const markRead = useMarkAlertRead();
   const markAllRead = useMarkAllAlertsRead();
   const acknowledge = useAcknowledgeAlert();
   const saveSubscription = useCreatePushSubscription();
+  const deleteCurrentSubscription = useDeleteCurrentPushSubscription();
   const sendTest = useSendAlertTestNotification();
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!isSignedIn) {
+      setBrowserSubscriptionActive(false);
+      return () => { cancelled = true; };
+    }
+    void getCurrentPushSubscription()
+      .then((subscription) => {
+        if (!cancelled) setBrowserSubscriptionActive(subscription !== null);
+      })
+      .catch(() => {
+        if (!cancelled) setBrowserSubscriptionActive(false);
+      });
+    return () => { cancelled = true; };
+  }, [isSignedIn]);
 
   const refresh = useCallback(async () => {
     await Promise.all([
       client.invalidateQueries({ queryKey: getGetAlertsQueryKey() }),
       client.invalidateQueries({ queryKey: getGetAlertSettingsQueryKey() }),
+      client.invalidateQueries({ queryKey: getGetPushCapabilityQueryKey() }),
+      client.invalidateQueries({ queryKey: getGetPushSubscriptionStatusQueryKey() }),
     ]);
   }, [client]);
 
@@ -140,16 +171,29 @@ export function AccountAlerts() {
 
   const enablePush = useCallback(async (): Promise<boolean> => {
     const capability = pushCapability.data;
-    if (!capability?.available || !("serviceWorker" in navigator) || !("PushManager" in window)) {
-      return false;
+    if (!capability?.available) {
+      throw new Error(
+        capability?.reason
+          ?? "Web Push is not configured for this service.",
+      );
     }
-    const registration = await navigator.serviceWorker.ready;
-    const subscription = await registration.pushManager.subscribe({
-      userVisibleOnly: true,
-      applicationServerKey: base64UrlToArrayBuffer(capability.publicKey),
-    });
+    const availability = getBrowserPushAvailability();
+    if (availability !== "ready") {
+      throw new Error(
+        availability === "service-worker-unsupported"
+          ? "This browser does not support Service Workers."
+          : "This browser does not support the Push API.",
+      );
+    }
+    const registration = await ensurePushServiceWorker();
+    const subscription = (await registration.pushManager.getSubscription()) ?? await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: base64UrlToArrayBuffer(capability.publicKey),
+      });
     const serialized = subscription.toJSON();
-    if (!serialized.endpoint || !serialized.keys?.p256dh || !serialized.keys.auth) return false;
+    if (!serialized.endpoint || !serialized.keys?.p256dh || !serialized.keys.auth) {
+      throw new Error("The browser returned an incomplete Push subscription.");
+    }
     await saveSubscription.mutateAsync({
       data: {
         endpoint: serialized.endpoint,
@@ -157,8 +201,24 @@ export function AccountAlerts() {
         deviceLabel: navigator.userAgent.slice(0, 120),
       },
     });
+    setBrowserSubscriptionActive(true);
+    await client.invalidateQueries({ queryKey: getGetPushSubscriptionStatusQueryKey() });
     return true;
-  }, [pushCapability.data, saveSubscription]);
+  }, [client, pushCapability.data, saveSubscription]);
+
+  const disablePush = useCallback(async (): Promise<void> => {
+    const subscription = await getCurrentPushSubscription();
+    const endpoint = subscription?.endpoint;
+    if (endpoint) {
+      await deleteCurrentSubscription.mutateAsync({ data: { endpoint } });
+      const unsubscribed = await subscription?.unsubscribe();
+      if (!unsubscribed) {
+        throw new Error("The server subscription was removed, but this browser could not unsubscribe locally.");
+      }
+    }
+    setBrowserSubscriptionActive(false);
+    await client.invalidateQueries({ queryKey: getGetPushSubscriptionStatusQueryKey() });
+  }, [client, deleteCurrentSubscription]);
 
   const applyReceiptMutation = useCallback((
     operation: () => Promise<unknown>,
@@ -192,16 +252,21 @@ export function AccountAlerts() {
   }
 
   const currentSettings = mapSettings(settings.data);
-  const canDeliverPush = pushCapability.data?.available === true;
+  const canDeliverPush = pushStatus.data?.state === "active" && browserSubscriptionActive;
   return (
     <AlertCenter
       alerts={(alerts.data?.alerts ?? []).map(mapAlert)}
       settings={currentSettings}
-      isLoading={alerts.isLoading || settings.isLoading}
-      isRefreshing={alerts.isFetching || settings.isFetching}
-      isError={alerts.isError || settings.isError}
+      isLoading={alerts.isLoading || settings.isLoading || pushStatus.isLoading}
+      isRefreshing={alerts.isFetching || settings.isFetching || pushStatus.isFetching}
+      isError={alerts.isError || settings.isError || pushStatus.isError}
       actionError={actionError}
       browserPushEnabled={Boolean(currentSettings.browserNotificationsEnabled && canDeliverPush)}
+      pushReadiness={pushStatus.data ? {
+        state: pushStatus.data.state,
+        activeSubscriptionCount: pushStatus.data.activeSubscriptionCount,
+        reason: pushStatus.data.reason,
+      } : undefined}
       mutations={{
         markRead: (id) => {
           applyReceiptMutation(
@@ -223,13 +288,16 @@ export function AccountAlerts() {
         },
         setNotificationsEnabled: async (enabled) => {
           try {
-            if (enabled && !(await enablePush())) {
-              setActionError("Browser notifications could not be enabled on this device.");
-              return;
+            if (enabled) {
+              await enablePush();
+            } else {
+              await disablePush();
             }
             await saveSettings({ ...currentSettings, browserNotificationsEnabled: enabled });
-          } catch {
-            setActionError("Browser notifications could not be updated. Please try again.");
+          } catch (error) {
+            setActionError(error instanceof Error
+              ? error.message
+              : "Browser notifications could not be updated. Please try again.");
           }
         },
         setMinimumTier: async (minimumTier) => {
@@ -238,6 +306,14 @@ export function AccountAlerts() {
         sendTestNotification: async () => {
           setActionError(null);
           try {
+            if (pushStatus.data?.state === "configuration_required" || pushStatus.data?.state === "invalid_configuration") {
+              setActionError(pushStatus.data.reason);
+              return false;
+            }
+            if (pushStatus.data?.state !== "active" || !browserSubscriptionActive) {
+              setActionError("Test delivery needs a subscription saved for this browser.");
+              return false;
+            }
             const result = await sendTest.mutateAsync();
             if (result.status === "sent") return true;
             setActionError(

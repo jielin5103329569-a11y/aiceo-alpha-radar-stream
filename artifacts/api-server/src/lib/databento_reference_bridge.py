@@ -29,6 +29,29 @@ def safe_error(error: Exception) -> str:
     return (message[:500] or "Databento reference request failed.").replace("\n", " ")
 
 
+def security_master_authorization(error_reason: str) -> tuple[str, str]:
+    """Classify provider entitlement failures without exposing credentials."""
+    normalized = error_reason.lower()
+    if (
+        "403" in normalized
+        and (
+            "license_reference_dataset_no_subscription" in normalized
+            or "no_subscription" in normalized
+            or "not subscribed" in normalized
+        )
+    ):
+        return (
+            "blocked",
+            "Databento Security Master entitlement is not active for this key. "
+            "Restore the licensed reference dataset entitlement; the service will retry automatically.",
+        )
+    return (
+        "unavailable",
+        "Databento Security Master could not be verified for this refresh. "
+        "The discovery-only fallback remains ineligible until a verified response succeeds.",
+    )
+
+
 def text(value: Any) -> str | None:
     if value is None:
         return None
@@ -136,6 +159,8 @@ def security_master_snapshot(key: str) -> int:
             "sourceKind": "security_master",
             "sourceTimestamp": source_timestamp,
             "maxAgeMs": SECURITY_MASTER_MAX_AGE_MS,
+            "authorizationState": "verified",
+            "authorizationReason": "Databento Security Master responded with a licensed reference snapshot.",
             "reason": (
                 "Licensed Security Master records verify listing lifecycle and security type. "
                 "Sector hierarchy remains unavailable unless supplied by a classification field."
@@ -229,6 +254,7 @@ def definition_snapshot(key: str, fallback_reason: str) -> int:
         "EQUS.MINI definitions provide symbol and lifecycle discovery, but do not "
         "verify common-equity type or sector hierarchy; those records remain ineligible."
     )
+    authorization_state, authorization_reason = security_master_authorization(fallback_reason)
     write_event(
         {
             "type": "meta",
@@ -238,6 +264,8 @@ def definition_snapshot(key: str, fallback_reason: str) -> int:
             "sourceTimestamp": iso_timestamp(end),
             "maxAgeMs": DEFINITION_MAX_AGE_MS,
             "reason": reason,
+            "authorizationState": authorization_state,
+            "authorizationReason": authorization_reason,
         }
     )
     for record in latest.values():

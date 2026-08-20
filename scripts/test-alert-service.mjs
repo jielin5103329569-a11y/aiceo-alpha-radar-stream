@@ -390,6 +390,11 @@ exports.inArray = (col, vals) => ({ col, vals, type: "inArray" });
 
   // In test environment VAPID_PRIVATE_KEY / VAPID_PUBLIC_KEY are not set
   assert.equal(vapidCapability.available, false, "VAPID must be unavailable when env vars are absent");
+  assert.equal(
+    vapidCapability.state,
+    "configuration_required",
+    "missing VAPID material must remain an explicit configuration block",
+  );
   assert.ok(typeof vapidCapability.reason === "string", "VAPID unavailable reason must be a string");
   assert.ok(vapidCapability.reason.length > 0, "VAPID unavailable reason must be non-empty");
 
@@ -398,6 +403,14 @@ exports.inArray = (col, vals) => ({ col, vals, type: "inArray" });
   // ---------------------------------------------------------------------------
 
   const service = new AlertService();
+  const pushReadiness = await service.getPushSubscriptionStatus("user_without_vapid");
+  assert.equal(pushReadiness.state, "configuration_required");
+  assert.equal(pushReadiness.activeSubscriptionCount, 0);
+  assert.equal(
+    pushReadiness.capability.available,
+    false,
+    "push readiness must not treat a missing VAPID configuration as a browser subscription",
+  );
   const healthBefore = service.getHealth();
   assert.equal(healthBefore.running, false, "service must not be running before start()");
   assert.equal(healthBefore.startedAt, null, "startedAt must be null before start()");

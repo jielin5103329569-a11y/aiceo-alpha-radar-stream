@@ -17,6 +17,12 @@ export type CatalystSourceAvailability =
   | "available"
   | "stale"
   | "blocked";
+export type CatalystSourceReadiness =
+  | "unconfigured"
+  | "authorization_required"
+  | "ready"
+  | "stale"
+  | "blocked";
 export type CatalystFreshness = "fresh" | "delayed" | "stale" | "insufficient" | "missing";
 export type CatalystDataQuality = "good" | "degraded" | "unavailable";
 export type CatalystEventState = "unavailable" | "observed";
@@ -35,6 +41,8 @@ export type CatalystSourceStatus = {
   dataQuality: CatalystDataQuality;
   lastEventAt: Date | null;
   reason: string;
+  readiness: CatalystSourceReadiness;
+  nextAction: string;
 };
 
 export type CatalystEvent = {
@@ -150,6 +158,8 @@ function unavailableSource(
     dataQuality: "unavailable",
     lastEventAt: null,
     reason: "No authorized external source is configured; no catalyst event is being inferred.",
+    readiness: "unconfigured",
+    nextAction: "Connect and authorize a source for this category. Configuration alone will not create or satisfy a catalyst event.",
   };
 }
 

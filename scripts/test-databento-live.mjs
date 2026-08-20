@@ -265,6 +265,8 @@ try {
       sourceTimestamp: referenceAt,
       maxAgeMs: 60_000,
       reason: "Deterministic reference fixture.",
+      authorizationState: "verified",
+      authorizationReason: "Security Master fixture response verified.",
     },
     referenceAt,
   );
@@ -272,6 +274,11 @@ try {
   assert.equal(freshReference.totalCount, 4, "primary-listing deduplication must retain one record per normalized symbol");
   assert.equal(freshReference.eligibleCount, 1, "only an active verified common stock may be a candidate");
   assert.equal(freshReference.classificationCoverageCount, 1, "complete supplied sector hierarchy must be counted");
+  assert.equal(
+    freshReference.authorization.state,
+    "verified",
+    "only a verified Security Master response may report trusted reference authorization",
+  );
   assert.equal(
     referenceRegistry.query({}, new Date(referenceAt.getTime() + 10_000)).items[0]?.symbol,
     "ACME",
@@ -314,6 +321,8 @@ try {
       sourceKind: "definitions",
       sourceTimestamp: referenceAt,
       reason: "Definitions only.",
+      authorizationState: "blocked",
+      authorizationReason: "Databento Security Master entitlement is not active for this key.",
     },
     referenceAt,
   );
@@ -321,6 +330,11 @@ try {
     definitionsOnlyRegistry.getSummary(referenceAt).eligibleCount,
     0,
     "definition-only fallback records must remain ineligible even when a CFI resembles common equity",
+  );
+  assert.equal(
+    definitionsOnlyRegistry.getSummary(referenceAt).authorization.state,
+    "blocked",
+    "an entitlement-blocked Security Master fallback must remain explicitly external and non-promoting",
   );
   assert.deepEqual(
     scanProfileAt(new Date("2026-08-17T13:27:00.000Z")),

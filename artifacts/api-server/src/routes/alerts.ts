@@ -26,6 +26,15 @@ const subscriptionSchema = z.object({
   }),
   deviceLabel: z.string().trim().max(120).optional(),
 });
+const subscriptionEndpointSchema = z.object({
+  endpoint: z.string().url().max(4096),
+});
+
+function publicVapidCapability() {
+  return vapidCapability.available
+    ? { available: true as const, state: vapidCapability.state, publicKey: vapidCapability.publicKey }
+    : { available: false as const, state: vapidCapability.state, reason: vapidCapability.reason };
+}
 
 function getUserId(req: Request, res: Response): string | null {
   const { userId } = getAuth(req);
@@ -206,9 +215,19 @@ router.post("/alerts/:alertId/acknowledge", async (req: Request, res: Response):
 router.get("/alerts/push-capability", (req: Request, res: Response): void => {
   const userId = getUserId(req, res);
   if (!userId) return;
-  res.json(vapidCapability.available
-    ? { available: true, publicKey: vapidCapability.publicKey }
-    : { available: false, reason: vapidCapability.reason });
+  res.json(publicVapidCapability());
+});
+
+router.get("/alerts/push-status", async (req: Request, res: Response): Promise<void> => {
+  const userId = getUserId(req, res);
+  if (!userId) return;
+  const status = await alertService.getPushSubscriptionStatus(userId);
+  res.json({
+    capability: publicVapidCapability(),
+    state: status.state,
+    activeSubscriptionCount: status.activeSubscriptionCount,
+    reason: status.reason,
+  });
 });
 
 router.post("/alerts/push-subscriptions", async (req: Request, res: Response): Promise<void> => {
@@ -237,6 +256,27 @@ router.post("/alerts/push-subscriptions", async (req: Request, res: Response): P
       .where(and(eq(pushSubscriptionsTable.id, existing.id), eq(pushSubscriptionsTable.userId, userId)));
   } else {
     await db.insert(pushSubscriptionsTable).values({ userId, subscriptionPayload: payload, deviceLabel: parsed.data.deviceLabel ?? null });
+  }
+  res.status(204).end();
+});
+
+router.delete("/alerts/push-subscriptions", async (req: Request, res: Response): Promise<void> => {
+  const userId = getUserId(req, res);
+  if (!userId) return;
+  const parsed = subscriptionEndpointSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "A valid push subscription endpoint is required." });
+    return;
+  }
+  const matchingSubscription = (await alertService.listPushSubscriptions(userId))
+    .find((subscription) => subscription.subscriptionPayload.endpoint === parsed.data.endpoint);
+  if (matchingSubscription) {
+    await db.update(pushSubscriptionsTable)
+      .set({ active: false, updatedAt: new Date() })
+      .where(and(
+        eq(pushSubscriptionsTable.id, matchingSubscription.id),
+        eq(pushSubscriptionsTable.userId, userId),
+      ));
   }
   res.status(204).end();
 });

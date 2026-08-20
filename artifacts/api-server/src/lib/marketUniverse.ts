@@ -72,7 +72,14 @@ export type MarketUniverseSummary = {
   commonEquityVerifiedCount: number;
   classificationCoverageCount: number;
   lifecycleCounts: Record<SecurityLifecycleStatus, number>;
+  authorization: ReferenceAuthorization;
   eligibleSample: string[];
+};
+export type ReferenceAuthorizationState = "verified" | "blocked" | "unavailable" | "unknown";
+export type ReferenceAuthorization = {
+  state: ReferenceAuthorizationState;
+  reason: string;
+  nextAction: string;
 };
 
 /**
@@ -142,6 +149,8 @@ export type MarketUniverseSourceMetadata = {
   sourceTimestamp: Date;
   maxAgeMs?: number;
   reason: string;
+  authorizationState: Exclude<ReferenceAuthorizationState, "unknown">;
+  authorizationReason: string;
 };
 
 type BridgeEvent =
@@ -153,6 +162,8 @@ type BridgeEvent =
       sourceTimestamp: string;
       maxAgeMs: number;
       reason: string;
+      authorizationState?: Exclude<ReferenceAuthorizationState, "unknown">;
+      authorizationReason?: string;
     }
   | ({ type: "security" } & RawSecurityReference)
   | { type: "complete"; recordCount: number }
@@ -328,6 +339,41 @@ function emptyLifecycleCounts(): Record<SecurityLifecycleStatus, number> {
   return { active: 0, halted: 0, inactive: 0, delisted: 0, unknown: 0 };
 }
 
+function referenceAuthorization(metadata: MarketUniverseSourceMetadata | null): ReferenceAuthorization {
+  if (!metadata) {
+    return {
+      state: "unknown",
+      reason: "No reference-provider response has completed yet.",
+      nextAction: "Wait for the startup refresh or inspect the provider configuration.",
+    };
+  }
+  const state = metadata.authorizationState
+    ?? (metadata.sourceKind === "security_master" ? "verified" : "unavailable");
+  const reason = metadata.authorizationReason
+    ?? (state === "verified"
+      ? "Databento Security Master returned a verified reference snapshot."
+      : "The discovery-only reference fallback cannot verify Security Master authorization.");
+  if (state === "verified") {
+    return {
+      state: "verified",
+      reason,
+      nextAction: "No action required. Scheduled refreshes continue to verify reference access.",
+    };
+  }
+  if (state === "blocked") {
+    return {
+      state: "blocked",
+      reason,
+      nextAction: "Restore the licensed Databento Security Master entitlement. The service retries at startup and on its scheduled refresh.",
+    };
+  }
+  return {
+    state: "unavailable",
+    reason,
+    nextAction: "Resolve the provider response, then allow the next scheduled refresh to verify it.",
+  };
+}
+
 export class MarketUniverseRegistry {
   private securities = new Map<string, SecurityReference>();
   private metadata: MarketUniverseSourceMetadata | null = null;
@@ -438,6 +484,7 @@ export class MarketUniverseRegistry {
       commonEquityVerifiedCount: this.commonEquityVerifiedCount,
       classificationCoverageCount: this.classificationCoverageCount,
       lifecycleCounts: { ...this.lifecycleCounts },
+      authorization: referenceAuthorization(this.metadata),
       eligibleSample: freshness === "fresh" ? [...this.eligibleSample] : [],
     };
   }
@@ -708,6 +755,12 @@ export class MarketUniverseService extends EventEmitter {
               sourceTimestamp,
               maxAgeMs: event.maxAgeMs,
               reason: event.reason,
+              authorizationState: event.authorizationState
+                ?? (event.sourceKind === "security_master" ? "verified" : "unavailable"),
+              authorizationReason: event.authorizationReason
+                ?? (event.sourceKind === "security_master"
+                  ? "Databento Security Master returned a verified reference snapshot."
+                  : "The discovery-only reference fallback cannot verify Security Master authorization."),
             };
           } else if (event.type === "security") {
             records.push(event);
