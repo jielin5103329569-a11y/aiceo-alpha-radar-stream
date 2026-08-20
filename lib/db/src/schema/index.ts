@@ -18,4 +18,5 @@
 //   export type Post = typeof postsTable.$inferSelect;
 
 export * from "./signalValidation";
+export * from "./shadowLearning";
 export * from "./alerts";

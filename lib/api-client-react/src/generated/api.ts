@@ -26,6 +26,7 @@ import type {
   FocusedScanSnapshot,
   GetAlertsParams,
   GetMarketUniverseParams,
+  GetShadowLearningValidationParams,
   GetSignalValidationParams,
   HealthStatus,
   MarketUniverseResult,
@@ -33,6 +34,7 @@ import type {
   PushCapability,
   PushSubscriptionRequest,
   RadarStatus,
+  ShadowLearningDashboard,
   SignalValidationAudit,
   SignalValidationDashboard,
   TestNotificationResponse,
@@ -904,6 +906,90 @@ export function useGetSignalValidationAudit<TData = Awaited<ReturnType<typeof ge
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getGetSignalValidationAuditQueryOptions(signalId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetShadowLearningValidationUrl = (params?: GetShadowLearningValidationParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/radar/shadow-learning?${stringifiedParams}` : `/api/radar/shadow-learning`
+}
+
+/**
+ * @summary Get server-owned Shadow Learning comparison and read-only promotion recommendation
+ */
+export const getShadowLearningValidation = async (params?: GetShadowLearningValidationParams, options?: Parameters<typeof customFetch>[1]): Promise<ShadowLearningDashboard> => {
+
+  return customFetch<ShadowLearningDashboard>(getGetShadowLearningValidationUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetShadowLearningValidationQueryKey = (params?: GetShadowLearningValidationParams,) => {
+    return [
+    `/api/radar/shadow-learning`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetShadowLearningValidationQueryOptions = <TData = Awaited<ReturnType<typeof getShadowLearningValidation>>, TError = ErrorType<unknown>>(params?: GetShadowLearningValidationParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getShadowLearningValidation>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetShadowLearningValidationQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getShadowLearningValidation>>> = ({ signal }) => getShadowLearningValidation(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getShadowLearningValidation>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetShadowLearningValidationQueryResult = NonNullable<Awaited<ReturnType<typeof getShadowLearningValidation>>>
+export type GetShadowLearningValidationQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get server-owned Shadow Learning comparison and read-only promotion recommendation
+ */
+
+export function useGetShadowLearningValidation<TData = Awaited<ReturnType<typeof getShadowLearningValidation>>, TError = ErrorType<unknown>>(
+ params?: GetShadowLearningValidationParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getShadowLearningValidation>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetShadowLearningValidationQueryOptions(params,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

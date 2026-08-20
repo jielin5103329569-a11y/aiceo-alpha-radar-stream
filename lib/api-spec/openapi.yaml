@@ -215,6 +215,45 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/SignalValidationAudit"
+  /radar/shadow-learning:
+    get:
+      operationId: getShadowLearningValidation
+      tags: [radar]
+      summary: Get server-owned Shadow Learning comparison and read-only promotion recommendation
+      parameters:
+        - in: query
+          name: strategyVersion
+          schema:
+            type: string
+            maxLength: 160
+        - in: query
+          name: signalType
+          schema:
+            type: string
+            maxLength: 80
+        - in: query
+          name: scanWindow
+          schema:
+            type: string
+            maxLength: 80
+        - in: query
+          name: sector
+          schema:
+            type: string
+            maxLength: 120
+        - in: query
+          name: horizonDays
+          schema:
+            type: number
+            enum: [1, 3, 5, 10, 20]
+            default: 5
+      responses:
+        "200":
+          description: Immutable shadow validation metrics and a server-owned manual-review recommendation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ShadowLearningDashboard"
   /alerts:
     get:
       operationId: getAlerts
@@ -1853,6 +1892,162 @@ components:
         signal:
           $ref: "#/components/schemas/PersistedSignalValidationRecord"
       required: [generatedAt, integrity, signal]
+    ShadowMetricComparison:
+      type: object
+      properties:
+        sampleState:
+          $ref: "#/components/schemas/ValidationSampleState"
+        sampleSize:
+          type: number
+          minimum: 0
+        minimumSampleSize:
+          type: number
+          minimum: 1
+        hitRatePercent:
+          type: [number, "null"]
+        averageReturnPercent:
+          type: [number, "null"]
+        maximumDrawdownPercent:
+          type: [number, "null"]
+        falsePositiveRatePercent:
+          type: [number, "null"]
+        averageLeadTimeMinutes:
+          type: [number, "null"]
+      required:
+        - sampleState
+        - sampleSize
+        - minimumSampleSize
+        - hitRatePercent
+        - averageReturnPercent
+        - maximumDrawdownPercent
+        - falsePositiveRatePercent
+        - averageLeadTimeMinutes
+    ShadowPromotionRules:
+      type: object
+      properties:
+        minimumCompleteSample:
+          type: number
+        minimumHoldoutSample:
+          type: number
+        requiredHitRateAdvantagePercent:
+          type: number
+        requiredReturnAdvantagePercent:
+          type: number
+        independentSplit:
+          type: string
+      required:
+        - minimumCompleteSample
+        - minimumHoldoutSample
+        - requiredHitRateAdvantagePercent
+        - requiredReturnAdvantagePercent
+        - independentSplit
+    ShadowPromotionRecommendation:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [candidate, not_eligible, insufficient_sample, unavailable]
+        reason:
+          type: string
+        evidenceState:
+          type: string
+          enum: [complete, withheld]
+        rules:
+          $ref: "#/components/schemas/ShadowPromotionRules"
+      required: [status, reason, evidenceState, rules]
+    ShadowLearningStrategy:
+      type: object
+      properties:
+        strategyVersion:
+          type: string
+        scanWindow:
+          type: string
+        scanProfile:
+          type: string
+        modelVersion:
+          type: string
+        candidateSource:
+          type: string
+      required: [strategyVersion, scanWindow, scanProfile, modelVersion, candidateSource]
+    ShadowLearningTriggerSummary:
+      type: object
+      properties:
+        eventKey:
+          type: string
+        recordHash:
+          type: string
+        strategyVersion:
+          type: string
+        scanWindow:
+          type: string
+        modelVersion:
+          type: string
+        candidateSource:
+          type: string
+        signalType:
+          type: string
+        symbol:
+          type: string
+        sector:
+          type: [string, "null"]
+        occurredAt:
+          type: string
+          format: date-time
+        shadowScore:
+          type: number
+        status:
+          type: string
+      required:
+        - eventKey
+        - recordHash
+        - strategyVersion
+        - scanWindow
+        - modelVersion
+        - candidateSource
+        - signalType
+        - symbol
+        - sector
+        - occurredAt
+        - shadowScore
+        - status
+    ShadowLearningDashboard:
+      type: object
+      properties:
+        generatedAt:
+          type: string
+          format: date-time
+        persistenceState:
+          type: string
+          enum: [available, unavailable]
+        reason:
+          type: string
+        selectedHorizonDays:
+          type: number
+          enum: [1, 3, 5, 10, 20]
+        baseline:
+          $ref: "#/components/schemas/ShadowMetricComparison"
+        shadow:
+          $ref: "#/components/schemas/ShadowMetricComparison"
+        strategy:
+          anyOf:
+            - $ref: "#/components/schemas/ShadowLearningStrategy"
+            - type: "null"
+        promotion:
+          $ref: "#/components/schemas/ShadowPromotionRecommendation"
+        recentTriggers:
+          type: array
+          items:
+            $ref: "#/components/schemas/ShadowLearningTriggerSummary"
+      required:
+        - generatedAt
+        - persistenceState
+        - reason
+        - selectedHorizonDays
+        - baseline
+        - shadow
+        - strategy
+        - promotion
+        - recentTriggers
     RadarTrade:
       type: object
       properties:

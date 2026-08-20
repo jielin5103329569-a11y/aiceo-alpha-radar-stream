@@ -13,6 +13,7 @@
     "test:catalyst-radar": "node scripts/test-catalyst-radar.mjs",
     "test:focused-scan-routing": "node scripts/test-focused-scan-routing.mjs",
     "test:signal-validation": "node scripts/test-signal-validation.mjs",
+    "test:shadow-learning": "node scripts/test-shadow-learning.mjs",
     "test:signal-validation-db": "node scripts/test-signal-validation-db.mjs",
     "test:alert-monitor": "node scripts/test-alert-monitor.mjs",
     "test:alert-service": "node scripts/test-alert-service.mjs"

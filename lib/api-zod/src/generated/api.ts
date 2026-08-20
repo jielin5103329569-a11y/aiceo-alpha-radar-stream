@@ -3209,6 +3209,96 @@ export const GetSignalValidationAuditResponse = zod.object({
 
 
 /**
+ * @summary Get server-owned Shadow Learning comparison and read-only promotion recommendation
+ */
+export const getShadowLearningValidationQueryStrategyVersionMax = 160;
+
+export const getShadowLearningValidationQuerySignalTypeMax = 80;
+
+export const getShadowLearningValidationQueryScanWindowMax = 80;
+
+export const getShadowLearningValidationQuerySectorMax = 120;
+
+export const getShadowLearningValidationQueryHorizonDaysDefault = 5;
+
+export const GetShadowLearningValidationQueryParams = zod.object({
+  "strategyVersion": zod.coerce.string().max(getShadowLearningValidationQueryStrategyVersionMax).optional(),
+  "signalType": zod.coerce.string().max(getShadowLearningValidationQuerySignalTypeMax).optional(),
+  "scanWindow": zod.coerce.string().max(getShadowLearningValidationQueryScanWindowMax).optional(),
+  "sector": zod.coerce.string().max(getShadowLearningValidationQuerySectorMax).optional(),
+  "horizonDays": zod.union([zod.literal(1),zod.literal(3),zod.literal(5),zod.literal(10),zod.literal(20)]).default(getShadowLearningValidationQueryHorizonDaysDefault)
+})
+
+export const getShadowLearningValidationResponseBaselineSampleSizeMin = 0;
+
+
+export const getShadowLearningValidationResponseShadowSampleSizeMin = 0;
+
+
+
+
+export const GetShadowLearningValidationResponse = zod.object({
+  "generatedAt": zod.coerce.date(),
+  "persistenceState": zod.enum(['available', 'unavailable']),
+  "reason": zod.string(),
+  "selectedHorizonDays": zod.union([zod.literal(1),zod.literal(3),zod.literal(5),zod.literal(10),zod.literal(20)]),
+  "baseline": zod.object({
+  "sampleState": zod.enum(['insufficient_sample', 'available']),
+  "sampleSize": zod.number().min(getShadowLearningValidationResponseBaselineSampleSizeMin),
+  "minimumSampleSize": zod.number().min(1),
+  "hitRatePercent": zod.number().nullable(),
+  "averageReturnPercent": zod.number().nullable(),
+  "maximumDrawdownPercent": zod.number().nullable(),
+  "falsePositiveRatePercent": zod.number().nullable(),
+  "averageLeadTimeMinutes": zod.number().nullable()
+}),
+  "shadow": zod.object({
+  "sampleState": zod.enum(['insufficient_sample', 'available']),
+  "sampleSize": zod.number().min(getShadowLearningValidationResponseShadowSampleSizeMin),
+  "minimumSampleSize": zod.number().min(1),
+  "hitRatePercent": zod.number().nullable(),
+  "averageReturnPercent": zod.number().nullable(),
+  "maximumDrawdownPercent": zod.number().nullable(),
+  "falsePositiveRatePercent": zod.number().nullable(),
+  "averageLeadTimeMinutes": zod.number().nullable()
+}),
+  "strategy": zod.union([zod.object({
+  "strategyVersion": zod.string(),
+  "scanWindow": zod.string(),
+  "scanProfile": zod.string(),
+  "modelVersion": zod.string(),
+  "candidateSource": zod.string()
+}),zod.null()]),
+  "promotion": zod.object({
+  "status": zod.enum(['candidate', 'not_eligible', 'insufficient_sample', 'unavailable']),
+  "reason": zod.string(),
+  "evidenceState": zod.enum(['complete', 'withheld']),
+  "rules": zod.object({
+  "minimumCompleteSample": zod.number(),
+  "minimumHoldoutSample": zod.number(),
+  "requiredHitRateAdvantagePercent": zod.number(),
+  "requiredReturnAdvantagePercent": zod.number(),
+  "independentSplit": zod.string()
+})
+}),
+  "recentTriggers": zod.array(zod.object({
+  "eventKey": zod.string(),
+  "recordHash": zod.string(),
+  "strategyVersion": zod.string(),
+  "scanWindow": zod.string(),
+  "modelVersion": zod.string(),
+  "candidateSource": zod.string(),
+  "signalType": zod.string(),
+  "symbol": zod.string(),
+  "sector": zod.string().nullable(),
+  "occurredAt": zod.coerce.date(),
+  "shadowScore": zod.number(),
+  "status": zod.string()
+}))
+})
+
+
+/**
  * @summary List verified Alpha alerts with the current account's read state
  */
 export const getAlertsQueryLimitDefault = 50;

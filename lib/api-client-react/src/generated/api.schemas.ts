@@ -1460,6 +1460,112 @@ export interface SignalValidationAudit {
   signal: PersistedSignalValidationRecord;
 }
 
+export interface ShadowMetricComparison {
+  sampleState: ValidationSampleState;
+  /** @minimum 0 */
+  sampleSize: number;
+  /** @minimum 1 */
+  minimumSampleSize: number;
+  /** @nullable */
+  hitRatePercent: number | null;
+  /** @nullable */
+  averageReturnPercent: number | null;
+  /** @nullable */
+  maximumDrawdownPercent: number | null;
+  /** @nullable */
+  falsePositiveRatePercent: number | null;
+  /** @nullable */
+  averageLeadTimeMinutes: number | null;
+}
+
+export interface ShadowPromotionRules {
+  minimumCompleteSample: number;
+  minimumHoldoutSample: number;
+  requiredHitRateAdvantagePercent: number;
+  requiredReturnAdvantagePercent: number;
+  independentSplit: string;
+}
+
+export type ShadowPromotionRecommendationStatus = typeof ShadowPromotionRecommendationStatus[keyof typeof ShadowPromotionRecommendationStatus];
+
+
+export const ShadowPromotionRecommendationStatus = {
+  candidate: 'candidate',
+  not_eligible: 'not_eligible',
+  insufficient_sample: 'insufficient_sample',
+  unavailable: 'unavailable',
+} as const;
+
+export type ShadowPromotionRecommendationEvidenceState = typeof ShadowPromotionRecommendationEvidenceState[keyof typeof ShadowPromotionRecommendationEvidenceState];
+
+
+export const ShadowPromotionRecommendationEvidenceState = {
+  complete: 'complete',
+  withheld: 'withheld',
+} as const;
+
+export interface ShadowPromotionRecommendation {
+  status: ShadowPromotionRecommendationStatus;
+  reason: string;
+  evidenceState: ShadowPromotionRecommendationEvidenceState;
+  rules: ShadowPromotionRules;
+}
+
+export interface ShadowLearningStrategy {
+  strategyVersion: string;
+  scanWindow: string;
+  scanProfile: string;
+  modelVersion: string;
+  candidateSource: string;
+}
+
+export interface ShadowLearningTriggerSummary {
+  eventKey: string;
+  recordHash: string;
+  strategyVersion: string;
+  scanWindow: string;
+  modelVersion: string;
+  candidateSource: string;
+  signalType: string;
+  symbol: string;
+  /** @nullable */
+  sector: string | null;
+  occurredAt: string;
+  shadowScore: number;
+  status: string;
+}
+
+export type ShadowLearningDashboardPersistenceState = typeof ShadowLearningDashboardPersistenceState[keyof typeof ShadowLearningDashboardPersistenceState];
+
+
+export const ShadowLearningDashboardPersistenceState = {
+  available: 'available',
+  unavailable: 'unavailable',
+} as const;
+
+export type ShadowLearningDashboardSelectedHorizonDays = typeof ShadowLearningDashboardSelectedHorizonDays[keyof typeof ShadowLearningDashboardSelectedHorizonDays];
+
+
+export const ShadowLearningDashboardSelectedHorizonDays = {
+  NUMBER_1: 1,
+  NUMBER_3: 3,
+  NUMBER_5: 5,
+  NUMBER_10: 10,
+  NUMBER_20: 20,
+} as const;
+
+export interface ShadowLearningDashboard {
+  generatedAt: string;
+  persistenceState: ShadowLearningDashboardPersistenceState;
+  reason: string;
+  selectedHorizonDays: ShadowLearningDashboardSelectedHorizonDays;
+  baseline: ShadowMetricComparison;
+  shadow: ShadowMetricComparison;
+  strategy: ShadowLearningStrategy | null;
+  promotion: ShadowPromotionRecommendation;
+  recentTriggers: ShadowLearningTriggerSummary[];
+}
+
 export interface RadarTrade {
   price: number;
   size: number;
@@ -1681,6 +1787,37 @@ export type GetSignalValidationHorizonDays = typeof GetSignalValidationHorizonDa
 
 
 export const GetSignalValidationHorizonDays = {
+  NUMBER_1: 1,
+  NUMBER_3: 3,
+  NUMBER_5: 5,
+  NUMBER_10: 10,
+  NUMBER_20: 20,
+} as const;
+
+export type GetShadowLearningValidationParams = {
+/**
+ * @maxLength 160
+ */
+strategyVersion?: string;
+/**
+ * @maxLength 80
+ */
+signalType?: string;
+/**
+ * @maxLength 80
+ */
+scanWindow?: string;
+/**
+ * @maxLength 120
+ */
+sector?: string;
+horizonDays?: GetShadowLearningValidationHorizonDays;
+};
+
+export type GetShadowLearningValidationHorizonDays = typeof GetShadowLearningValidationHorizonDays[keyof typeof GetShadowLearningValidationHorizonDays];
+
+
+export const GetShadowLearningValidationHorizonDays = {
   NUMBER_1: 1,
   NUMBER_3: 3,
   NUMBER_5: 5,

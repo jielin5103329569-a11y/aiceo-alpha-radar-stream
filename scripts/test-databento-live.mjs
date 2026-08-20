@@ -96,6 +96,14 @@ try {
     join(outputDirectory, "signalValidation.js"),
     '"use strict"; Object.defineProperty(exports, "__esModule", { value: true }); exports.signalValidation = { captureSignal() {}, observePrice() {} };',
   );
+  writeFileSync(
+    join(outputDirectory, "shadowLearningCore.js"),
+    '"use strict"; Object.defineProperty(exports, "__esModule", { value: true }); exports.SHADOW_MODEL_VERSION = "test"; exports.SHADOW_SCAN_PROFILE = "test"; exports.SHADOW_SCAN_WINDOW = "test"; exports.SHADOW_STRATEGY_VERSION = "test"; exports.shadowCohortKey = () => "test-cohort"; exports.evaluateShadowPreBreakout = () => null;',
+  );
+  writeFileSync(
+    join(outputDirectory, "shadowLearning.js"),
+    '"use strict"; Object.defineProperty(exports, "__esModule", { value: true }); exports.shadowLearning = { captureObservation() {}, observePrice() {} };',
+  );
   writeFileSync(join(outputDirectory, "package.json"), '{"type":"commonjs"}');
 
   const require = createRequire(import.meta.url);

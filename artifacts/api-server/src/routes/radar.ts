@@ -10,6 +10,8 @@ import {
   GetSignalValidationAuditResponse,
   GetSignalValidationQueryParams,
   GetSignalValidationResponse,
+  GetShadowLearningValidationQueryParams,
+  GetShadowLearningValidationResponse,
   StartRadarConnectionResponse,
   StopRadarConnectionResponse,
 } from "@workspace/api-zod";
@@ -17,6 +19,7 @@ import {
 import { databentoLive } from "../lib/databentoLive";
 import { marketUniverse } from "../lib/marketUniverse";
 import { signalValidation } from "../lib/signalValidation";
+import { shadowLearning } from "../lib/shadowLearning";
 
 const router: IRouter = Router();
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -94,6 +97,21 @@ router.get(
     }
   },
 );
+
+router.get("/radar/shadow-learning", async (req: Request, res: Response): Promise<void> => {
+  const parsed = GetShadowLearningValidationQueryParams.safeParse({
+    ...req.query,
+    horizonDays: typeof req.query.horizonDays === "string"
+      ? Number(req.query.horizonDays)
+      : req.query.horizonDays,
+  });
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+  const dashboard = await shadowLearning.getDashboard(parsed.data);
+  res.json(GetShadowLearningValidationResponse.parse(dashboard));
+});
 
 router.post("/radar/connect", (req: Request, res: Response): void => {
   req.log.info("Starting safe Databento live connection");

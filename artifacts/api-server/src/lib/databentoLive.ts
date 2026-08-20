@@ -33,6 +33,15 @@ import {
   type OpportunityCenterSnapshot,
 } from "./catalystRadar";
 import { signalValidation } from "./signalValidation";
+import {
+  SHADOW_MODEL_VERSION,
+  SHADOW_SCAN_PROFILE,
+  SHADOW_SCAN_WINDOW,
+  SHADOW_STRATEGY_VERSION,
+  shadowCohortKey,
+  evaluateShadowPreBreakout,
+} from "./shadowLearningCore";
+import { shadowLearning } from "./shadowLearning";
 
 export type RadarConnectionState =
   | "not_configured"
@@ -1605,6 +1614,23 @@ export class DatabentoLiveService extends EventEmitter {
         this.status.market.latestPrice,
         this.status.market.lastTradeAt,
       );
+      shadowLearning.observePrice({
+        symbol: this.configuredSymbol,
+        observedAt: this.status.market.lastTradeAt,
+        price: this.status.market.latestPrice,
+        source: "Databento EQUS.MINI live",
+        freshness: {
+          marketFeedState: this.marketFeedStateAt(now),
+          dataQuality: alphaRadar.dataQuality,
+          scoreState: alphaRadar.scoreState,
+          streaming: this.status.connectionState === "streaming",
+          complete: alphaRadar.momentum.available
+            && alphaRadar.volumeIntensity.available
+            && alphaRadar.orderFlowPressure.available
+            && alphaRadar.spread.available,
+          eligible: alphaRadar.preBreakout.dataFresh,
+        },
+      });
     }
     this.publish();
     } finally {
@@ -1878,6 +1904,64 @@ export class DatabentoLiveService extends EventEmitter {
       source: "Databento EQUS.MINI live",
       catalystStatus: "unavailable",
     });
+    const shadowCandidate = evaluateShadowPreBreakout({
+      strategyVersion: SHADOW_STRATEGY_VERSION,
+      scanWindow: SHADOW_SCAN_WINDOW,
+      scanProfile: SHADOW_SCAN_PROFILE,
+      modelVersion: SHADOW_MODEL_VERSION,
+      candidateSource: "fresh-production-snapshot-sidecar",
+      signalType: "shadow_pre_breakout",
+      symbol: this.configuredSymbol,
+      sector: reference?.sector ?? null,
+      occurredAt,
+      triggerPrice: this.status.market.latestPrice,
+      direction,
+      state: toState,
+      evidenceSnapshot: next.preBreakout.confirmation.evidence.map((evidence) => ({
+        key: evidence.key,
+        label: evidence.label,
+        satisfied: evidence.satisfied,
+        detail: evidence.detail,
+      })),
+      freshnessSnapshot: {
+        marketFeedState: this.marketFeedStateAt(occurredAt),
+        dataQuality: next.dataQuality,
+        scoreState: next.scoreState,
+        streaming: this.status.connectionState === "streaming",
+        complete: next.momentum.available
+          && next.volumeIntensity.available
+          && next.orderFlowPressure.available
+          && next.spread.available,
+        eligible: next.preBreakout.dataFresh,
+      },
+      inputSummary: {
+        alphaScore: next.score,
+        confidence: next.confidence,
+        velocity30s: next.alphaVelocity.rate30s,
+        velocity60s: next.alphaVelocity.rate60s,
+        momentumAcceleration: next.changeIndicators.momentumAcceleration,
+        volumeAcceleration: next.changeIndicators.volumeAcceleration,
+        orderFlowShift: next.changeIndicators.orderFlowShift,
+        spreadTightening: next.changeIndicators.spreadTightening,
+        evidenceCount: next.preBreakout.evidenceCount,
+      },
+      cohortKey: shadowCohortKey({
+        symbol: this.configuredSymbol,
+        occurredAt,
+        state: toState,
+        sector: reference?.sector ?? null,
+      }),
+      cohortEligibilitySnapshot: {
+        baselineSignalType: "state_transition",
+        baselineState: toState,
+        matchingWindowSeconds: 60,
+        requiredEvidenceKeys: next.preBreakout.confirmation.evidence
+          .filter((evidence) => evidence.satisfied)
+          .map((evidence) => evidence.key),
+        dataFreshRequired: true,
+      },
+    });
+    if (shadowCandidate) void shadowLearning.captureObservation(shadowCandidate);
   }
 
   private marketFeedStateAt(now: Date): MarketFeedState {

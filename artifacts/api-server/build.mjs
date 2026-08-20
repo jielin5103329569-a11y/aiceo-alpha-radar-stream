@@ -9,7 +9,12 @@ import { copyFile, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 globalThis.require = createRequire(import.meta.url);
 
 const artifactDir = path.dirname(fileURLToPath(import.meta.url));
-const validationMigrationTag = "0000_signal-validation";
+const validationMigrationTags = new Set([
+  "0000_signal-validation",
+  "0002_shadow_learning",
+  "0003_shadow_learning_evidence_hashes",
+  "0004_shadow_learning_cohorts",
+]);
 
 async function copyValidationMigrations(distDir) {
   const sourceDir = path.resolve(artifactDir, "../../lib/db/drizzle");
@@ -21,20 +26,19 @@ async function copyValidationMigrations(distDir) {
   );
 
   await mkdir(targetMetaDir, { recursive: true });
-  await copyFile(
-    path.join(sourceDir, `${validationMigrationTag}.sql`),
-    path.join(targetDir, `${validationMigrationTag}.sql`),
+  const validationEntries = sourceJournal.entries.filter(
+    (entry) => validationMigrationTags.has(entry.tag),
   );
+  for (const entry of validationEntries) {
+    await copyFile(path.join(sourceDir, `${entry.tag}.sql`), path.join(targetDir, `${entry.tag}.sql`));
+  }
   await copyFile(
     path.join(sourceMetaDir, "0000_snapshot.json"),
     path.join(targetMetaDir, "0000_snapshot.json"),
   );
   await writeFile(
     path.join(targetMetaDir, "_journal.json"),
-    `${JSON.stringify({
-      ...sourceJournal,
-      entries: sourceJournal.entries.filter((entry) => entry.tag === validationMigrationTag),
-    }, null, 2)}\n`,
+    `${JSON.stringify({ ...sourceJournal, entries: validationEntries }, null, 2)}\n`,
   );
 }
 

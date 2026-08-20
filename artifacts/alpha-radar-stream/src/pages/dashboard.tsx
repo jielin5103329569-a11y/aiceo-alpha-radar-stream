@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { RadarSignalPanel } from '@/components/radar-signal-panel';
 import { LiveIngestionAcceptanceCard } from '@/components/live-ingestion-acceptance-card';
 import { SignalValidationPanel } from '@/components/signal-validation-panel';
+import { ShadowLearningStatusPanel } from '@/components/shadow-learning-status-panel';
 import { AccountControls } from '@/components/account-controls';
 import { AccountAlerts } from '@/components/account-alerts';
 import { CatalystOpportunityCenter } from '@/components/catalyst-opportunity-center';
@@ -288,6 +289,7 @@ export default function Dashboard() {
           <LiveIngestionAcceptanceCard diagnostics={status?.liveIngestion} />
 
           <SignalValidationPanel />
+          <ShadowLearningStatusPanel />
           <AccountAlerts />
 
           <RadarUniverseCard
