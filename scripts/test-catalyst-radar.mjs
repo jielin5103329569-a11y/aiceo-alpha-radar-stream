@@ -19,6 +19,21 @@ function freshAlphaRadar({ state = "pre_breakout", confirmation = "confirmed" } 
     score: 82,
     scoreState: "available",
     dataQuality: "good",
+    scan: {
+      lastScannedAt: new Date("2026-08-20T14:30:00.000Z"),
+    },
+    momentum: {
+      value: 1.2,
+    },
+    alphaVelocity: {
+      rate30s: 12,
+    },
+    changeIndicators: {
+      momentumAcceleration: 9,
+      volumeAcceleration: 8,
+      orderFlowShift: 7,
+      spreadTightening: 6,
+    },
     preBreakout: {
       state,
       dataFresh: true,
@@ -82,6 +97,31 @@ try {
   assert.ok(
     marketOnly.opportunityCenter.opportunities[0].missingConfirmationItems.includes("Fresh authorized catalyst event"),
     "market-only setups must make the missing catalyst gate explicit",
+  );
+  assert.equal(
+    marketOnly.opportunityCenter.opportunities[0].direction,
+    "upside",
+    "a fresh positive market window should expose an observational direction",
+  );
+  assert.equal(
+    marketOnly.opportunityCenter.opportunities[0].alphaVelocity30s,
+    12,
+    "opportunity rows must retain fresh Alpha speed instead of deriving a new score",
+  );
+  assert.equal(
+    marketOnly.opportunityCenter.opportunities[0].acceleration,
+    7.5,
+    "opportunity rows must expose transparent average component acceleration",
+  );
+  assert.equal(
+    marketOnly.opportunityCenter.opportunities[0].triggerAt?.toISOString(),
+    now.toISOString(),
+    "market-only opportunities must retain their original fresh scan trigger time",
+  );
+  assert.equal(
+    marketOnly.opportunityCenter.opportunities[0].alertReady,
+    false,
+    "a market-only PRE-BREAKOUT remains in-app alert-gated without independent catalyst and sector confirmation",
   );
 
   const catalystOnly = {
@@ -174,6 +214,16 @@ try {
     fuseOpportunity(freshInput(), authorizedCatalyst, confirmedSector, now).state,
     "CONFIRMED",
     "confirmation requires independent catalyst, market, Alpha, and sector evidence to converge",
+  );
+  assert.equal(
+    fuseOpportunity(freshInput(), authorizedCatalyst, confirmedSector, now).alertReady,
+    true,
+    "only complete independent confirmation should reach the in-app alert-ready state",
+  );
+  assert.equal(
+    fuseOpportunity(staleInput, catalystOnly, unavailableSector, now).direction,
+    "unavailable",
+    "stale or incomplete market windows must withhold direction rather than retain a directional label",
   );
   assert.equal(
     fuseOpportunity(

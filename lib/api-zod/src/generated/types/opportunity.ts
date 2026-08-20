@@ -7,6 +7,7 @@
  */
 import type { CatalystEvidence } from './catalystEvidence';
 import type { CatalystSourceAvailability } from './catalystSourceAvailability';
+import type { OpportunityDirection } from './opportunityDirection';
 import type { OpportunityFreshness } from './opportunityFreshness';
 import type { OpportunityMarketState } from './opportunityMarketState';
 import type { OpportunityState } from './opportunityState';
@@ -16,7 +17,24 @@ export interface Opportunity {
   symbol: string;
   /** @nullable */
   eventTime: Date | null;
+  /**
+     * Time of the fresh Alpha scan that produced this opportunity state; never a trade signal.
+     * @nullable
+     */
+  triggerAt: Date | null;
   freshness: OpportunityFreshness;
+  /** Market-window direction only; not a recommendation. */
+  direction: OpportunityDirection;
+  /**
+     * Fresh Alpha score-point speed per minute over the latest 30-second comparison.
+     * @nullable
+     */
+  alphaVelocity30s: number | null;
+  /**
+     * Average fresh component acceleration in score points per minute.
+     * @nullable
+     */
+  acceleration: number | null;
   catalystStatus: CatalystSourceAvailability;
   /** @minimum 0 */
   evidenceCount: number;
@@ -25,5 +43,8 @@ export interface Opportunity {
   marketState: OpportunityMarketState;
   sectorConfirmation: SectorConfirmation;
   missingConfirmationItems: string[];
+  /** True only when all independent confirmation gates are complete for an in-app alert handoff. */
+  alertReady: boolean;
+  alertReadyReason: string;
   reason: string;
 }

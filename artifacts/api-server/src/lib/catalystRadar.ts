@@ -23,6 +23,7 @@ export type CatalystEventState = "unavailable" | "observed";
 export type OpportunityState = "WATCH" | "PRE-BREAKOUT" | "CONFIRMED";
 export type OpportunityFreshness = "fresh" | "stale" | "insufficient" | "missing";
 export type SectorConfirmationStatus = "confirmed" | "insufficient" | "unavailable";
+export type OpportunityDirection = "upside" | "downside" | "neutral" | "unavailable";
 
 export type CatalystSourceStatus = {
   category: CatalystCategory;
@@ -82,7 +83,11 @@ export type CatalystRadarSnapshot = {
 export type Opportunity = {
   symbol: string;
   eventTime: Date | null;
+  triggerAt: Date | null;
   freshness: OpportunityFreshness;
+  direction: OpportunityDirection;
+  alphaVelocity30s: number | null;
+  acceleration: number | null;
   catalystStatus: CatalystSourceAvailability;
   evidenceCount: number;
   evidenceChain: CatalystEvidence[];
@@ -90,6 +95,8 @@ export type Opportunity = {
   marketState: "fresh" | "stale" | "insufficient" | "offline";
   sectorConfirmation: SectorConfirmation;
   missingConfirmationItems: string[];
+  alertReady: boolean;
+  alertReadyReason: string;
   reason: string;
 };
 
@@ -173,6 +180,25 @@ function opportunityFreshness(freshness: CatalystFreshness): OpportunityFreshnes
   if (freshness === "stale") return "stale";
   if (freshness === "missing") return "missing";
   return "insufficient";
+}
+
+function opportunityDirection(input: CatalystRadarInput, liveMarket: boolean): OpportunityDirection {
+  if (!liveMarket || input.alphaRadar.momentum.value === null) return "unavailable";
+  if (input.alphaRadar.momentum.value > 0) return "upside";
+  if (input.alphaRadar.momentum.value < 0) return "downside";
+  return "neutral";
+}
+
+function averageAcceleration(input: CatalystRadarInput, liveMarket: boolean): number | null {
+  if (!liveMarket) return null;
+  const values = [
+    input.alphaRadar.changeIndicators.momentumAcceleration,
+    input.alphaRadar.changeIndicators.volumeAcceleration,
+    input.alphaRadar.changeIndicators.orderFlowShift,
+    input.alphaRadar.changeIndicators.spreadTightening,
+  ].filter((value): value is number => value !== null && Number.isFinite(value));
+  if (values.length === 0) return null;
+  return Math.round((values.reduce((total, value) => total + value, 0) / values.length) * 100) / 100;
 }
 
 function marketEvidence(
@@ -317,6 +343,12 @@ export function fuseOpportunity(
     : hasMarketSetup
       ? "PRE-BREAKOUT"
       : "WATCH";
+  const direction = opportunityDirection(input, liveMarket);
+  const acceleration = averageAcceleration(input, liveMarket);
+  const alertReady = independentlyConfirmed;
+  const alertReadyReason = alertReady
+    ? "Fresh independent catalyst, market, Alpha, and sector evidence are complete for in-app alert handoff."
+    : "In-app alert handoff remains blocked until independent catalyst, market, Alpha, and sector confirmation all converge.";
 
   const evidenceChain: CatalystEvidence[] = [
     {
@@ -355,7 +387,11 @@ export function fuseOpportunity(
   return {
     symbol: input.symbol,
     eventTime: catalystEvent?.observedAt ?? null,
+    triggerAt: input.alphaRadar.scan.lastScannedAt,
     freshness: opportunityFreshness(freshness),
+    direction,
+    alphaVelocity30s: liveMarket ? input.alphaRadar.alphaVelocity.rate30s : null,
+    acceleration,
     catalystStatus: catalystEvent?.freshness === "fresh"
       ? "available"
       : "unavailable",
@@ -365,6 +401,8 @@ export function fuseOpportunity(
     marketState: input.scanHealth.marketDataState,
     sectorConfirmation,
     missingConfirmationItems,
+    alertReady,
+    alertReadyReason,
     reason: independentlyConfirmed
       ? "Independent catalyst, fresh market microstructure, Alpha confirmation, and trusted peer confirmation converge."
       : hasMarketSetup

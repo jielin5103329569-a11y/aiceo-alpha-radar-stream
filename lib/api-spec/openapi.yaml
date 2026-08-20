@@ -880,7 +880,21 @@ components:
       properties:
         symbol: { type: string }
         eventTime: { type: [string, "null"], format: date-time }
+        triggerAt:
+          type: [string, "null"]
+          format: date-time
+          description: Time of the fresh Alpha scan that produced this opportunity state; never a trade signal.
         freshness: { $ref: "#/components/schemas/OpportunityFreshness" }
+        direction:
+          type: string
+          enum: [upside, downside, neutral, unavailable]
+          description: Market-window direction only; not a recommendation.
+        alphaVelocity30s:
+          type: [number, "null"]
+          description: Fresh Alpha score-point speed per minute over the latest 30-second comparison.
+        acceleration:
+          type: [number, "null"]
+          description: Average fresh component acceleration in score points per minute.
         catalystStatus: { $ref: "#/components/schemas/CatalystSourceAvailability" }
         evidenceCount: { type: number, minimum: 0 }
         evidenceChain:
@@ -894,8 +908,13 @@ components:
         missingConfirmationItems:
           type: array
           items: { type: string }
+        alertReady:
+          type: boolean
+          description: True only when all independent confirmation gates are complete for an in-app alert handoff.
+        alertReadyReason:
+          type: string
         reason: { type: string }
-      required: [symbol, eventTime, freshness, catalystStatus, evidenceCount, evidenceChain, state, marketState, sectorConfirmation, missingConfirmationItems, reason]
+      required: [symbol, eventTime, triggerAt, freshness, direction, alphaVelocity30s, acceleration, catalystStatus, evidenceCount, evidenceChain, state, marketState, sectorConfirmation, missingConfirmationItems, alertReady, alertReadyReason, reason]
     CatalystRadarSnapshot:
       type: object
       properties:

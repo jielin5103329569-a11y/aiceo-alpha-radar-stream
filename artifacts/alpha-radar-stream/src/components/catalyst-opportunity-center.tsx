@@ -205,7 +205,9 @@ function OpportunityRow({ opportunity }: { opportunity: Opportunity }) {
             {opportunity.symbol}
           </div>
           <div>
-            <p className="text-xs font-medium text-foreground">Event time: {opportunity.eventTime ? formatTime(opportunity.eventTime) : 'No catalyst event'}</p>
+            <p className="text-xs font-medium text-foreground">
+              Trigger: {opportunity.triggerAt ? formatTime(opportunity.triggerAt) : 'Awaiting fresh scan'}
+            </p>
             <p className="mt-0.5 font-mono text-[10px] text-muted-foreground">
               {opportunity.freshness} opportunity data · {opportunity.marketState} market window
             </p>
@@ -226,7 +228,25 @@ function OpportunityRow({ opportunity }: { opportunity: Opportunity }) {
           >
             {formatNumber(opportunity.evidenceCount, 0)} independent
           </Badge>
+          <Badge
+            variant="outline"
+            className={cn(
+              'border font-mono text-[10px] uppercase',
+              opportunity.alertReady
+                ? 'border-emerald-500/45 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
+                : 'border-border bg-muted/40 text-muted-foreground',
+            )}
+            data-testid={`opportunity-alert-ready-${opportunity.symbol}`}
+          >
+            {opportunity.alertReady ? 'in-app alert ready' : 'alert gated'}
+          </Badge>
         </div>
+      </div>
+      <div className="mt-3 grid grid-cols-2 gap-2 rounded-md border border-border/60 bg-muted/10 p-3 font-mono text-[10px] sm:grid-cols-4">
+        <OpportunityMetric label="Direction" value={opportunity.direction} />
+        <OpportunityMetric label="Speed" value={opportunity.alphaVelocity30s === null ? '—' : `${formatNumber(opportunity.alphaVelocity30s, 2)}/min`} />
+        <OpportunityMetric label="Acceleration" value={opportunity.acceleration === null ? '—' : `${formatNumber(opportunity.acceleration, 2)}/min`} />
+        <OpportunityMetric label="Catalyst" value={opportunity.eventTime ? formatTime(opportunity.eventTime) : 'unavailable'} />
       </div>
 
       <div className="mt-4 grid gap-3 lg:grid-cols-[1.2fr_0.8fr]">
@@ -277,6 +297,18 @@ function OpportunityRow({ opportunity }: { opportunity: Opportunity }) {
         </div>
       </div>
       <p className="mt-3 border-t border-border/60 pt-3 text-[11px] leading-relaxed text-muted-foreground">{opportunity.reason}</p>
+      <p className="mt-2 text-[10px] leading-relaxed text-muted-foreground" data-testid={`opportunity-alert-reason-${opportunity.symbol}`}>
+        {opportunity.alertReadyReason}
+      </p>
     </article>
+  );
+}
+
+function OpportunityMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="min-w-0">
+      <p className="uppercase tracking-wider text-muted-foreground">{label}</p>
+      <p className="mt-1 truncate text-foreground">{value}</p>
+    </div>
   );
 }

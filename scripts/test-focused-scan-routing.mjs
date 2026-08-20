@@ -70,6 +70,7 @@ try {
       'const currentDir = ".";',
     ),
   );
+  transpile("artifacts/api-server/src/lib/catalystRadar.ts", "catalystRadar.js");
   transpile(
     "artifacts/api-server/src/lib/databentoLive.ts",
     "databentoLive.js",
@@ -195,6 +196,22 @@ try {
     "rejected",
     "one composite or incomplete evidence source must not admit a scan",
   );
+  for (const [label, overrides] of [
+    ["non-Databento source", { source: "other_provider" }],
+    ["unrecognized schema", { schema: "trades-1" }],
+    ["unverified subscription", { subscriptionVerified: false }],
+    ["incomplete market fields", { completeMarketFields: false }],
+    ["stale market record", { fresh: false }],
+    ["missing minimum liquidity", { minimumLiquiditySatisfied: false }],
+    ["expired leader observation", { observedAt: new Date(now.getTime() - 15_001) }],
+    ["future leader observation", { observedAt: new Date(now.getTime() + 1) }],
+  ]) {
+    assert.equal(
+      coordinator.routeVerifiedMarketLeader(leader("ACME", now, overrides), protectedStreaming, now).state,
+      "rejected",
+      `${label} must fail closed before creating a focused scan`,
+    );
+  }
 
   assert.equal(
     coordinator.routeVerifiedMarketLeader(leader("ACME"), protectedStreaming, now).state,

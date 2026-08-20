@@ -591,7 +591,11 @@ export const GetRadarStatusResponse = zod.object({
   "opportunities": zod.array(zod.object({
   "symbol": zod.string(),
   "eventTime": zod.coerce.date().nullable(),
+  "triggerAt": zod.coerce.date().nullable().describe('Time of the fresh Alpha scan that produced this opportunity state; never a trade signal.'),
   "freshness": zod.enum(['fresh', 'stale', 'insufficient', 'missing']),
+  "direction": zod.enum(['upside', 'downside', 'neutral', 'unavailable']).describe('Market-window direction only; not a recommendation.'),
+  "alphaVelocity30s": zod.number().nullable().describe('Fresh Alpha score-point speed per minute over the latest 30-second comparison.'),
+  "acceleration": zod.number().nullable().describe('Average fresh component acceleration in score points per minute.'),
   "catalystStatus": zod.enum(['unavailable', 'available', 'stale', 'blocked']),
   "evidenceCount": zod.number().min(getRadarStatusResponseOpportunityCenterOpportunitiesItemEvidenceCountMin),
   "evidenceChain": zod.array(zod.object({
@@ -626,6 +630,8 @@ export const GetRadarStatusResponse = zod.object({
   "reason": zod.string()
 }),
   "missingConfirmationItems": zod.array(zod.string()),
+  "alertReady": zod.boolean().describe('True only when all independent confirmation gates are complete for an in-app alert handoff.'),
+  "alertReadyReason": zod.string(),
   "reason": zod.string()
 })),
   "reason": zod.string()
@@ -1492,7 +1498,11 @@ export const StartRadarConnectionResponse = zod.object({
   "opportunities": zod.array(zod.object({
   "symbol": zod.string(),
   "eventTime": zod.coerce.date().nullable(),
+  "triggerAt": zod.coerce.date().nullable().describe('Time of the fresh Alpha scan that produced this opportunity state; never a trade signal.'),
   "freshness": zod.enum(['fresh', 'stale', 'insufficient', 'missing']),
+  "direction": zod.enum(['upside', 'downside', 'neutral', 'unavailable']).describe('Market-window direction only; not a recommendation.'),
+  "alphaVelocity30s": zod.number().nullable().describe('Fresh Alpha score-point speed per minute over the latest 30-second comparison.'),
+  "acceleration": zod.number().nullable().describe('Average fresh component acceleration in score points per minute.'),
   "catalystStatus": zod.enum(['unavailable', 'available', 'stale', 'blocked']),
   "evidenceCount": zod.number().min(startRadarConnectionResponseOpportunityCenterOpportunitiesItemEvidenceCountMin),
   "evidenceChain": zod.array(zod.object({
@@ -1527,6 +1537,8 @@ export const StartRadarConnectionResponse = zod.object({
   "reason": zod.string()
 }),
   "missingConfirmationItems": zod.array(zod.string()),
+  "alertReady": zod.boolean().describe('True only when all independent confirmation gates are complete for an in-app alert handoff.'),
+  "alertReadyReason": zod.string(),
   "reason": zod.string()
 })),
   "reason": zod.string()
@@ -2393,7 +2405,11 @@ export const StopRadarConnectionResponse = zod.object({
   "opportunities": zod.array(zod.object({
   "symbol": zod.string(),
   "eventTime": zod.coerce.date().nullable(),
+  "triggerAt": zod.coerce.date().nullable().describe('Time of the fresh Alpha scan that produced this opportunity state; never a trade signal.'),
   "freshness": zod.enum(['fresh', 'stale', 'insufficient', 'missing']),
+  "direction": zod.enum(['upside', 'downside', 'neutral', 'unavailable']).describe('Market-window direction only; not a recommendation.'),
+  "alphaVelocity30s": zod.number().nullable().describe('Fresh Alpha score-point speed per minute over the latest 30-second comparison.'),
+  "acceleration": zod.number().nullable().describe('Average fresh component acceleration in score points per minute.'),
   "catalystStatus": zod.enum(['unavailable', 'available', 'stale', 'blocked']),
   "evidenceCount": zod.number().min(stopRadarConnectionResponseOpportunityCenterOpportunitiesItemEvidenceCountMin),
   "evidenceChain": zod.array(zod.object({
@@ -2428,6 +2444,8 @@ export const StopRadarConnectionResponse = zod.object({
   "reason": zod.string()
 }),
   "missingConfirmationItems": zod.array(zod.string()),
+  "alertReady": zod.boolean().describe('True only when all independent confirmation gates are complete for an in-app alert handoff.'),
+  "alertReadyReason": zod.string(),
   "reason": zod.string()
 })),
   "reason": zod.string()
@@ -2945,7 +2963,11 @@ export const GetOpportunityCenterResponse = zod.object({
   "opportunities": zod.array(zod.object({
   "symbol": zod.string(),
   "eventTime": zod.coerce.date().nullable(),
+  "triggerAt": zod.coerce.date().nullable().describe('Time of the fresh Alpha scan that produced this opportunity state; never a trade signal.'),
   "freshness": zod.enum(['fresh', 'stale', 'insufficient', 'missing']),
+  "direction": zod.enum(['upside', 'downside', 'neutral', 'unavailable']).describe('Market-window direction only; not a recommendation.'),
+  "alphaVelocity30s": zod.number().nullable().describe('Fresh Alpha score-point speed per minute over the latest 30-second comparison.'),
+  "acceleration": zod.number().nullable().describe('Average fresh component acceleration in score points per minute.'),
   "catalystStatus": zod.enum(['unavailable', 'available', 'stale', 'blocked']),
   "evidenceCount": zod.number().min(getOpportunityCenterResponseOpportunitiesItemEvidenceCountMin),
   "evidenceChain": zod.array(zod.object({
@@ -2980,6 +3002,8 @@ export const GetOpportunityCenterResponse = zod.object({
   "reason": zod.string()
 }),
   "missingConfirmationItems": zod.array(zod.string()),
+  "alertReady": zod.boolean().describe('True only when all independent confirmation gates are complete for an in-app alert handoff.'),
+  "alertReadyReason": zod.string(),
   "reason": zod.string()
 })),
   "reason": zod.string()

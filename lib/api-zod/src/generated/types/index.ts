@@ -76,6 +76,7 @@ export * from './marketUniverseSummaryProvider';
 export * from './normalizedSecurityType';
 export * from './opportunity';
 export * from './opportunityCenterSnapshot';
+export * from './opportunityDirection';
 export * from './opportunityFreshness';
 export * from './opportunityMarketState';
 export * from './opportunityState';
