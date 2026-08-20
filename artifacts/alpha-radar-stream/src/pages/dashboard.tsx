@@ -112,7 +112,11 @@ export default function Dashboard() {
             </div>
             
             <div className="flex items-center gap-2 sm:gap-4">
-              <MarketFeedStatusBadge state={status?.marketFeedState} error={isError} />
+              <MarketFeedStatusBadge
+                state={status?.marketFeedState}
+                error={isError}
+                acceptanceState={status?.liveIngestion.acceptanceState}
+              />
               <AccountControls />
               
               {isConnected ? (
@@ -1030,7 +1034,11 @@ function ConnectionHealthCard({
       <CardContent className="space-y-3 font-mono text-sm">
         <div className="flex items-center justify-between rounded-md bg-muted/50 px-3 py-2">
           <span className="text-muted-foreground">Market data</span>
-          <MarketFeedStatusBadge state={status?.marketFeedState} error={isError} />
+          <MarketFeedStatusBadge
+            state={status?.marketFeedState}
+            error={isError}
+            acceptanceState={status?.liveIngestion.acceptanceState}
+          />
         </div>
         <HealthRow
           label="Databento transport"
@@ -1321,12 +1329,29 @@ function describeReconnect(
   }
 }
 
-function MarketFeedStatusBadge({ state, error }: { state?: MarketFeedState, error: boolean }) {
+function MarketFeedStatusBadge({
+  state,
+  error,
+  acceptanceState,
+}: {
+  state?: MarketFeedState,
+  error: boolean,
+  acceptanceState?: RadarStatus['liveIngestion']['acceptanceState'],
+}) {
   if (error || state === 'offline') {
     return (
       <Badge variant="destructive" className="gap-1.5 py-1 px-2.5 bg-destructive/10 text-destructive hover:bg-destructive/20 font-mono text-[11px] uppercase tracking-wider">
         <AlertCircle className="h-3 w-3" />
         Offline
+      </Badge>
+    );
+  }
+
+  if (acceptanceState === 'awaiting_live_event') {
+    return (
+      <Badge variant="outline" className="gap-1.5 py-1 px-2.5 font-mono text-[11px] uppercase tracking-wider border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300">
+        <CircleAlert className="h-3 w-3" />
+        Not verified
       </Badge>
     );
   }

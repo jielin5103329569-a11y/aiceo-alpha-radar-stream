@@ -870,11 +870,13 @@ export class DatabentoLiveService extends EventEmitter {
     const marketDataState: ProtectedScanMarketDataState =
       marketFeedState === "offline"
         ? "offline"
-        : marketFeedState === "stale"
-          ? "stale"
-          : verifiedFreshWindow
-            ? "fresh"
-            : "insufficient";
+        : !liveIngestion.conditions.realMarketEventReceived
+          ? "insufficient"
+          : marketFeedState === "stale"
+            ? "stale"
+            : verifiedFreshWindow
+              ? "fresh"
+              : "insufficient";
     const marketDataGateReady =
       schedulerState === "scheduled"
       && marketDataState === "fresh";

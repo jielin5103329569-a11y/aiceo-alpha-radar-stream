@@ -345,6 +345,27 @@ try {
     "an insufficient protected scanner must never satisfy the market-data gate",
   );
 
+  const awaitingLiveEventService = new DatabentoLiveService("MU");
+  awaitingLiveEventService.applyEvent({ type: "ready" });
+  awaitingLiveEventService.scanSchedulerActive = true;
+  awaitingLiveEventService.nextScheduledScanAt = new Date(Date.now() + 5_000);
+  const awaitingLiveEventHealth = awaitingLiveEventService.getStatus().scanHealth;
+  assert.equal(
+    awaitingLiveEventHealth.marketDataState,
+    "insufficient",
+    "a ready subscription without any real market event must remain insufficient rather than stale",
+  );
+  assert.equal(
+    awaitingLiveEventHealth.degradation,
+    "awaiting_live_event",
+    "a ready subscription must disclose that it is awaiting its first verified market event",
+  );
+  assert.equal(
+    awaitingLiveEventHealth.marketDataGateReady,
+    false,
+    "a connected subscription without a verified market event must never satisfy the market-data gate",
+  );
+
   const freshAlphaService = new DatabentoLiveService();
   const freshAlphaNow = new Date();
   freshAlphaService.applyEvent({ type: "ready" });
