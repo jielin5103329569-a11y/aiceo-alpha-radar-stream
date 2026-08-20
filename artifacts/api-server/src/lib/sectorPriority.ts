@@ -74,6 +74,7 @@ export type SectorPrioritySnapshot = {
   state: SectorPriorityState;
   coverage: {
     eligibleLiveSymbols: number;
+    eligibleLivePopulation: string[];
     classifiedLiveSymbols: number;
     rankedSectorCount: number;
     requiredConstituentsPerSector: number;
@@ -89,6 +90,11 @@ export type SectorPrioritySnapshot = {
 
 export type SectorPriorityInput = {
   symbols: RadarSymbolStatus[];
+  /**
+   * Independently admitted live services that may contribute to sector
+   * context. Reference records alone must never be supplied here.
+   */
+  additionalLiveSymbols?: RadarSymbolStatus[];
   alphaRanking: AlphaRadarRankingSnapshot;
   references: Array<{ symbol: string; reference: SecurityReference | null }>;
   catalystRadar: CatalystRadarSnapshot;
@@ -149,6 +155,10 @@ function hasFreshRank(
       && status.scanHealth.schedulerState === "scheduled"
       && status.scanHealth.marketDataState === "fresh"
       && status.scanHealth.marketDataGateReady
+      && status.liveIngestion?.conditions.subscriptionVerified
+      && status.liveIngestion?.conditions.realMarketEventReceived
+      && status.liveIngestion?.conditions.enteredScoringWindow
+      && status.liveIngestion?.conditions.scoringEligible
       && status.alphaRadar.scoreState === "available"
       && status.alphaRadar.dataQuality === "good"
       && status.alphaRadar.preBreakout.dataFresh,
@@ -294,7 +304,7 @@ function buildCandidate(
 }
 
 /**
- * Produces a strictly server-owned hierarchy from current protected live
+ * Produces a strictly server-owned hierarchy from current verified live
  * windows. Reference data can classify a symbol but can never supply market,
  * flow, catalyst, options, fundamentals, valuation, or risk/reward evidence.
  */
@@ -302,7 +312,13 @@ export function buildSectorPriority(input: SectorPriorityInput): SectorPriorityS
   const now = input.now ?? new Date();
   const rankingBySymbol = new Map(input.alphaRanking.entries.map((entry) => [entry.symbol, entry]));
   const referenceBySymbol = new Map(input.references.map((item) => [item.symbol, item.reference]));
-  const contexts = input.symbols.map((status): CandidateContext => {
+  const symbolsByName = new Map<string, RadarSymbolStatus>();
+  [...input.symbols, ...(input.additionalLiveSymbols ?? [])].forEach((status) => {
+    // The protected pool wins if a future caller accidentally supplies a
+    // duplicate focused service. One symbol can contribute only one window.
+    if (!symbolsByName.has(status.symbol)) symbolsByName.set(status.symbol, status);
+  });
+  const contexts = [...symbolsByName.values()].map((status): CandidateContext => {
     const ranking = rankingBySymbol.get(status.symbol) ?? null;
     const reference = referenceBySymbol.get(status.symbol) ?? null;
     return {
@@ -451,7 +467,11 @@ export function buildSectorPriority(input: SectorPriorityInput): SectorPriorityS
     .filter((candidate) => candidate.stage === "withheld")
     .map((candidate) => ({ ...candidate, finalRank: null }));
   const rankedSectorCount = rankedSectors.filter((sector) => sector.eligibility === "ranked").length;
-  const eligibleLiveSymbols = contexts.filter((context) => context.rankingEligible).length;
+  const eligibleLivePopulation = contexts
+    .filter((context) => context.rankingEligible)
+    .map((context) => context.status.symbol)
+    .sort((left, right) => left.localeCompare(right));
+  const eligibleLiveSymbols = eligibleLivePopulation.length;
   const classifiedLiveSymbols = contexts.filter(
     (context) => context.rankingEligible && context.trustedClassification,
   ).length;
@@ -466,7 +486,7 @@ export function buildSectorPriority(input: SectorPriorityInput): SectorPriorityS
       ? "No symbol has both a trusted classification and a fresh eligible live Alpha window."
       : rankedSectorCount === 0
         ? `Fresh classified coverage exists, but no sector meets the ${REQUIRED_CONSTITUENTS}-constituent minimum.`
-        : "Sector strength uses only fresh verified protected live windows; unavailable data categories remain explicitly withheld.";
+        : `Sector strength uses only the eligible verified live population (${eligibleLivePopulation.join(", ")}); unavailable data categories remain explicitly withheld.`;
   const reason = state === "ranked"
     ? "Sector-first prioritization is active: final candidate order is based on individual Alpha strength multiplied by verified sector strength."
     : state === "insufficient"
@@ -478,10 +498,11 @@ export function buildSectorPriority(input: SectorPriorityInput): SectorPriorityS
     state,
     coverage: {
       eligibleLiveSymbols,
+      eligibleLivePopulation,
       classifiedLiveSymbols,
       rankedSectorCount,
       requiredConstituentsPerSector: REQUIRED_CONSTITUENTS,
-      source: "Databento EQUS.MINI live microstructure; Databento reference classification only",
+      source: "Databento real-time microstructure for the listed live population; Databento reference data supplies classification only.",
       reason: coverageReason,
     },
     sectors: rankedSectors,

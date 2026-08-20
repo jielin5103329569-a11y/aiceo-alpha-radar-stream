@@ -2752,6 +2752,17 @@ export class FocusedScanCoordinator extends EventEmitter {
     };
   }
 
+  /**
+   * These statuses are deliberately not published as protected symbol radars.
+   * The sector hierarchy may inspect them independently, and still applies
+   * every per-symbol live-event, health, freshness, and classification gate.
+   */
+  getSectorSymbols(): RadarSymbolStatus[] {
+    return [...this.active.values()]
+      .map((scan) => toSymbolStatus(scan.service.getStatus()))
+      .sort((left, right) => left.symbol.localeCompare(right.symbol));
+  }
+
   routeVerifiedMarketLeader(
     leader: VerifiedMarketLeader,
     protectedStatuses: RadarStatus[],
@@ -2997,6 +3008,12 @@ export class DatabentoUniverseService extends EventEmitter {
     pendingObservationCount: 0,
     lastInputSignature: null,
   };
+  private sectorRankingMachine: AlphaRadarRankingMachine = {
+    order: [],
+    pendingOrder: null,
+    pendingObservationCount: 0,
+    lastInputSignature: null,
+  };
 
   constructor() {
     super();
@@ -3014,6 +3031,18 @@ export class DatabentoUniverseService extends EventEmitter {
     const now = new Date();
     const rankingResult = updateAlphaRadarRanking(symbolRadars, this.rankingMachine, now);
     this.rankingMachine = rankingResult.machine;
+    const focusedSectorSymbols = this.focusedScans.getSectorSymbols();
+    const sectorSymbolsByName = new Map<string, RadarSymbolStatus>();
+    [...symbolRadars, ...focusedSectorSymbols].forEach((status) => {
+      if (!sectorSymbolsByName.has(status.symbol)) sectorSymbolsByName.set(status.symbol, status);
+    });
+    const sectorSymbols = [...sectorSymbolsByName.values()];
+    const sectorRankingResult = updateAlphaRadarRanking(
+      sectorSymbols,
+      this.sectorRankingMachine,
+      now,
+    );
+    this.sectorRankingMachine = sectorRankingResult.machine;
     const leader = rankingResult.snapshot.leaderSymbol
       ? symbolRadars.find((status) => status.symbol === rankingResult.snapshot.leaderSymbol)
       : null;
@@ -3035,8 +3064,9 @@ export class DatabentoUniverseService extends EventEmitter {
     );
     const sectorPriority = buildSectorPriority({
       symbols: symbolRadars,
-      alphaRanking: rankingResult.snapshot,
-      references: statuses.map((status) => ({
+      additionalLiveSymbols: focusedSectorSymbols,
+      alphaRanking: sectorRankingResult.snapshot,
+      references: sectorSymbols.map((status) => ({
         symbol: status.symbol,
         reference: marketUniverse.getSecurity(status.symbol, now),
       })),

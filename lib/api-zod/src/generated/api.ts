@@ -998,6 +998,7 @@ export const GetRadarStatusResponse = zod.object({
   "state": zod.enum(['ranked', 'insufficient', 'unavailable']),
   "coverage": zod.object({
   "eligibleLiveSymbols": zod.number().min(getRadarStatusResponseSectorPriorityCoverageEligibleLiveSymbolsMin),
+  "eligibleLivePopulation": zod.array(zod.string()),
   "classifiedLiveSymbols": zod.number().min(getRadarStatusResponseSectorPriorityCoverageClassifiedLiveSymbolsMin),
   "rankedSectorCount": zod.number().min(getRadarStatusResponseSectorPriorityCoverageRankedSectorCountMin),
   "requiredConstituentsPerSector": zod.number().min(1),
@@ -2105,6 +2106,7 @@ export const StartRadarConnectionResponse = zod.object({
   "state": zod.enum(['ranked', 'insufficient', 'unavailable']),
   "coverage": zod.object({
   "eligibleLiveSymbols": zod.number().min(startRadarConnectionResponseSectorPriorityCoverageEligibleLiveSymbolsMin),
+  "eligibleLivePopulation": zod.array(zod.string()),
   "classifiedLiveSymbols": zod.number().min(startRadarConnectionResponseSectorPriorityCoverageClassifiedLiveSymbolsMin),
   "rankedSectorCount": zod.number().min(startRadarConnectionResponseSectorPriorityCoverageRankedSectorCountMin),
   "requiredConstituentsPerSector": zod.number().min(1),
@@ -3212,6 +3214,7 @@ export const StopRadarConnectionResponse = zod.object({
   "state": zod.enum(['ranked', 'insufficient', 'unavailable']),
   "coverage": zod.object({
   "eligibleLiveSymbols": zod.number().min(stopRadarConnectionResponseSectorPriorityCoverageEligibleLiveSymbolsMin),
+  "eligibleLivePopulation": zod.array(zod.string()),
   "classifiedLiveSymbols": zod.number().min(stopRadarConnectionResponseSectorPriorityCoverageClassifiedLiveSymbolsMin),
   "rankedSectorCount": zod.number().min(stopRadarConnectionResponseSectorPriorityCoverageRankedSectorCountMin),
   "requiredConstituentsPerSector": zod.number().min(1),

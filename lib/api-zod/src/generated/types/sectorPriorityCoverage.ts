@@ -9,6 +9,7 @@
 export interface SectorPriorityCoverage {
   /** @minimum 0 */
   eligibleLiveSymbols: number;
+  eligibleLivePopulation: string[];
   /** @minimum 0 */
   classifiedLiveSymbols: number;
   /** @minimum 0 */

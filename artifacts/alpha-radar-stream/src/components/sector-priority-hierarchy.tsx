@@ -103,7 +103,7 @@ export function SectorPriorityHierarchy({ snapshot }: SectorPriorityHierarchyPro
         <CardContent className="space-y-6">
           {/* Coverage Summary */}
           <div className="grid gap-3 sm:grid-cols-4">
-            <CoverageMetric label="Live Symbols" value={formatNumber(coverage.eligibleLiveSymbols, 0)} />
+            <CoverageMetric label="Eligible Live" value={formatNumber(coverage.eligibleLiveSymbols, 0)} />
             <CoverageMetric label="Classified" value={formatNumber(coverage.classifiedLiveSymbols, 0)} />
             <CoverageMetric label="Ranked Sectors" value={formatNumber(coverage.rankedSectorCount, 0)} emphasize />
             <CoverageMetric label="Req. Members/Sector" value={formatNumber(coverage.requiredConstituentsPerSector, 0)} />
@@ -116,6 +116,12 @@ export function SectorPriorityHierarchy({ snapshot }: SectorPriorityHierarchyPro
               <div className="min-w-0 space-y-1.5">
                 <p className="text-xs leading-relaxed text-muted-foreground">
                   <span className="font-semibold text-foreground">Source:</span> {coverage.source}
+                </p>
+                <p className="text-[11px] leading-relaxed text-muted-foreground" data-testid="sector-eligible-live-population">
+                  <span className="font-semibold text-foreground">Eligible live population:</span>{' '}
+                  {coverage.eligibleLivePopulation.length > 0
+                    ? coverage.eligibleLivePopulation.join(', ')
+                    : 'None — no symbol has passed every live coverage gate.'}
                 </p>
                 <p className="text-[11px] leading-relaxed text-muted-foreground" data-testid="sector-coverage-reason">
                   {coverage.reason}

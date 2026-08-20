@@ -31,6 +31,14 @@ function symbolStatus(symbol, overrides = {}) {
       marketDataState: "fresh",
       marketDataGateReady: true,
     },
+    liveIngestion: {
+      conditions: {
+        subscriptionVerified: true,
+        realMarketEventReceived: true,
+        enteredScoringWindow: true,
+        scoringEligible: true,
+      },
+    },
     alphaRadar: {
       score: 82,
       scoreState: "available",
@@ -108,6 +116,11 @@ try {
   const technology = snapshot.sectors.find((sector) => sector.sector === "Information Technology");
   const industrials = snapshot.sectors.find((sector) => sector.sector === "Industrials");
   assert.equal(snapshot.state, "ranked");
+  assert.deepEqual(
+    snapshot.coverage.eligibleLivePopulation,
+    ["AMD", "MU", "NVDA", "VRT"],
+    "coverage must name the exact current verified live population",
+  );
   assert.equal(technology?.eligibility, "ranked");
   assert.equal(technology?.constituentCount, 3);
   assert.equal(industrials?.eligibility, "insufficient");
@@ -168,6 +181,7 @@ try {
   });
   assert.equal(noLiveEvidence.state, "unavailable");
   assert.equal(noLiveEvidence.coverage.eligibleLiveSymbols, 0);
+  assert.deepEqual(noLiveEvidence.coverage.eligibleLivePopulation, []);
   assert.equal(noLiveEvidence.finalCandidates.length, 0);
   assert.equal(noLiveEvidence.withheldCandidates.length, 0);
   assert.equal(noLiveEvidence.sectors[0].strength, null);
@@ -187,6 +201,53 @@ try {
   assert.equal(staleReference.coverage.rankedSectorCount, 0);
   assert.equal(staleReference.finalCandidates.length, 0);
   assert.equal(staleReference.withheldCandidates.length, 0);
+
+  const broaderLiveCoverage = buildSectorPriority({
+    symbols: [symbolStatus("NVDA")],
+    additionalLiveSymbols: [symbolStatus("AVGO")],
+    alphaRanking: {
+      entries: [ranking("NVDA", 90), ranking("AVGO", 86)],
+    },
+    references: [
+      { symbol: "NVDA", reference: reference("NVDA", "Information Technology") },
+      { symbol: "AVGO", reference: reference("AVGO", "Information Technology") },
+    ],
+    catalystRadar: catalystRadar(),
+    referenceFresh: true,
+    now,
+  });
+  assert.equal(
+    broaderLiveCoverage.sectors.find((sector) => sector.sector === "Information Technology")?.eligibility,
+    "ranked",
+    "an independently verified additional live service may broaden sector coverage",
+  );
+  assert.deepEqual(broaderLiveCoverage.coverage.eligibleLivePopulation, ["AVGO", "NVDA"]);
+
+  const missingLiveEvent = buildSectorPriority({
+    symbols: [symbolStatus("NVDA"), symbolStatus("AVGO", {
+      liveIngestion: {
+        conditions: {
+          subscriptionVerified: true,
+          realMarketEventReceived: false,
+          enteredScoringWindow: false,
+          scoringEligible: false,
+        },
+      },
+    })],
+    alphaRanking: { entries: [ranking("NVDA", 90), ranking("AVGO", 86)] },
+    references: [
+      { symbol: "NVDA", reference: reference("NVDA", "Information Technology") },
+      { symbol: "AVGO", reference: reference("AVGO", "Information Technology") },
+    ],
+    catalystRadar: catalystRadar(),
+    referenceFresh: true,
+    now,
+  });
+  assert.equal(
+    missingLiveEvent.sectors.find((sector) => sector.sector === "Information Technology")?.eligibility,
+    "insufficient",
+    "a reference classification cannot compensate for a missing independent live market event",
+  );
 
   console.log("sector-first priority tests passed");
 } finally {
