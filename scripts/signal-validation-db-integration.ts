@@ -270,6 +270,66 @@ try {
     "complete",
   );
 
+  type PersistPriceObservation = (
+    symbol: string,
+    price: number,
+    observedAt: Date,
+    source?: string,
+    freshness?: string,
+  ) => Promise<void>;
+  const liveService = service as unknown as {
+    persistPriceObservation: PersistPriceObservation;
+  };
+  const originalPersistPriceObservation = liveService.persistPriceObservation.bind(service);
+  const delayedObservedAt = new Date(targetAt.getTime() + 30_000);
+  let releaseBlockedPriceReplay: (() => void) | null = null;
+  let markBlockedPriceReplayStarted: (() => void) | null = null;
+  const blockedPriceReplay = new Promise<void>((resolve) => {
+    releaseBlockedPriceReplay = resolve;
+  });
+  const blockedPriceReplayStarted = new Promise<void>((resolve) => {
+    markBlockedPriceReplayStarted = resolve;
+  });
+  liveService.persistPriceObservation = async (
+    observationSymbol,
+    observationPrice,
+    observationAt,
+    source,
+    freshness,
+  ) => {
+    if (observationAt.getTime() === delayedObservedAt.getTime()) {
+      markBlockedPriceReplayStarted?.();
+      await blockedPriceReplay;
+    }
+    return originalPersistPriceObservation(
+      observationSymbol,
+      observationPrice,
+      observationAt,
+      source,
+      freshness,
+    );
+  };
+  service.observePrice(symbol, 104, delayedObservedAt);
+  await blockedPriceReplayStarted;
+  const pendingPriceDashboard = await service.getDashboard({
+    sector,
+    horizonDays: 1,
+    limit: 1,
+  });
+  assert.equal(
+    pendingPriceDashboard.persistenceState,
+    "unavailable",
+    "accuracy must remain unavailable while an independently archived price is awaiting PostgreSQL replay",
+  );
+  assert.equal(pendingPriceDashboard.metrics.hitRatePercent, null);
+  releaseBlockedPriceReplay?.();
+  await waitFor(
+    "archived price replay completion",
+    () => service.getDashboard({ sector, horizonDays: 1, limit: 1 }),
+    (value) => value.persistenceState === "available",
+  );
+  liveService.persistPriceObservation = originalPersistPriceObservation;
+
   const audit = await service.getAudit(persistedSignals[0]!.id);
   assert.equal(audit?.integrity, "verified");
   assert.equal(audit?.signal.catalystStatus, "unavailable");

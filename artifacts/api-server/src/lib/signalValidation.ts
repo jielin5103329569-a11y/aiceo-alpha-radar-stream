@@ -282,7 +282,7 @@ export class SignalValidationService {
   private readonly failedArchivePriceWrites = new Map<string, ArchivedPriceObservation>();
   private readonly archivedPriceKeys = new Set<string>();
   private readonly trackedValidationSymbols = new Set<string>();
-  private recoveredPriceObservations: ArchivedPriceObservation[] = [];
+  private readonly recoveredPriceObservations = new Map<string, ArchivedPriceObservation>();
   private replayingRecoveredPrices = false;
   private readonly archivedRecordHashes = new Map<string, string>();
   private archiveRecoveryState: "recovering" | "available" | "unavailable" = "recovering";
@@ -369,7 +369,6 @@ export class SignalValidationService {
     const previousQueuedAt = this.lastQueuedPriceAt.get(normalizedSymbol) ?? 0;
     if (observedAt.getTime() - previousQueuedAt < MIN_PRICE_OBSERVATION_INTERVAL_MS) return;
     this.lastQueuedPriceAt.set(normalizedSymbol, observedAt.getTime());
-    this.pendingPrices.set(normalizedSymbol, { price, observedAt });
     if (this.trackedValidationSymbols.has(normalizedSymbol)) {
       this.archivePriceObservation({
         observationKey: `${normalizedSymbol}|${observedAt.toISOString()}|${price.toFixed(8)}`,
@@ -379,7 +378,9 @@ export class SignalValidationService {
         source: "Databento EQUS.MINI live",
         freshness: "fresh",
       });
+      return;
     }
+    this.pendingPrices.set(normalizedSymbol, { price, observedAt });
     this.schedulePriceFlush(normalizedSymbol);
   }
 
@@ -463,7 +464,10 @@ export class SignalValidationService {
         && this.failedArchiveRecords.size === 0
         && this.pendingArchivePriceWrites.size === 0
         && this.failedArchivePriceWrites.size === 0
-        && this.recoveredPriceObservations.length === 0
+        && this.recoveredPriceObservations.size === 0
+        && this.pendingPrices.size === 0
+        && this.scheduledPriceFlushes.size === 0
+        && this.queuedWriteCount === 0
         && this.archiveRecoveryState === "available"
         && this.archiveInvalidRecordCount === 0
         && this.allPendingSignalsHaveArchiveProof()
@@ -493,7 +497,7 @@ export class SignalValidationService {
           ? `${this.pendingArchiveWrites.size} immutable trigger record${this.pendingArchiveWrites.size === 1 ? " is" : "s are"} being copied to the independent cross-host history archive. Accuracy is withheld; live Alpha Radar is unaffected.`
           : this.failedArchiveRecords.size > 0
           ? `The independent cross-host history archive is unavailable and ${this.failedArchiveRecords.size} immutable trigger record${this.failedArchiveRecords.size === 1 ? " is" : "s are"} awaiting archival retry. Accuracy is withheld; live Alpha Radar is unaffected.`
-          : this.pendingArchivePriceWrites.size > 0 || this.failedArchivePriceWrites.size > 0 || this.recoveredPriceObservations.length > 0
+          : this.pendingArchivePriceWrites.size > 0 || this.failedArchivePriceWrites.size > 0 || this.recoveredPriceObservations.size > 0 || this.pendingPrices.size > 0 || this.scheduledPriceFlushes.size > 0 || this.queuedWriteCount > 0
           ? "Post-signal price observations are still being durably archived or replayed. Accuracy is withheld until outcome evidence is complete."
           : this.archiveInvalidRecordCount > 0
           ? "The cross-host immutable history archive contains invalid records. Accuracy is withheld; live Alpha Radar is unaffected."
@@ -532,7 +536,7 @@ export class SignalValidationService {
           ? `Persistent validation storage is unavailable while ${this.pendingArchiveWrites.size} immutable trigger record${this.pendingArchiveWrites.size === 1 ? " is" : "s are"} being copied to the independent cross-host history archive. Accuracy is withheld and live Alpha Radar remains unaffected.`
           : this.failedArchiveRecords.size > 0
           ? `Persistent validation storage and the independent cross-host history archive are unavailable. ${this.failedArchiveRecords.size} trigger record${this.failedArchiveRecords.size === 1 ? " is" : "s are"} awaiting archival retry. Accuracy is withheld and live Alpha Radar remains unaffected.`
-          : this.pendingArchivePriceWrites.size > 0 || this.failedArchivePriceWrites.size > 0 || this.recoveredPriceObservations.length > 0
+          : this.pendingArchivePriceWrites.size > 0 || this.failedArchivePriceWrites.size > 0 || this.recoveredPriceObservations.size > 0 || this.pendingPrices.size > 0 || this.scheduledPriceFlushes.size > 0 || this.queuedWriteCount > 0
           ? "Persistent validation storage is unavailable while post-signal price observations are being durably archived or replayed. Accuracy is withheld and live Alpha Radar remains unaffected."
           : this.outboxWriteFailure
           ? `Persistent validation storage and the durable trigger outbox are unavailable. ${this.failedTriggerRecords.size} trigger record${this.failedTriggerRecords.size === 1 ? " is" : "s are"} awaiting retry in this process. Accuracy is withheld and live Alpha Radar remains unaffected.`
@@ -723,6 +727,8 @@ export class SignalValidationService {
         this.archivedPriceKeys.add(observation.observationKey);
         this.pendingArchivePriceWrites.delete(observation.observationKey);
         this.failedArchivePriceWrites.delete(observation.observationKey);
+        this.queueArchivedPriceForReplay(observation);
+        void this.replayArchivedPriceObservations();
       })
       .catch((error: unknown) => {
         const message = error instanceof Error ? error.message : String(error);
@@ -757,7 +763,9 @@ export class SignalValidationService {
         this.archivedPriceKeys.add(observation.observationKey);
         this.trackedValidationSymbols.add(observation.symbol);
       }
-      this.recoveredPriceObservations = archivedPrices.observations;
+      for (const observation of archivedPrices.observations) {
+        this.queueArchivedPriceForReplay(observation);
+      }
       const localRecords = new Map(
         this.triggerOutbox.list().map((record) => [record.eventKey, record]),
       );
@@ -829,6 +837,7 @@ export class SignalValidationService {
           await this.signalHistoryArchive.storePriceObservation(observation);
           this.archivedPriceKeys.add(observationKey);
           this.failedArchivePriceWrites.delete(observationKey);
+          this.queueArchivedPriceForReplay(observation);
         } catch {
           // Retain the immutable observation for a bounded retry without affecting live radar.
         }
@@ -836,8 +845,7 @@ export class SignalValidationService {
       if (this.failedArchivePriceWrites.size > 0) {
         this.schedulePriceArchiveRetry(this.triggerRetryDelayMs);
       }
-      const remaining: ArchivedPriceObservation[] = [];
-      for (const observation of this.recoveredPriceObservations) {
+      for (const observation of [...this.recoveredPriceObservations.values()]) {
         try {
           await this.persistPriceObservation(
             observation.symbol,
@@ -846,15 +854,21 @@ export class SignalValidationService {
             observation.source,
             observation.freshness,
           );
+          this.recoveredPriceObservations.delete(observation.observationKey);
         } catch {
-          remaining.push(observation);
+          // Keep the independent archive-backed observation queued for retry.
         }
       }
-      this.recoveredPriceObservations = remaining;
-      if (remaining.length > 0) this.schedulePriceArchiveRetry(this.triggerRetryDelayMs);
+      if (this.recoveredPriceObservations.size > 0) {
+        this.schedulePriceArchiveRetry(this.triggerRetryDelayMs);
+      }
     } finally {
       this.replayingRecoveredPrices = false;
     }
+  }
+
+  private queueArchivedPriceForReplay(observation: ArchivedPriceObservation): void {
+    this.recoveredPriceObservations.set(observation.observationKey, observation);
   }
 
   private allPendingSignalsHaveArchiveProof(): boolean {
