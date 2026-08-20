@@ -16,6 +16,7 @@ import type { BackendLifelineSnapshotScanners } from './backendLifelineSnapshotS
 import type { BackendLifelineSnapshotSchemaVersion } from './backendLifelineSnapshotSchemaVersion';
 import type { BackendLifelineSnapshotTransport } from './backendLifelineSnapshotTransport';
 import type { DatabentoLifelineSymbolHealth } from './databentoLifelineSymbolHealth';
+import type { InternalTaskGovernanceSnapshot } from './internalTaskGovernanceSnapshot';
 
 /**
  * Read-only server lifeline. Process/transport/heartbeat health never grants market freshness, scoring, or Alert eligibility.
@@ -32,6 +33,7 @@ export interface BackendLifelineSnapshot {
   recovery: BackendLifelineSnapshotRecovery;
   alertDelivery: BackendLifelineSnapshotAlertDelivery;
   persistenceBoundary: BackendLifelineSnapshotPersistenceBoundary;
+  internalTasks: InternalTaskGovernanceSnapshot;
   symbols: DatabentoLifelineSymbolHealth[];
   auditHash: string;
 }

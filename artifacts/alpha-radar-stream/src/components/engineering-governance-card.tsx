@@ -57,10 +57,12 @@ export function EngineeringGovernanceCard() {
         </div>
       </CardHeader>
       <CardContent className="space-y-3 pt-4">
-        <div className="grid gap-2 sm:grid-cols-3">
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
           <Metric label="Protected scanners" value={String(governance.runtime.protectedScannerCount)} />
           <Metric label="Delayed scanners" value={String(governance.runtime.delayedScannerCount)} />
           <Metric label="Internal slots" value={`${governance.taskQueue.activeSlots}/${governance.taskQueue.maximumSlots}`} />
+          <Metric label="Task registry" value={governance.taskExecution.serviceRunning ? governance.taskExecution.registryState : 'stopped'} />
+          <Metric label="Task leases" value={`${governance.taskExecution.activeLeaseCount} active · ${governance.taskExecution.timedOutCount + governance.taskExecution.zombieCount} unsafe`} />
         </div>
         <div className="grid gap-2 lg:grid-cols-3">
           {governance.executionOrder.map((step) => (
@@ -86,6 +88,9 @@ export function EngineeringGovernanceCard() {
             <div className="space-y-1">
               <p>{governance.platformBoundary.reason}</p>
               <p>{governance.runtime.backgroundResourcePolicy}</p>
+              <p>
+                Checkpoints {governance.taskExecution.checkpointedCount} · dependency breaks {governance.taskExecution.dependencyBrokenCount} · audit events {governance.taskExecution.auditEventCount}
+              </p>
               <p className="font-mono text-[10px]">Audit {governance.auditHash.slice(0, 16)}… · {formatTime(governance.generatedAt)}</p>
             </div>
           </div>

@@ -23,6 +23,7 @@ import { shadowLearning } from "../lib/shadowLearning";
 import { buildEngineeringGovernanceSnapshot } from "../lib/engineeringGovernance";
 import { backendLifeline } from "../lib/backendLifeline";
 import { alertService } from "../lib/alertService";
+import { internalTaskRegistry } from "../lib/internalTaskRegistry";
 
 const router: IRouter = Router();
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -35,6 +36,7 @@ router.get("/radar/engineering-governance", (_req: Request, res: Response): void
   res.json(GetEngineeringGovernanceResponse.parse(buildEngineeringGovernanceSnapshot({
     now: new Date(),
     protectedScanners: databentoLive.getEngineeringScannerHealth(),
+    internalTaskHealth: internalTaskRegistry.getSnapshot(),
   })));
 });
 
@@ -42,6 +44,7 @@ router.get("/radar/lifeline", (_req: Request, res: Response): void => {
   res.json(GetBackendLifelineResponse.parse(backendLifeline.getSnapshot({
     symbols: databentoLive.getLifelineHealth(),
     alert: alertService.getHealth(),
+    internalTasks: internalTaskRegistry.getSnapshot(),
   })));
 });
 

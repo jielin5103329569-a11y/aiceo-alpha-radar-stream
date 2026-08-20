@@ -7,6 +7,7 @@ import { databentoLive } from "./lib/databentoLive";
 import { marketUniverse } from "./lib/marketUniverse";
 import { alertService } from "./lib/alertService";
 import { backendLifeline } from "./lib/backendLifeline";
+import { internalTaskRegistry } from "./lib/internalTaskRegistry";
 
 const rawPort = process.env["PORT"];
 
@@ -40,6 +41,7 @@ function shutdown(signal: string): void {
   // subscribed AlertService. Market windows and scanner state are intentionally
   // discarded by DatabentoLiveService.stop() and rebuild after the next start.
   alertService.stop();
+  internalTaskRegistry.stop();
   databentoLive.stop();
   marketUniverse.stop();
   if (!server) {
@@ -104,6 +106,11 @@ server.once("listening", () => {
     "Armed protected Databento live bridges",
   );
   alertService.start();
+  try {
+    internalTaskRegistry.start();
+  } catch (error) {
+    logger.error({ error }, "Internal task governance failed to start; production real-time services remain running");
+  }
 });
 
 process.once("SIGTERM", () => shutdown("SIGTERM"));

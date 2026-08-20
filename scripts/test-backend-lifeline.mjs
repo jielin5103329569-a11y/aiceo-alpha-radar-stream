@@ -55,6 +55,41 @@ function alert(overrides = {}) {
   };
 }
 
+function internalTasks(overrides = {}) {
+  return {
+    schemaVersion: 1,
+    registryState: "healthy",
+    serviceRunning: true,
+    processScoped: true,
+    maxConcurrentSlots: 1,
+    registeredCount: 0,
+    plannedCount: 0,
+    activeCount: 0,
+    pausedCount: 0,
+    blockedCount: 0,
+    completedCount: 0,
+    failedCount: 0,
+    timedOutCount: 0,
+    zombieCount: 0,
+    recoveringCount: 0,
+    activeLeaseCount: 0,
+    expiredLeaseCount: 0,
+    staleHeartbeatCount: 0,
+    dependencyBrokenCount: 0,
+    duplicateTaskCount: 0,
+    checkpointedCount: 0,
+    canStartTaskKeys: [],
+    alerts: [],
+    auditEventCount: 1,
+    lastAuditAt: now,
+    recentAudit: [],
+    tasks: [],
+    reason: "Internal task registry is healthy.",
+    auditHash: "a".repeat(64),
+    ...overrides,
+  };
+}
+
 try {
   const source = readFileSync(resolve("artifacts/api-server/src/lib/backendLifeline.ts"), "utf8");
   writeFileSync(outputPath, typescript.transpileModule(source, {
@@ -85,6 +120,7 @@ try {
     owner: acceptedOwner.getOwner(),
     symbols: ["NVDA", "MU", "VRT", "CRDO", "AMD"].map((ticker) => symbol({ symbol: ticker })),
     alert: alert(),
+    internalTasks: internalTasks(),
   });
   assert.equal(healthy.overall.state, "healthy");
   assert.equal(healthy.recovery.phase, "running");
@@ -92,6 +128,7 @@ try {
   assert.equal(healthy.marketEvents.missingSymbols, 0);
   assert.equal(healthy.persistenceBoundary.marketWindow, "memory_rebuilt_after_restart");
   assert.equal(healthy.persistenceBoundary.shadowLearning, "sidecar_not_on_lifeline");
+  assert.equal(healthy.internalTasks.registryState, "healthy", "lifeline must expose the independent internal task governance projection");
   assert.match(healthy.auditHash, /^[a-f0-9]{64}$/);
 
   const recovering = buildBackendLifelineSnapshot({
@@ -114,6 +151,7 @@ try {
       }),
     ],
     alert: alert({ vapid: { available: false, reason: "VAPID is absent" } }),
+    internalTasks: internalTasks({ registryState: "blocked", timedOutCount: 1 }),
   });
   assert.equal(recovering.overall.state, "degraded", "provider recovery and unavailable push capability must remain visible");
   assert.equal(recovering.recovery.phase, "reconnecting");
@@ -126,6 +164,7 @@ try {
     owner: acceptedOwner.getOwner(),
     symbols: ["NVDA", "MU", "VRT", "CRDO", "AMD"].map((ticker) => symbol({ symbol: ticker })),
     alert: alert(),
+    internalTasks: internalTasks(),
   });
   assert.equal(healthy.auditHash, sameHealthy.auditHash, "same read-only lifeline inputs require a stable audit hash");
 
@@ -134,7 +173,7 @@ try {
   assert.match(indexSource, /EADDRINUSE/);
   assert.match(indexSource, /process\.once\("SIGTERM"/);
   assert.match(indexSource, /closeAllConnections/);
-  assert.match(indexSource, /alertService\.stop\(\);\s*databentoLive\.stop\(\);\s*marketUniverse\.stop\(\)/s);
+  assert.match(indexSource, /alertService\.stop\(\);\s*internalTaskRegistry\.stop\(\);\s*databentoLive\.stop\(\);\s*marketUniverse\.stop\(\)/s);
   const radarRouteSource = readFileSync(resolve("artifacts/api-server/src/routes/radar.ts"), "utf8");
   assert.doesNotMatch(radarRouteSource, /\/radar\/connect|\/radar\/disconnect/);
 

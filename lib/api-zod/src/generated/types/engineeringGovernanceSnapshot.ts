@@ -13,6 +13,7 @@ import type { EngineeringModuleBoundary } from './engineeringModuleBoundary';
 import type { EngineeringTaskQueueAssessment } from './engineeringTaskQueueAssessment';
 import type { GovernanceAlert } from './governanceAlert';
 import type { GovernanceHealthState } from './governanceHealthState';
+import type { InternalTaskGovernanceSnapshot } from './internalTaskGovernanceSnapshot';
 
 /**
  * Read-only engineering-governance projection. It does not integrate with Replit Task Board or agent leases and cannot change any production market-data or alert path.
@@ -30,6 +31,7 @@ export interface EngineeringGovernanceSnapshot {
   executionOrder: EngineeringGovernanceSnapshotExecutionOrderItem[];
   moduleBoundaries: EngineeringModuleBoundary[];
   taskQueue: EngineeringTaskQueueAssessment;
+  taskExecution: InternalTaskGovernanceSnapshot;
   runtime: EngineeringGovernanceSnapshotRuntime;
   alerts: GovernanceAlert[];
   recommendations: string[];

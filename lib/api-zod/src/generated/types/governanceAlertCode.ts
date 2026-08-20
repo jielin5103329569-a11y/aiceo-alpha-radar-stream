@@ -21,4 +21,11 @@ export const GovernanceAlertCode = {
   completed_without_validation: 'completed_without_validation',
   task_registry_unavailable: 'task_registry_unavailable',
   scanner_backpressure: 'scanner_backpressure',
+  task_lease_expired: 'task_lease_expired',
+  task_zombie_detected: 'task_zombie_detected',
+  task_dependency_broken: 'task_dependency_broken',
+  task_duplicate: 'task_duplicate',
+  task_registry_stopped: 'task_registry_stopped',
+  task_checkpoint_missing: 'task_checkpoint_missing',
+  task_recovery_blocked: 'task_recovery_blocked',
 } as const;

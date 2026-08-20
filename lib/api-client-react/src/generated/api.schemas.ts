@@ -1218,6 +1218,13 @@ export const GovernanceAlertCode = {
   completed_without_validation: 'completed_without_validation',
   task_registry_unavailable: 'task_registry_unavailable',
   scanner_backpressure: 'scanner_backpressure',
+  task_lease_expired: 'task_lease_expired',
+  task_zombie_detected: 'task_zombie_detected',
+  task_dependency_broken: 'task_dependency_broken',
+  task_duplicate: 'task_duplicate',
+  task_registry_stopped: 'task_registry_stopped',
+  task_checkpoint_missing: 'task_checkpoint_missing',
+  task_recovery_blocked: 'task_recovery_blocked',
 } as const;
 
 export interface GovernanceAlert {
@@ -1256,6 +1263,7 @@ export type EngineeringGovernanceSnapshotPlatformBoundaryInternalExecutionLeaseS
 
 export const EngineeringGovernanceSnapshotPlatformBoundaryInternalExecutionLeaseState = {
   deferred_to_backend_lifeline: 'deferred_to_backend_lifeline',
+  active: 'active',
 } as const;
 
 export type EngineeringGovernanceSnapshotPlatformBoundary = {
@@ -1289,6 +1297,201 @@ export type EngineeringGovernanceSnapshotRuntime = {
   backgroundResourcePolicy: string;
 };
 
+export type InternalTaskGovernanceSnapshotSchemaVersion = typeof InternalTaskGovernanceSnapshotSchemaVersion[keyof typeof InternalTaskGovernanceSnapshotSchemaVersion];
+
+
+export const InternalTaskGovernanceSnapshotSchemaVersion = {
+  NUMBER_1: 1,
+} as const;
+
+export type InternalTaskGovernanceSnapshotRegistryState = typeof InternalTaskGovernanceSnapshotRegistryState[keyof typeof InternalTaskGovernanceSnapshotRegistryState];
+
+
+export const InternalTaskGovernanceSnapshotRegistryState = {
+  healthy: 'healthy',
+  degraded: 'degraded',
+  blocked: 'blocked',
+} as const;
+
+export type InternalTaskGovernanceAlertCode = typeof InternalTaskGovernanceAlertCode[keyof typeof InternalTaskGovernanceAlertCode];
+
+
+export const InternalTaskGovernanceAlertCode = {
+  task_registry_stopped: 'task_registry_stopped',
+  task_lease_expired: 'task_lease_expired',
+  task_zombie_detected: 'task_zombie_detected',
+  task_dependency_broken: 'task_dependency_broken',
+  task_duplicate: 'task_duplicate',
+  task_checkpoint_missing: 'task_checkpoint_missing',
+  task_recovery_blocked: 'task_recovery_blocked',
+} as const;
+
+export type InternalTaskAuditSeverity = typeof InternalTaskAuditSeverity[keyof typeof InternalTaskAuditSeverity];
+
+
+export const InternalTaskAuditSeverity = {
+  info: 'info',
+  warning: 'warning',
+  critical: 'critical',
+} as const;
+
+export interface InternalTaskGovernanceAlert {
+  code: InternalTaskGovernanceAlertCode;
+  severity: InternalTaskAuditSeverity;
+  taskKeys: string[];
+  reason: string;
+}
+
+export type InternalTaskAuditEventEvent = typeof InternalTaskAuditEventEvent[keyof typeof InternalTaskAuditEventEvent];
+
+
+export const InternalTaskAuditEventEvent = {
+  registry_started: 'registry_started',
+  registry_stopped: 'registry_stopped',
+  task_registered: 'task_registered',
+  duplicate_task_rejected: 'duplicate_task_rejected',
+  duplicate_implementation_blocked: 'duplicate_implementation_blocked',
+  claim_granted: 'claim_granted',
+  claim_rejected: 'claim_rejected',
+  lease_heartbeat: 'lease_heartbeat',
+  lease_expired: 'lease_expired',
+  lease_invalidated_on_stop: 'lease_invalidated_on_stop',
+  zombie_detected: 'zombie_detected',
+  lease_reclaimed: 'lease_reclaimed',
+  checkpoint_recorded: 'checkpoint_recorded',
+  checkpoint_idempotent: 'checkpoint_idempotent',
+  checkpoint_rejected: 'checkpoint_rejected',
+  task_resumed: 'task_resumed',
+  task_completed: 'task_completed',
+  task_failed: 'task_failed',
+  dependency_blocked: 'dependency_blocked',
+} as const;
+
+export interface InternalTaskAuditEvent {
+  eventId: string;
+  at: string;
+  /** @nullable */
+  taskKey: string | null;
+  event: InternalTaskAuditEventEvent;
+  severity: InternalTaskAuditSeverity;
+  /** @nullable */
+  ownerId: string | null;
+  /** @nullable */
+  leaseId: string | null;
+  reason: string;
+}
+
+export type InternalTaskState = typeof InternalTaskState[keyof typeof InternalTaskState];
+
+
+export const InternalTaskState = {
+  planned: 'planned',
+  waiting_for_turn: 'waiting_for_turn',
+  active: 'active',
+  paused: 'paused',
+  blocked: 'blocked',
+  completed: 'completed',
+  failed: 'failed',
+  timed_out: 'timed_out',
+  zombie: 'zombie',
+  recovering: 'recovering',
+  archived: 'archived',
+} as const;
+
+export type InternalTaskSummaryDependencyState = typeof InternalTaskSummaryDependencyState[keyof typeof InternalTaskSummaryDependencyState];
+
+
+export const InternalTaskSummaryDependencyState = {
+  satisfied: 'satisfied',
+  missing: 'missing',
+  unvalidated: 'unvalidated',
+  cycle: 'cycle',
+} as const;
+
+export interface InternalTaskSummary {
+  taskKey: string;
+  taskId: string;
+  title: string;
+  implementationKey: string;
+  ownerModule: string;
+  state: InternalTaskState;
+  /** @nullable */
+  ownerId: string | null;
+  /** @nullable */
+  leaseId: string | null;
+  /** @nullable */
+  leaseExpiresAt: string | null;
+  /** @nullable */
+  lastHeartbeatAt: string | null;
+  /**
+     * @minimum 0
+     * @nullable
+     */
+  checkpointVersion: number | null;
+  /** @nullable */
+  checkpointRecordedAt: string | null;
+  dependencyState: InternalTaskSummaryDependencyState;
+  dependencyKeys: string[];
+  resourceClaims: string[];
+  /** @nullable */
+  lastError: string | null;
+  updatedAt: string;
+}
+
+/**
+ * Read-only, process-scoped internal task governance. It cannot control Replit Task Board/agent leases, market freshness, production scans, or alerts.
+ */
+export interface InternalTaskGovernanceSnapshot {
+  schemaVersion: InternalTaskGovernanceSnapshotSchemaVersion;
+  registryState: InternalTaskGovernanceSnapshotRegistryState;
+  serviceRunning: boolean;
+  processScoped: true;
+  /** @minimum 1 */
+  maxConcurrentSlots: number;
+  /** @minimum 0 */
+  registeredCount: number;
+  /** @minimum 0 */
+  plannedCount: number;
+  /** @minimum 0 */
+  activeCount: number;
+  /** @minimum 0 */
+  pausedCount: number;
+  /** @minimum 0 */
+  blockedCount: number;
+  /** @minimum 0 */
+  completedCount: number;
+  /** @minimum 0 */
+  failedCount: number;
+  /** @minimum 0 */
+  timedOutCount: number;
+  /** @minimum 0 */
+  zombieCount: number;
+  /** @minimum 0 */
+  recoveringCount: number;
+  /** @minimum 0 */
+  activeLeaseCount: number;
+  /** @minimum 0 */
+  expiredLeaseCount: number;
+  /** @minimum 0 */
+  staleHeartbeatCount: number;
+  /** @minimum 0 */
+  dependencyBrokenCount: number;
+  /** @minimum 0 */
+  duplicateTaskCount: number;
+  /** @minimum 0 */
+  checkpointedCount: number;
+  canStartTaskKeys: string[];
+  alerts: InternalTaskGovernanceAlert[];
+  /** @minimum 0 */
+  auditEventCount: number;
+  /** @nullable */
+  lastAuditAt: string | null;
+  recentAudit: InternalTaskAuditEvent[];
+  tasks: InternalTaskSummary[];
+  reason: string;
+  auditHash: string;
+}
+
 /**
  * Read-only engineering-governance projection. It does not integrate with Replit Task Board or agent leases and cannot change any production market-data or alert path.
  */
@@ -1305,6 +1508,7 @@ export interface EngineeringGovernanceSnapshot {
   executionOrder: EngineeringGovernanceSnapshotExecutionOrderItem[];
   moduleBoundaries: EngineeringModuleBoundary[];
   taskQueue: EngineeringTaskQueueAssessment;
+  taskExecution: InternalTaskGovernanceSnapshot;
   runtime: EngineeringGovernanceSnapshotRuntime;
   alerts: GovernanceAlert[];
   recommendations: string[];
@@ -1604,6 +1808,7 @@ export interface BackendLifelineSnapshot {
   recovery: BackendLifelineSnapshotRecovery;
   alertDelivery: BackendLifelineSnapshotAlertDelivery;
   persistenceBoundary: BackendLifelineSnapshotPersistenceBoundary;
+  internalTasks: InternalTaskGovernanceSnapshot;
   symbols: DatabentoLifelineSymbolHealth[];
   auditHash: string;
 }

@@ -4,6 +4,7 @@ import type {
   AlertServiceHealthSnapshot,
 } from "./alertService";
 import type { DatabentoLifelineSymbolHealth } from "./databentoLive";
+import type { InternalTaskGovernanceSnapshot } from "./internalTaskRegistry";
 
 export const BACKEND_LIFELINE_SCHEMA_VERSION = 1;
 export const LIFELINE_SERVICE_NAME = "alpha-radar-api";
@@ -87,6 +88,7 @@ export type BackendLifelineSnapshot = {
     shadowLearning: "sidecar_not_on_lifeline";
     reason: string;
   };
+  internalTasks: InternalTaskGovernanceSnapshot;
   symbols: DatabentoLifelineSymbolHealth[];
   auditHash: string;
 };
@@ -257,9 +259,11 @@ export function buildBackendLifelineSnapshot(input: {
   owner: BackendLifelineSnapshot["owner"];
   symbols: DatabentoLifelineSymbolHealth[];
   alert: AlertServiceHealthSnapshot;
+  internalTasks?: InternalTaskGovernanceSnapshot;
 }): BackendLifelineSnapshot {
   const symbols = input.symbols;
   const alert = input.alert;
+  const internalTasks = input.internalTasks ?? emptyInternalTaskSnapshot();
   const transport = summarizeTransport(symbols);
   const freshHeartbeats = symbols.filter((symbol) => symbol.heartbeatFresh);
   const staleHeartbeats = symbols.filter((symbol) => !symbol.heartbeatFresh);
@@ -302,6 +306,7 @@ export function buildBackendLifelineSnapshot(input: {
     || delayed.length > 0
     || !alert.running
     || capability === "unavailable"
+    || internalTasks.registryState !== "healthy"
   );
   const state: LifelineState = blocked ? "blocked" : degraded ? "degraded" : "healthy";
   const reason = blocked
@@ -371,6 +376,7 @@ export function buildBackendLifelineSnapshot(input: {
       shadowLearning: "sidecar_not_on_lifeline" as const,
       reason: "Durable alert/subscription/audit records are separate from transient market windows and scanner state, which must rebuild after restart.",
     },
+    internalTasks,
     symbols,
   };
   return { ...unsigned, auditHash: auditHash(unsigned) };
@@ -383,6 +389,7 @@ export class BackendLifeline {
     now?: Date;
     symbols: DatabentoLifelineSymbolHealth[];
     alert: AlertServiceHealthSnapshot;
+    internalTasks: InternalTaskGovernanceSnapshot;
   }): BackendLifelineSnapshot {
     const now = input.now ?? new Date();
     return buildBackendLifelineSnapshot({
@@ -390,8 +397,47 @@ export class BackendLifeline {
       owner: this.owner.getOwner(),
       symbols: input.symbols,
       alert: input.alert,
+      internalTasks: input.internalTasks,
     });
   }
 }
 
 export const backendLifeline = new BackendLifeline();
+
+function emptyInternalTaskSnapshot(): InternalTaskGovernanceSnapshot {
+  const unsigned = {
+    schemaVersion: 1,
+    registryState: "degraded" as const,
+    serviceRunning: false,
+    processScoped: true as const,
+    maxConcurrentSlots: 1,
+    registeredCount: 0,
+    plannedCount: 0,
+    activeCount: 0,
+    pausedCount: 0,
+    blockedCount: 0,
+    completedCount: 0,
+    failedCount: 0,
+    timedOutCount: 0,
+    zombieCount: 0,
+    recoveringCount: 0,
+    activeLeaseCount: 0,
+    expiredLeaseCount: 0,
+    staleHeartbeatCount: 0,
+    dependencyBrokenCount: 0,
+    duplicateTaskCount: 0,
+    checkpointedCount: 0,
+    canStartTaskKeys: [],
+    alerts: [],
+    auditEventCount: 0,
+    lastAuditAt: null,
+    recentAudit: [],
+    tasks: [],
+    reason: "Internal task registry is not connected.",
+  };
+  return { ...unsigned, auditHash: digestSnapshot(unsigned) };
+}
+
+function digestSnapshot(value: unknown): string {
+  return createHash("sha256").update(JSON.stringify(value)).digest("hex");
+}

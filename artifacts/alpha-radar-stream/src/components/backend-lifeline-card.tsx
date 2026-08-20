@@ -57,11 +57,12 @@ export function BackendLifelineCard() {
         </div>
       </CardHeader>
       <CardContent className="space-y-3 pt-4">
-        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
           <Metric label="Listener" value={lifeline.owner.listenerState} detail={lifeline.owner.environment} />
           <Metric label="Transport" value={`${lifeline.transport.streamingSymbols}/${lifeline.symbols.length} streaming`} detail={lifeline.transport.state} />
           <Metric label="Verified events" value={`${lifeline.marketEvents.freshSymbols} fresh`} detail={`${lifeline.marketEvents.missingSymbols} missing · ${lifeline.marketEvents.staleSymbols} stale`} />
           <Metric label="Scanners" value={`${lifeline.scanners.scheduledSymbols} scheduled`} detail={`${lifeline.scanners.delayedSymbols} delayed · ${lifeline.scanners.inactiveSymbols} inactive`} />
+          <Metric label="Task leases" value={lifeline.internalTasks.registryState} detail={`${lifeline.internalTasks.activeLeaseCount} active · ${lifeline.internalTasks.timedOutCount + lifeline.internalTasks.zombieCount} unsafe`} />
         </div>
         <div className="rounded-md border border-border/60 bg-muted/10 p-3 text-[11px] text-muted-foreground">
           <div className="flex items-start gap-2">

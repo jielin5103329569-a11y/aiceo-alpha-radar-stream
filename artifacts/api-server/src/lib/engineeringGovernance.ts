@@ -1,4 +1,9 @@
 import { createHash } from "node:crypto";
+import type {
+  InternalTaskGovernanceAlert,
+  InternalTaskGovernanceSnapshot,
+  InternalTaskState,
+} from "./internalTaskRegistry";
 
 /**
  * Engineering governance is deliberately separate from market data, Alpha
@@ -21,16 +26,6 @@ export type EngineeringModuleId =
 
 export type GovernanceHealthState = "healthy" | "degraded" | "blocked";
 export type GovernanceAlertSeverity = "info" | "warning" | "critical";
-export type InternalTaskState =
-  | "planned"
-  | "waiting_for_turn"
-  | "active"
-  | "paused"
-  | "blocked"
-  | "completed"
-  | "failed"
-  | "archived";
-
 export type ModuleBoundary = {
   id: EngineeringModuleId;
   label: string;
@@ -64,7 +59,14 @@ export type GovernanceAlert = {
     | "failed_without_checkpoint"
     | "completed_without_validation"
     | "task_registry_unavailable"
-    | "scanner_backpressure";
+    | "scanner_backpressure"
+    | "task_lease_expired"
+    | "task_zombie_detected"
+    | "task_dependency_broken"
+    | "task_duplicate"
+    | "task_registry_stopped"
+    | "task_checkpoint_missing"
+    | "task_recovery_blocked";
   severity: GovernanceAlertSeverity;
   taskKeys: string[];
   reason: string;
@@ -116,7 +118,7 @@ export type EngineeringGovernanceSnapshot = {
   state: GovernanceHealthState;
   platformBoundary: {
     replitTaskBoardTouched: false;
-    internalExecutionLeaseState: "deferred_to_backend_lifeline";
+    internalExecutionLeaseState: "deferred_to_backend_lifeline" | "active";
     reason: string;
   };
   executionOrder: Array<{
@@ -127,6 +129,7 @@ export type EngineeringGovernanceSnapshot = {
   }>;
   moduleBoundaries: ModuleBoundary[];
   taskQueue: TaskQueueAssessment;
+  taskExecution: InternalTaskGovernanceSnapshot;
   runtime: {
     protectedScannerCount: number;
     delayedScannerCount: number;
@@ -425,10 +428,20 @@ export function buildEngineeringGovernanceSnapshot(input: {
   now: Date;
   protectedScanners: Array<{ symbol: string; schedulerState: "inactive" | "scheduled" | "delayed" }>;
   internalTasks?: InternalTaskRecord[];
+  internalTaskHealth?: InternalTaskGovernanceSnapshot;
 }): EngineeringGovernanceSnapshot {
-  const queueConfigured = input.internalTasks !== undefined;
+  const queueConfigured = input.internalTasks !== undefined || input.internalTaskHealth !== undefined;
+  const taskHealth = input.internalTaskHealth ?? emptyTaskHealth(input.now);
   const taskQueue = queueConfigured
-    ? assessInternalTaskQueue(input.internalTasks ?? [], input.now)
+    ? input.internalTaskHealth
+      ? {
+          state: input.internalTaskHealth.registryState,
+          activeSlots: input.internalTaskHealth.activeCount,
+          maximumSlots: input.internalTaskHealth.maxConcurrentSlots,
+          alerts: input.internalTaskHealth.alerts.map(mapTaskAlert),
+          canStartTaskKeys: input.internalTaskHealth.canStartTaskKeys,
+        }
+      : assessInternalTaskQueue(input.internalTasks ?? [], input.now)
     : {
         state: "degraded" as GovernanceHealthState,
         activeSlots: 0,
@@ -465,8 +478,10 @@ export function buildEngineeringGovernanceSnapshot(input: {
     {
       id: "backend_lifeline",
       label: "Backend lifeline and recovery",
-      state: "blocked" as const,
-      reason: "P0 runtime lease, heartbeat, checkpoint, pause/release, and recovery are intentionally owned by the separate backend-lifeline work.",
+      state: taskHealth.registryState === "blocked" ? "blocked" as const : "ready" as const,
+      reason: taskHealth.registryState === "blocked"
+        ? "Internal task execution governance is fail-closed because lease, dependency, or checkpoint health is blocked."
+        : "Server-owned runtime lease, heartbeat, checkpoint, reclaim, and recovery governance is available without controlling production radar.",
     },
     {
       id: "data_governance",
@@ -483,7 +498,9 @@ export function buildEngineeringGovernanceSnapshot(input: {
   ];
   const recommendations = [
     "Run evaluateChangePreflight before starting a new internal implementation.",
-    "Attach the P0 backend-lifeline internal registry before treating task queue health as fully observable.",
+    ...(input.internalTaskHealth
+      ? ["Keep internal task execution isolated from production radar; a task lease never grants market freshness or Alert authority."]
+      : ["Attach the P0 backend-lifeline internal registry before treating task queue health as fully observable."]),
     ...(delayed.length ? ["Investigate delayed scanners through their existing bounded scheduler/recovery owner; do not add parallel subscriptions or retry loops."] : []),
   ];
   const unsigned = {
@@ -493,12 +510,15 @@ export function buildEngineeringGovernanceSnapshot(input: {
     state,
     platformBoundary: {
       replitTaskBoardTouched: false as const,
-      internalExecutionLeaseState: "deferred_to_backend_lifeline" as const,
-      reason: "This framework never reads, writes, pauses, releases, or imitates Replit Task Board or agent lease state.",
+      internalExecutionLeaseState: input.internalTaskHealth ? "active" as const : "deferred_to_backend_lifeline" as const,
+      reason: input.internalTaskHealth
+        ? "Internal task leases are process-scoped to Alpha Radar and never read, write, pause, release, or imitate Replit Task Board or agent lease state."
+        : "This framework never reads, writes, pauses, releases, or imitates Replit Task Board or agent lease state.",
     },
     executionOrder,
     moduleBoundaries: ALPHA_RADAR_MODULE_BOUNDARIES,
     taskQueue,
+    taskExecution: taskHealth,
     runtime: {
       protectedScannerCount: input.protectedScanners.length,
       delayedScannerCount: delayed.length,
@@ -509,4 +529,50 @@ export function buildEngineeringGovernanceSnapshot(input: {
     recommendations,
   };
   return { ...unsigned, auditHash: hash(unsigned) };
+}
+
+function mapTaskAlert(alert: InternalTaskGovernanceAlert): GovernanceAlert {
+  return {
+    code: alert.code,
+    severity: alert.severity,
+    taskKeys: alert.taskKeys,
+    reason: alert.reason,
+  };
+}
+
+function emptyTaskHealth(now: Date): InternalTaskGovernanceSnapshot {
+  const unsigned = {
+    schemaVersion: 1,
+    registryState: "degraded" as const,
+    serviceRunning: false,
+    processScoped: true as const,
+    maxConcurrentSlots: MAX_INTERNAL_EXECUTION_SLOTS,
+    registeredCount: 0,
+    plannedCount: 0,
+    activeCount: 0,
+    pausedCount: 0,
+    blockedCount: 0,
+    completedCount: 0,
+    failedCount: 0,
+    timedOutCount: 0,
+    zombieCount: 0,
+    recoveringCount: 0,
+    activeLeaseCount: 0,
+    expiredLeaseCount: 0,
+    staleHeartbeatCount: 0,
+    dependencyBrokenCount: 0,
+    duplicateTaskCount: 0,
+    checkpointedCount: 0,
+    canStartTaskKeys: [],
+    alerts: [],
+    auditEventCount: 0,
+    lastAuditAt: null,
+    recentAudit: [],
+    tasks: [],
+    reason: "Internal task registry is not connected.",
+  };
+  return {
+    ...unsigned,
+    auditHash: hash({ ...unsigned, now: now.toISOString() }),
+  };
 }

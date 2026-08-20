@@ -1508,6 +1508,43 @@ export const getEngineeringGovernanceResponseHealthScoreMax = 100;
 export const getEngineeringGovernanceResponseTaskQueueActiveSlotsMin = 0;
 
 
+
+export const getEngineeringGovernanceResponseTaskExecutionRegisteredCountMin = 0;
+
+export const getEngineeringGovernanceResponseTaskExecutionPlannedCountMin = 0;
+
+export const getEngineeringGovernanceResponseTaskExecutionActiveCountMin = 0;
+
+export const getEngineeringGovernanceResponseTaskExecutionPausedCountMin = 0;
+
+export const getEngineeringGovernanceResponseTaskExecutionBlockedCountMin = 0;
+
+export const getEngineeringGovernanceResponseTaskExecutionCompletedCountMin = 0;
+
+export const getEngineeringGovernanceResponseTaskExecutionFailedCountMin = 0;
+
+export const getEngineeringGovernanceResponseTaskExecutionTimedOutCountMin = 0;
+
+export const getEngineeringGovernanceResponseTaskExecutionZombieCountMin = 0;
+
+export const getEngineeringGovernanceResponseTaskExecutionRecoveringCountMin = 0;
+
+export const getEngineeringGovernanceResponseTaskExecutionActiveLeaseCountMin = 0;
+
+export const getEngineeringGovernanceResponseTaskExecutionExpiredLeaseCountMin = 0;
+
+export const getEngineeringGovernanceResponseTaskExecutionStaleHeartbeatCountMin = 0;
+
+export const getEngineeringGovernanceResponseTaskExecutionDependencyBrokenCountMin = 0;
+
+export const getEngineeringGovernanceResponseTaskExecutionDuplicateTaskCountMin = 0;
+
+export const getEngineeringGovernanceResponseTaskExecutionCheckpointedCountMin = 0;
+
+export const getEngineeringGovernanceResponseTaskExecutionAuditEventCountMin = 0;
+
+export const getEngineeringGovernanceResponseTaskExecutionTasksItemCheckpointVersionMin = 0;
+
 export const getEngineeringGovernanceResponseRuntimeProtectedScannerCountMin = 0;
 
 export const getEngineeringGovernanceResponseRuntimeDelayedScannerCountMin = 0;
@@ -1523,7 +1560,7 @@ export const GetEngineeringGovernanceResponse = zod.object({
   "state": zod.enum(['healthy', 'degraded', 'blocked']),
   "platformBoundary": zod.object({
   "replitTaskBoardTouched": zod.literal(false),
-  "internalExecutionLeaseState": zod.enum(['deferred_to_backend_lifeline']),
+  "internalExecutionLeaseState": zod.enum(['deferred_to_backend_lifeline', 'active']),
   "reason": zod.string()
 }),
   "executionOrder": zod.array(zod.object({
@@ -1543,13 +1580,76 @@ export const GetEngineeringGovernanceResponse = zod.object({
   "activeSlots": zod.number().min(getEngineeringGovernanceResponseTaskQueueActiveSlotsMin),
   "maximumSlots": zod.number().min(1),
   "alerts": zod.array(zod.object({
-  "code": zod.enum(['duplicate_implementation', 'active_slot_capacity', 'waiting_for_turn_stale', 'resource_conflict', 'dependency_missing', 'dependency_unmet', 'dependency_cycle', 'failed_without_checkpoint', 'completed_without_validation', 'task_registry_unavailable', 'scanner_backpressure']),
+  "code": zod.enum(['duplicate_implementation', 'active_slot_capacity', 'waiting_for_turn_stale', 'resource_conflict', 'dependency_missing', 'dependency_unmet', 'dependency_cycle', 'failed_without_checkpoint', 'completed_without_validation', 'task_registry_unavailable', 'scanner_backpressure', 'task_lease_expired', 'task_zombie_detected', 'task_dependency_broken', 'task_duplicate', 'task_registry_stopped', 'task_checkpoint_missing', 'task_recovery_blocked']),
   "severity": zod.enum(['info', 'warning', 'critical']),
   "taskKeys": zod.array(zod.string()),
   "reason": zod.string()
 })),
   "canStartTaskKeys": zod.array(zod.string())
 }),
+  "taskExecution": zod.object({
+  "schemaVersion": zod.literal(1),
+  "registryState": zod.enum(['healthy', 'degraded', 'blocked']),
+  "serviceRunning": zod.boolean(),
+  "processScoped": zod.literal(true),
+  "maxConcurrentSlots": zod.number().min(1),
+  "registeredCount": zod.number().min(getEngineeringGovernanceResponseTaskExecutionRegisteredCountMin),
+  "plannedCount": zod.number().min(getEngineeringGovernanceResponseTaskExecutionPlannedCountMin),
+  "activeCount": zod.number().min(getEngineeringGovernanceResponseTaskExecutionActiveCountMin),
+  "pausedCount": zod.number().min(getEngineeringGovernanceResponseTaskExecutionPausedCountMin),
+  "blockedCount": zod.number().min(getEngineeringGovernanceResponseTaskExecutionBlockedCountMin),
+  "completedCount": zod.number().min(getEngineeringGovernanceResponseTaskExecutionCompletedCountMin),
+  "failedCount": zod.number().min(getEngineeringGovernanceResponseTaskExecutionFailedCountMin),
+  "timedOutCount": zod.number().min(getEngineeringGovernanceResponseTaskExecutionTimedOutCountMin),
+  "zombieCount": zod.number().min(getEngineeringGovernanceResponseTaskExecutionZombieCountMin),
+  "recoveringCount": zod.number().min(getEngineeringGovernanceResponseTaskExecutionRecoveringCountMin),
+  "activeLeaseCount": zod.number().min(getEngineeringGovernanceResponseTaskExecutionActiveLeaseCountMin),
+  "expiredLeaseCount": zod.number().min(getEngineeringGovernanceResponseTaskExecutionExpiredLeaseCountMin),
+  "staleHeartbeatCount": zod.number().min(getEngineeringGovernanceResponseTaskExecutionStaleHeartbeatCountMin),
+  "dependencyBrokenCount": zod.number().min(getEngineeringGovernanceResponseTaskExecutionDependencyBrokenCountMin),
+  "duplicateTaskCount": zod.number().min(getEngineeringGovernanceResponseTaskExecutionDuplicateTaskCountMin),
+  "checkpointedCount": zod.number().min(getEngineeringGovernanceResponseTaskExecutionCheckpointedCountMin),
+  "canStartTaskKeys": zod.array(zod.string()),
+  "alerts": zod.array(zod.object({
+  "code": zod.enum(['task_registry_stopped', 'task_lease_expired', 'task_zombie_detected', 'task_dependency_broken', 'task_duplicate', 'task_checkpoint_missing', 'task_recovery_blocked']),
+  "severity": zod.enum(['info', 'warning', 'critical']),
+  "taskKeys": zod.array(zod.string()),
+  "reason": zod.string()
+})),
+  "auditEventCount": zod.number().min(getEngineeringGovernanceResponseTaskExecutionAuditEventCountMin),
+  "lastAuditAt": zod.coerce.date().nullable(),
+  "recentAudit": zod.array(zod.object({
+  "eventId": zod.string(),
+  "at": zod.coerce.date(),
+  "taskKey": zod.string().nullable(),
+  "event": zod.enum(['registry_started', 'registry_stopped', 'task_registered', 'duplicate_task_rejected', 'duplicate_implementation_blocked', 'claim_granted', 'claim_rejected', 'lease_heartbeat', 'lease_expired', 'lease_invalidated_on_stop', 'zombie_detected', 'lease_reclaimed', 'checkpoint_recorded', 'checkpoint_idempotent', 'checkpoint_rejected', 'task_resumed', 'task_completed', 'task_failed', 'dependency_blocked']),
+  "severity": zod.enum(['info', 'warning', 'critical']),
+  "ownerId": zod.string().nullable(),
+  "leaseId": zod.string().nullable(),
+  "reason": zod.string()
+})),
+  "tasks": zod.array(zod.object({
+  "taskKey": zod.string(),
+  "taskId": zod.string(),
+  "title": zod.string(),
+  "implementationKey": zod.string(),
+  "ownerModule": zod.string(),
+  "state": zod.enum(['planned', 'waiting_for_turn', 'active', 'paused', 'blocked', 'completed', 'failed', 'timed_out', 'zombie', 'recovering', 'archived']),
+  "ownerId": zod.string().nullable(),
+  "leaseId": zod.string().nullable(),
+  "leaseExpiresAt": zod.coerce.date().nullable(),
+  "lastHeartbeatAt": zod.coerce.date().nullable(),
+  "checkpointVersion": zod.number().min(getEngineeringGovernanceResponseTaskExecutionTasksItemCheckpointVersionMin).nullable(),
+  "checkpointRecordedAt": zod.coerce.date().nullable(),
+  "dependencyState": zod.enum(['satisfied', 'missing', 'unvalidated', 'cycle']),
+  "dependencyKeys": zod.array(zod.string()),
+  "resourceClaims": zod.array(zod.string()),
+  "lastError": zod.string().nullable(),
+  "updatedAt": zod.coerce.date()
+})),
+  "reason": zod.string(),
+  "auditHash": zod.string()
+}).describe('Read-only, process-scoped internal task governance. It cannot control Replit Task Board\/agent leases, market freshness, production scans, or alerts.\n'),
   "runtime": zod.object({
   "protectedScannerCount": zod.number().min(getEngineeringGovernanceResponseRuntimeProtectedScannerCountMin),
   "delayedScannerCount": zod.number().min(getEngineeringGovernanceResponseRuntimeDelayedScannerCountMin),
@@ -1557,7 +1657,7 @@ export const GetEngineeringGovernanceResponse = zod.object({
   "backgroundResourcePolicy": zod.string()
 }),
   "alerts": zod.array(zod.object({
-  "code": zod.enum(['duplicate_implementation', 'active_slot_capacity', 'waiting_for_turn_stale', 'resource_conflict', 'dependency_missing', 'dependency_unmet', 'dependency_cycle', 'failed_without_checkpoint', 'completed_without_validation', 'task_registry_unavailable', 'scanner_backpressure']),
+  "code": zod.enum(['duplicate_implementation', 'active_slot_capacity', 'waiting_for_turn_stale', 'resource_conflict', 'dependency_missing', 'dependency_unmet', 'dependency_cycle', 'failed_without_checkpoint', 'completed_without_validation', 'task_registry_unavailable', 'scanner_backpressure', 'task_lease_expired', 'task_zombie_detected', 'task_dependency_broken', 'task_duplicate', 'task_registry_stopped', 'task_checkpoint_missing', 'task_recovery_blocked']),
   "severity": zod.enum(['info', 'warning', 'critical']),
   "taskKeys": zod.array(zod.string()),
   "reason": zod.string()
@@ -1604,6 +1704,43 @@ export const getBackendLifelineResponseAlertDeliveryDeliveriesSucceededMin = 0;
 export const getBackendLifelineResponseAlertDeliveryDeliveriesSkippedMin = 0;
 
 export const getBackendLifelineResponseAlertDeliveryDeliveriesFailedMin = 0;
+
+
+export const getBackendLifelineResponseInternalTasksRegisteredCountMin = 0;
+
+export const getBackendLifelineResponseInternalTasksPlannedCountMin = 0;
+
+export const getBackendLifelineResponseInternalTasksActiveCountMin = 0;
+
+export const getBackendLifelineResponseInternalTasksPausedCountMin = 0;
+
+export const getBackendLifelineResponseInternalTasksBlockedCountMin = 0;
+
+export const getBackendLifelineResponseInternalTasksCompletedCountMin = 0;
+
+export const getBackendLifelineResponseInternalTasksFailedCountMin = 0;
+
+export const getBackendLifelineResponseInternalTasksTimedOutCountMin = 0;
+
+export const getBackendLifelineResponseInternalTasksZombieCountMin = 0;
+
+export const getBackendLifelineResponseInternalTasksRecoveringCountMin = 0;
+
+export const getBackendLifelineResponseInternalTasksActiveLeaseCountMin = 0;
+
+export const getBackendLifelineResponseInternalTasksExpiredLeaseCountMin = 0;
+
+export const getBackendLifelineResponseInternalTasksStaleHeartbeatCountMin = 0;
+
+export const getBackendLifelineResponseInternalTasksDependencyBrokenCountMin = 0;
+
+export const getBackendLifelineResponseInternalTasksDuplicateTaskCountMin = 0;
+
+export const getBackendLifelineResponseInternalTasksCheckpointedCountMin = 0;
+
+export const getBackendLifelineResponseInternalTasksAuditEventCountMin = 0;
+
+export const getBackendLifelineResponseInternalTasksTasksItemCheckpointVersionMin = 0;
 
 export const getBackendLifelineResponseSymbolsItemReconnectAttemptMin = 0;
 
@@ -1681,6 +1818,69 @@ export const GetBackendLifelineResponse = zod.object({
   "shadowLearning": zod.enum(['sidecar_not_on_lifeline']),
   "reason": zod.string()
 }),
+  "internalTasks": zod.object({
+  "schemaVersion": zod.literal(1),
+  "registryState": zod.enum(['healthy', 'degraded', 'blocked']),
+  "serviceRunning": zod.boolean(),
+  "processScoped": zod.literal(true),
+  "maxConcurrentSlots": zod.number().min(1),
+  "registeredCount": zod.number().min(getBackendLifelineResponseInternalTasksRegisteredCountMin),
+  "plannedCount": zod.number().min(getBackendLifelineResponseInternalTasksPlannedCountMin),
+  "activeCount": zod.number().min(getBackendLifelineResponseInternalTasksActiveCountMin),
+  "pausedCount": zod.number().min(getBackendLifelineResponseInternalTasksPausedCountMin),
+  "blockedCount": zod.number().min(getBackendLifelineResponseInternalTasksBlockedCountMin),
+  "completedCount": zod.number().min(getBackendLifelineResponseInternalTasksCompletedCountMin),
+  "failedCount": zod.number().min(getBackendLifelineResponseInternalTasksFailedCountMin),
+  "timedOutCount": zod.number().min(getBackendLifelineResponseInternalTasksTimedOutCountMin),
+  "zombieCount": zod.number().min(getBackendLifelineResponseInternalTasksZombieCountMin),
+  "recoveringCount": zod.number().min(getBackendLifelineResponseInternalTasksRecoveringCountMin),
+  "activeLeaseCount": zod.number().min(getBackendLifelineResponseInternalTasksActiveLeaseCountMin),
+  "expiredLeaseCount": zod.number().min(getBackendLifelineResponseInternalTasksExpiredLeaseCountMin),
+  "staleHeartbeatCount": zod.number().min(getBackendLifelineResponseInternalTasksStaleHeartbeatCountMin),
+  "dependencyBrokenCount": zod.number().min(getBackendLifelineResponseInternalTasksDependencyBrokenCountMin),
+  "duplicateTaskCount": zod.number().min(getBackendLifelineResponseInternalTasksDuplicateTaskCountMin),
+  "checkpointedCount": zod.number().min(getBackendLifelineResponseInternalTasksCheckpointedCountMin),
+  "canStartTaskKeys": zod.array(zod.string()),
+  "alerts": zod.array(zod.object({
+  "code": zod.enum(['task_registry_stopped', 'task_lease_expired', 'task_zombie_detected', 'task_dependency_broken', 'task_duplicate', 'task_checkpoint_missing', 'task_recovery_blocked']),
+  "severity": zod.enum(['info', 'warning', 'critical']),
+  "taskKeys": zod.array(zod.string()),
+  "reason": zod.string()
+})),
+  "auditEventCount": zod.number().min(getBackendLifelineResponseInternalTasksAuditEventCountMin),
+  "lastAuditAt": zod.coerce.date().nullable(),
+  "recentAudit": zod.array(zod.object({
+  "eventId": zod.string(),
+  "at": zod.coerce.date(),
+  "taskKey": zod.string().nullable(),
+  "event": zod.enum(['registry_started', 'registry_stopped', 'task_registered', 'duplicate_task_rejected', 'duplicate_implementation_blocked', 'claim_granted', 'claim_rejected', 'lease_heartbeat', 'lease_expired', 'lease_invalidated_on_stop', 'zombie_detected', 'lease_reclaimed', 'checkpoint_recorded', 'checkpoint_idempotent', 'checkpoint_rejected', 'task_resumed', 'task_completed', 'task_failed', 'dependency_blocked']),
+  "severity": zod.enum(['info', 'warning', 'critical']),
+  "ownerId": zod.string().nullable(),
+  "leaseId": zod.string().nullable(),
+  "reason": zod.string()
+})),
+  "tasks": zod.array(zod.object({
+  "taskKey": zod.string(),
+  "taskId": zod.string(),
+  "title": zod.string(),
+  "implementationKey": zod.string(),
+  "ownerModule": zod.string(),
+  "state": zod.enum(['planned', 'waiting_for_turn', 'active', 'paused', 'blocked', 'completed', 'failed', 'timed_out', 'zombie', 'recovering', 'archived']),
+  "ownerId": zod.string().nullable(),
+  "leaseId": zod.string().nullable(),
+  "leaseExpiresAt": zod.coerce.date().nullable(),
+  "lastHeartbeatAt": zod.coerce.date().nullable(),
+  "checkpointVersion": zod.number().min(getBackendLifelineResponseInternalTasksTasksItemCheckpointVersionMin).nullable(),
+  "checkpointRecordedAt": zod.coerce.date().nullable(),
+  "dependencyState": zod.enum(['satisfied', 'missing', 'unvalidated', 'cycle']),
+  "dependencyKeys": zod.array(zod.string()),
+  "resourceClaims": zod.array(zod.string()),
+  "lastError": zod.string().nullable(),
+  "updatedAt": zod.coerce.date()
+})),
+  "reason": zod.string(),
+  "auditHash": zod.string()
+}).describe('Read-only, process-scoped internal task governance. It cannot control Replit Task Board\/agent leases, market freshness, production scans, or alerts.\n'),
   "symbols": zod.array(zod.object({
   "symbol": zod.string(),
   "connectionState": zod.enum(['not_configured', 'connecting', 'connected', 'streaming', 'error', 'stopped']),

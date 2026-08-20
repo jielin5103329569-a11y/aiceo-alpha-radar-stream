@@ -1546,6 +1546,13 @@ components:
             - completed_without_validation
             - task_registry_unavailable
             - scanner_backpressure
+            - task_lease_expired
+            - task_zombie_detected
+            - task_dependency_broken
+            - task_duplicate
+            - task_registry_stopped
+            - task_checkpoint_missing
+            - task_recovery_blocked
         severity:
           $ref: "#/components/schemas/GovernanceAlertSeverity"
         taskKeys:
@@ -1618,7 +1625,7 @@ components:
               enum: [false]
             internalExecutionLeaseState:
               type: string
-              enum: [deferred_to_backend_lifeline]
+              enum: [deferred_to_backend_lifeline, active]
             reason:
               type: string
           required: [replitTaskBoardTouched, internalExecutionLeaseState, reason]
@@ -1643,6 +1650,8 @@ components:
             $ref: "#/components/schemas/EngineeringModuleBoundary"
         taskQueue:
           $ref: "#/components/schemas/EngineeringTaskQueueAssessment"
+        taskExecution:
+          $ref: "#/components/schemas/InternalTaskGovernanceSnapshot"
         runtime:
           type: object
           properties:
@@ -1677,6 +1686,7 @@ components:
         - executionOrder
         - moduleBoundaries
         - taskQueue
+        - taskExecution
         - runtime
         - alerts
         - recommendations
@@ -1898,6 +1908,8 @@ components:
               enum: [sidecar_not_on_lifeline]
             reason: { type: string }
           required: [alertRecords, userSubscriptions, deliveryAudit, marketWindow, scannerState, shadowLearning, reason]
+        internalTasks:
+          $ref: "#/components/schemas/InternalTaskGovernanceSnapshot"
         symbols:
           type: array
           items:
@@ -1916,8 +1928,118 @@ components:
         - recovery
         - alertDelivery
         - persistenceBoundary
+        - internalTasks
         - symbols
         - auditHash
+    InternalTaskState:
+      type: string
+      enum: [planned, waiting_for_turn, active, paused, blocked, completed, failed, timed_out, zombie, recovering, archived]
+    InternalTaskAuditSeverity:
+      type: string
+      enum: [info, warning, critical]
+    InternalTaskAuditEvent:
+      type: object
+      properties:
+        eventId: { type: string }
+        at: { type: string, format: date-time }
+        taskKey: { type: [string, "null"] }
+        event:
+          type: string
+          enum: [registry_started, registry_stopped, task_registered, duplicate_task_rejected, duplicate_implementation_blocked, claim_granted, claim_rejected, lease_heartbeat, lease_expired, lease_invalidated_on_stop, zombie_detected, lease_reclaimed, checkpoint_recorded, checkpoint_idempotent, checkpoint_rejected, task_resumed, task_completed, task_failed, dependency_blocked]
+        severity:
+          $ref: "#/components/schemas/InternalTaskAuditSeverity"
+        ownerId: { type: [string, "null"] }
+        leaseId: { type: [string, "null"] }
+        reason: { type: string }
+      required: [eventId, at, taskKey, event, severity, ownerId, leaseId, reason]
+    InternalTaskGovernanceAlert:
+      type: object
+      properties:
+        code:
+          type: string
+          enum: [task_registry_stopped, task_lease_expired, task_zombie_detected, task_dependency_broken, task_duplicate, task_checkpoint_missing, task_recovery_blocked]
+        severity:
+          $ref: "#/components/schemas/InternalTaskAuditSeverity"
+        taskKeys:
+          type: array
+          items: { type: string }
+        reason: { type: string }
+      required: [code, severity, taskKeys, reason]
+    InternalTaskSummary:
+      type: object
+      properties:
+        taskKey: { type: string }
+        taskId: { type: string }
+        title: { type: string }
+        implementationKey: { type: string }
+        ownerModule: { type: string }
+        state:
+          $ref: "#/components/schemas/InternalTaskState"
+        ownerId: { type: [string, "null"] }
+        leaseId: { type: [string, "null"] }
+        leaseExpiresAt: { type: [string, "null"], format: date-time }
+        lastHeartbeatAt: { type: [string, "null"], format: date-time }
+        checkpointVersion: { type: [number, "null"], minimum: 0 }
+        checkpointRecordedAt: { type: [string, "null"], format: date-time }
+        dependencyState:
+          type: string
+          enum: [satisfied, missing, unvalidated, cycle]
+        dependencyKeys:
+          type: array
+          items: { type: string }
+        resourceClaims:
+          type: array
+          items: { type: string }
+        lastError: { type: [string, "null"] }
+        updatedAt: { type: string, format: date-time }
+      required: [taskKey, taskId, title, implementationKey, ownerModule, state, ownerId, leaseId, leaseExpiresAt, lastHeartbeatAt, checkpointVersion, checkpointRecordedAt, dependencyState, dependencyKeys, resourceClaims, lastError, updatedAt]
+    InternalTaskGovernanceSnapshot:
+      type: object
+      description: >
+        Read-only, process-scoped internal task governance. It cannot control
+        Replit Task Board/agent leases, market freshness, production scans, or alerts.
+      properties:
+        schemaVersion: { type: number, enum: [1] }
+        registryState: { type: string, enum: [healthy, degraded, blocked] }
+        serviceRunning: { type: boolean }
+        processScoped: { type: boolean, enum: [true] }
+        maxConcurrentSlots: { type: number, minimum: 1 }
+        registeredCount: { type: number, minimum: 0 }
+        plannedCount: { type: number, minimum: 0 }
+        activeCount: { type: number, minimum: 0 }
+        pausedCount: { type: number, minimum: 0 }
+        blockedCount: { type: number, minimum: 0 }
+        completedCount: { type: number, minimum: 0 }
+        failedCount: { type: number, minimum: 0 }
+        timedOutCount: { type: number, minimum: 0 }
+        zombieCount: { type: number, minimum: 0 }
+        recoveringCount: { type: number, minimum: 0 }
+        activeLeaseCount: { type: number, minimum: 0 }
+        expiredLeaseCount: { type: number, minimum: 0 }
+        staleHeartbeatCount: { type: number, minimum: 0 }
+        dependencyBrokenCount: { type: number, minimum: 0 }
+        duplicateTaskCount: { type: number, minimum: 0 }
+        checkpointedCount: { type: number, minimum: 0 }
+        canStartTaskKeys:
+          type: array
+          items: { type: string }
+        alerts:
+          type: array
+          items:
+            $ref: "#/components/schemas/InternalTaskGovernanceAlert"
+        auditEventCount: { type: number, minimum: 0 }
+        lastAuditAt: { type: [string, "null"], format: date-time }
+        recentAudit:
+          type: array
+          items:
+            $ref: "#/components/schemas/InternalTaskAuditEvent"
+        tasks:
+          type: array
+          items:
+            $ref: "#/components/schemas/InternalTaskSummary"
+        reason: { type: string }
+        auditHash: { type: string }
+      required: [schemaVersion, registryState, serviceRunning, processScoped, maxConcurrentSlots, registeredCount, plannedCount, activeCount, pausedCount, blockedCount, completedCount, failedCount, timedOutCount, zombieCount, recoveringCount, activeLeaseCount, expiredLeaseCount, staleHeartbeatCount, dependencyBrokenCount, duplicateTaskCount, checkpointedCount, canStartTaskKeys, alerts, auditEventCount, lastAuditAt, recentAudit, tasks, reason, auditHash]
     GovernanceLayerId:
       type: string
       enum: [raw_market, basic_features, market_structure, stage_state, final_decision]

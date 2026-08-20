@@ -11,4 +11,5 @@ export type EngineeringGovernanceSnapshotPlatformBoundaryInternalExecutionLeaseS
 
 export const EngineeringGovernanceSnapshotPlatformBoundaryInternalExecutionLeaseState = {
   deferred_to_backend_lifeline: 'deferred_to_backend_lifeline',
+  active: 'active',
 } as const;
