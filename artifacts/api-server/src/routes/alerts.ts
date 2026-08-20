@@ -74,6 +74,20 @@ function settingsResponse(settings: typeof notificationSettingsTable.$inferSelec
   };
 }
 
+async function requireAlertRecord(
+  alertRecordId: string,
+  res: Response,
+): Promise<boolean> {
+  const [record] = await db
+    .select({ id: alertRecordsTable.id })
+    .from(alertRecordsTable)
+    .where(eq(alertRecordsTable.id, alertRecordId))
+    .limit(1);
+  if (record) return true;
+  res.status(404).json({ error: "Alert record was not found." });
+  return false;
+}
+
 type MinimumTier = "confirmed" | "pre_breakout" | "accelerating" | "watch";
 
 function tierToSeverity(tier: MinimumTier): string {
@@ -140,6 +154,7 @@ router.post("/alerts/:alertId/read", async (req: Request, res: Response): Promis
     res.status(400).json({ error: "Invalid alert id." });
     return;
   }
+  if (!(await requireAlertRecord(parsed.data, res))) return;
   await db
     .insert(alertUserReceiptsTable)
     .values({ userId, alertRecordId: parsed.data, readAt: new Date() })
@@ -173,6 +188,7 @@ router.post("/alerts/:alertId/acknowledge", async (req: Request, res: Response):
     res.status(400).json({ error: "Invalid alert id." });
     return;
   }
+  if (!(await requireAlertRecord(parsed.data, res))) return;
   const now = new Date();
   await db
     .insert(alertUserReceiptsTable)

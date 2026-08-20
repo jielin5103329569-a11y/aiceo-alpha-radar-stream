@@ -30,8 +30,18 @@ const tierBySeverity: Record<string, AlertRecord["tier"]> = {
   info: "watch",
 };
 
+function normalizeEvidence(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return [...new Set(value
+    .filter((item): item is string => typeof item === "string")
+    .map((item) => item.trim())
+    .filter(Boolean))];
+}
+
 function mapAlert(alert: VerifiedAlphaAlert): AlertRecord {
   const tier = tierBySeverity[alert.severity] ?? "unavailable";
+  const satisfiedEvidence = normalizeEvidence(alert.satisfiedEvidence);
+  const missingEvidence = normalizeEvidence(alert.missingEvidence);
   return {
     id: alert.id,
     occurredAt: alert.generatedAt,
@@ -40,11 +50,11 @@ function mapAlert(alert: VerifiedAlphaAlert): AlertRecord {
     score: alert.alphaScore,
     confidence: alert.confidence,
     alphaVelocity: alert.alphaVelocity30s ?? null,
-    satisfiedEvidence: alert.satisfiedEvidence,
-    missingEvidence: alert.missingEvidence,
+    satisfiedEvidence,
+    missingEvidence,
     dataFresh: true,
     reason: alert.triggerReason.replace(/_/g, " "),
-    evidenceCount: alert.satisfiedEvidence.length,
+    evidenceCount: satisfiedEvidence.length,
     isRead: alert.readAt !== null,
     isAcknowledged: alert.acknowledgedAt !== null,
     fromState: alert.detectionState as AlertRecord["fromState"],

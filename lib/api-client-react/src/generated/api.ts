@@ -1089,7 +1089,7 @@ export const markAlertRead = async (alertId: string, options?: Parameters<typeof
 
 
 
-export const getMarkAlertReadMutationOptions = <TError = ErrorType<unknown>,
+export const getMarkAlertReadMutationOptions = <TError = ErrorType<void>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof markAlertRead>>, TError,{alertId: string}, TContext>, request?: SecondParameter<typeof customFetch>}
 ): UseMutationOptions<Awaited<ReturnType<typeof markAlertRead>>, TError,{alertId: string}, TContext> => {
 
@@ -1118,12 +1118,12 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
     export type MarkAlertReadMutationResult = NonNullable<Awaited<ReturnType<typeof markAlertRead>>>
 
-    export type MarkAlertReadMutationError = ErrorType<unknown>
+    export type MarkAlertReadMutationError = ErrorType<void>
 
     /**
  * @summary Mark one alert as read for the current account
  */
-export const useMarkAlertRead = <TError = ErrorType<unknown>,
+export const useMarkAlertRead = <TError = ErrorType<void>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof markAlertRead>>, TError,{alertId: string}, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof markAlertRead>>,
@@ -1160,7 +1160,7 @@ export const acknowledgeAlert = async (alertId: string, options?: Parameters<typ
 
 
 
-export const getAcknowledgeAlertMutationOptions = <TError = ErrorType<unknown>,
+export const getAcknowledgeAlertMutationOptions = <TError = ErrorType<void>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof acknowledgeAlert>>, TError,{alertId: string}, TContext>, request?: SecondParameter<typeof customFetch>}
 ): UseMutationOptions<Awaited<ReturnType<typeof acknowledgeAlert>>, TError,{alertId: string}, TContext> => {
 
@@ -1189,12 +1189,12 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
     export type AcknowledgeAlertMutationResult = NonNullable<Awaited<ReturnType<typeof acknowledgeAlert>>>
 
-    export type AcknowledgeAlertMutationError = ErrorType<unknown>
+    export type AcknowledgeAlertMutationError = ErrorType<void>
 
     /**
  * @summary Acknowledge one alert for the current account
  */
-export const useAcknowledgeAlert = <TError = ErrorType<unknown>,
+export const useAcknowledgeAlert = <TError = ErrorType<void>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof acknowledgeAlert>>, TError,{alertId: string}, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof acknowledgeAlert>>,
