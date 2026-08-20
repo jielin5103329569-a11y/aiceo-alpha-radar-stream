@@ -102,6 +102,7 @@ try {
     buildImmutableShadowTrigger,
     buildShadowPriceObservation,
     buildShadowOutcome,
+    buildShadowLearningEvolutionSnapshot,
     assessStageFeatureValue,
     isCoreLearningFeature,
     SHADOW_CORE_LEARNING_POLICY,
@@ -316,6 +317,73 @@ try {
     shadowHoldout: [better],
   });
   assert.equal(insufficient.status, "insufficient_sample", "small cohorts are explicitly withheld");
+  const calibratedPromotion = evaluateShadowPromotion({
+    persistenceState: "available",
+    auditComplete: true,
+    baseline: Array.from({ length: 20 }, () => worse),
+    shadow: Array.from({ length: 20 }, () => better),
+    baselineHoldout: Array.from({ length: 8 }, () => worse),
+    shadowHoldout: Array.from({ length: 8 }, () => better),
+  });
+  assert.equal(
+    calibratedPromotion.status,
+    "not_eligible",
+    "an independently calibrated but underperforming fixture remains ineligible and never becomes a production candidate",
+  );
+  const evolution = buildShadowLearningEvolutionSnapshot({
+    persistenceState: "available",
+    strategyVersion: accepted.strategyVersion,
+    modelVersion: accepted.modelVersion,
+    horizonDays: 5,
+    stagePromotions: { pre_breakout: calibratedPromotion },
+    stageFeatureAssessments: [coreAssessment],
+    stageSamples: {
+      pre_breakout: [{ occurredAt: accepted.occurredAt, recordHash: record.recordHash }],
+    },
+  });
+  assert.equal(evolution.productionMutationAllowed, false, "learning evolution cannot grant production mutation authority");
+  assert.equal(evolution.activities.length, 3, "each of the three stages receives its own immutable activity record");
+  assert.equal(evolution.stageScores.length, 3, "learning value is reported separately for all three stages");
+  const preBreakoutEvolution = evolution.stageScores.find((item) => item.stage === "pre_breakout");
+  assert.equal(preBreakoutEvolution?.evaluationState, "available", "available future-outcome evidence is isolated to its own stage");
+  assert.equal(preBreakoutEvolution?.calibration.state, "independent_validated", "pre-breakout scoring records independent holdout calibration");
+  assert.equal(preBreakoutEvolution?.learningReturnOnCost, null, "missing real cost evidence cannot fabricate a learning return-on-cost score");
+  assert.equal(preBreakoutEvolution?.recommendation.action, "maintain_observation", "incomplete costs prevent automatic validation-resource increases");
+  assert.equal(
+    evolution.stageScores.find((item) => item.stage === "true_breakout")?.evaluationState,
+    "insufficient_sample",
+    "other stages cannot inherit a different stage's sample or calibration",
+  );
+  const mixedStageIsolation = buildShadowLearningEvolutionSnapshot({
+    persistenceState: "available",
+    strategyVersion: accepted.strategyVersion,
+    modelVersion: accepted.modelVersion,
+    horizonDays: 5,
+    stagePromotions: { pre_breakout: calibratedPromotion },
+    stageFeatureAssessments: [coreAssessment],
+    stageSamples: {
+      true_breakout: [{ occurredAt: accepted.occurredAt, recordHash: record.recordHash }],
+    },
+  });
+  assert.equal(
+    mixedStageIsolation.stageScores.find((item) => item.stage === "pre_breakout")?.calibration.state,
+    "unavailable",
+    "a promotion or future sample from another stage cannot calibrate pre-breakout scoring",
+  );
+  const withheldEvolution = buildShadowLearningEvolutionSnapshot({
+    persistenceState: "unavailable",
+    strategyVersion: null,
+    modelVersion: null,
+    horizonDays: 5,
+    stagePromotions: {},
+    stageFeatureAssessments: [],
+    stageSamples: {},
+  });
+  assert.equal(
+    withheldEvolution.stageScores.every((item) => item.evaluationState === "withheld"),
+    true,
+    "incomplete persistence withholds every stage rather than manufacturing learning value",
+  );
   const available = comparableMetrics(Array.from({ length: 20 }, () => better));
   assert.equal(available.sampleState, "available", "the fixed complete-sample threshold is auditable");
   const rejected = evaluateShadowPromotion({

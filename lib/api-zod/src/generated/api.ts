@@ -2422,6 +2422,12 @@ export const getShadowLearningValidationResponseShadowSampleSizeMin = 0;
 
 export const getShadowLearningValidationResponseStageFeatureAssessmentsItemSampleSizeMin = 0;
 
+export const getShadowLearningValidationResponseLearningEvolutionActivitiesItemSampleRangeTriggerCountMin = 0;
+
+export const getShadowLearningValidationResponseLearningEvolutionStageScoresItemSampleSizeMin = 0;
+
+export const getShadowLearningValidationResponseLearningEvolutionStageScoresItemFeatureCountMin = 0;
+
 
 
 export const GetShadowLearningValidationResponse = zod.object({
@@ -2494,6 +2500,75 @@ export const GetShadowLearningValidationResponse = zod.object({
   "coreEligible": zod.boolean(),
   "reason": zod.string()
 })),
+  "learningEvolution": zod.object({
+  "schemaVersion": zod.literal(1),
+  "scoringVersion": zod.string(),
+  "productionMutationAllowed": zod.literal(false),
+  "activities": zod.array(zod.object({
+  "activityId": zod.string(),
+  "recordHash": zod.string(),
+  "targetStage": zod.enum(['pre_breakout', 'true_breakout', 'post_breakout']),
+  "dataLayer": zod.enum(['stage_features']),
+  "featureScope": zod.array(zod.string()),
+  "hypothesis": zod.string(),
+  "baseline": zod.object({
+  "strategyVersion": zod.string().nullable(),
+  "modelVersion": zod.string().nullable(),
+  "comparison": zod.enum(['matched_future_outcome_cohort'])
+}),
+  "experimentVersion": zod.string().nullable(),
+  "sampleRange": zod.object({
+  "startedAt": zod.coerce.date().nullable(),
+  "endedAt": zod.coerce.date().nullable(),
+  "triggerCount": zod.number().min(getShadowLearningValidationResponseLearningEvolutionActivitiesItemSampleRangeTriggerCountMin)
+}),
+  "validationWindow": zod.object({
+  "horizonDays": zod.union([zod.literal(1),zod.literal(3),zod.literal(5),zod.literal(10),zod.literal(20)]),
+  "futureOutcomesOnly": zod.literal(true),
+  "independentValidation": zod.literal("required")
+}),
+  "resourceCost": zod.object({
+  "state": zod.enum(['complete', 'incomplete']),
+  "computeUnitHours": zod.number().nullable(),
+  "dataAcquisitionCost": zod.number().nullable(),
+  "storageCost": zod.number().nullable(),
+  "validationCycleDays": zod.number().nullable(),
+  "manualReviewHours": zod.number().nullable(),
+  "reason": zod.string()
+}),
+  "auditState": zod.enum(['complete', 'withheld']),
+  "resultReason": zod.string()
+})),
+  "stageScores": zod.array(zod.object({
+  "stage": zod.enum(['pre_breakout', 'true_breakout', 'post_breakout']),
+  "evaluationState": zod.enum(['available', 'insufficient_sample', 'withheld']),
+  "sampleSize": zod.number().min(getShadowLearningValidationResponseLearningEvolutionStageScoresItemSampleSizeMin),
+  "featureCount": zod.number().min(getShadowLearningValidationResponseLearningEvolutionStageScoresItemFeatureCountMin),
+  "improvements": zod.object({
+  "predictivePowerPercent": zod.number().nullable(),
+  "earlinessMinutes": zod.number().nullable(),
+  "riskRewardPercent": zod.number().nullable(),
+  "incrementalInformationPercent": zod.number().nullable(),
+  "stabilityPercent": zod.number().nullable(),
+  "redundancyPercent": zod.number().nullable(),
+  "falseSignalRatePercent": zod.number().nullable()
+}),
+  "learningValuePercent": zod.number().nullable(),
+  "learningReturnOnCost": zod.number().nullable(),
+  "calibration": zod.object({
+  "state": zod.enum(['independent_validated', 'insufficient_sample', 'unavailable']),
+  "reason": zod.string()
+}),
+  "recommendation": zod.object({
+  "action": zod.enum(['increase_validation', 'maintain_observation', 'reduce_frequency', 'pause', 'retire']),
+  "approvalState": zod.literal("shadow_only_pending_human_review"),
+  "reason": zod.string()
+}),
+  "reason": zod.string()
+})),
+  "reason": zod.string(),
+  "auditHash": zod.string()
+}).describe('Read-only, shadow-only learning value and cost assessment. It cannot change live Alpha Radar, alerts, scans, notifications, or production model weights.'),
   "recentTriggers": zod.array(zod.object({
   "eventKey": zod.string(),
   "recordHash": zod.string(),

@@ -25,6 +25,8 @@ export const SHADOW_REQUIRED_RETURN_ADVANTAGE_PERCENT = 0.5;
 export const SHADOW_MINIMUM_CORE_LEAD_TIME_MINUTES = 1;
 export const SHADOW_MINIMUM_CORE_INCREMENTAL_VALUE_PERCENT = 4;
 export const SHADOW_MAXIMUM_CORE_REDUNDANCY_PERCENT = 50;
+export const SHADOW_LEARNING_EVOLUTION_SCHEMA_VERSION = 1;
+export const SHADOW_LEARNING_EVOLUTION_SCORING_VERSION = "shadow-learning-evolution-v1";
 
 export type ShadowSignalType =
   | "shadow_pre_breakout"
@@ -366,6 +368,85 @@ export type ShadowPromotionRecommendation = {
   };
 };
 
+/**
+ * A learning-evolution activity is a read-only, versioned description of a
+ * shadow experiment. It is never a production configuration or an authority
+ * to modify Alpha Radar, Alerts, scanning, or notification settings.
+ */
+export type ShadowLearningEvolutionActivity = {
+  activityId: string;
+  recordHash: string;
+  targetStage: ShadowLearningStage;
+  dataLayer: "stage_features";
+  featureScope: ShadowFeatureKey[];
+  hypothesis: string;
+  baseline: {
+    strategyVersion: string | null;
+    modelVersion: string | null;
+    comparison: "matched_future_outcome_cohort";
+  };
+  experimentVersion: string | null;
+  sampleRange: {
+    startedAt: Date | null;
+    endedAt: Date | null;
+    triggerCount: number;
+  };
+  validationWindow: {
+    horizonDays: ValidationHorizonDays;
+    futureOutcomesOnly: true;
+    independentValidation: "required";
+  };
+  resourceCost: {
+    state: "complete" | "incomplete";
+    computeUnitHours: number | null;
+    dataAcquisitionCost: number | null;
+    storageCost: number | null;
+    validationCycleDays: number | null;
+    manualReviewHours: number | null;
+    reason: string;
+  };
+  auditState: "complete" | "withheld";
+  resultReason: string;
+};
+
+export type ShadowLearningEvolutionStageScore = {
+  stage: ShadowLearningStage;
+  evaluationState: "available" | "insufficient_sample" | "withheld";
+  sampleSize: number;
+  featureCount: number;
+  improvements: {
+    predictivePowerPercent: number | null;
+    earlinessMinutes: number | null;
+    riskRewardPercent: number | null;
+    incrementalInformationPercent: number | null;
+    stabilityPercent: number | null;
+    redundancyPercent: number | null;
+    falseSignalRatePercent: number | null;
+  };
+  learningValuePercent: number | null;
+  learningReturnOnCost: number | null;
+  calibration: {
+    state: "independent_validated" | "insufficient_sample" | "unavailable";
+    reason: string;
+  };
+  recommendation: {
+    action: "increase_validation" | "maintain_observation" | "reduce_frequency" | "pause" | "retire";
+    approvalState: "shadow_only_pending_human_review";
+    reason: string;
+  };
+  reason: string;
+};
+
+export type ShadowLearningEvolutionSnapshot = {
+  schemaVersion: number;
+  scoringVersion: string;
+  productionMutationAllowed: false;
+  activities: ShadowLearningEvolutionActivity[];
+  stageScores: ShadowLearningEvolutionStageScore[];
+  reason: string;
+  auditHash: string;
+};
+
 function canonicalize(value: unknown): unknown {
   if (value instanceof Date) return value.toISOString();
   if (Array.isArray(value)) return value.map(canonicalize);
@@ -383,6 +464,184 @@ function hash(value: unknown): string {
   return createHash("sha256")
     .update(JSON.stringify(canonicalize(value)))
     .digest("hex");
+}
+
+function meanAvailable(values: Array<number | null | undefined>): number | null {
+  const available = values.filter((value): value is number => value !== null && value !== undefined && Number.isFinite(value));
+  return available.length ? Math.round((available.reduce((total, value) => total + value, 0) / available.length) * 100) / 100 : null;
+}
+
+function unavailableCost(): ShadowLearningEvolutionActivity["resourceCost"] {
+  return {
+    state: "incomplete",
+    computeUnitHours: null,
+    dataAcquisitionCost: null,
+    storageCost: null,
+    validationCycleDays: null,
+    manualReviewHours: null,
+    reason: "Resource-cost evidence has not been persisted. The learning return-on-cost score is withheld rather than estimated.",
+  };
+}
+
+export function buildShadowLearningEvolutionSnapshot(input: {
+  persistenceState: ShadowPersistenceState;
+  strategyVersion: string | null;
+  modelVersion: string | null;
+  horizonDays: ValidationHorizonDays;
+  stagePromotions: Partial<Record<ShadowLearningStage, ShadowPromotionRecommendation>>;
+  stageFeatureAssessments: ShadowStageFeatureValueAssessment[];
+  stageSamples: Partial<Record<ShadowLearningStage, Array<{ occurredAt: Date; recordHash: string }>>>;
+}): ShadowLearningEvolutionSnapshot {
+  const stages = Object.keys(SHADOW_STAGE_RULES) as ShadowLearningStage[];
+  const activities = stages.map((stage) => {
+    const samples = [...(input.stageSamples[stage] ?? [])].sort((left, right) => left.occurredAt.getTime() - right.occurredAt.getTime());
+    const activityWithoutHash = {
+      targetStage: stage,
+      dataLayer: "stage_features" as const,
+      featureScope: Object.keys(SHADOW_STAGE_RULES[stage].featureWeights) as ShadowFeatureKey[],
+      hypothesis: `The ${stage} stage feature set produces independently useful future-outcome evidence beyond its matched baseline.`,
+      baseline: {
+        strategyVersion: input.strategyVersion,
+        modelVersion: input.modelVersion,
+        comparison: "matched_future_outcome_cohort" as const,
+      },
+      experimentVersion: input.modelVersion,
+      sampleRange: {
+        startedAt: samples.at(0)?.occurredAt ?? null,
+        endedAt: samples.at(-1)?.occurredAt ?? null,
+        triggerCount: samples.length,
+      },
+      validationWindow: {
+        horizonDays: input.horizonDays,
+        futureOutcomesOnly: true as const,
+        independentValidation: "required" as const,
+      },
+      resourceCost: unavailableCost(),
+      auditState: input.persistenceState === "available" ? "complete" as const : "withheld" as const,
+      resultReason: input.persistenceState === "available"
+        ? "Activity evidence is derived from immutable shadow triggers and future-only outcome checkpoints."
+        : "Activity evidence is withheld because shadow persistence or archive recovery is incomplete.",
+    };
+    const activityId = hash({
+      scoringVersion: SHADOW_LEARNING_EVOLUTION_SCORING_VERSION,
+      ...activityWithoutHash,
+      evidenceHashes: samples.map((sample) => sample.recordHash),
+    }).slice(0, 32);
+    return {
+      activityId,
+      recordHash: hash({ activityId, ...activityWithoutHash, evidenceHashes: samples.map((sample) => sample.recordHash) }),
+      ...activityWithoutHash,
+    };
+  });
+  const stageScores = stages.map((stage) => {
+    const assessments = input.stageFeatureAssessments.filter((assessment) => assessment.stage === stage);
+    const available = assessments.filter((assessment) => assessment.sampleState === "available");
+    const sampleSize = available.reduce((largest, assessment) => Math.max(largest, assessment.sampleSize), 0);
+    const improvements = {
+      predictivePowerPercent: meanAvailable(available.map((assessment) => assessment.predictiveAdvantagePercent)),
+      earlinessMinutes: meanAvailable(available.map((assessment) => assessment.averageLeadTimeMinutes)),
+      riskRewardPercent: meanAvailable(available.map((assessment) => assessment.riskRewardAdvantagePercent)),
+      incrementalInformationPercent: meanAvailable(available.map((assessment) => assessment.incrementalValuePercent)),
+      stabilityPercent: meanAvailable(available.map((assessment) => assessment.stabilityPercent)),
+      redundancyPercent: meanAvailable(available.map((assessment) => assessment.redundancyPercent)),
+      falseSignalRatePercent: meanAvailable(available.map((assessment) => assessment.noiseRatePercent)),
+    };
+    const stagePromotion = input.stagePromotions[stage];
+    const hasStageEvidence = available.length > 0 && (input.stageSamples[stage]?.length ?? 0) > 0;
+    const calibration = hasStageEvidence && stagePromotion
+      ? stagePromotion.status === "candidate" || stagePromotion.status === "not_eligible"
+        ? {
+            state: "independent_validated" as const,
+            reason: "This stage's matched future-outcome cohorts completed the fixed independent holdout evaluation. This validates scoring evidence only, not production changes.",
+          }
+        : stagePromotion.status === "insufficient_sample"
+          ? {
+              state: "insufficient_sample" as const,
+              reason: "This stage's independent holdout evidence has not reached the fixed minimum sample threshold.",
+            }
+          : {
+              state: "unavailable" as const,
+              reason: "This stage's independent holdout calibration is withheld until persistence and immutable audit evidence are complete.",
+            }
+      : {
+          state: "unavailable" as const,
+          reason: "No stage-specific matched-baseline holdout with immutable future-outcome evidence is available; no value upgrade is allowed.",
+        };
+    const cost = activities.find((activity) => activity.targetStage === stage)!.resourceCost;
+    const evidenceReady = (
+      input.persistenceState === "available"
+      && available.length > 0
+      && calibration.state === "independent_validated"
+    );
+    const learningValuePercent = evidenceReady
+      ? meanAvailable([
+          improvements.predictivePowerPercent,
+          improvements.riskRewardPercent,
+          improvements.incrementalInformationPercent,
+          improvements.stabilityPercent,
+          improvements.falseSignalRatePercent === null ? null : 100 - improvements.falseSignalRatePercent,
+          improvements.redundancyPercent === null ? null : 100 - improvements.redundancyPercent,
+        ])
+      : null;
+    const allNoise = available.length > 0 && available.every((assessment) => assessment.tier === "D_noise");
+    const allRedundant = available.length > 0 && available.every((assessment) => assessment.tier === "C_redundant");
+    const hasCoreCandidate = available.some((assessment) => assessment.coreEligible);
+    const evaluationState = input.persistenceState !== "available"
+      ? "withheld" as const
+      : available.length === 0
+        ? "insufficient_sample" as const
+        : "available" as const;
+    const recommendation = allNoise
+      ? {
+          action: "retire" as const,
+          approvalState: "shadow_only_pending_human_review" as const,
+          reason: "All evaluated features are noise under immutable future outcomes. Retirement is a human-review recommendation only and does not delete evidence.",
+        }
+      : allRedundant
+        ? {
+            action: "reduce_frequency" as const,
+            approvalState: "shadow_only_pending_human_review" as const,
+            reason: "Evaluated evidence is redundant with the existing stage screen. Reduce future validation priority only after human review.",
+          }
+        : hasCoreCandidate && cost.state === "complete" && calibration.state === "independent_validated"
+          ? {
+              action: "increase_validation" as const,
+              approvalState: "shadow_only_pending_human_review" as const,
+              reason: "Independent future-outcome evidence, calibration, and complete costs support more shadow validation. Production remains unchanged.",
+            }
+          : {
+              action: "maintain_observation" as const,
+              approvalState: "shadow_only_pending_human_review" as const,
+              reason: cost.state !== "complete"
+                ? "Cost evidence is incomplete, so learning return-on-cost and any resource increase are withheld."
+                : "Evidence remains observational pending complete stage-specific calibration and human approval.",
+            };
+    return {
+      stage,
+      evaluationState,
+      sampleSize,
+      featureCount: assessments.length,
+      improvements,
+      learningValuePercent,
+      learningReturnOnCost: null,
+      calibration,
+      recommendation,
+      reason: evaluationState === "withheld"
+        ? "Stage scoring is withheld because immutable shadow persistence is incomplete."
+        : evaluationState === "insufficient_sample"
+          ? "Stage scoring is pending because no feature has a sufficient complete future-outcome sample."
+          : "Stage metrics are read-only shadow evidence. Missing cost or stage-specific calibration prevents automatic advancement.",
+    };
+  });
+  const unsigned = {
+    schemaVersion: SHADOW_LEARNING_EVOLUTION_SCHEMA_VERSION,
+    scoringVersion: SHADOW_LEARNING_EVOLUTION_SCORING_VERSION,
+    productionMutationAllowed: false as const,
+    activities,
+    stageScores,
+    reason: "Learning evolution evaluates shadow-only activities and can recommend validation priority only. It cannot modify production Alpha Radar, alerts, scans, or notifications.",
+  };
+  return { ...unsigned, auditHash: hash(unsigned) };
 }
 
 export function shadowTriggerHash(input: ShadowTriggerInput): string {

@@ -32,6 +32,8 @@ import {
   type ShadowInputSummary,
   type ShadowStageFeatureValueAssessment,
   type ShadowCoreLearningPolicy,
+  type ShadowLearningEvolutionSnapshot,
+  buildShadowLearningEvolutionSnapshot,
   SHADOW_CORE_LEARNING_POLICY,
   SHADOW_STAGE_RULES,
   SHADOW_SCAN_WINDOW,
@@ -70,6 +72,7 @@ export type ShadowLearningDashboard = {
   promotion: ShadowPromotionRecommendation;
   learningPolicy: ShadowCoreLearningPolicy;
   stageFeatureAssessments: ShadowStageFeatureValueAssessment[];
+  learningEvolution: ShadowLearningEvolutionSnapshot;
   recentTriggers: Array<{
     eventKey: string;
     recordHash: string;
@@ -100,6 +103,11 @@ type PriceInput = {
     eligible: boolean;
   };
   lifecycleSnapshot: ShadowLifecycleSnapshot;
+};
+
+type StageCohortMetric = {
+  metric: ValidationMetricInput;
+  stage: ShadowLearningStage | null;
 };
 
 function metricInput(outcome: {
@@ -385,13 +393,15 @@ export class ShadowLearningService {
       const shadowComplete = shadowOutcomes.flatMap(({ triggerId, outcome }) => {
         const metric = metricInput(outcome);
         const trigger = triggerById.get(triggerId);
-        return metric && trigger ? [{
+        const summary = trigger?.inputSummary;
+        return metric && trigger && isStoredShadowInputSummary(summary) ? [{
           cohortKey: trigger.cohortKey,
           symbol: trigger.symbol,
           sector: trigger.sector,
           occurredAt: trigger.occurredAt,
           cohortEligibilitySnapshot: trigger.cohortEligibilitySnapshot as ShadowCohortEligibilitySnapshot,
           metric,
+          stage: summary.learningStage,
         }] : [];
       });
       const baselineScopeSupported = (
@@ -459,14 +469,14 @@ export class ShadowLearningService {
           metric,
         }] : [];
       });
-      const matchedCohorts = matchShadowBaselineCohorts(
+      const matchedCohorts = matchShadowBaselineCohorts<StageCohortMetric>(
         shadowComplete.map((item) => ({
           cohortKey: item.cohortKey,
           symbol: item.symbol,
           sector: item.sector,
           occurredAt: item.occurredAt,
           cohortEligibilitySnapshot: item.cohortEligibilitySnapshot,
-          value: item.metric,
+          value: { metric: item.metric, stage: item.stage ?? null },
         })),
         baselineComplete.map((item) => ({
           eventKey: item.eventKey,
@@ -477,12 +487,12 @@ export class ShadowLearningService {
           signalType: item.signalType,
           dataFresh: item.dataFresh,
           satisfiedEvidence: item.satisfiedEvidence,
-          value: item.metric,
+          value: { metric: item.metric, stage: null },
         })),
       );
       const matchingEvidenceComplete = shadowComplete.length === matchedCohorts.length;
-      const baselineInputs = matchedCohorts.map(({ baseline }) => baseline);
-      const shadowInputs = matchedCohorts.map(({ shadow }) => shadow);
+      const baselineInputs = matchedCohorts.map(({ baseline }) => baseline.metric);
+      const shadowInputs = matchedCohorts.map(({ shadow }) => shadow.metric);
       const promotion = evaluateShadowPromotion({
         persistenceState: "available",
         auditComplete: matchingEvidenceComplete,
@@ -490,12 +500,56 @@ export class ShadowLearningService {
         shadow: shadowInputs,
         baselineHoldout: matchedCohorts
           .filter(({ cohortKey }) => isIndependentHoldout(cohortKey))
-          .map(({ baseline }) => baseline),
+          .map(({ baseline }) => baseline.metric),
         shadowHoldout: matchedCohorts
           .filter(({ cohortKey }) => isIndependentHoldout(cohortKey))
-          .map(({ shadow }) => shadow),
+          .map(({ shadow }) => shadow.metric),
       });
       const newest = triggers[0] ?? null;
+      const assessments = stageFeatureAssessments(triggers, shadowOutcomes);
+      const stagePromotions = (Object.keys(SHADOW_STAGE_RULES) as ShadowLearningStage[]).reduce(
+        (result, stage) => {
+          const stageCohorts = matchedCohorts.filter(({ shadow }) => shadow.stage === stage);
+          result[stage] = evaluateShadowPromotion({
+            persistenceState: "available",
+            auditComplete: (
+              stageCohorts.length > 0
+              && shadowComplete.filter((item) => item.stage === stage).length === stageCohorts.length
+            ),
+            baseline: stageCohorts.map(({ baseline }) => baseline.metric),
+            shadow: stageCohorts.map(({ shadow }) => shadow.metric),
+            baselineHoldout: stageCohorts
+              .filter(({ cohortKey }) => isIndependentHoldout(cohortKey))
+              .map(({ baseline }) => baseline.metric),
+            shadowHoldout: stageCohorts
+              .filter(({ cohortKey }) => isIndependentHoldout(cohortKey))
+              .map(({ shadow }) => shadow.metric),
+          });
+          return result;
+        },
+        {} as Partial<Record<ShadowLearningStage, ShadowPromotionRecommendation>>,
+      );
+      const stageSamples = (Object.keys(SHADOW_STAGE_RULES) as ShadowLearningStage[]).reduce(
+        (result, stage) => {
+          result[stage] = triggers.flatMap((trigger) => {
+            const summary = trigger.inputSummary;
+            return isStoredShadowInputSummary(summary) && summary.learningStage === stage
+              ? [{ occurredAt: trigger.occurredAt, recordHash: trigger.recordHash }]
+              : [];
+          });
+          return result;
+        },
+        {} as Partial<Record<ShadowLearningStage, Array<{ occurredAt: Date; recordHash: string }>>>,
+      );
+      const learningEvolution = buildShadowLearningEvolutionSnapshot({
+        persistenceState: "available",
+        strategyVersion: newest?.strategyVersion ?? null,
+        modelVersion: newest?.modelVersion ?? null,
+        horizonDays: selectedHorizonDays,
+        stagePromotions,
+        stageFeatureAssessments: assessments,
+        stageSamples,
+      });
       return {
         generatedAt: new Date(),
         persistenceState: "available",
@@ -514,7 +568,8 @@ export class ShadowLearningService {
           : null,
         promotion,
         learningPolicy: SHADOW_CORE_LEARNING_POLICY,
-        stageFeatureAssessments: stageFeatureAssessments(triggers, shadowOutcomes),
+        stageFeatureAssessments: assessments,
+        learningEvolution,
         recentTriggers: triggers.slice(0, 10).map((trigger) => ({
           eventKey: trigger.eventKey,
           recordHash: trigger.recordHash,
@@ -561,6 +616,15 @@ export class ShadowLearningService {
       promotion: withheld,
       learningPolicy: SHADOW_CORE_LEARNING_POLICY,
       stageFeatureAssessments: [],
+      learningEvolution: buildShadowLearningEvolutionSnapshot({
+        persistenceState: "unavailable",
+        strategyVersion: null,
+        modelVersion: null,
+        horizonDays: selectedHorizonDays,
+        stagePromotions: {},
+        stageFeatureAssessments: [],
+        stageSamples: {},
+      }),
       recentTriggers: [],
     };
   }

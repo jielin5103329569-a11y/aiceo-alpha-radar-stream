@@ -2773,6 +2773,207 @@ export interface ShadowLearningTriggerSummary {
   status: string;
 }
 
+export type ShadowLearningEvolutionCostState = typeof ShadowLearningEvolutionCostState[keyof typeof ShadowLearningEvolutionCostState];
+
+
+export const ShadowLearningEvolutionCostState = {
+  complete: 'complete',
+  incomplete: 'incomplete',
+} as const;
+
+export interface ShadowLearningEvolutionCost {
+  state: ShadowLearningEvolutionCostState;
+  /** @nullable */
+  computeUnitHours: number | null;
+  /** @nullable */
+  dataAcquisitionCost: number | null;
+  /** @nullable */
+  storageCost: number | null;
+  /** @nullable */
+  validationCycleDays: number | null;
+  /** @nullable */
+  manualReviewHours: number | null;
+  reason: string;
+}
+
+export type ShadowLearningEvolutionActivityTargetStage = typeof ShadowLearningEvolutionActivityTargetStage[keyof typeof ShadowLearningEvolutionActivityTargetStage];
+
+
+export const ShadowLearningEvolutionActivityTargetStage = {
+  pre_breakout: 'pre_breakout',
+  true_breakout: 'true_breakout',
+  post_breakout: 'post_breakout',
+} as const;
+
+export type ShadowLearningEvolutionActivityDataLayer = typeof ShadowLearningEvolutionActivityDataLayer[keyof typeof ShadowLearningEvolutionActivityDataLayer];
+
+
+export const ShadowLearningEvolutionActivityDataLayer = {
+  stage_features: 'stage_features',
+} as const;
+
+export type ShadowLearningEvolutionActivityBaselineComparison = typeof ShadowLearningEvolutionActivityBaselineComparison[keyof typeof ShadowLearningEvolutionActivityBaselineComparison];
+
+
+export const ShadowLearningEvolutionActivityBaselineComparison = {
+  matched_future_outcome_cohort: 'matched_future_outcome_cohort',
+} as const;
+
+export type ShadowLearningEvolutionActivityBaseline = {
+  /** @nullable */
+  strategyVersion: string | null;
+  /** @nullable */
+  modelVersion: string | null;
+  comparison: ShadowLearningEvolutionActivityBaselineComparison;
+};
+
+export type ShadowLearningEvolutionActivitySampleRange = {
+  /** @nullable */
+  startedAt: string | null;
+  /** @nullable */
+  endedAt: string | null;
+  /** @minimum 0 */
+  triggerCount: number;
+};
+
+export type ShadowLearningEvolutionActivityValidationWindowHorizonDays = typeof ShadowLearningEvolutionActivityValidationWindowHorizonDays[keyof typeof ShadowLearningEvolutionActivityValidationWindowHorizonDays];
+
+
+export const ShadowLearningEvolutionActivityValidationWindowHorizonDays = {
+  NUMBER_1: 1,
+  NUMBER_3: 3,
+  NUMBER_5: 5,
+  NUMBER_10: 10,
+  NUMBER_20: 20,
+} as const;
+
+export type ShadowLearningEvolutionActivityValidationWindow = {
+  horizonDays: ShadowLearningEvolutionActivityValidationWindowHorizonDays;
+  futureOutcomesOnly: true;
+  independentValidation: 'required';
+};
+
+export type ShadowLearningEvolutionActivityAuditState = typeof ShadowLearningEvolutionActivityAuditState[keyof typeof ShadowLearningEvolutionActivityAuditState];
+
+
+export const ShadowLearningEvolutionActivityAuditState = {
+  complete: 'complete',
+  withheld: 'withheld',
+} as const;
+
+export interface ShadowLearningEvolutionActivity {
+  activityId: string;
+  recordHash: string;
+  targetStage: ShadowLearningEvolutionActivityTargetStage;
+  dataLayer: ShadowLearningEvolutionActivityDataLayer;
+  featureScope: string[];
+  hypothesis: string;
+  baseline: ShadowLearningEvolutionActivityBaseline;
+  /** @nullable */
+  experimentVersion: string | null;
+  sampleRange: ShadowLearningEvolutionActivitySampleRange;
+  validationWindow: ShadowLearningEvolutionActivityValidationWindow;
+  resourceCost: ShadowLearningEvolutionCost;
+  auditState: ShadowLearningEvolutionActivityAuditState;
+  resultReason: string;
+}
+
+export type ShadowLearningEvolutionStageScoreStage = typeof ShadowLearningEvolutionStageScoreStage[keyof typeof ShadowLearningEvolutionStageScoreStage];
+
+
+export const ShadowLearningEvolutionStageScoreStage = {
+  pre_breakout: 'pre_breakout',
+  true_breakout: 'true_breakout',
+  post_breakout: 'post_breakout',
+} as const;
+
+export type ShadowLearningEvolutionStageScoreEvaluationState = typeof ShadowLearningEvolutionStageScoreEvaluationState[keyof typeof ShadowLearningEvolutionStageScoreEvaluationState];
+
+
+export const ShadowLearningEvolutionStageScoreEvaluationState = {
+  available: 'available',
+  insufficient_sample: 'insufficient_sample',
+  withheld: 'withheld',
+} as const;
+
+export type ShadowLearningEvolutionStageScoreImprovements = {
+  /** @nullable */
+  predictivePowerPercent: number | null;
+  /** @nullable */
+  earlinessMinutes: number | null;
+  /** @nullable */
+  riskRewardPercent: number | null;
+  /** @nullable */
+  incrementalInformationPercent: number | null;
+  /** @nullable */
+  stabilityPercent: number | null;
+  /** @nullable */
+  redundancyPercent: number | null;
+  /** @nullable */
+  falseSignalRatePercent: number | null;
+};
+
+export type ShadowLearningEvolutionStageScoreCalibrationState = typeof ShadowLearningEvolutionStageScoreCalibrationState[keyof typeof ShadowLearningEvolutionStageScoreCalibrationState];
+
+
+export const ShadowLearningEvolutionStageScoreCalibrationState = {
+  independent_validated: 'independent_validated',
+  insufficient_sample: 'insufficient_sample',
+  unavailable: 'unavailable',
+} as const;
+
+export type ShadowLearningEvolutionStageScoreCalibration = {
+  state: ShadowLearningEvolutionStageScoreCalibrationState;
+  reason: string;
+};
+
+export type ShadowLearningEvolutionStageScoreRecommendationAction = typeof ShadowLearningEvolutionStageScoreRecommendationAction[keyof typeof ShadowLearningEvolutionStageScoreRecommendationAction];
+
+
+export const ShadowLearningEvolutionStageScoreRecommendationAction = {
+  increase_validation: 'increase_validation',
+  maintain_observation: 'maintain_observation',
+  reduce_frequency: 'reduce_frequency',
+  pause: 'pause',
+  retire: 'retire',
+} as const;
+
+export type ShadowLearningEvolutionStageScoreRecommendation = {
+  action: ShadowLearningEvolutionStageScoreRecommendationAction;
+  approvalState: 'shadow_only_pending_human_review';
+  reason: string;
+};
+
+export interface ShadowLearningEvolutionStageScore {
+  stage: ShadowLearningEvolutionStageScoreStage;
+  evaluationState: ShadowLearningEvolutionStageScoreEvaluationState;
+  /** @minimum 0 */
+  sampleSize: number;
+  /** @minimum 0 */
+  featureCount: number;
+  improvements: ShadowLearningEvolutionStageScoreImprovements;
+  /** @nullable */
+  learningValuePercent: number | null;
+  /** @nullable */
+  learningReturnOnCost: number | null;
+  calibration: ShadowLearningEvolutionStageScoreCalibration;
+  recommendation: ShadowLearningEvolutionStageScoreRecommendation;
+  reason: string;
+}
+
+/**
+ * Read-only, shadow-only learning value and cost assessment. It cannot change live Alpha Radar, alerts, scans, notifications, or production model weights.
+ */
+export interface ShadowLearningEvolutionSnapshot {
+  schemaVersion: 1;
+  scoringVersion: string;
+  productionMutationAllowed: false;
+  activities: ShadowLearningEvolutionActivity[];
+  stageScores: ShadowLearningEvolutionStageScore[];
+  reason: string;
+  auditHash: string;
+}
+
 export type ShadowLearningDashboardPersistenceState = typeof ShadowLearningDashboardPersistenceState[keyof typeof ShadowLearningDashboardPersistenceState];
 
 
@@ -2889,6 +3090,7 @@ export interface ShadowLearningDashboard {
   promotion: ShadowPromotionRecommendation;
   learningPolicy: ShadowCoreLearningPolicy;
   stageFeatureAssessments: ShadowStageFeatureValueAssessment[];
+  learningEvolution: ShadowLearningEvolutionSnapshot;
   recentTriggers: ShadowLearningTriggerSummary[];
 }
 

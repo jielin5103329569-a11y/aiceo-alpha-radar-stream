@@ -90,6 +90,11 @@ export function ShadowLearningStatusPanel() {
   const insufficient = data.promotion.status === 'insufficient_sample';
   const candidate = data.promotion.status === 'candidate';
   const learningDirections = Object.entries(data.learningPolicy.directions);
+  const stageLabels: Record<string, string> = {
+    pre_breakout: 'Pre-breakout',
+    true_breakout: 'True breakout',
+    post_breakout: 'Post-breakout',
+  };
   const statusClass = candidate
     ? 'border-emerald-500/40 bg-emerald-500/5 text-emerald-700 dark:text-emerald-400'
     : unavailable
@@ -179,6 +184,57 @@ export function ShadowLearningStatusPanel() {
         <div className="rounded-md border border-border/50 bg-muted/10 px-3 py-2 text-[10px] leading-relaxed text-muted-foreground">
           <span className="font-semibold uppercase tracking-wider text-foreground">Promotion gate: </span>
           {data.promotion.rules.independentSplit} Requires +{formatPercent(data.promotion.rules.requiredHitRateAdvantagePercent)} hit rate and +{formatPercent(data.promotion.rules.requiredReturnAdvantagePercent)} favorable return on holdout, without worse drawdown. Candidate is manual review only.
+        </div>
+
+        <div className="rounded-md border border-primary/25 bg-primary/[0.03] p-3.5" data-testid="learning-evolution-panel">
+          <div className="flex flex-col justify-between gap-2 sm:flex-row sm:items-start">
+            <div>
+              <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wider text-primary">
+                <Target className="h-3.5 w-3.5" /> Learning evolution / value-to-cost audit
+              </div>
+              <p className="mt-1 text-[10px] leading-relaxed text-muted-foreground">
+                {data.learningEvolution.reason}
+              </p>
+            </div>
+            <Badge variant="outline" className="w-fit border-border/60 text-[9px] font-mono uppercase tracking-wider text-muted-foreground">
+              Production locked
+            </Badge>
+          </div>
+
+          <div className="mt-3 grid gap-3 lg:grid-cols-3">
+            {data.learningEvolution.stageScores.map((score) => (
+              <div key={score.stage} className="rounded-md border border-border/60 bg-card p-3">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="text-[10px] font-semibold uppercase tracking-wider text-foreground">
+                    {stageLabels[score.stage] ?? score.stage}
+                  </div>
+                  <span className="rounded border border-border/60 px-1.5 py-0.5 text-[8px] font-mono uppercase text-muted-foreground">
+                    {score.evaluationState.replaceAll('_', ' ')}
+                  </span>
+                </div>
+                <div className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1.5 text-[10px]">
+                  <span className="text-muted-foreground">Future sample</span>
+                  <span className="text-right font-mono">{formatNumber(score.sampleSize, 0)}</span>
+                  <span className="text-muted-foreground">Predictive Δ</span>
+                  <span className="text-right font-mono">{score.improvements.predictivePowerPercent === null ? '—' : formatPercent(score.improvements.predictivePowerPercent)}</span>
+                  <span className="text-muted-foreground">Risk/reward Δ</span>
+                  <span className="text-right font-mono">{score.improvements.riskRewardPercent === null ? '—' : formatPercent(score.improvements.riskRewardPercent)}</span>
+                  <span className="text-muted-foreground">False-signal rate</span>
+                  <span className="text-right font-mono">{score.improvements.falseSignalRatePercent === null ? '—' : formatPercent(score.improvements.falseSignalRatePercent)}</span>
+                </div>
+                <div className="mt-2 border-t border-border/40 pt-2 text-[10px] leading-relaxed text-muted-foreground">
+                  <span className="font-semibold uppercase tracking-wider text-foreground">Calibration: </span>
+                  {score.calibration.state.replaceAll('_', ' ')}
+                  <br />
+                  <span className="font-semibold uppercase tracking-wider text-foreground">Suggested action: </span>
+                  {score.recommendation.action.replaceAll('_', ' ')} · pending human review
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="mt-3 text-[10px] leading-relaxed text-muted-foreground">
+            Cost evidence is currently explicit when incomplete; no return-on-cost score or validation-priority increase is inferred from missing compute, data, storage, review, or cycle-cost records.
+          </div>
         </div>
       </CardContent>
     </Card>

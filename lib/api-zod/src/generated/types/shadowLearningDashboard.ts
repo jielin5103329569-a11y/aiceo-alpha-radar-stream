@@ -8,6 +8,7 @@
 import type { ShadowCoreLearningPolicy } from './shadowCoreLearningPolicy';
 import type { ShadowLearningDashboardPersistenceState } from './shadowLearningDashboardPersistenceState';
 import type { ShadowLearningDashboardSelectedHorizonDays } from './shadowLearningDashboardSelectedHorizonDays';
+import type { ShadowLearningEvolutionSnapshot } from './shadowLearningEvolutionSnapshot';
 import type { ShadowLearningStrategy } from './shadowLearningStrategy';
 import type { ShadowLearningTriggerSummary } from './shadowLearningTriggerSummary';
 import type { ShadowMetricComparison } from './shadowMetricComparison';
@@ -25,5 +26,6 @@ export interface ShadowLearningDashboard {
   promotion: ShadowPromotionRecommendation;
   learningPolicy: ShadowCoreLearningPolicy;
   stageFeatureAssessments: ShadowStageFeatureValueAssessment[];
+  learningEvolution: ShadowLearningEvolutionSnapshot;
   recentTriggers: ShadowLearningTriggerSummary[];
 }
