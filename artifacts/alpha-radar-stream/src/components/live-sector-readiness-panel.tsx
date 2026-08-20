@@ -2,9 +2,10 @@ import React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { cn, formatNumber, formatTime } from '@/lib/utils';
-import type { RadarStatus, SectorPrioritySnapshot } from '@workspace/api-client-react';
+import type { OpeningReadinessSnapshot, RadarStatus } from '@workspace/api-client-react';
 import {
   CircleAlert,
+  Clock,
   Layers,
   ShieldCheck,
 } from 'lucide-react';
@@ -31,37 +32,12 @@ function getGateStatus(
   return { label: 'Unavailable / Withheld', style: 'border-muted-foreground/30 bg-muted/20 text-muted-foreground' };
 }
 
-function getSectorReadinessStatus(snapshot: SectorPrioritySnapshot) {
-  if (snapshot.state === 'ranked' && snapshot.coverage.rankedSectorCount > 0) {
-    return {
-      label: 'Sector Ranking Active',
-      style: 'border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300',
-    };
-  }
-  if (snapshot.coverage.eligibleLiveSymbols > 0 || snapshot.coverage.classifiedLiveSymbols > 0) {
-    return {
-      label: 'Sector Ranking Withheld',
-      style: 'border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300',
-    };
-  }
-  return {
-    label: 'Sector Readiness Unavailable',
-    style: 'border-muted-foreground/30 bg-muted/20 text-muted-foreground',
-  };
-}
-
 export function LiveSectorReadinessPanel({ status }: LiveSectorReadinessPanelProps) {
   if (!status) {
     return null;
   }
 
-  const primaryGate = getGateStatus(
-    status.scanHealth.marketDataGateReady,
-    status.scanHealth.marketDataState,
-    status.liveIngestion.verifiedMarketEventCount,
-    status.connectionState
-  );
-  const sectorGate = getSectorReadinessStatus(status.sectorPriority);
+  const readiness = status.openingReadiness;
 
   return (
     <Card className="border-border">
@@ -73,59 +49,98 @@ export function LiveSectorReadinessPanel({ status }: LiveSectorReadinessPanelPro
               Opening Readiness Panel
             </CardTitle>
             <CardDescription className="mt-1 text-xs">
-              Read-only validation of the live data chain. Sector readiness needs two fresh, trusted classified constituents.
+              Read-only validation of the live data chain. Status labels reflect proven evidence, not heartbeat expectations.
             </CardDescription>
           </div>
-          <Badge variant="outline" className={cn("font-mono text-[10px] uppercase", sectorGate.style)}>
-            {sectorGate.label}
-          </Badge>
+          {readiness ? (
+            <div className="flex flex-col items-end gap-1">
+              <Badge variant="outline" className="font-mono text-[10px] uppercase bg-primary/10 text-primary border-primary/20">
+                {readiness.session.phase.replace('_', ' ')}
+              </Badge>
+              <span className="text-[9px] text-muted-foreground uppercase tracking-widest">
+                {readiness.session.mode.replace(/_/g, ' ')}
+              </span>
+            </div>
+          ) : (
+             <Badge variant="outline" className="font-mono text-[10px] uppercase border-muted-foreground/30 bg-muted/20 text-muted-foreground">
+              Awaiting Readiness Context
+            </Badge>
+          )}
         </div>
       </CardHeader>
       <CardContent className="space-y-6">
         
-        {/* Top-Level Summary Grid */}
+        {/* Pipeline Stages */}
+        {readiness && (
+          <div className="rounded-md border border-border/60 bg-card p-4">
+            <h3 className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground mb-4">
+              Chain of Evidence
+            </h3>
+            <div className="mb-4 border-l-2 border-primary/50 pl-3">
+              <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                {readiness.session.timezone} session context
+              </p>
+              <p className="mt-1 text-[11px] leading-relaxed text-foreground/80">
+                {readiness.session.detail}
+              </p>
+            </div>
+            <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+              {readiness.stages.map((stage) => (
+                <StageCard key={stage.id} stage={stage} />
+              ))}
+            </div>
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-4 border-t border-border/50 pt-3">
+              <div className="flex items-center gap-2">
+                <Clock className="h-3.5 w-3.5 text-muted-foreground" />
+                <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                  Next evaluation
+                </span>
+                <span className="font-mono text-[11px] text-foreground">
+                  {readiness.nextEvaluationAt ? formatTime(readiness.nextEvaluationAt) : 'Awaiting data'}
+                </span>
+              </div>
+              <p className="text-[10px] text-muted-foreground">
+                {readiness.nextEvaluationReason}
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Detailed Context Grid */}
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <SummaryCard title="Transport & Ingestion">
             <MetricRow label="Connection" value={status.connectionState} />
             <MetricRow label="Market Feed" value={status.marketFeedState} />
             <MetricRow
-              label="Recovery"
-              value={
-                status.reconnectState === 'scheduled' || status.reconnectState === 'exhausted'
-                  ? `${status.reconnectState} · ${formatTime(status.nextReconnectAt)}`
-                  : status.reconnectState
-              }
+              label="Verified Events"
+              value={formatNumber(status.liveIngestion.verifiedMarketEventCount, 0)}
+              valueClassName={status.liveIngestion.verifiedMarketEventCount > 0 ? 'text-primary' : 'text-muted-foreground'}
             />
-            <MetricRow label="Verified Events" value={formatNumber(status.liveIngestion.verifiedMarketEventCount, 0)} />
-            <MetricRow label="Current Window" value={formatNumber(status.liveIngestion.currentWindowMarketEventCount, 0)} />
-          </SummaryCard>
-
-          <SummaryCard title="Scan Health">
-            <MetricRow label="Scheduler" value={status.scanHealth.schedulerState} />
-            <MetricRow label="Market Data" value={status.scanHealth.marketDataState} />
             <MetricRow
-              label="Primary live gate"
-              value={primaryGate.label}
-              valueClassName={status.scanHealth.marketDataGateReady ? 'text-emerald-500' : 'text-muted-foreground'}
+              label="Current Window"
+              value={formatNumber(status.liveIngestion.currentWindowMarketEventCount, 0)}
             />
-            <ReasonBox reason={status.scanHealth.reason} />
           </SummaryCard>
 
           <SummaryCard title="Market Universe">
-            <MetricRow label="Reference freshness" value={status.marketUniverse.freshness} />
-            <MetricRow label="Classification quality" value={status.marketUniverse.dataQuality} />
-            <MetricRow label="Verified/Disc." value={`${formatNumber(status.marketUniverse.eligibleCount, 0)}`} />
-            <MetricRow label="Classified" value={formatNumber(status.marketUniverse.classificationCoverageCount, 0)} />
+            <MetricRow label="Freshness" value={status.marketUniverse.freshness} />
+            <MetricRow label="Quality" value={status.marketUniverse.dataQuality} />
+            <MetricRow label="Verified/Disc." value={formatNumber(status.marketUniverse.eligibleCount, 0)} />
             <ReasonBox reason={status.marketUniverse.reason} />
           </SummaryCard>
 
-          <SummaryCard title="Sector Priority">
+          <SummaryCard title="Sector Coverage">
             <MetricRow label="Live Symbols" value={formatNumber(status.sectorPriority.coverage.eligibleLiveSymbols, 0)} />
             <MetricRow label="Classified" value={formatNumber(status.sectorPriority.coverage.classifiedLiveSymbols, 0)} />
             <MetricRow label="Ranked Sectors" value={formatNumber(status.sectorPriority.coverage.rankedSectorCount, 0)} />
-            <MetricRow label="State" value={status.sectorPriority.state} />
-            <MetricRow label="Candidates (F/P/W)" value={`${status.sectorPriority.finalCandidates.length}/${status.sectorPriority.preBreakoutCandidates.length}/${status.sectorPriority.withheldCandidates.length}`} />
             <ReasonBox reason={status.sectorPriority.coverage.reason} />
+          </SummaryCard>
+
+          <SummaryCard title="Candidate Promotion">
+            <MetricRow label="State" value={status.sectorPriority.state} />
+            <MetricRow label="Final Candidates" value={formatNumber(status.sectorPriority.finalCandidates.length, 0)} />
+            <MetricRow label="Pre-Breakout" value={formatNumber(status.sectorPriority.preBreakoutCandidates.length, 0)} />
+            <MetricRow label="Withheld" value={formatNumber(status.sectorPriority.withheldCandidates.length, 0)} />
           </SummaryCard>
         </div>
 
@@ -151,36 +166,37 @@ export function LiveSectorReadinessPanel({ status }: LiveSectorReadinessPanelPro
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/50">
-                {status.symbolRadars.map((sym) => {
-                  const gate = getGateStatus(
-                    sym.scanHealth.marketDataGateReady,
-                    sym.scanHealth.marketDataState,
-                    sym.liveIngestion.verifiedMarketEventCount,
-                    sym.connectionState
-                  );
-                  
-                  return (
-                    <tr key={sym.symbol} className="bg-card">
-                      <td className="px-3 py-2 font-semibold text-foreground">{sym.symbol}</td>
-                      <td className="px-3 py-2">
-                        <Badge variant="outline" className={cn("text-[9px] px-1.5 py-0", gate.style)}>
-                          {gate.label}
-                        </Badge>
-                      </td>
-                      <td className="px-3 py-2 text-muted-foreground">{sym.connectionState}</td>
-                      <td className="px-3 py-2 text-muted-foreground">{sym.scanHealth.marketDataState}</td>
-                      <td className="px-3 py-2">
-                        <span className={sym.scanHealth.marketDataGateReady ? 'text-emerald-500' : 'text-muted-foreground'}>
-                          {sym.scanHealth.marketDataGateReady ? 'Ready' : 'Pending'}
-                        </span>
-                      </td>
-                      <td className="px-3 py-2 text-right">{formatNumber(sym.liveIngestion.verifiedMarketEventCount, 0)}</td>
-                      <td className="px-3 py-2 text-right">{formatNumber(sym.liveIngestion.currentWindowMarketEventCount, 0)}</td>
-                      <td className="px-3 py-2 text-muted-foreground">{sym.scanHealth.schedulerState}</td>
-                    </tr>
-                  );
-                })}
-                {status.symbolRadars.length === 0 && (
+                {status.symbolRadars && status.symbolRadars.length > 0 ? (
+                  status.symbolRadars.map((sym) => {
+                    const gate = getGateStatus(
+                      sym.scanHealth.marketDataGateReady,
+                      sym.scanHealth.marketDataState,
+                      sym.liveIngestion.verifiedMarketEventCount,
+                      sym.connectionState
+                    );
+
+                    return (
+                      <tr key={sym.symbol} className="bg-card hover:bg-muted/30 transition-colors">
+                        <td className="px-3 py-2 font-semibold text-foreground">{sym.symbol}</td>
+                        <td className="px-3 py-2">
+                          <Badge variant="outline" className={cn("text-[9px] px-1.5 py-0", gate.style)}>
+                            {gate.label}
+                          </Badge>
+                        </td>
+                        <td className="px-3 py-2 text-muted-foreground">{sym.connectionState}</td>
+                        <td className="px-3 py-2 text-muted-foreground">{sym.scanHealth.marketDataState}</td>
+                        <td className="px-3 py-2">
+                          <span className={sym.scanHealth.marketDataGateReady ? 'text-emerald-500' : 'text-muted-foreground'}>
+                            {sym.scanHealth.marketDataGateReady ? 'Ready' : 'Pending'}
+                          </span>
+                        </td>
+                        <td className="px-3 py-2 text-right">{formatNumber(sym.liveIngestion.verifiedMarketEventCount, 0)}</td>
+                        <td className="px-3 py-2 text-right">{formatNumber(sym.liveIngestion.currentWindowMarketEventCount, 0)}</td>
+                        <td className="px-3 py-2 text-muted-foreground">{sym.scanHealth.schedulerState}</td>
+                      </tr>
+                    );
+                  })
+                ) : (
                   <tr>
                     <td colSpan={8} className="px-3 py-6 text-center text-muted-foreground">
                       No symbols in live readiness scope.
@@ -191,9 +207,49 @@ export function LiveSectorReadinessPanel({ status }: LiveSectorReadinessPanelPro
             </table>
           </div>
         </div>
-
       </CardContent>
     </Card>
+  );
+}
+
+function StageCard({ stage }: { stage: OpeningReadinessSnapshot['stages'][number] }) {
+  const isReady = stage.state === 'ready';
+  const isMonitoring = stage.state === 'monitoring';
+  const isBlocked = stage.state === 'blocked';
+  const isWithheld = stage.state === 'withheld';
+
+  return (
+    <div className={cn(
+      "flex flex-col gap-1.5 rounded-md border p-3",
+      isReady ? "border-emerald-500/20 bg-emerald-500/5" :
+      isBlocked ? "border-destructive/20 bg-destructive/5" :
+      isMonitoring ? "border-primary/20 bg-primary/5" :
+      "border-muted-foreground/20 bg-muted/10"
+    )}>
+      <div className="flex items-center justify-between">
+        <span className="text-[10px] font-medium uppercase tracking-wider text-foreground">
+          {stage.label}
+        </span>
+        <Badge variant="outline" className={cn(
+          "font-mono text-[9px] px-1.5 py-0 uppercase border-transparent",
+          isReady ? "text-emerald-600 dark:text-emerald-400" :
+          isBlocked ? "text-destructive" :
+          isMonitoring ? "text-primary" :
+          "text-muted-foreground"
+        )}>
+          {stage.state}
+        </Badge>
+      </div>
+      <p className={cn(
+        "text-[10px] leading-relaxed",
+        isReady ? "text-emerald-700/80 dark:text-emerald-300/80" :
+        isBlocked ? "text-destructive/80" :
+        isMonitoring ? "text-primary/80" :
+        "text-muted-foreground"
+      )}>
+        {stage.detail}
+      </p>
+    </div>
   );
 }
 
@@ -208,7 +264,7 @@ function SummaryCard({ title, children }: { title: string; children: React.React
   );
 }
 
-function MetricRow({ label, value, valueClassName }: { label: string; value: string; valueClassName?: string }) {
+function MetricRow({ label, value, valueClassName }: { label: string; value: string | number; valueClassName?: string }) {
   return (
     <div className="flex items-start justify-between gap-3 text-[11px]">
       <span className="text-muted-foreground">{label}</span>

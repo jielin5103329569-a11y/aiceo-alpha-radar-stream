@@ -2609,6 +2609,53 @@ components:
         - triggerEvidence
         - scoringStatus
         - reason
+    OpeningReadinessStage:
+      type: object
+      properties:
+        id:
+          type: string
+          enum: [transport, live_evidence, trusted_classification, sector_constituents, sector_ranking, candidate_promotion]
+        label:
+          type: string
+        state:
+          type: string
+          enum: [monitoring, ready, blocked, withheld]
+        detail:
+          type: string
+      required: [id, label, state, detail]
+    OpeningReadinessSession:
+      type: object
+      properties:
+        phase:
+          type: string
+          enum: [pre_market, regular, after_hours, closed]
+        timezone:
+          type: string
+          enum: [America/New_York]
+        mode:
+          type: string
+          enum: [pre_market_monitoring, opening_reassessment, regular_monitoring, awaiting_next_session]
+        detail:
+          type: string
+      required: [phase, timezone, mode, detail]
+    OpeningReadinessSnapshot:
+      type: object
+      properties:
+        generatedAt:
+          type: string
+          format: date-time
+        session:
+          $ref: "#/components/schemas/OpeningReadinessSession"
+        nextEvaluationAt:
+          type: [string, "null"]
+          format: date-time
+        nextEvaluationReason:
+          type: string
+        stages:
+          type: array
+          items:
+            $ref: "#/components/schemas/OpeningReadinessStage"
+      required: [generatedAt, session, nextEvaluationAt, nextEvaluationReason, stages]
     RadarStatus:
       type: object
       properties:
@@ -2680,6 +2727,8 @@ components:
           $ref: "#/components/schemas/AlphaRadarRankingSnapshot"
         sectorPriority:
           $ref: "#/components/schemas/SectorPrioritySnapshot"
+        openingReadiness:
+          $ref: "#/components/schemas/OpeningReadinessSnapshot"
         preBreakoutLeader:
           type: [object, "null"]
           properties:
@@ -2721,4 +2770,5 @@ components:
         - symbolRadars
         - alphaRanking
         - sectorPriority
+        - openingReadiness
         - preBreakoutLeader

@@ -1890,6 +1890,78 @@ export interface RadarStream {
   lastEventAt: string | null;
 }
 
+export type OpeningReadinessStageId = typeof OpeningReadinessStageId[keyof typeof OpeningReadinessStageId];
+
+
+export const OpeningReadinessStageId = {
+  transport: 'transport',
+  live_evidence: 'live_evidence',
+  trusted_classification: 'trusted_classification',
+  sector_constituents: 'sector_constituents',
+  sector_ranking: 'sector_ranking',
+  candidate_promotion: 'candidate_promotion',
+} as const;
+
+export type OpeningReadinessStageState = typeof OpeningReadinessStageState[keyof typeof OpeningReadinessStageState];
+
+
+export const OpeningReadinessStageState = {
+  monitoring: 'monitoring',
+  ready: 'ready',
+  blocked: 'blocked',
+  withheld: 'withheld',
+} as const;
+
+export interface OpeningReadinessStage {
+  id: OpeningReadinessStageId;
+  label: string;
+  state: OpeningReadinessStageState;
+  detail: string;
+}
+
+export type OpeningReadinessSessionPhase = typeof OpeningReadinessSessionPhase[keyof typeof OpeningReadinessSessionPhase];
+
+
+export const OpeningReadinessSessionPhase = {
+  pre_market: 'pre_market',
+  regular: 'regular',
+  after_hours: 'after_hours',
+  closed: 'closed',
+} as const;
+
+export type OpeningReadinessSessionTimezone = typeof OpeningReadinessSessionTimezone[keyof typeof OpeningReadinessSessionTimezone];
+
+
+export const OpeningReadinessSessionTimezone = {
+  'America/New_York': 'America/New_York',
+} as const;
+
+export type OpeningReadinessSessionMode = typeof OpeningReadinessSessionMode[keyof typeof OpeningReadinessSessionMode];
+
+
+export const OpeningReadinessSessionMode = {
+  pre_market_monitoring: 'pre_market_monitoring',
+  opening_reassessment: 'opening_reassessment',
+  regular_monitoring: 'regular_monitoring',
+  awaiting_next_session: 'awaiting_next_session',
+} as const;
+
+export interface OpeningReadinessSession {
+  phase: OpeningReadinessSessionPhase;
+  timezone: OpeningReadinessSessionTimezone;
+  mode: OpeningReadinessSessionMode;
+  detail: string;
+}
+
+export interface OpeningReadinessSnapshot {
+  generatedAt: string;
+  session: OpeningReadinessSession;
+  /** @nullable */
+  nextEvaluationAt: string | null;
+  nextEvaluationReason: string;
+  stages: OpeningReadinessStage[];
+}
+
 /**
  * @nullable
  */
@@ -1935,6 +2007,7 @@ export interface RadarStatus {
   symbolRadars: RadarSymbolStatus[];
   alphaRanking: AlphaRadarRankingSnapshot;
   sectorPriority: SectorPrioritySnapshot;
+  openingReadiness: OpeningReadinessSnapshot;
   /** @nullable */
   preBreakoutLeader: RadarStatusPreBreakoutLeader;
 }

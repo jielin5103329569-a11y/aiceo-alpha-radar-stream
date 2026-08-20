@@ -36,6 +36,10 @@ import {
   buildSectorPriority,
   type SectorPrioritySnapshot,
 } from "./sectorPriority";
+import {
+  buildOpeningReadiness,
+  type OpeningReadinessSnapshot,
+} from "./openingReadiness";
 import { signalValidation } from "./signalValidation";
 import {
   SHADOW_MODEL_VERSION,
@@ -257,6 +261,8 @@ export type RadarStatus = {
   catalystRadar?: CatalystRadarSnapshot;
   opportunityCenter?: OpportunityCenterSnapshot;
   sectorPriority?: SectorPrioritySnapshot;
+  /** Aggregate-only read-only explanation of the existing opening readiness gates. */
+  openingReadiness: OpeningReadinessSnapshot | null;
 };
 
 export type RadarSymbolStatus = {
@@ -540,6 +546,7 @@ function blankStatus(symbol = "NVDA"): RadarStatus {
       degradation: "offline",
       reason: "Scanner is inactive. No scheduled scan, transport state, or cached value is treated as live market evidence.",
     },
+    openingReadiness: null,
   };
 }
 
@@ -3076,6 +3083,12 @@ export class DatabentoUniverseService extends EventEmitter {
         && marketUniverseSnapshot.dataQuality === "good",
       now,
     });
+    const openingReadiness = buildOpeningReadiness({
+      symbols: symbolRadars,
+      marketUniverse: marketUniverseSnapshot,
+      sectorPriority,
+      now,
+    });
 
     return {
       ...primary,
@@ -3086,6 +3099,7 @@ export class DatabentoUniverseService extends EventEmitter {
       catalystRadar: opportunityData.catalystRadar,
       opportunityCenter: opportunityData.opportunityCenter,
       sectorPriority,
+      openingReadiness,
       preBreakoutLeader: leader
         ? {
             symbol: leader.symbol,

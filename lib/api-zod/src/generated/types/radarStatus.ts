@@ -13,6 +13,7 @@ import type { FocusedScanSnapshot } from './focusedScanSnapshot';
 import type { LiveIngestionDiagnostics } from './liveIngestionDiagnostics';
 import type { MarketFeedState } from './marketFeedState';
 import type { MarketUniverseSummary } from './marketUniverseSummary';
+import type { OpeningReadinessSnapshot } from './openingReadinessSnapshot';
 import type { OpportunityCenterSnapshot } from './opportunityCenterSnapshot';
 import type { ProtectedScanHealth } from './protectedScanHealth';
 import type { RadarConnectionState } from './radarConnectionState';
@@ -59,6 +60,7 @@ export interface RadarStatus {
   symbolRadars: RadarSymbolStatus[];
   alphaRanking: AlphaRadarRankingSnapshot;
   sectorPriority: SectorPrioritySnapshot;
+  openingReadiness: OpeningReadinessSnapshot;
   /** @nullable */
   preBreakoutLeader: RadarStatusPreBreakoutLeader;
 }

@@ -1116,6 +1116,23 @@ export const GetRadarStatusResponse = zod.object({
 })),
   "reason": zod.string()
 }),
+  "openingReadiness": zod.object({
+  "generatedAt": zod.coerce.date(),
+  "session": zod.object({
+  "phase": zod.enum(['pre_market', 'regular', 'after_hours', 'closed']),
+  "timezone": zod.enum(['America/New_York']),
+  "mode": zod.enum(['pre_market_monitoring', 'opening_reassessment', 'regular_monitoring', 'awaiting_next_session']),
+  "detail": zod.string()
+}),
+  "nextEvaluationAt": zod.coerce.date().nullable(),
+  "nextEvaluationReason": zod.string(),
+  "stages": zod.array(zod.object({
+  "id": zod.enum(['transport', 'live_evidence', 'trusted_classification', 'sector_constituents', 'sector_ranking', 'candidate_promotion']),
+  "label": zod.string(),
+  "state": zod.enum(['monitoring', 'ready', 'blocked', 'withheld']),
+  "detail": zod.string()
+}))
+}),
   "preBreakoutLeader": zod.object({
   "symbol": zod.string(),
   "state": zod.enum(['unavailable', 'watch', 'accelerating', 'pre_breakout', 'confirmed']),
@@ -2224,6 +2241,23 @@ export const StartRadarConnectionResponse = zod.object({
 })),
   "reason": zod.string()
 }),
+  "openingReadiness": zod.object({
+  "generatedAt": zod.coerce.date(),
+  "session": zod.object({
+  "phase": zod.enum(['pre_market', 'regular', 'after_hours', 'closed']),
+  "timezone": zod.enum(['America/New_York']),
+  "mode": zod.enum(['pre_market_monitoring', 'opening_reassessment', 'regular_monitoring', 'awaiting_next_session']),
+  "detail": zod.string()
+}),
+  "nextEvaluationAt": zod.coerce.date().nullable(),
+  "nextEvaluationReason": zod.string(),
+  "stages": zod.array(zod.object({
+  "id": zod.enum(['transport', 'live_evidence', 'trusted_classification', 'sector_constituents', 'sector_ranking', 'candidate_promotion']),
+  "label": zod.string(),
+  "state": zod.enum(['monitoring', 'ready', 'blocked', 'withheld']),
+  "detail": zod.string()
+}))
+}),
   "preBreakoutLeader": zod.object({
   "symbol": zod.string(),
   "state": zod.enum(['unavailable', 'watch', 'accelerating', 'pre_breakout', 'confirmed']),
@@ -3331,6 +3365,23 @@ export const StopRadarConnectionResponse = zod.object({
   "reason": zod.string()
 })),
   "reason": zod.string()
+}),
+  "openingReadiness": zod.object({
+  "generatedAt": zod.coerce.date(),
+  "session": zod.object({
+  "phase": zod.enum(['pre_market', 'regular', 'after_hours', 'closed']),
+  "timezone": zod.enum(['America/New_York']),
+  "mode": zod.enum(['pre_market_monitoring', 'opening_reassessment', 'regular_monitoring', 'awaiting_next_session']),
+  "detail": zod.string()
+}),
+  "nextEvaluationAt": zod.coerce.date().nullable(),
+  "nextEvaluationReason": zod.string(),
+  "stages": zod.array(zod.object({
+  "id": zod.enum(['transport', 'live_evidence', 'trusted_classification', 'sector_constituents', 'sector_ranking', 'candidate_promotion']),
+  "label": zod.string(),
+  "state": zod.enum(['monitoring', 'ready', 'blocked', 'withheld']),
+  "detail": zod.string()
+}))
 }),
   "preBreakoutLeader": zod.object({
   "symbol": zod.string(),

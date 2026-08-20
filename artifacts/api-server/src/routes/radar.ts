@@ -140,7 +140,10 @@ router.get("/radar/events", (req: Request, res: Response): void => {
   writeStatus();
 
   const heartbeat = setInterval(() => {
-    res.write(": keep-alive\n\n");
+    // Publish a freshly derived status even when the market is quiet so
+    // session transitions and readiness context update without treating this
+    // transport heartbeat as market evidence.
+    writeStatus();
   }, 15_000);
   databentoLive.on("status", writeStatus);
 
