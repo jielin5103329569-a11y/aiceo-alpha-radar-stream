@@ -9,6 +9,7 @@ import { ShadowLearningStatusPanel } from '@/components/shadow-learning-status-p
 import { DataGovernanceCard } from '@/components/data-governance-card';
 import { EngineeringGovernanceCard } from '@/components/engineering-governance-card';
 import { BackendLifelineCard } from '@/components/backend-lifeline-card';
+import { RuntimeSupervisorCard } from '@/components/runtime-supervisor-card';
 import { AccountControls } from '@/components/account-controls';
 import { AccountAlerts } from '@/components/account-alerts';
 import { CatalystOpportunityCenter } from '@/components/catalyst-opportunity-center';
@@ -230,6 +231,7 @@ export default function Dashboard() {
           <RadarSignalPanel alphaRadar={status?.alphaRadar} scanHealth={status?.scanHealth} />
           <DataGovernanceCard governance={status?.governance} />
           <BackendLifelineCard />
+          <RuntimeSupervisorCard />
           <EngineeringGovernanceCard />
 
           <LiveIngestionAcceptanceCard diagnostics={status?.liveIngestion} />

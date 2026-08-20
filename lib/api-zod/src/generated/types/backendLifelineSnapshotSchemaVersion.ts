@@ -10,5 +10,5 @@ export type BackendLifelineSnapshotSchemaVersion = typeof BackendLifelineSnapsho
 
 
 export const BackendLifelineSnapshotSchemaVersion = {
-  NUMBER_1: 1,
+  NUMBER_2: 2,
 } as const;

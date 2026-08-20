@@ -9,6 +9,7 @@ import { alertService } from "./lib/alertService";
 import { backendLifeline } from "./lib/backendLifeline";
 import { internalTaskRegistry } from "./lib/internalTaskRegistry";
 import { radarSseConnections } from "./lib/sseConnections";
+import { runtimeSupervisor } from "./lib/runtimeSupervisor";
 import { createGracefulShutdown } from "./lib/serverLifecycle";
 
 const rawPort = process.env["PORT"];
@@ -43,6 +44,7 @@ const shutdown = createGracefulShutdown({
   // subscribed AlertService. Market windows and scanner state are intentionally
   // discarded by DatabentoLiveService.stop() and rebuild after the next start.
   stopServices: () => {
+    runtimeSupervisor.stop();
     alertService.stop();
     internalTaskRegistry.stop();
     databentoLive.stop();
@@ -92,6 +94,17 @@ server.once("listening", () => {
   } catch (error) {
     logger.error({ error }, "Internal task governance failed to start; production real-time services remain running");
   }
+  runtimeSupervisor.start({
+    getLifeline: (now) => backendLifeline.getSnapshot({
+      now,
+      symbols: databentoLive.getLifelineHealth(now),
+      alert: alertService.getHealth(),
+      marketUniverse: marketUniverse.getLifelineHealth(now),
+      internalTasks: internalTaskRegistry.getSnapshot(now),
+    }),
+    getDashboardDelivery: () => ({ activeSseConnections: radarSseConnections.size }),
+    reclaimInternalTask: (taskKey, operatorId, now) => internalTaskRegistry.reclaim(taskKey, operatorId, now),
+  });
 });
 
 process.once("SIGTERM", () => shutdown("SIGTERM"));

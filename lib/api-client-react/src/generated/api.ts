@@ -28,6 +28,7 @@ import type {
   FocusedScanSnapshot,
   GetAlertsParams,
   GetMarketUniverseParams,
+  GetRuntimeSupervisorIncidentsParams,
   GetShadowLearningValidationParams,
   GetSignalValidationParams,
   HealthStatus,
@@ -36,6 +37,9 @@ import type {
   PushCapability,
   PushSubscriptionRequest,
   RadarStatus,
+  RuntimeSupervisorError,
+  RuntimeSupervisorIncidentRecord,
+  RuntimeSupervisorSnapshot,
   ShadowLearningDashboard,
   SignalValidationAudit,
   SignalValidationDashboard,
@@ -369,6 +373,168 @@ export function useGetBackendLifeline<TData = Awaited<ReturnType<typeof getBacke
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getGetBackendLifelineQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetRuntimeSupervisorUrl = () => {
+
+
+
+
+  return `/api/radar/runtime-supervisor`
+}
+
+/**
+ * Read-only operational supervision. It cannot read or control Replit background task agents, Planning sessions, Build gates, or account-level concurrency, and it never grants market or Alert authority.
+ * @summary Read the server-owned runtime supervisor
+ */
+export const getRuntimeSupervisor = async ( options?: Parameters<typeof customFetch>[1]): Promise<RuntimeSupervisorSnapshot> => {
+
+  return customFetch<RuntimeSupervisorSnapshot>(getGetRuntimeSupervisorUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetRuntimeSupervisorQueryKey = () => {
+    return [
+    `/api/radar/runtime-supervisor`
+    ] as const;
+    }
+
+
+export const getGetRuntimeSupervisorQueryOptions = <TData = Awaited<ReturnType<typeof getRuntimeSupervisor>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getRuntimeSupervisor>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetRuntimeSupervisorQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getRuntimeSupervisor>>> = ({ signal }) => getRuntimeSupervisor({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getRuntimeSupervisor>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetRuntimeSupervisorQueryResult = NonNullable<Awaited<ReturnType<typeof getRuntimeSupervisor>>>
+export type GetRuntimeSupervisorQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Read the server-owned runtime supervisor
+ */
+
+export function useGetRuntimeSupervisor<TData = Awaited<ReturnType<typeof getRuntimeSupervisor>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getRuntimeSupervisor>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetRuntimeSupervisorQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetRuntimeSupervisorIncidentsUrl = (params?: GetRuntimeSupervisorIncidentsParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/radar/runtime-incidents?${stringifiedParams}` : `/api/radar/runtime-incidents`
+}
+
+/**
+ * @summary List persistent runtime-supervisor incidents
+ */
+export const getRuntimeSupervisorIncidents = async (params?: GetRuntimeSupervisorIncidentsParams, options?: Parameters<typeof customFetch>[1]): Promise<RuntimeSupervisorIncidentRecord[]> => {
+
+  return customFetch<RuntimeSupervisorIncidentRecord[]>(getGetRuntimeSupervisorIncidentsUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetRuntimeSupervisorIncidentsQueryKey = (params?: GetRuntimeSupervisorIncidentsParams,) => {
+    return [
+    `/api/radar/runtime-incidents`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetRuntimeSupervisorIncidentsQueryOptions = <TData = Awaited<ReturnType<typeof getRuntimeSupervisorIncidents>>, TError = ErrorType<RuntimeSupervisorError>>(params?: GetRuntimeSupervisorIncidentsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getRuntimeSupervisorIncidents>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetRuntimeSupervisorIncidentsQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getRuntimeSupervisorIncidents>>> = ({ signal }) => getRuntimeSupervisorIncidents(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getRuntimeSupervisorIncidents>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetRuntimeSupervisorIncidentsQueryResult = NonNullable<Awaited<ReturnType<typeof getRuntimeSupervisorIncidents>>>
+export type GetRuntimeSupervisorIncidentsQueryError = ErrorType<RuntimeSupervisorError>
+
+
+/**
+ * @summary List persistent runtime-supervisor incidents
+ */
+
+export function useGetRuntimeSupervisorIncidents<TData = Awaited<ReturnType<typeof getRuntimeSupervisorIncidents>>, TError = ErrorType<RuntimeSupervisorError>>(
+ params?: GetRuntimeSupervisorIncidentsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getRuntimeSupervisorIncidents>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetRuntimeSupervisorIncidentsQueryOptions(params,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

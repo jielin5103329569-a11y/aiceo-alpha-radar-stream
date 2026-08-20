@@ -1255,7 +1255,7 @@ export type EngineeringGovernanceSnapshotSchemaVersion = typeof EngineeringGover
 
 
 export const EngineeringGovernanceSnapshotSchemaVersion = {
-  NUMBER_2: 2,
+  NUMBER_1: 1,
 } as const;
 
 export type EngineeringGovernanceSnapshotPlatformBoundaryInternalExecutionLeaseState = typeof EngineeringGovernanceSnapshotPlatformBoundaryInternalExecutionLeaseState[keyof typeof EngineeringGovernanceSnapshotPlatformBoundaryInternalExecutionLeaseState];
@@ -1590,7 +1590,7 @@ export type BackendLifelineSnapshotSchemaVersion = typeof BackendLifelineSnapsho
 
 
 export const BackendLifelineSnapshotSchemaVersion = {
-  NUMBER_1: 1,
+  NUMBER_2: 2,
 } as const;
 
 export type BackendLifelineSnapshotOverallState = typeof BackendLifelineSnapshotOverallState[keyof typeof BackendLifelineSnapshotOverallState];
@@ -1895,6 +1895,254 @@ export interface BackendLifelineSnapshot {
   internalTasks: InternalTaskGovernanceSnapshot;
   symbols: DatabentoLifelineSymbolHealth[];
   auditHash: string;
+}
+
+export type RuntimeSupervisorSnapshotSchemaVersion = typeof RuntimeSupervisorSnapshotSchemaVersion[keyof typeof RuntimeSupervisorSnapshotSchemaVersion];
+
+
+export const RuntimeSupervisorSnapshotSchemaVersion = {
+  NUMBER_1: 1,
+} as const;
+
+export type RuntimeSupervisorSnapshotState = typeof RuntimeSupervisorSnapshotState[keyof typeof RuntimeSupervisorSnapshotState];
+
+
+export const RuntimeSupervisorSnapshotState = {
+  healthy: 'healthy',
+  degraded: 'degraded',
+  recovering: 'recovering',
+  blocked: 'blocked',
+} as const;
+
+export type RuntimeSupervisorSnapshotApplicationProcess = typeof RuntimeSupervisorSnapshotApplicationProcess[keyof typeof RuntimeSupervisorSnapshotApplicationProcess];
+
+
+export const RuntimeSupervisorSnapshotApplicationProcess = {
+  healthy: 'healthy',
+  degraded: 'degraded',
+  blocked: 'blocked',
+} as const;
+
+export type RuntimeSupervisorSnapshotApplicationLiveFeed = typeof RuntimeSupervisorSnapshotApplicationLiveFeed[keyof typeof RuntimeSupervisorSnapshotApplicationLiveFeed];
+
+
+export const RuntimeSupervisorSnapshotApplicationLiveFeed = {
+  healthy: 'healthy',
+  recovering: 'recovering',
+  degraded: 'degraded',
+} as const;
+
+export type RuntimeSupervisorSnapshotApplicationAlertService = typeof RuntimeSupervisorSnapshotApplicationAlertService[keyof typeof RuntimeSupervisorSnapshotApplicationAlertService];
+
+
+export const RuntimeSupervisorSnapshotApplicationAlertService = {
+  healthy: 'healthy',
+  degraded: 'degraded',
+} as const;
+
+export type RuntimeSupervisorSnapshotApplicationInternalExecution = typeof RuntimeSupervisorSnapshotApplicationInternalExecution[keyof typeof RuntimeSupervisorSnapshotApplicationInternalExecution];
+
+
+export const RuntimeSupervisorSnapshotApplicationInternalExecution = {
+  healthy: 'healthy',
+  recovering: 'recovering',
+  degraded: 'degraded',
+  blocked: 'blocked',
+} as const;
+
+export type RuntimeSupervisorSnapshotApplicationDashboardDeliveryState = typeof RuntimeSupervisorSnapshotApplicationDashboardDeliveryState[keyof typeof RuntimeSupervisorSnapshotApplicationDashboardDeliveryState];
+
+
+export const RuntimeSupervisorSnapshotApplicationDashboardDeliveryState = {
+  observational_only: 'observational_only',
+} as const;
+
+export type RuntimeSupervisorSnapshotApplicationDashboardDelivery = {
+  state: RuntimeSupervisorSnapshotApplicationDashboardDeliveryState;
+  /** @minimum 0 */
+  activeSseConnections: number;
+};
+
+export type RuntimeSupervisorSnapshotApplication = {
+  process: RuntimeSupervisorSnapshotApplicationProcess;
+  liveFeed: RuntimeSupervisorSnapshotApplicationLiveFeed;
+  alertService: RuntimeSupervisorSnapshotApplicationAlertService;
+  internalExecution: RuntimeSupervisorSnapshotApplicationInternalExecution;
+  dashboardDelivery: RuntimeSupervisorSnapshotApplicationDashboardDelivery;
+};
+
+export type RuntimeSupervisorSnapshotExternalPlatformTaskControlPlane = typeof RuntimeSupervisorSnapshotExternalPlatformTaskControlPlane[keyof typeof RuntimeSupervisorSnapshotExternalPlatformTaskControlPlane];
+
+
+export const RuntimeSupervisorSnapshotExternalPlatformTaskControlPlane = {
+  unobservable: 'unobservable',
+} as const;
+
+export type RuntimeSupervisorSnapshotExternalPlatform = {
+  taskControlPlane: RuntimeSupervisorSnapshotExternalPlatformTaskControlPlane;
+  affectsApplicationHealth: false;
+  reason: string;
+};
+
+export type RuntimeSupervisorSnapshotPersistenceState = typeof RuntimeSupervisorSnapshotPersistenceState[keyof typeof RuntimeSupervisorSnapshotPersistenceState];
+
+
+export const RuntimeSupervisorSnapshotPersistenceState = {
+  ready: 'ready',
+  unavailable: 'unavailable',
+} as const;
+
+export type RuntimeSupervisorSnapshotPersistence = {
+  state: RuntimeSupervisorSnapshotPersistenceState;
+  /** @nullable */
+  lastPersistedAt: string | null;
+  /** @nullable */
+  lastErrorAt: string | null;
+  /** @nullable */
+  lastError: string | null;
+};
+
+export type RuntimeSupervisorSnapshotRecovery = {
+  /** @minimum 0 */
+  maxAttempts: number;
+  /** @minimum 0 */
+  activeAttempts: number;
+  /** @nullable */
+  nextEligibleAt: string | null;
+  reason: string;
+};
+
+export type RuntimeSupervisorIncidentSummaryComponent = typeof RuntimeSupervisorIncidentSummaryComponent[keyof typeof RuntimeSupervisorIncidentSummaryComponent];
+
+
+export const RuntimeSupervisorIncidentSummaryComponent = {
+  process: 'process',
+  live_feed: 'live_feed',
+  alert_service: 'alert_service',
+  internal_execution: 'internal_execution',
+  dashboard_delivery: 'dashboard_delivery',
+  persistence: 'persistence',
+} as const;
+
+export type RuntimeSupervisorIncidentSummarySeverity = typeof RuntimeSupervisorIncidentSummarySeverity[keyof typeof RuntimeSupervisorIncidentSummarySeverity];
+
+
+export const RuntimeSupervisorIncidentSummarySeverity = {
+  warning: 'warning',
+  critical: 'critical',
+} as const;
+
+export type RuntimeSupervisorIncidentSummaryState = typeof RuntimeSupervisorIncidentSummaryState[keyof typeof RuntimeSupervisorIncidentSummaryState];
+
+
+export const RuntimeSupervisorIncidentSummaryState = {
+  open: 'open',
+  recovering: 'recovering',
+  resolved: 'resolved',
+} as const;
+
+export interface RuntimeSupervisorIncidentSummary {
+  incidentKey: string;
+  component: RuntimeSupervisorIncidentSummaryComponent;
+  reasonCode: string;
+  severity: RuntimeSupervisorIncidentSummarySeverity;
+  state: RuntimeSupervisorIncidentSummaryState;
+  firstDetectedAt: string;
+  lastObservedAt: string;
+  /** @minimum 0 */
+  recoveryAttempts: number;
+  /** @nullable */
+  nextRecoveryAt: string | null;
+  reason: string;
+}
+
+/**
+ * Read-only application supervision. Its state is explicitly separate from market freshness, Alpha scoring, Alert eligibility, and external Replit task-control-plane visibility.
+ */
+export interface RuntimeSupervisorSnapshot {
+  schemaVersion: RuntimeSupervisorSnapshotSchemaVersion;
+  observedAt: string;
+  running: boolean;
+  /** @nullable */
+  startedAt: string | null;
+  /** @nullable */
+  lastInspectionAt: string | null;
+  state: RuntimeSupervisorSnapshotState;
+  reason: string;
+  application: RuntimeSupervisorSnapshotApplication;
+  externalPlatform: RuntimeSupervisorSnapshotExternalPlatform;
+  persistence: RuntimeSupervisorSnapshotPersistence;
+  recovery: RuntimeSupervisorSnapshotRecovery;
+  incidents: RuntimeSupervisorIncidentSummary[];
+  auditHash: string;
+}
+
+/**
+ * A read-only runtime supervisor endpoint error. It never indicates market or Alert eligibility.
+ */
+export interface RuntimeSupervisorError {
+  error: string;
+}
+
+export type RuntimeSupervisorEvidenceDetails = {[key: string]: string | number | boolean | null};
+
+export interface RuntimeSupervisorEvidence {
+  summary: string;
+  componentState: string;
+  details: RuntimeSupervisorEvidenceDetails;
+}
+
+export type RuntimeSupervisorRecoveryAuditOutcome = typeof RuntimeSupervisorRecoveryAuditOutcome[keyof typeof RuntimeSupervisorRecoveryAuditOutcome];
+
+
+export const RuntimeSupervisorRecoveryAuditOutcome = {
+  scheduled: 'scheduled',
+  succeeded: 'succeeded',
+  failed: 'failed',
+  skipped: 'skipped',
+} as const;
+
+export interface RuntimeSupervisorRecoveryAudit {
+  action: string;
+  outcome: RuntimeSupervisorRecoveryAuditOutcome;
+  reason: string;
+  attemptedAt: string;
+}
+
+export type RuntimeSupervisorIncidentRecordSeverity = typeof RuntimeSupervisorIncidentRecordSeverity[keyof typeof RuntimeSupervisorIncidentRecordSeverity];
+
+
+export const RuntimeSupervisorIncidentRecordSeverity = {
+  warning: 'warning',
+  critical: 'critical',
+} as const;
+
+export type RuntimeSupervisorIncidentRecordState = typeof RuntimeSupervisorIncidentRecordState[keyof typeof RuntimeSupervisorIncidentRecordState];
+
+
+export const RuntimeSupervisorIncidentRecordState = {
+  open: 'open',
+  recovering: 'recovering',
+  resolved: 'resolved',
+} as const;
+
+export interface RuntimeSupervisorIncidentRecord {
+  id: string;
+  incidentKey: string;
+  component: string;
+  reasonCode: string;
+  severity: RuntimeSupervisorIncidentRecordSeverity;
+  state: RuntimeSupervisorIncidentRecordState;
+  firstDetectedAt: string;
+  lastObservedAt: string;
+  /** @nullable */
+  resolvedAt: string | null;
+  /** @minimum 1 */
+  occurrenceCount: number;
+  evidence: RuntimeSupervisorEvidence;
+  lastRecovery: RuntimeSupervisorRecoveryAudit | null;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export type GovernanceLayerId = typeof GovernanceLayerId[keyof typeof GovernanceLayerId];
@@ -3341,6 +3589,14 @@ export interface RadarStatus {
   /** @nullable */
   preBreakoutLeader: RadarStatusPreBreakoutLeader;
 }
+
+export type GetRuntimeSupervisorIncidentsParams = {
+/**
+ * @minimum 1
+ * @maximum 100
+ */
+limit?: number;
+};
 
 export type GetMarketUniverseParams = {
 /**

@@ -1554,7 +1554,7 @@ export const getEngineeringGovernanceResponseRuntimeDuplicateSymbolCountMin = 0;
 
 
 export const GetEngineeringGovernanceResponse = zod.object({
-  "schemaVersion": zod.literal(2),
+  "schemaVersion": zod.literal(1),
   "generatedAt": zod.coerce.date(),
   "healthScore": zod.number().min(getEngineeringGovernanceResponseHealthScoreMin).max(getEngineeringGovernanceResponseHealthScoreMax),
   "state": zod.enum(['healthy', 'degraded', 'blocked']),
@@ -1751,7 +1751,7 @@ export const getBackendLifelineResponseSymbolsItemMarketEventAgeMsMin = 0;
 
 
 export const GetBackendLifelineResponse = zod.object({
-  "schemaVersion": zod.literal(1),
+  "schemaVersion": zod.literal(2),
   "observedAt": zod.coerce.date(),
   "overall": zod.object({
   "state": zod.enum(['healthy', 'degraded', 'blocked']),
@@ -1921,6 +1921,114 @@ export const GetBackendLifelineResponse = zod.object({
 })),
   "auditHash": zod.string()
 }).describe('Read-only server lifeline. Process\/transport\/heartbeat health never grants market freshness, scoring, or Alert eligibility.\n')
+
+
+/**
+ * Read-only operational supervision. It cannot read or control Replit background task agents, Planning sessions, Build gates, or account-level concurrency, and it never grants market or Alert authority.
+ * @summary Read the server-owned runtime supervisor
+ */
+export const getRuntimeSupervisorResponseApplicationDashboardDeliveryActiveSseConnectionsMin = 0;
+
+export const getRuntimeSupervisorResponseRecoveryMaxAttemptsMin = 0;
+
+export const getRuntimeSupervisorResponseRecoveryActiveAttemptsMin = 0;
+
+export const getRuntimeSupervisorResponseIncidentsItemRecoveryAttemptsMin = 0;
+
+
+
+export const GetRuntimeSupervisorResponse = zod.object({
+  "schemaVersion": zod.literal(1),
+  "observedAt": zod.coerce.date(),
+  "running": zod.boolean(),
+  "startedAt": zod.coerce.date().nullable(),
+  "lastInspectionAt": zod.coerce.date().nullable(),
+  "state": zod.enum(['healthy', 'degraded', 'recovering', 'blocked']),
+  "reason": zod.string(),
+  "application": zod.object({
+  "process": zod.enum(['healthy', 'degraded', 'blocked']),
+  "liveFeed": zod.enum(['healthy', 'recovering', 'degraded']),
+  "alertService": zod.enum(['healthy', 'degraded']),
+  "internalExecution": zod.enum(['healthy', 'recovering', 'degraded', 'blocked']),
+  "dashboardDelivery": zod.object({
+  "state": zod.enum(['observational_only']),
+  "activeSseConnections": zod.number().min(getRuntimeSupervisorResponseApplicationDashboardDeliveryActiveSseConnectionsMin)
+})
+}),
+  "externalPlatform": zod.object({
+  "taskControlPlane": zod.enum(['unobservable']),
+  "affectsApplicationHealth": zod.literal(false),
+  "reason": zod.string()
+}),
+  "persistence": zod.object({
+  "state": zod.enum(['ready', 'unavailable']),
+  "lastPersistedAt": zod.coerce.date().nullable(),
+  "lastErrorAt": zod.coerce.date().nullable(),
+  "lastError": zod.string().nullable()
+}),
+  "recovery": zod.object({
+  "maxAttempts": zod.number().min(getRuntimeSupervisorResponseRecoveryMaxAttemptsMin),
+  "activeAttempts": zod.number().min(getRuntimeSupervisorResponseRecoveryActiveAttemptsMin),
+  "nextEligibleAt": zod.coerce.date().nullable(),
+  "reason": zod.string()
+}),
+  "incidents": zod.array(zod.object({
+  "incidentKey": zod.string(),
+  "component": zod.enum(['process', 'live_feed', 'alert_service', 'internal_execution', 'dashboard_delivery', 'persistence']),
+  "reasonCode": zod.string(),
+  "severity": zod.enum(['warning', 'critical']),
+  "state": zod.enum(['open', 'recovering', 'resolved']),
+  "firstDetectedAt": zod.coerce.date(),
+  "lastObservedAt": zod.coerce.date(),
+  "recoveryAttempts": zod.number().min(getRuntimeSupervisorResponseIncidentsItemRecoveryAttemptsMin),
+  "nextRecoveryAt": zod.coerce.date().nullable(),
+  "reason": zod.string()
+})),
+  "auditHash": zod.string()
+}).describe('Read-only application supervision. Its state is explicitly separate from market freshness, Alpha scoring, Alert eligibility, and external Replit task-control-plane visibility.\n')
+
+
+/**
+ * @summary List persistent runtime-supervisor incidents
+ */
+export const getRuntimeSupervisorIncidentsQueryLimitDefault = 20;
+export const getRuntimeSupervisorIncidentsQueryLimitMax = 100;
+
+
+
+export const GetRuntimeSupervisorIncidentsQueryParams = zod.object({
+  "limit": zod.coerce.number().min(1).max(getRuntimeSupervisorIncidentsQueryLimitMax).default(getRuntimeSupervisorIncidentsQueryLimitDefault)
+})
+
+
+
+
+export const GetRuntimeSupervisorIncidentsResponseItem = zod.object({
+  "id": zod.string(),
+  "incidentKey": zod.string(),
+  "component": zod.string(),
+  "reasonCode": zod.string(),
+  "severity": zod.enum(['warning', 'critical']),
+  "state": zod.enum(['open', 'recovering', 'resolved']),
+  "firstDetectedAt": zod.coerce.date(),
+  "lastObservedAt": zod.coerce.date(),
+  "resolvedAt": zod.coerce.date().nullable(),
+  "occurrenceCount": zod.number().min(1),
+  "evidence": zod.object({
+  "summary": zod.string(),
+  "componentState": zod.string(),
+  "details": zod.record(zod.string(), zod.union([zod.string(),zod.number(),zod.boolean(),zod.null()]))
+}),
+  "lastRecovery": zod.union([zod.object({
+  "action": zod.string(),
+  "outcome": zod.enum(['scheduled', 'succeeded', 'failed', 'skipped']),
+  "reason": zod.string(),
+  "attemptedAt": zod.coerce.date()
+}),zod.null()]),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})
+export const GetRuntimeSupervisorIncidentsResponse = zod.array(GetRuntimeSupervisorIncidentsResponseItem)
 
 
 /**

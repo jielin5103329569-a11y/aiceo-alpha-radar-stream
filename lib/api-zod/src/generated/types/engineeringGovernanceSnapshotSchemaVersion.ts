@@ -10,5 +10,5 @@ export type EngineeringGovernanceSnapshotSchemaVersion = typeof EngineeringGover
 
 
 export const EngineeringGovernanceSnapshotSchemaVersion = {
-  NUMBER_2: 2,
+  NUMBER_1: 1,
 } as const;

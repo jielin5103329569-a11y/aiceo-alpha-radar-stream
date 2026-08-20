@@ -8,6 +8,9 @@ import {
   GetEngineeringGovernanceResponse,
   GetOpportunityCenterResponse,
   GetRadarStatusResponse,
+  GetRuntimeSupervisorIncidentsQueryParams,
+  GetRuntimeSupervisorIncidentsResponse,
+  GetRuntimeSupervisorResponse,
   GetSignalValidationAuditParams,
   GetSignalValidationAuditResponse,
   GetSignalValidationQueryParams,
@@ -25,6 +28,7 @@ import { backendLifeline } from "../lib/backendLifeline";
 import { alertService } from "../lib/alertService";
 import { internalTaskRegistry } from "../lib/internalTaskRegistry";
 import { radarSseConnections } from "../lib/sseConnections";
+import { runtimeSupervisor } from "../lib/runtimeSupervisor";
 
 const router: IRouter = Router();
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -48,6 +52,32 @@ router.get("/radar/lifeline", (_req: Request, res: Response): void => {
     marketUniverse: marketUniverse.getLifelineHealth(),
     internalTasks: internalTaskRegistry.getSnapshot(),
   })));
+});
+
+router.get("/radar/runtime-supervisor", (_req: Request, res: Response): void => {
+  res.json(GetRuntimeSupervisorResponse.parse(runtimeSupervisor.getSnapshot()));
+});
+
+router.get("/radar/runtime-incidents", async (req: Request, res: Response): Promise<void> => {
+  const parsed = GetRuntimeSupervisorIncidentsQueryParams.safeParse({
+    limit: typeof req.query.limit === "string" ? Number(req.query.limit) : req.query.limit,
+  });
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+  try {
+    const incidents = await runtimeSupervisor.listRecentIncidents(parsed.data.limit);
+    res.json(GetRuntimeSupervisorIncidentsResponse.parse(incidents));
+  } catch (error) {
+    req.log.warn(
+      { error: error instanceof Error ? error.message : String(error) },
+      "Runtime supervisor incident storage is unavailable",
+    );
+    res.status(503).json({
+      error: "Persistent operational incident storage is unavailable. Alpha Radar market and alert workflows are unaffected.",
+    });
+  }
 });
 
 router.get("/radar/universe", (req: Request, res: Response): void => {

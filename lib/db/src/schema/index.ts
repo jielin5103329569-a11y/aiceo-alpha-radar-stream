@@ -20,3 +20,4 @@
 export * from "./signalValidation";
 export * from "./shadowLearning";
 export * from "./alerts";
+export * from "./runtimeSupervisor";
