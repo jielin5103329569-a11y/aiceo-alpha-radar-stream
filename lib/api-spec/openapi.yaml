@@ -133,6 +133,30 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/FocusedScanSnapshot"
+  /radar/catalysts:
+    get:
+      operationId: getCatalystRadar
+      tags: [radar]
+      summary: Get source availability and observed catalyst events
+      responses:
+        "200":
+          description: Provider-neutral catalyst source status; unavailable sources never emit synthetic events
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CatalystRadarSnapshot"
+  /radar/opportunities:
+    get:
+      operationId: getOpportunityCenter
+      tags: [radar]
+      summary: Get evidence-led market opportunities and missing confirmation gates
+      responses:
+        "200":
+          description: Current opportunity evidence chains for the protected live universe
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OpportunityCenterSnapshot"
   /radar/validation:
     get:
       operationId: getSignalValidation
@@ -772,6 +796,130 @@ components:
         - capacity
         - activeScans
         - candidates
+    CatalystCategory:
+      type: string
+      enum: [company_news, earnings_guidance, fda_clinical_regulatory, partnership_order_ma, sec_filing]
+    CatalystSourceAvailability:
+      type: string
+      enum: [unavailable, available, stale, blocked]
+    CatalystFreshness:
+      type: string
+      enum: [fresh, delayed, stale, insufficient, missing]
+    CatalystDataQuality:
+      type: string
+      enum: [good, degraded, unavailable]
+    CatalystEventState:
+      type: string
+      enum: [unavailable, observed]
+    OpportunityState:
+      type: string
+      enum: [WATCH, PRE-BREAKOUT, CONFIRMED]
+    OpportunityFreshness:
+      type: string
+      enum: [fresh, stale, insufficient, missing]
+    SectorConfirmationStatus:
+      type: string
+      enum: [confirmed, insufficient, unavailable]
+    CatalystSourceStatus:
+      type: object
+      properties:
+        category: { $ref: "#/components/schemas/CatalystCategory" }
+        label: { type: string }
+        availability: { $ref: "#/components/schemas/CatalystSourceAvailability" }
+        authorized: { type: boolean }
+        source: { type: [string, "null"] }
+        freshness: { $ref: "#/components/schemas/CatalystFreshness" }
+        dataQuality: { $ref: "#/components/schemas/CatalystDataQuality" }
+        lastEventAt: { type: [string, "null"], format: date-time }
+        reason: { type: string }
+      required: [category, label, availability, authorized, source, freshness, dataQuality, lastEventAt, reason]
+    CatalystEvent:
+      type: object
+      properties:
+        id: { type: string }
+        symbol: { type: string }
+        category: { $ref: "#/components/schemas/CatalystCategory" }
+        observedAt: { type: string, format: date-time }
+        freshness: { $ref: "#/components/schemas/CatalystFreshness" }
+        source: { type: string }
+        summary: { type: string }
+        dataQuality: { $ref: "#/components/schemas/CatalystDataQuality" }
+      required: [id, symbol, category, observedAt, freshness, source, summary, dataQuality]
+    CatalystEvidence:
+      type: object
+      properties:
+        key: { type: string }
+        category:
+          type: string
+          enum: [catalyst, market_microstructure, confirmation]
+        label: { type: string }
+        satisfied: { type: boolean }
+        independent: { type: boolean }
+        freshness: { $ref: "#/components/schemas/CatalystFreshness" }
+        source: { type: string }
+        detail: { type: string }
+      required: [key, category, label, satisfied, independent, freshness, source, detail]
+    SectorConfirmation:
+      type: object
+      properties:
+        status: { $ref: "#/components/schemas/SectorConfirmationStatus" }
+        sector: { type: [string, "null"] }
+        industry: { type: [string, "null"] }
+        trustedClassification: { type: boolean }
+        freshEligiblePeerCount: { type: number, minimum: 0 }
+        evidence:
+          type: array
+          items: { $ref: "#/components/schemas/CatalystEvidence" }
+        missing:
+          type: array
+          items: { type: string }
+        reason: { type: string }
+      required: [status, sector, industry, trustedClassification, freshEligiblePeerCount, evidence, missing, reason]
+    Opportunity:
+      type: object
+      properties:
+        symbol: { type: string }
+        eventTime: { type: [string, "null"], format: date-time }
+        freshness: { $ref: "#/components/schemas/OpportunityFreshness" }
+        catalystStatus: { $ref: "#/components/schemas/CatalystSourceAvailability" }
+        evidenceCount: { type: number, minimum: 0 }
+        evidenceChain:
+          type: array
+          items: { $ref: "#/components/schemas/CatalystEvidence" }
+        state: { $ref: "#/components/schemas/OpportunityState" }
+        marketState:
+          type: string
+          enum: [fresh, stale, insufficient, offline]
+        sectorConfirmation: { $ref: "#/components/schemas/SectorConfirmation" }
+        missingConfirmationItems:
+          type: array
+          items: { type: string }
+        reason: { type: string }
+      required: [symbol, eventTime, freshness, catalystStatus, evidenceCount, evidenceChain, state, marketState, sectorConfirmation, missingConfirmationItems, reason]
+    CatalystRadarSnapshot:
+      type: object
+      properties:
+        generatedAt: { type: string, format: date-time }
+        eventState: { $ref: "#/components/schemas/CatalystEventState" }
+        sourceCount: { type: number, minimum: 0 }
+        availableSourceCount: { type: number, minimum: 0 }
+        sourceStatuses:
+          type: array
+          items: { $ref: "#/components/schemas/CatalystSourceStatus" }
+        events:
+          type: array
+          items: { $ref: "#/components/schemas/CatalystEvent" }
+        reason: { type: string }
+      required: [generatedAt, eventState, sourceCount, availableSourceCount, sourceStatuses, events, reason]
+    OpportunityCenterSnapshot:
+      type: object
+      properties:
+        generatedAt: { type: string, format: date-time }
+        opportunities:
+          type: array
+          items: { $ref: "#/components/schemas/Opportunity" }
+        reason: { type: string }
+      required: [generatedAt, opportunities, reason]
     RadarSignalFreshness:
       type: string
       enum: [fresh, delayed, stale, missing]
@@ -2121,6 +2269,10 @@ components:
           $ref: "#/components/schemas/MarketUniverseSummary"
         focusedScans:
           $ref: "#/components/schemas/FocusedScanSnapshot"
+        catalystRadar:
+          $ref: "#/components/schemas/CatalystRadarSnapshot"
+        opportunityCenter:
+          $ref: "#/components/schemas/OpportunityCenterSnapshot"
         symbolRadars:
           type: array
           items:
@@ -2163,6 +2315,8 @@ components:
         - scanHealth
         - marketUniverse
         - focusedScans
+        - catalystRadar
+        - opportunityCenter
         - symbolRadars
         - alphaRanking
         - preBreakoutLeader

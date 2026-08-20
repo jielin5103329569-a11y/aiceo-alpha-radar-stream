@@ -401,6 +401,186 @@ export interface FocusedScanSnapshot {
   candidates: FocusedScanCandidate[];
 }
 
+export type CatalystCategory = typeof CatalystCategory[keyof typeof CatalystCategory];
+
+
+export const CatalystCategory = {
+  company_news: 'company_news',
+  earnings_guidance: 'earnings_guidance',
+  fda_clinical_regulatory: 'fda_clinical_regulatory',
+  partnership_order_ma: 'partnership_order_ma',
+  sec_filing: 'sec_filing',
+} as const;
+
+export type CatalystSourceAvailability = typeof CatalystSourceAvailability[keyof typeof CatalystSourceAvailability];
+
+
+export const CatalystSourceAvailability = {
+  unavailable: 'unavailable',
+  available: 'available',
+  stale: 'stale',
+  blocked: 'blocked',
+} as const;
+
+export type CatalystFreshness = typeof CatalystFreshness[keyof typeof CatalystFreshness];
+
+
+export const CatalystFreshness = {
+  fresh: 'fresh',
+  delayed: 'delayed',
+  stale: 'stale',
+  insufficient: 'insufficient',
+  missing: 'missing',
+} as const;
+
+export type CatalystDataQuality = typeof CatalystDataQuality[keyof typeof CatalystDataQuality];
+
+
+export const CatalystDataQuality = {
+  good: 'good',
+  degraded: 'degraded',
+  unavailable: 'unavailable',
+} as const;
+
+export type CatalystEventState = typeof CatalystEventState[keyof typeof CatalystEventState];
+
+
+export const CatalystEventState = {
+  unavailable: 'unavailable',
+  observed: 'observed',
+} as const;
+
+export type OpportunityState = typeof OpportunityState[keyof typeof OpportunityState];
+
+
+export const OpportunityState = {
+  WATCH: 'WATCH',
+  'PRE-BREAKOUT': 'PRE-BREAKOUT',
+  CONFIRMED: 'CONFIRMED',
+} as const;
+
+export type OpportunityFreshness = typeof OpportunityFreshness[keyof typeof OpportunityFreshness];
+
+
+export const OpportunityFreshness = {
+  fresh: 'fresh',
+  stale: 'stale',
+  insufficient: 'insufficient',
+  missing: 'missing',
+} as const;
+
+export type SectorConfirmationStatus = typeof SectorConfirmationStatus[keyof typeof SectorConfirmationStatus];
+
+
+export const SectorConfirmationStatus = {
+  confirmed: 'confirmed',
+  insufficient: 'insufficient',
+  unavailable: 'unavailable',
+} as const;
+
+export interface CatalystSourceStatus {
+  category: CatalystCategory;
+  label: string;
+  availability: CatalystSourceAvailability;
+  authorized: boolean;
+  /** @nullable */
+  source: string | null;
+  freshness: CatalystFreshness;
+  dataQuality: CatalystDataQuality;
+  /** @nullable */
+  lastEventAt: string | null;
+  reason: string;
+}
+
+export interface CatalystEvent {
+  id: string;
+  symbol: string;
+  category: CatalystCategory;
+  observedAt: string;
+  freshness: CatalystFreshness;
+  source: string;
+  summary: string;
+  dataQuality: CatalystDataQuality;
+}
+
+export type CatalystEvidenceCategory = typeof CatalystEvidenceCategory[keyof typeof CatalystEvidenceCategory];
+
+
+export const CatalystEvidenceCategory = {
+  catalyst: 'catalyst',
+  market_microstructure: 'market_microstructure',
+  confirmation: 'confirmation',
+} as const;
+
+export interface CatalystEvidence {
+  key: string;
+  category: CatalystEvidenceCategory;
+  label: string;
+  satisfied: boolean;
+  independent: boolean;
+  freshness: CatalystFreshness;
+  source: string;
+  detail: string;
+}
+
+export interface SectorConfirmation {
+  status: SectorConfirmationStatus;
+  /** @nullable */
+  sector: string | null;
+  /** @nullable */
+  industry: string | null;
+  trustedClassification: boolean;
+  /** @minimum 0 */
+  freshEligiblePeerCount: number;
+  evidence: CatalystEvidence[];
+  missing: string[];
+  reason: string;
+}
+
+export type OpportunityMarketState = typeof OpportunityMarketState[keyof typeof OpportunityMarketState];
+
+
+export const OpportunityMarketState = {
+  fresh: 'fresh',
+  stale: 'stale',
+  insufficient: 'insufficient',
+  offline: 'offline',
+} as const;
+
+export interface Opportunity {
+  symbol: string;
+  /** @nullable */
+  eventTime: string | null;
+  freshness: OpportunityFreshness;
+  catalystStatus: CatalystSourceAvailability;
+  /** @minimum 0 */
+  evidenceCount: number;
+  evidenceChain: CatalystEvidence[];
+  state: OpportunityState;
+  marketState: OpportunityMarketState;
+  sectorConfirmation: SectorConfirmation;
+  missingConfirmationItems: string[];
+  reason: string;
+}
+
+export interface CatalystRadarSnapshot {
+  generatedAt: string;
+  eventState: CatalystEventState;
+  /** @minimum 0 */
+  sourceCount: number;
+  /** @minimum 0 */
+  availableSourceCount: number;
+  sourceStatuses: CatalystSourceStatus[];
+  events: CatalystEvent[];
+  reason: string;
+}
+
+export interface OpportunityCenterSnapshot {
+  generatedAt: string;
+  opportunities: Opportunity[];
+  reason: string;
+}
+
 export type RadarSignalFreshness = typeof RadarSignalFreshness[keyof typeof RadarSignalFreshness];
 
 
@@ -1412,6 +1592,8 @@ export interface RadarStatus {
   scanHealth: ProtectedScanHealth;
   marketUniverse: MarketUniverseSummary;
   focusedScans: FocusedScanSnapshot;
+  catalystRadar: CatalystRadarSnapshot;
+  opportunityCenter: OpportunityCenterSnapshot;
   symbolRadars: RadarSymbolStatus[];
   alphaRanking: AlphaRadarRankingSnapshot;
   /** @nullable */

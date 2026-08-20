@@ -27,6 +27,11 @@ import {
   normalizeReferenceSymbol,
   type MarketUniverseSummary,
 } from "./marketUniverse";
+import {
+  buildOpportunityCenter,
+  type CatalystRadarSnapshot,
+  type OpportunityCenterSnapshot,
+} from "./catalystRadar";
 import { signalValidation } from "./signalValidation";
 
 export type RadarConnectionState =
@@ -236,6 +241,8 @@ export type RadarStatus = {
   } | null;
   marketUniverse?: MarketUniverseSummary;
   focusedScans?: FocusedScanSnapshot;
+  catalystRadar?: CatalystRadarSnapshot;
+  opportunityCenter?: OpportunityCenterSnapshot;
 };
 
 export type RadarSymbolStatus = {
@@ -2872,18 +2879,37 @@ export class DatabentoUniverseService extends EventEmitter {
     const statuses = this.services.map((service) => service.getStatus());
     const primary = statuses.find((status) => status.symbol === "NVDA") ?? statuses[0];
     const symbolRadars = statuses.map(toSymbolStatus);
-    const rankingResult = updateAlphaRadarRanking(symbolRadars, this.rankingMachine, new Date());
+    const now = new Date();
+    const rankingResult = updateAlphaRadarRanking(symbolRadars, this.rankingMachine, now);
     this.rankingMachine = rankingResult.machine;
     const leader = rankingResult.snapshot.leaderSymbol
       ? symbolRadars.find((status) => status.symbol === rankingResult.snapshot.leaderSymbol)
       : null;
 
+    const marketUniverseSnapshot = marketUniverse.getSummary(now);
+    const opportunityData = buildOpportunityCenter(
+      statuses.map((status) => ({
+        symbol: status.symbol,
+        alphaRadar: status.alphaRadar,
+        marketFeedState: status.marketFeedState,
+        scanHealth: status.scanHealth,
+        reference: marketUniverse.getSecurity(status.symbol, now),
+      })),
+      statuses.map((status) => ({
+        symbol: status.symbol,
+        reference: marketUniverse.getSecurity(status.symbol, now),
+      })),
+      now,
+    );
+
     return {
       ...primary,
       symbolRadars,
       alphaRanking: rankingResult.snapshot,
-      marketUniverse: marketUniverse.getSummary(),
+      marketUniverse: marketUniverseSnapshot,
       focusedScans: this.focusedScans.getStatus(statuses),
+      catalystRadar: opportunityData.catalystRadar,
+      opportunityCenter: opportunityData.opportunityCenter,
       preBreakoutLeader: leader
         ? {
             symbol: leader.symbol,
@@ -2908,6 +2934,14 @@ export class DatabentoUniverseService extends EventEmitter {
 
   getFocusedScanStatus(): FocusedScanSnapshot {
     return this.focusedScans.getStatus(this.services.map((service) => service.getStatus()));
+  }
+
+  getCatalystRadar(): CatalystRadarSnapshot {
+    return this.getStatus().catalystRadar!;
+  }
+
+  getOpportunityCenter(): OpportunityCenterSnapshot {
+    return this.getStatus().opportunityCenter!;
   }
 }
 

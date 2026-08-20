@@ -22,12 +22,14 @@ import type {
 import type {
   AlertSettings,
   AlertsListResponse,
+  CatalystRadarSnapshot,
   FocusedScanSnapshot,
   GetAlertsParams,
   GetMarketUniverseParams,
   GetSignalValidationParams,
   HealthStatus,
   MarketUniverseResult,
+  OpportunityCenterSnapshot,
   PushCapability,
   PushSubscriptionRequest,
   RadarStatus,
@@ -587,6 +589,160 @@ export function useGetFocusedScanStatus<TData = Awaited<ReturnType<typeof getFoc
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getGetFocusedScanStatusQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetCatalystRadarUrl = () => {
+
+
+
+
+  return `/api/radar/catalysts`
+}
+
+/**
+ * @summary Get source availability and observed catalyst events
+ */
+export const getCatalystRadar = async ( options?: Parameters<typeof customFetch>[1]): Promise<CatalystRadarSnapshot> => {
+
+  return customFetch<CatalystRadarSnapshot>(getGetCatalystRadarUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetCatalystRadarQueryKey = () => {
+    return [
+    `/api/radar/catalysts`
+    ] as const;
+    }
+
+
+export const getGetCatalystRadarQueryOptions = <TData = Awaited<ReturnType<typeof getCatalystRadar>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCatalystRadar>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetCatalystRadarQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getCatalystRadar>>> = ({ signal }) => getCatalystRadar({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getCatalystRadar>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetCatalystRadarQueryResult = NonNullable<Awaited<ReturnType<typeof getCatalystRadar>>>
+export type GetCatalystRadarQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get source availability and observed catalyst events
+ */
+
+export function useGetCatalystRadar<TData = Awaited<ReturnType<typeof getCatalystRadar>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCatalystRadar>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetCatalystRadarQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetOpportunityCenterUrl = () => {
+
+
+
+
+  return `/api/radar/opportunities`
+}
+
+/**
+ * @summary Get evidence-led market opportunities and missing confirmation gates
+ */
+export const getOpportunityCenter = async ( options?: Parameters<typeof customFetch>[1]): Promise<OpportunityCenterSnapshot> => {
+
+  return customFetch<OpportunityCenterSnapshot>(getGetOpportunityCenterUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetOpportunityCenterQueryKey = () => {
+    return [
+    `/api/radar/opportunities`
+    ] as const;
+    }
+
+
+export const getGetOpportunityCenterQueryOptions = <TData = Awaited<ReturnType<typeof getOpportunityCenter>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getOpportunityCenter>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetOpportunityCenterQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getOpportunityCenter>>> = ({ signal }) => getOpportunityCenter({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getOpportunityCenter>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetOpportunityCenterQueryResult = NonNullable<Awaited<ReturnType<typeof getOpportunityCenter>>>
+export type GetOpportunityCenterQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get evidence-led market opportunities and missing confirmation gates
+ */
+
+export function useGetOpportunityCenter<TData = Awaited<ReturnType<typeof getOpportunityCenter>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getOpportunityCenter>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetOpportunityCenterQueryOptions(options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

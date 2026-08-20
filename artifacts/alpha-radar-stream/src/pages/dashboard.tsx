@@ -9,6 +9,7 @@ import { LiveIngestionAcceptanceCard } from '@/components/live-ingestion-accepta
 import { SignalValidationPanel } from '@/components/signal-validation-panel';
 import { AccountControls } from '@/components/account-controls';
 import { AccountAlerts } from '@/components/account-alerts';
+import { CatalystOpportunityCenter } from '@/components/catalyst-opportunity-center';
 import { formatAge, formatNumber, formatPercent, formatTime, cn } from '@/lib/utils';
 import {
   AlertCircle,
@@ -277,6 +278,11 @@ export default function Dashboard() {
 
         {/* Right Column - Streams & Tape */}
         <div className="lg:col-span-8 flex flex-col gap-6">
+          <CatalystOpportunityCenter
+            catalystRadar={status?.catalystRadar}
+            opportunityCenter={status?.opportunityCenter}
+          />
+
           <RadarSignalPanel alphaRadar={status?.alphaRadar} scanHealth={status?.scanHealth} />
 
           <LiveIngestionAcceptanceCard diagnostics={status?.liveIngestion} />

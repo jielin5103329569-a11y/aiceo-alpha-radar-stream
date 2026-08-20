@@ -3,6 +3,8 @@ import {
   GetMarketUniverseQueryParams,
   GetMarketUniverseResponse,
   GetFocusedScanStatusResponse,
+  GetCatalystRadarResponse,
+  GetOpportunityCenterResponse,
   GetRadarStatusResponse,
   GetSignalValidationAuditParams,
   GetSignalValidationAuditResponse,
@@ -34,6 +36,14 @@ router.get("/radar/universe", (req: Request, res: Response): void => {
 
 router.get("/radar/focused-scans", (_req: Request, res: Response): void => {
   res.json(GetFocusedScanStatusResponse.parse(databentoLive.getFocusedScanStatus()));
+});
+
+router.get("/radar/catalysts", (_req: Request, res: Response): void => {
+  res.json(GetCatalystRadarResponse.parse(databentoLive.getCatalystRadar()));
+});
+
+router.get("/radar/opportunities", (_req: Request, res: Response): void => {
+  res.json(GetOpportunityCenterResponse.parse(databentoLive.getOpportunityCenter()));
 });
 
 router.get("/radar/validation", async (req: Request, res: Response): Promise<void> => {

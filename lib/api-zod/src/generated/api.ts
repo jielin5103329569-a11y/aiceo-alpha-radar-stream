@@ -94,6 +94,14 @@ export const getRadarStatusResponseFocusedScansActiveScansItemIndependentEvidenc
 
 export const getRadarStatusResponseFocusedScansCandidatesItemIndependentEvidenceCountMin = 0;
 
+export const getRadarStatusResponseCatalystRadarSourceCountMin = 0;
+
+export const getRadarStatusResponseCatalystRadarAvailableSourceCountMin = 0;
+
+export const getRadarStatusResponseOpportunityCenterOpportunitiesItemEvidenceCountMin = 0;
+
+export const getRadarStatusResponseOpportunityCenterOpportunitiesItemSectorConfirmationFreshEligiblePeerCountMin = 0;
+
 export const getRadarStatusResponseSymbolRadarsItemAlphaRadarDiagnosticsFreshQuotesMin = 0;
 
 export const getRadarStatusResponseSymbolRadarsItemAlphaRadarDiagnosticsFreshTradesMin = 0;
@@ -550,6 +558,78 @@ export const GetRadarStatusResponse = zod.object({
   "updatedAt": zod.coerce.date()
 }))
 }),
+  "catalystRadar": zod.object({
+  "generatedAt": zod.coerce.date(),
+  "eventState": zod.enum(['unavailable', 'observed']),
+  "sourceCount": zod.number().min(getRadarStatusResponseCatalystRadarSourceCountMin),
+  "availableSourceCount": zod.number().min(getRadarStatusResponseCatalystRadarAvailableSourceCountMin),
+  "sourceStatuses": zod.array(zod.object({
+  "category": zod.enum(['company_news', 'earnings_guidance', 'fda_clinical_regulatory', 'partnership_order_ma', 'sec_filing']),
+  "label": zod.string(),
+  "availability": zod.enum(['unavailable', 'available', 'stale', 'blocked']),
+  "authorized": zod.boolean(),
+  "source": zod.string().nullable(),
+  "freshness": zod.enum(['fresh', 'delayed', 'stale', 'insufficient', 'missing']),
+  "dataQuality": zod.enum(['good', 'degraded', 'unavailable']),
+  "lastEventAt": zod.coerce.date().nullable(),
+  "reason": zod.string()
+})),
+  "events": zod.array(zod.object({
+  "id": zod.string(),
+  "symbol": zod.string(),
+  "category": zod.enum(['company_news', 'earnings_guidance', 'fda_clinical_regulatory', 'partnership_order_ma', 'sec_filing']),
+  "observedAt": zod.coerce.date(),
+  "freshness": zod.enum(['fresh', 'delayed', 'stale', 'insufficient', 'missing']),
+  "source": zod.string(),
+  "summary": zod.string(),
+  "dataQuality": zod.enum(['good', 'degraded', 'unavailable'])
+})),
+  "reason": zod.string()
+}),
+  "opportunityCenter": zod.object({
+  "generatedAt": zod.coerce.date(),
+  "opportunities": zod.array(zod.object({
+  "symbol": zod.string(),
+  "eventTime": zod.coerce.date().nullable(),
+  "freshness": zod.enum(['fresh', 'stale', 'insufficient', 'missing']),
+  "catalystStatus": zod.enum(['unavailable', 'available', 'stale', 'blocked']),
+  "evidenceCount": zod.number().min(getRadarStatusResponseOpportunityCenterOpportunitiesItemEvidenceCountMin),
+  "evidenceChain": zod.array(zod.object({
+  "key": zod.string(),
+  "category": zod.enum(['catalyst', 'market_microstructure', 'confirmation']),
+  "label": zod.string(),
+  "satisfied": zod.boolean(),
+  "independent": zod.boolean(),
+  "freshness": zod.enum(['fresh', 'delayed', 'stale', 'insufficient', 'missing']),
+  "source": zod.string(),
+  "detail": zod.string()
+})),
+  "state": zod.enum(['WATCH', 'PRE-BREAKOUT', 'CONFIRMED']),
+  "marketState": zod.enum(['fresh', 'stale', 'insufficient', 'offline']),
+  "sectorConfirmation": zod.object({
+  "status": zod.enum(['confirmed', 'insufficient', 'unavailable']),
+  "sector": zod.string().nullable(),
+  "industry": zod.string().nullable(),
+  "trustedClassification": zod.boolean(),
+  "freshEligiblePeerCount": zod.number().min(getRadarStatusResponseOpportunityCenterOpportunitiesItemSectorConfirmationFreshEligiblePeerCountMin),
+  "evidence": zod.array(zod.object({
+  "key": zod.string(),
+  "category": zod.enum(['catalyst', 'market_microstructure', 'confirmation']),
+  "label": zod.string(),
+  "satisfied": zod.boolean(),
+  "independent": zod.boolean(),
+  "freshness": zod.enum(['fresh', 'delayed', 'stale', 'insufficient', 'missing']),
+  "source": zod.string(),
+  "detail": zod.string()
+})),
+  "missing": zod.array(zod.string()),
+  "reason": zod.string()
+}),
+  "missingConfirmationItems": zod.array(zod.string()),
+  "reason": zod.string()
+})),
+  "reason": zod.string()
+}),
   "symbolRadars": zod.array(zod.object({
   "symbol": zod.string(),
   "connectionState": zod.enum(['not_configured', 'connecting', 'connected', 'streaming', 'error', 'stopped']),
@@ -914,6 +994,14 @@ export const startRadarConnectionResponseFocusedScansCapacityAvailableMin = 0;
 export const startRadarConnectionResponseFocusedScansActiveScansItemIndependentEvidenceCountMin = 0;
 
 export const startRadarConnectionResponseFocusedScansCandidatesItemIndependentEvidenceCountMin = 0;
+
+export const startRadarConnectionResponseCatalystRadarSourceCountMin = 0;
+
+export const startRadarConnectionResponseCatalystRadarAvailableSourceCountMin = 0;
+
+export const startRadarConnectionResponseOpportunityCenterOpportunitiesItemEvidenceCountMin = 0;
+
+export const startRadarConnectionResponseOpportunityCenterOpportunitiesItemSectorConfirmationFreshEligiblePeerCountMin = 0;
 
 export const startRadarConnectionResponseSymbolRadarsItemAlphaRadarDiagnosticsFreshQuotesMin = 0;
 
@@ -1371,6 +1459,78 @@ export const StartRadarConnectionResponse = zod.object({
   "updatedAt": zod.coerce.date()
 }))
 }),
+  "catalystRadar": zod.object({
+  "generatedAt": zod.coerce.date(),
+  "eventState": zod.enum(['unavailable', 'observed']),
+  "sourceCount": zod.number().min(startRadarConnectionResponseCatalystRadarSourceCountMin),
+  "availableSourceCount": zod.number().min(startRadarConnectionResponseCatalystRadarAvailableSourceCountMin),
+  "sourceStatuses": zod.array(zod.object({
+  "category": zod.enum(['company_news', 'earnings_guidance', 'fda_clinical_regulatory', 'partnership_order_ma', 'sec_filing']),
+  "label": zod.string(),
+  "availability": zod.enum(['unavailable', 'available', 'stale', 'blocked']),
+  "authorized": zod.boolean(),
+  "source": zod.string().nullable(),
+  "freshness": zod.enum(['fresh', 'delayed', 'stale', 'insufficient', 'missing']),
+  "dataQuality": zod.enum(['good', 'degraded', 'unavailable']),
+  "lastEventAt": zod.coerce.date().nullable(),
+  "reason": zod.string()
+})),
+  "events": zod.array(zod.object({
+  "id": zod.string(),
+  "symbol": zod.string(),
+  "category": zod.enum(['company_news', 'earnings_guidance', 'fda_clinical_regulatory', 'partnership_order_ma', 'sec_filing']),
+  "observedAt": zod.coerce.date(),
+  "freshness": zod.enum(['fresh', 'delayed', 'stale', 'insufficient', 'missing']),
+  "source": zod.string(),
+  "summary": zod.string(),
+  "dataQuality": zod.enum(['good', 'degraded', 'unavailable'])
+})),
+  "reason": zod.string()
+}),
+  "opportunityCenter": zod.object({
+  "generatedAt": zod.coerce.date(),
+  "opportunities": zod.array(zod.object({
+  "symbol": zod.string(),
+  "eventTime": zod.coerce.date().nullable(),
+  "freshness": zod.enum(['fresh', 'stale', 'insufficient', 'missing']),
+  "catalystStatus": zod.enum(['unavailable', 'available', 'stale', 'blocked']),
+  "evidenceCount": zod.number().min(startRadarConnectionResponseOpportunityCenterOpportunitiesItemEvidenceCountMin),
+  "evidenceChain": zod.array(zod.object({
+  "key": zod.string(),
+  "category": zod.enum(['catalyst', 'market_microstructure', 'confirmation']),
+  "label": zod.string(),
+  "satisfied": zod.boolean(),
+  "independent": zod.boolean(),
+  "freshness": zod.enum(['fresh', 'delayed', 'stale', 'insufficient', 'missing']),
+  "source": zod.string(),
+  "detail": zod.string()
+})),
+  "state": zod.enum(['WATCH', 'PRE-BREAKOUT', 'CONFIRMED']),
+  "marketState": zod.enum(['fresh', 'stale', 'insufficient', 'offline']),
+  "sectorConfirmation": zod.object({
+  "status": zod.enum(['confirmed', 'insufficient', 'unavailable']),
+  "sector": zod.string().nullable(),
+  "industry": zod.string().nullable(),
+  "trustedClassification": zod.boolean(),
+  "freshEligiblePeerCount": zod.number().min(startRadarConnectionResponseOpportunityCenterOpportunitiesItemSectorConfirmationFreshEligiblePeerCountMin),
+  "evidence": zod.array(zod.object({
+  "key": zod.string(),
+  "category": zod.enum(['catalyst', 'market_microstructure', 'confirmation']),
+  "label": zod.string(),
+  "satisfied": zod.boolean(),
+  "independent": zod.boolean(),
+  "freshness": zod.enum(['fresh', 'delayed', 'stale', 'insufficient', 'missing']),
+  "source": zod.string(),
+  "detail": zod.string()
+})),
+  "missing": zod.array(zod.string()),
+  "reason": zod.string()
+}),
+  "missingConfirmationItems": zod.array(zod.string()),
+  "reason": zod.string()
+})),
+  "reason": zod.string()
+}),
   "symbolRadars": zod.array(zod.object({
   "symbol": zod.string(),
   "connectionState": zod.enum(['not_configured', 'connecting', 'connected', 'streaming', 'error', 'stopped']),
@@ -1735,6 +1895,14 @@ export const stopRadarConnectionResponseFocusedScansCapacityAvailableMin = 0;
 export const stopRadarConnectionResponseFocusedScansActiveScansItemIndependentEvidenceCountMin = 0;
 
 export const stopRadarConnectionResponseFocusedScansCandidatesItemIndependentEvidenceCountMin = 0;
+
+export const stopRadarConnectionResponseCatalystRadarSourceCountMin = 0;
+
+export const stopRadarConnectionResponseCatalystRadarAvailableSourceCountMin = 0;
+
+export const stopRadarConnectionResponseOpportunityCenterOpportunitiesItemEvidenceCountMin = 0;
+
+export const stopRadarConnectionResponseOpportunityCenterOpportunitiesItemSectorConfirmationFreshEligiblePeerCountMin = 0;
 
 export const stopRadarConnectionResponseSymbolRadarsItemAlphaRadarDiagnosticsFreshQuotesMin = 0;
 
@@ -2191,6 +2359,78 @@ export const StopRadarConnectionResponse = zod.object({
   "independentEvidenceCount": zod.number().min(stopRadarConnectionResponseFocusedScansCandidatesItemIndependentEvidenceCountMin),
   "updatedAt": zod.coerce.date()
 }))
+}),
+  "catalystRadar": zod.object({
+  "generatedAt": zod.coerce.date(),
+  "eventState": zod.enum(['unavailable', 'observed']),
+  "sourceCount": zod.number().min(stopRadarConnectionResponseCatalystRadarSourceCountMin),
+  "availableSourceCount": zod.number().min(stopRadarConnectionResponseCatalystRadarAvailableSourceCountMin),
+  "sourceStatuses": zod.array(zod.object({
+  "category": zod.enum(['company_news', 'earnings_guidance', 'fda_clinical_regulatory', 'partnership_order_ma', 'sec_filing']),
+  "label": zod.string(),
+  "availability": zod.enum(['unavailable', 'available', 'stale', 'blocked']),
+  "authorized": zod.boolean(),
+  "source": zod.string().nullable(),
+  "freshness": zod.enum(['fresh', 'delayed', 'stale', 'insufficient', 'missing']),
+  "dataQuality": zod.enum(['good', 'degraded', 'unavailable']),
+  "lastEventAt": zod.coerce.date().nullable(),
+  "reason": zod.string()
+})),
+  "events": zod.array(zod.object({
+  "id": zod.string(),
+  "symbol": zod.string(),
+  "category": zod.enum(['company_news', 'earnings_guidance', 'fda_clinical_regulatory', 'partnership_order_ma', 'sec_filing']),
+  "observedAt": zod.coerce.date(),
+  "freshness": zod.enum(['fresh', 'delayed', 'stale', 'insufficient', 'missing']),
+  "source": zod.string(),
+  "summary": zod.string(),
+  "dataQuality": zod.enum(['good', 'degraded', 'unavailable'])
+})),
+  "reason": zod.string()
+}),
+  "opportunityCenter": zod.object({
+  "generatedAt": zod.coerce.date(),
+  "opportunities": zod.array(zod.object({
+  "symbol": zod.string(),
+  "eventTime": zod.coerce.date().nullable(),
+  "freshness": zod.enum(['fresh', 'stale', 'insufficient', 'missing']),
+  "catalystStatus": zod.enum(['unavailable', 'available', 'stale', 'blocked']),
+  "evidenceCount": zod.number().min(stopRadarConnectionResponseOpportunityCenterOpportunitiesItemEvidenceCountMin),
+  "evidenceChain": zod.array(zod.object({
+  "key": zod.string(),
+  "category": zod.enum(['catalyst', 'market_microstructure', 'confirmation']),
+  "label": zod.string(),
+  "satisfied": zod.boolean(),
+  "independent": zod.boolean(),
+  "freshness": zod.enum(['fresh', 'delayed', 'stale', 'insufficient', 'missing']),
+  "source": zod.string(),
+  "detail": zod.string()
+})),
+  "state": zod.enum(['WATCH', 'PRE-BREAKOUT', 'CONFIRMED']),
+  "marketState": zod.enum(['fresh', 'stale', 'insufficient', 'offline']),
+  "sectorConfirmation": zod.object({
+  "status": zod.enum(['confirmed', 'insufficient', 'unavailable']),
+  "sector": zod.string().nullable(),
+  "industry": zod.string().nullable(),
+  "trustedClassification": zod.boolean(),
+  "freshEligiblePeerCount": zod.number().min(stopRadarConnectionResponseOpportunityCenterOpportunitiesItemSectorConfirmationFreshEligiblePeerCountMin),
+  "evidence": zod.array(zod.object({
+  "key": zod.string(),
+  "category": zod.enum(['catalyst', 'market_microstructure', 'confirmation']),
+  "label": zod.string(),
+  "satisfied": zod.boolean(),
+  "independent": zod.boolean(),
+  "freshness": zod.enum(['fresh', 'delayed', 'stale', 'insufficient', 'missing']),
+  "source": zod.string(),
+  "detail": zod.string()
+})),
+  "missing": zod.array(zod.string()),
+  "reason": zod.string()
+}),
+  "missingConfirmationItems": zod.array(zod.string()),
+  "reason": zod.string()
+})),
+  "reason": zod.string()
 }),
   "symbolRadars": zod.array(zod.object({
   "symbol": zod.string(),
@@ -2649,6 +2889,100 @@ export const GetFocusedScanStatusResponse = zod.object({
   "independentEvidenceCount": zod.number().min(getFocusedScanStatusResponseCandidatesItemIndependentEvidenceCountMin),
   "updatedAt": zod.coerce.date()
 }))
+})
+
+
+/**
+ * @summary Get source availability and observed catalyst events
+ */
+export const getCatalystRadarResponseSourceCountMin = 0;
+
+export const getCatalystRadarResponseAvailableSourceCountMin = 0;
+
+
+
+export const GetCatalystRadarResponse = zod.object({
+  "generatedAt": zod.coerce.date(),
+  "eventState": zod.enum(['unavailable', 'observed']),
+  "sourceCount": zod.number().min(getCatalystRadarResponseSourceCountMin),
+  "availableSourceCount": zod.number().min(getCatalystRadarResponseAvailableSourceCountMin),
+  "sourceStatuses": zod.array(zod.object({
+  "category": zod.enum(['company_news', 'earnings_guidance', 'fda_clinical_regulatory', 'partnership_order_ma', 'sec_filing']),
+  "label": zod.string(),
+  "availability": zod.enum(['unavailable', 'available', 'stale', 'blocked']),
+  "authorized": zod.boolean(),
+  "source": zod.string().nullable(),
+  "freshness": zod.enum(['fresh', 'delayed', 'stale', 'insufficient', 'missing']),
+  "dataQuality": zod.enum(['good', 'degraded', 'unavailable']),
+  "lastEventAt": zod.coerce.date().nullable(),
+  "reason": zod.string()
+})),
+  "events": zod.array(zod.object({
+  "id": zod.string(),
+  "symbol": zod.string(),
+  "category": zod.enum(['company_news', 'earnings_guidance', 'fda_clinical_regulatory', 'partnership_order_ma', 'sec_filing']),
+  "observedAt": zod.coerce.date(),
+  "freshness": zod.enum(['fresh', 'delayed', 'stale', 'insufficient', 'missing']),
+  "source": zod.string(),
+  "summary": zod.string(),
+  "dataQuality": zod.enum(['good', 'degraded', 'unavailable'])
+})),
+  "reason": zod.string()
+})
+
+
+/**
+ * @summary Get evidence-led market opportunities and missing confirmation gates
+ */
+export const getOpportunityCenterResponseOpportunitiesItemEvidenceCountMin = 0;
+
+export const getOpportunityCenterResponseOpportunitiesItemSectorConfirmationFreshEligiblePeerCountMin = 0;
+
+
+
+export const GetOpportunityCenterResponse = zod.object({
+  "generatedAt": zod.coerce.date(),
+  "opportunities": zod.array(zod.object({
+  "symbol": zod.string(),
+  "eventTime": zod.coerce.date().nullable(),
+  "freshness": zod.enum(['fresh', 'stale', 'insufficient', 'missing']),
+  "catalystStatus": zod.enum(['unavailable', 'available', 'stale', 'blocked']),
+  "evidenceCount": zod.number().min(getOpportunityCenterResponseOpportunitiesItemEvidenceCountMin),
+  "evidenceChain": zod.array(zod.object({
+  "key": zod.string(),
+  "category": zod.enum(['catalyst', 'market_microstructure', 'confirmation']),
+  "label": zod.string(),
+  "satisfied": zod.boolean(),
+  "independent": zod.boolean(),
+  "freshness": zod.enum(['fresh', 'delayed', 'stale', 'insufficient', 'missing']),
+  "source": zod.string(),
+  "detail": zod.string()
+})),
+  "state": zod.enum(['WATCH', 'PRE-BREAKOUT', 'CONFIRMED']),
+  "marketState": zod.enum(['fresh', 'stale', 'insufficient', 'offline']),
+  "sectorConfirmation": zod.object({
+  "status": zod.enum(['confirmed', 'insufficient', 'unavailable']),
+  "sector": zod.string().nullable(),
+  "industry": zod.string().nullable(),
+  "trustedClassification": zod.boolean(),
+  "freshEligiblePeerCount": zod.number().min(getOpportunityCenterResponseOpportunitiesItemSectorConfirmationFreshEligiblePeerCountMin),
+  "evidence": zod.array(zod.object({
+  "key": zod.string(),
+  "category": zod.enum(['catalyst', 'market_microstructure', 'confirmation']),
+  "label": zod.string(),
+  "satisfied": zod.boolean(),
+  "independent": zod.boolean(),
+  "freshness": zod.enum(['fresh', 'delayed', 'stale', 'insufficient', 'missing']),
+  "source": zod.string(),
+  "detail": zod.string()
+})),
+  "missing": zod.array(zod.string()),
+  "reason": zod.string()
+}),
+  "missingConfirmationItems": zod.array(zod.string()),
+  "reason": zod.string()
+})),
+  "reason": zod.string()
 })
 
 

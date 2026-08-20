@@ -419,6 +419,10 @@ export class MarketUniverseRegistry {
     };
   }
 
+  getSecurity(symbol: string): SecurityReference | null {
+    return this.securities.get(symbol) ?? null;
+  }
+
   query(
     query: MarketUniverseQuery = {},
     now = new Date(),
@@ -499,6 +503,16 @@ export class MarketUniverseService extends EventEmitter {
 
   getSummary(now = new Date()): MarketUniverseSummary {
     return this.registry.getSummary(now, this.refreshState, this.lastAttemptAt, this.reason);
+  }
+
+  /**
+   * Classification is only trustworthy for fresh, eligible reference records.
+   * A stale reference must never be used as sector confirmation evidence.
+   */
+  getSecurity(symbol: string, now = new Date()): SecurityReference | null {
+    if (this.getSummary(now).freshness !== "fresh") return null;
+    const security = this.registry.getSecurity(symbol);
+    return security?.eligibility === "eligible" ? security : null;
   }
 
   query(query: MarketUniverseQuery = {}, now = new Date()): MarketUniverseResult {

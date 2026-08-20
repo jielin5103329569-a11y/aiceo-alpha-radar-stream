@@ -79,6 +79,7 @@ try {
       'const currentDir = ".";',
     ),
   );
+  transpile("artifacts/api-server/src/lib/catalystRadar.ts", "catalystRadar.js");
   transpile(
     "artifacts/api-server/src/lib/databentoLive.ts",
     "databentoLive.js",
