@@ -6,10 +6,18 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { BackendLifelineSnapshotAlertDeliveryCapability } from './backendLifelineSnapshotAlertDeliveryCapability';
+import type { BackendLifelineSnapshotAlertDeliveryHealth } from './backendLifelineSnapshotAlertDeliveryHealth';
 
 export type BackendLifelineSnapshotAlertDelivery = {
   serviceRunning: boolean;
+  health: BackendLifelineSnapshotAlertDeliveryHealth;
   capability: BackendLifelineSnapshotAlertDeliveryCapability;
+  /** @nullable */
+  lastHeartbeatAt: Date | null;
+  /** @nullable */
+  lastActivityAt: Date | null;
+  /** @nullable */
+  lastConsumeAt: Date | null;
   /** @minimum 0 */
   deliveriesAttempted: number;
   /** @minimum 0 */

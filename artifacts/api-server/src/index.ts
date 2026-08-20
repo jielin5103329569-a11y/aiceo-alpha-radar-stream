@@ -8,6 +8,8 @@ import { marketUniverse } from "./lib/marketUniverse";
 import { alertService } from "./lib/alertService";
 import { backendLifeline } from "./lib/backendLifeline";
 import { internalTaskRegistry } from "./lib/internalTaskRegistry";
+import { radarSseConnections } from "./lib/sseConnections";
+import { createGracefulShutdown } from "./lib/serverLifecycle";
 
 const rawPort = process.env["PORT"];
 
@@ -19,7 +21,7 @@ if (!rawPort) {
 
 const port = Number(rawPort);
 
-if (Number.isNaN(port) || port <= 0) {
+if (!Number.isInteger(port) || port <= 0 || port > 65_535) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
 }
 
@@ -29,48 +31,27 @@ if (!ownership.accepted) {
 }
 
 let server: Server | null = null;
-let shutdownStarted = false;
 const activeSockets = new Set<Socket>();
 
-function shutdown(signal: string): void {
-  if (shutdownStarted) return;
-  shutdownStarted = true;
-  backendLifeline.owner.markStopping();
-  logger.info({ signal }, "Stopping server-owned Alpha Radar lifeline");
+const shutdown = createGracefulShutdown({
+  owner: backendLifeline.owner,
+  getServer: () => server,
+  activeSockets,
+  closeEventStreams: (reason) => radarSseConnections.closeAll(reason),
+  logger,
   // The order prevents a stopped market feed from being evaluated by a still
   // subscribed AlertService. Market windows and scanner state are intentionally
   // discarded by DatabentoLiveService.stop() and rebuild after the next start.
-  alertService.stop();
-  internalTaskRegistry.stop();
-  databentoLive.stop();
-  marketUniverse.stop();
-  if (!server) {
-    backendLifeline.owner.markStopped();
-    return;
-  }
-  server.closeIdleConnections?.();
-  const forceCloseTimer = setTimeout(() => {
-    logger.warn(
-      { activeConnectionCount: activeSockets.size },
-      "Grace period elapsed; closing remaining API connections",
-    );
-    server?.closeAllConnections?.();
-    for (const socket of activeSockets) {
-      socket.destroy();
-    }
-  }, 5_000);
-  forceCloseTimer.unref();
-  server.close((error) => {
-    clearTimeout(forceCloseTimer);
-    if (error) {
-      backendLifeline.owner.markFailed(error);
-      logger.error({ error }, "Error while closing API server");
-      process.exitCode = 1;
-    } else {
-      backendLifeline.owner.markStopped();
-    }
-  });
-}
+  stopServices: () => {
+    alertService.stop();
+    internalTaskRegistry.stop();
+    databentoLive.stop();
+    marketUniverse.stop();
+  },
+  onComplete: (state) => {
+    if (state === "failed") process.exitCode = 1;
+  },
+});
 
 server = app.listen(port);
 server.on("connection", (socket) => {

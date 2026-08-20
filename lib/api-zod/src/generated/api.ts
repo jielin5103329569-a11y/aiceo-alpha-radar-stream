@@ -1554,7 +1554,7 @@ export const getEngineeringGovernanceResponseRuntimeDuplicateSymbolCountMin = 0;
 
 
 export const GetEngineeringGovernanceResponse = zod.object({
-  "schemaVersion": zod.literal(1),
+  "schemaVersion": zod.literal(2),
   "generatedAt": zod.coerce.date(),
   "healthScore": zod.number().min(getEngineeringGovernanceResponseHealthScoreMin).max(getEngineeringGovernanceResponseHealthScoreMax),
   "state": zod.enum(['healthy', 'degraded', 'blocked']),
@@ -1802,13 +1802,34 @@ export const GetBackendLifelineResponse = zod.object({
 }),
   "alertDelivery": zod.object({
   "serviceRunning": zod.boolean(),
+  "health": zod.enum(['healthy', 'stale', 'stopped']),
   "capability": zod.enum(['available', 'unavailable']),
+  "lastHeartbeatAt": zod.coerce.date().nullable(),
+  "lastActivityAt": zod.coerce.date().nullable(),
+  "lastConsumeAt": zod.coerce.date().nullable(),
   "deliveriesAttempted": zod.number().min(getBackendLifelineResponseAlertDeliveryDeliveriesAttemptedMin),
   "deliveriesSucceeded": zod.number().min(getBackendLifelineResponseAlertDeliveryDeliveriesSucceededMin),
   "deliveriesSkipped": zod.number().min(getBackendLifelineResponseAlertDeliveryDeliveriesSkippedMin),
   "deliveriesFailed": zod.number().min(getBackendLifelineResponseAlertDeliveryDeliveriesFailedMin),
   "reason": zod.string()
 }),
+  "marketUniverse": zod.object({
+  "state": zod.enum(['healthy', 'degraded', 'blocked']),
+  "serviceRunning": zod.boolean(),
+  "refreshState": zod.enum(['idle', 'refreshing', 'ready', 'degraded', 'unavailable']),
+  "refreshInFlight": zod.boolean(),
+  "bridgeRunning": zod.boolean(),
+  "startedAt": zod.coerce.date().nullable(),
+  "stoppedAt": zod.coerce.date().nullable(),
+  "lastActivityAt": zod.coerce.date().nullable(),
+  "lastBridgeMessageAt": zod.coerce.date().nullable(),
+  "lastCompletedAt": zod.coerce.date().nullable(),
+  "lastAttemptAt": zod.coerce.date().nullable(),
+  "refreshedAt": zod.coerce.date().nullable(),
+  "freshness": zod.enum(['fresh', 'stale', 'missing']),
+  "dataQuality": zod.enum(['good', 'degraded', 'unavailable']),
+  "reason": zod.string()
+}).describe('Read-only reference-universe health. It is classification-only and cannot establish market-event freshness, scoring, or alert eligibility.\n'),
   "persistenceBoundary": zod.object({
   "alertRecords": zod.enum(['database']),
   "userSubscriptions": zod.enum(['database']),

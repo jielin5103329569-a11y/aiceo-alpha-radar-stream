@@ -411,6 +411,8 @@ exports.inArray = (col, vals) => ({ col, vals, type: "inArray" });
   service.start();
   assert.equal(service.getHealth().running, true, "service must be running after start()");
   assert.ok(service.getHealth().startedAt instanceof Date, "startedAt must be set after start()");
+  assert.ok(service.getHealth().lastHeartbeatAt instanceof Date, "a running AlertService must expose an independent heartbeat");
+  assert.equal(service.getHealth().lastConsumeAt, null, "a heartbeat must not pretend that the service consumed market status");
 
   // Verify the listener was attached
   const listenerCount = databentoLive.listenerCount("status");
@@ -927,7 +929,10 @@ exports.inArray = (col, vals) => ({ col, vals, type: "inArray" });
 
   // Use a symbol not yet seen by the running service (NVDA was used in test 5)
   databentoLive.emit("status", { symbolRadars: [buildPassingSymbolStatus({ symbol: "VAPIDTEST" })] });
-  await sleep(50);
+  // The fail-closed lifecycle epoch adds a post-await cancellation check. Wait
+  // for the full server-side persistence + delivery-audit chain rather than
+  // assuming a fixed one-tick completion budget.
+  await sleep(150);
 
   assert.equal(db._records.length, 1, "VAPID-unavailable scenario must still insert record");
   const vapidAudit = db._auditRows.find(r => r.outcome === "skipped_no_vapid");
@@ -939,9 +944,13 @@ exports.inArray = (col, vals) => ({ col, vals, type: "inArray" });
   // ---------------------------------------------------------------------------
 
   const listenersBefore = databentoLive.listenerCount("status");
+  assert.ok(service.getHealth().lastConsumeAt instanceof Date, "consumed status activity must remain independently observable");
+  assert.ok(service.getHealth().lastActivityAt instanceof Date, "AlertService activity must remain independently observable");
+  const heartbeatBeforeStop = service.getHealth().lastHeartbeatAt;
   service.stop();
   assert.equal(service.getHealth().running, false, "service must not be running after stop()");
   assert.ok(service.getHealth().stoppedAt instanceof Date, "stoppedAt must be set after stop()");
+  assert.equal(service.getHealth().lastHeartbeatAt, heartbeatBeforeStop, "a stopped service must not continue reporting heartbeat activity");
   assert.equal(
     databentoLive.listenerCount("status"),
     listenersBefore - 1,

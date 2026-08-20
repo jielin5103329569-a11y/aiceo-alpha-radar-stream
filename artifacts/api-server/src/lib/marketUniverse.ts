@@ -75,6 +75,29 @@ export type MarketUniverseSummary = {
   eligibleSample: string[];
 };
 
+/**
+ * Read-only reference-universe service health. It deliberately remains
+ * independent from protected-symbol market-event freshness and never grants
+ * candidate, alert, or market-window authority.
+ */
+export type MarketUniverseLifelineSnapshot = {
+  readonly state: "healthy" | "degraded" | "blocked";
+  readonly serviceRunning: boolean;
+  readonly refreshState: MarketUniverseRefreshState;
+  readonly refreshInFlight: boolean;
+  readonly bridgeRunning: boolean;
+  readonly startedAt: Date | null;
+  readonly stoppedAt: Date | null;
+  readonly lastActivityAt: Date | null;
+  readonly lastBridgeMessageAt: Date | null;
+  readonly lastCompletedAt: Date | null;
+  readonly lastAttemptAt: Date | null;
+  readonly refreshedAt: Date | null;
+  readonly freshness: ReferenceFreshness;
+  readonly dataQuality: ReferenceDataQuality;
+  readonly reason: string;
+};
+
 export type MarketUniverseQuery = {
   search?: string;
   eligibility?: SecurityEligibility | "all";
@@ -482,27 +505,81 @@ export class MarketUniverseService extends EventEmitter {
   private reason: string | null = null;
   private child: ChildProcess | null = null;
   private refreshPromise: Promise<MarketUniverseSummary> | null = null;
+  private refreshGeneration: number | null = null;
+  private retiringRefresh: Promise<void> | null = null;
   private interval: NodeJS.Timeout | null = null;
   private started = false;
+  private startedAt: Date | null = null;
+  private stoppedAt: Date | null = null;
+  private lastActivityAt: Date | null = null;
+  private lastBridgeMessageAt: Date | null = null;
+  private lastCompletedAt: Date | null = null;
+  private generation = 0;
 
   start(): void {
     if (this.started) return;
     this.started = true;
-    void this.refresh();
+    this.generation += 1;
+    this.startedAt = new Date();
+    this.stoppedAt = null;
+    this.lastActivityAt = this.startedAt;
+    void this.refreshAfterRetirement(this.generation);
     this.interval = setInterval(() => void this.refresh(), REFRESH_INTERVAL_MS);
     this.interval.unref();
   }
 
   stop(): void {
+    const retiringGeneration = this.refreshGeneration;
+    if (this.refreshPromise && retiringGeneration !== null) {
+      const retiring = this.refreshPromise.catch(() => undefined).then(() => undefined);
+      this.retiringRefresh = retiring;
+      void retiring.finally(() => {
+        if (this.retiringRefresh === retiring) this.retiringRefresh = null;
+      });
+    }
+    this.generation += 1;
     if (this.interval) clearInterval(this.interval);
     this.interval = null;
     this.child?.kill("SIGTERM");
     this.child = null;
     this.started = false;
+    this.stoppedAt = new Date();
   }
 
   getSummary(now = new Date()): MarketUniverseSummary {
     return this.registry.getSummary(now, this.refreshState, this.lastAttemptAt, this.reason);
+  }
+
+  getLifelineHealth(now = new Date()): MarketUniverseLifelineSnapshot {
+    const summary = this.getSummary(now);
+    const state = !this.started
+      ? "blocked"
+      : summary.refreshState === "ready"
+        && summary.freshness === "fresh"
+        && summary.dataQuality === "good"
+        ? "healthy"
+        : "degraded";
+    return {
+      state,
+      serviceRunning: this.started,
+      refreshState: summary.refreshState,
+      refreshInFlight: this.refreshPromise !== null,
+      bridgeRunning: this.child !== null,
+      startedAt: this.startedAt,
+      stoppedAt: this.stoppedAt,
+      lastActivityAt: this.lastActivityAt,
+      lastBridgeMessageAt: this.lastBridgeMessageAt,
+      lastCompletedAt: this.lastCompletedAt,
+      lastAttemptAt: this.lastAttemptAt,
+      refreshedAt: summary.refreshedAt,
+      freshness: summary.freshness,
+      dataQuality: summary.dataQuality,
+      reason: !this.started
+        ? "Market Universe service is stopped; it cannot provide reference classifications."
+        : state === "healthy"
+          ? "Reference universe is fresh and complete. It remains classification-only and cannot confer market-event freshness."
+          : summary.reason,
+    };
   }
 
   /**
@@ -520,15 +597,31 @@ export class MarketUniverseService extends EventEmitter {
   }
 
   refresh(): Promise<MarketUniverseSummary> {
-    if (this.refreshPromise) return this.refreshPromise;
-    this.refreshPromise = this.performRefresh().finally(() => {
-      this.refreshPromise = null;
+    if (!this.started) return Promise.resolve(this.getSummary());
+    if (this.retiringRefresh) {
+      return this.retiringRefresh.then(() => this.refresh());
+    }
+    if (this.refreshPromise && this.refreshGeneration === this.generation) return this.refreshPromise;
+    const generation = this.generation;
+    this.refreshGeneration = generation;
+    this.refreshPromise = this.performRefresh(generation).finally(() => {
+      if (this.refreshGeneration === generation) {
+        this.refreshPromise = null;
+        this.refreshGeneration = null;
+      }
     });
     return this.refreshPromise;
   }
 
-  private performRefresh(): Promise<MarketUniverseSummary> {
+  private async refreshAfterRetirement(generation: number): Promise<void> {
+    const retiring = this.retiringRefresh;
+    if (retiring) await retiring;
+    if (this.started && generation === this.generation) void this.refresh();
+  }
+
+  private performRefresh(generation: number): Promise<MarketUniverseSummary> {
     this.lastAttemptAt = new Date();
+    this.lastActivityAt = this.lastAttemptAt;
     if (!process.env.DATABENTO_API_KEY) {
       this.refreshState = "unavailable";
       this.reason = "DATABENTO_API_KEY is not configured for reference discovery.";
@@ -561,7 +654,13 @@ export class MarketUniverseService extends EventEmitter {
         if (settled) return;
         settled = true;
         clearTimeout(timeout);
-        this.child = null;
+        if (this.child === child) this.child = null;
+        if (!this.started || generation !== this.generation) {
+          resolve(this.getSummary());
+          return;
+        }
+        this.lastCompletedAt = new Date();
+        this.lastActivityAt = this.lastCompletedAt;
         if (!error && complete && metadata && records.length > 0) {
           this.registry.replace(records, metadata, new Date());
           const summary = this.registry.getSummary(new Date(), "ready", this.lastAttemptAt);
@@ -593,6 +692,8 @@ export class MarketUniverseService extends EventEmitter {
 
       const applyLine = (line: string): void => {
         if (!line.trim()) return;
+        this.lastBridgeMessageAt = new Date();
+        this.lastActivityAt = this.lastBridgeMessageAt;
         try {
           const event = JSON.parse(line) as BridgeEvent;
           if (event.type === "meta") {

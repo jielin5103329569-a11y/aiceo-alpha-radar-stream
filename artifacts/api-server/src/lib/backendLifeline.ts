@@ -5,8 +5,9 @@ import type {
 } from "./alertService";
 import type { DatabentoLifelineSymbolHealth } from "./databentoLive";
 import type { InternalTaskGovernanceSnapshot } from "./internalTaskRegistry";
+import type { MarketUniverseLifelineSnapshot } from "./marketUniverse";
 
-export const BACKEND_LIFELINE_SCHEMA_VERSION = 1;
+export const BACKEND_LIFELINE_SCHEMA_VERSION = 2;
 export const LIFELINE_SERVICE_NAME = "alpha-radar-api";
 
 export type RuntimeEnvironment = "development" | "production" | "test";
@@ -72,13 +73,18 @@ export type BackendLifelineSnapshot = {
   };
   alertDelivery: {
     serviceRunning: boolean;
+    health: "healthy" | "stale" | "stopped";
     capability: "available" | "unavailable";
+    lastHeartbeatAt: Date | null;
+    lastActivityAt: Date | null;
+    lastConsumeAt: Date | null;
     deliveriesAttempted: number;
     deliveriesSucceeded: number;
     deliveriesSkipped: number;
     deliveriesFailed: number;
     reason: string;
   };
+  marketUniverse: MarketUniverseLifelineSnapshot;
   persistenceBoundary: {
     alertRecords: "database";
     userSubscriptions: "database";
@@ -259,10 +265,12 @@ export function buildBackendLifelineSnapshot(input: {
   owner: BackendLifelineSnapshot["owner"];
   symbols: DatabentoLifelineSymbolHealth[];
   alert: AlertServiceHealthSnapshot;
+  marketUniverse?: MarketUniverseLifelineSnapshot;
   internalTasks?: InternalTaskGovernanceSnapshot;
 }): BackendLifelineSnapshot {
   const symbols = input.symbols;
   const alert = input.alert;
+  const marketUniverse = input.marketUniverse ?? emptyMarketUniverseSnapshot();
   const internalTasks = input.internalTasks ?? emptyInternalTaskSnapshot();
   const transport = summarizeTransport(symbols);
   const freshHeartbeats = symbols.filter((symbol) => symbol.heartbeatFresh);
@@ -295,6 +303,29 @@ export function buildBackendLifelineSnapshot(input: {
   const capability: BackendLifelineSnapshot["alertDelivery"]["capability"] = alert.vapid.available
     ? "available"
     : "unavailable";
+  const heartbeatAgeMs = alert.lastHeartbeatAt
+    ? Math.max(0, input.now.getTime() - alert.lastHeartbeatAt.getTime())
+    : null;
+  const consumeAgeMs = alert.lastConsumeAt
+    ? Math.max(0, input.now.getTime() - alert.lastConsumeAt.getTime())
+    : null;
+  const activityAgeMs = alert.lastActivityAt
+    ? Math.max(0, input.now.getTime() - alert.lastActivityAt.getTime())
+    : null;
+  const consumingLiveStatusIsExpected = symbols.some((symbol) => (
+    symbol.transportState === "streaming" && symbol.heartbeatFresh
+  ));
+  const alertConsumesFreshly = !consumingLiveStatusIsExpected || (
+    consumeAgeMs !== null
+    && activityAgeMs !== null
+    && consumeAgeMs <= 45_000
+    && activityAgeMs <= 45_000
+  );
+  const alertHealth: BackendLifelineSnapshot["alertDelivery"]["health"] = !alert.running
+    ? "stopped"
+    : heartbeatAgeMs !== null && heartbeatAgeMs <= 30_000 && alertConsumesFreshly
+      ? "healthy"
+      : "stale";
   const blocked = input.owner.listenerState === "failed"
     || input.owner.listenerState === "stopped"
     || input.owner.duplicateStartAttempts > 0;
@@ -305,6 +336,7 @@ export function buildBackendLifelineSnapshot(input: {
     || missingEvents.length > 0
     || delayed.length > 0
     || !alert.running
+    || alertHealth !== "healthy"
     || capability === "unavailable"
     || internalTasks.registryState !== "healthy"
   );
@@ -356,17 +388,24 @@ export function buildBackendLifelineSnapshot(input: {
     },
     alertDelivery: {
       serviceRunning: alert.running,
+      health: alertHealth,
       capability,
+      lastHeartbeatAt: alert.lastHeartbeatAt,
+      lastActivityAt: alert.lastActivityAt,
+      lastConsumeAt: alert.lastConsumeAt,
       deliveriesAttempted: alert.deliveriesAttempted,
       deliveriesSucceeded: alert.deliveriesSucceeded,
       deliveriesSkipped: alert.deliveriesSkipped,
       deliveriesFailed: alert.deliveriesFailed,
-      reason: !alert.running
+      reason: alertHealth === "stopped"
         ? "AlertService is not running; production notification processing is unavailable."
+        : alertHealth === "stale"
+          ? "AlertService heartbeat, status consumption, or activity is stale or missing; delivery health is constrained and does not confer alert eligibility."
         : capability === "unavailable"
           ? `AlertService is running, but Web Push capability is unavailable: ${alert.vapid.available ? "provider capability is not configured" : alert.vapid.reason}.`
           : "AlertService is server-owned and delivery remains subject to its existing fail-closed gates.",
     },
+    marketUniverse,
     persistenceBoundary: {
       alertRecords: "database" as const,
       userSubscriptions: "database" as const,
@@ -389,6 +428,7 @@ export class BackendLifeline {
     now?: Date;
     symbols: DatabentoLifelineSymbolHealth[];
     alert: AlertServiceHealthSnapshot;
+    marketUniverse: MarketUniverseLifelineSnapshot;
     internalTasks: InternalTaskGovernanceSnapshot;
   }): BackendLifelineSnapshot {
     const now = input.now ?? new Date();
@@ -397,9 +437,30 @@ export class BackendLifeline {
       owner: this.owner.getOwner(),
       symbols: input.symbols,
       alert: input.alert,
+      marketUniverse: input.marketUniverse,
       internalTasks: input.internalTasks,
     });
   }
+}
+
+function emptyMarketUniverseSnapshot(): MarketUniverseLifelineSnapshot {
+  return {
+    state: "blocked",
+    serviceRunning: false,
+    refreshState: "idle",
+    refreshInFlight: false,
+    bridgeRunning: false,
+    startedAt: null,
+    stoppedAt: null,
+    lastActivityAt: null,
+    lastBridgeMessageAt: null,
+    lastCompletedAt: null,
+    lastAttemptAt: null,
+    refreshedAt: null,
+    freshness: "missing",
+    dataQuality: "unavailable",
+    reason: "Market Universe lifeline is not connected.",
+  };
 }
 
 export const backendLifeline = new BackendLifeline();

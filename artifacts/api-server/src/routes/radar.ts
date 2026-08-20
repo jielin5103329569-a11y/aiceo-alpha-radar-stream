@@ -24,6 +24,7 @@ import { buildEngineeringGovernanceSnapshot } from "../lib/engineeringGovernance
 import { backendLifeline } from "../lib/backendLifeline";
 import { alertService } from "../lib/alertService";
 import { internalTaskRegistry } from "../lib/internalTaskRegistry";
+import { radarSseConnections } from "../lib/sseConnections";
 
 const router: IRouter = Router();
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -44,6 +45,7 @@ router.get("/radar/lifeline", (_req: Request, res: Response): void => {
   res.json(GetBackendLifelineResponse.parse(backendLifeline.getSnapshot({
     symbols: databentoLive.getLifelineHealth(),
     alert: alertService.getHealth(),
+    marketUniverse: marketUniverse.getLifelineHealth(),
     internalTasks: internalTaskRegistry.getSnapshot(),
   })));
 });
@@ -144,8 +146,18 @@ router.get("/radar/events", (req: Request, res: Response): void => {
   res.flushHeaders();
   res.write("retry: 2000\n\n");
 
+  let closed = false;
+  let backpressured = false;
+  const removeFromRegistry = radarSseConnections.add(res);
   const writeStatus = (): void => {
-    res.write(`event: status\ndata: ${JSON.stringify(databentoLive.getStatus())}\n\n`);
+    if (closed || backpressured || res.destroyed || res.writableEnded) return;
+    const accepted = res.write(`event: status\ndata: ${JSON.stringify(databentoLive.getStatus())}\n\n`);
+    if (!accepted) {
+      backpressured = true;
+      res.once("drain", () => {
+        backpressured = false;
+      });
+    }
   };
   writeStatus();
 
@@ -158,9 +170,12 @@ router.get("/radar/events", (req: Request, res: Response): void => {
   databentoLive.on("status", writeStatus);
 
   req.on("close", () => {
+    if (closed) return;
+    closed = true;
     clearInterval(heartbeat);
     databentoLive.off("status", writeStatus);
-    res.end();
+    removeFromRegistry();
+    if (!res.writableEnded) res.end();
   });
 });
 

@@ -1255,7 +1255,7 @@ export type EngineeringGovernanceSnapshotSchemaVersion = typeof EngineeringGover
 
 
 export const EngineeringGovernanceSnapshotSchemaVersion = {
-  NUMBER_1: 1,
+  NUMBER_2: 2,
 } as const;
 
 export type EngineeringGovernanceSnapshotPlatformBoundaryInternalExecutionLeaseState = typeof EngineeringGovernanceSnapshotPlatformBoundaryInternalExecutionLeaseState[keyof typeof EngineeringGovernanceSnapshotPlatformBoundaryInternalExecutionLeaseState];
@@ -1719,6 +1719,15 @@ export type BackendLifelineSnapshotRecovery = {
   reason: string;
 };
 
+export type BackendLifelineSnapshotAlertDeliveryHealth = typeof BackendLifelineSnapshotAlertDeliveryHealth[keyof typeof BackendLifelineSnapshotAlertDeliveryHealth];
+
+
+export const BackendLifelineSnapshotAlertDeliveryHealth = {
+  healthy: 'healthy',
+  stale: 'stale',
+  stopped: 'stopped',
+} as const;
+
 export type BackendLifelineSnapshotAlertDeliveryCapability = typeof BackendLifelineSnapshotAlertDeliveryCapability[keyof typeof BackendLifelineSnapshotAlertDeliveryCapability];
 
 
@@ -1729,7 +1738,14 @@ export const BackendLifelineSnapshotAlertDeliveryCapability = {
 
 export type BackendLifelineSnapshotAlertDelivery = {
   serviceRunning: boolean;
+  health: BackendLifelineSnapshotAlertDeliveryHealth;
   capability: BackendLifelineSnapshotAlertDeliveryCapability;
+  /** @nullable */
+  lastHeartbeatAt: string | null;
+  /** @nullable */
+  lastActivityAt: string | null;
+  /** @nullable */
+  lastConsumeAt: string | null;
   /** @minimum 0 */
   deliveriesAttempted: number;
   /** @minimum 0 */
@@ -1738,6 +1754,72 @@ export type BackendLifelineSnapshotAlertDelivery = {
   deliveriesSkipped: number;
   /** @minimum 0 */
   deliveriesFailed: number;
+  reason: string;
+};
+
+export type BackendLifelineSnapshotMarketUniverseState = typeof BackendLifelineSnapshotMarketUniverseState[keyof typeof BackendLifelineSnapshotMarketUniverseState];
+
+
+export const BackendLifelineSnapshotMarketUniverseState = {
+  healthy: 'healthy',
+  degraded: 'degraded',
+  blocked: 'blocked',
+} as const;
+
+export type BackendLifelineSnapshotMarketUniverseRefreshState = typeof BackendLifelineSnapshotMarketUniverseRefreshState[keyof typeof BackendLifelineSnapshotMarketUniverseRefreshState];
+
+
+export const BackendLifelineSnapshotMarketUniverseRefreshState = {
+  idle: 'idle',
+  refreshing: 'refreshing',
+  ready: 'ready',
+  degraded: 'degraded',
+  unavailable: 'unavailable',
+} as const;
+
+export type BackendLifelineSnapshotMarketUniverseFreshness = typeof BackendLifelineSnapshotMarketUniverseFreshness[keyof typeof BackendLifelineSnapshotMarketUniverseFreshness];
+
+
+export const BackendLifelineSnapshotMarketUniverseFreshness = {
+  fresh: 'fresh',
+  stale: 'stale',
+  missing: 'missing',
+} as const;
+
+export type BackendLifelineSnapshotMarketUniverseDataQuality = typeof BackendLifelineSnapshotMarketUniverseDataQuality[keyof typeof BackendLifelineSnapshotMarketUniverseDataQuality];
+
+
+export const BackendLifelineSnapshotMarketUniverseDataQuality = {
+  good: 'good',
+  degraded: 'degraded',
+  unavailable: 'unavailable',
+} as const;
+
+/**
+ * Read-only reference-universe health. It is classification-only and cannot establish market-event freshness, scoring, or alert eligibility.
+ */
+export type BackendLifelineSnapshotMarketUniverse = {
+  state: BackendLifelineSnapshotMarketUniverseState;
+  serviceRunning: boolean;
+  refreshState: BackendLifelineSnapshotMarketUniverseRefreshState;
+  refreshInFlight: boolean;
+  bridgeRunning: boolean;
+  /** @nullable */
+  startedAt: string | null;
+  /** @nullable */
+  stoppedAt: string | null;
+  /** @nullable */
+  lastActivityAt: string | null;
+  /** @nullable */
+  lastBridgeMessageAt: string | null;
+  /** @nullable */
+  lastCompletedAt: string | null;
+  /** @nullable */
+  lastAttemptAt: string | null;
+  /** @nullable */
+  refreshedAt: string | null;
+  freshness: BackendLifelineSnapshotMarketUniverseFreshness;
+  dataQuality: BackendLifelineSnapshotMarketUniverseDataQuality;
   reason: string;
 };
 
@@ -1807,6 +1889,8 @@ export interface BackendLifelineSnapshot {
   scanners: BackendLifelineSnapshotScanners;
   recovery: BackendLifelineSnapshotRecovery;
   alertDelivery: BackendLifelineSnapshotAlertDelivery;
+  /** Read-only reference-universe health. It is classification-only and cannot establish market-event freshness, scoring, or alert eligibility. */
+  marketUniverse: BackendLifelineSnapshotMarketUniverse;
   persistenceBoundary: BackendLifelineSnapshotPersistenceBoundary;
   internalTasks: InternalTaskGovernanceSnapshot;
   symbols: DatabentoLifelineSymbolHealth[];

@@ -75,10 +75,12 @@ try {
   transpile(
     "artifacts/api-server/src/lib/marketUniverse.ts",
     "marketUniverse.js",
-    (source) => source.replace(
-      'const currentDir = path.dirname(fileURLToPath(import.meta.url));',
-      'const currentDir = ".";',
-    ),
+    (source) => source
+      .replace(
+        'const currentDir = path.dirname(fileURLToPath(import.meta.url));',
+        'const currentDir = ".";',
+      )
+      .replace('from "node:child_process"', 'from "./child-process"'),
   );
   transpile("artifacts/api-server/src/lib/catalystRadar.ts", "catalystRadar.js");
   transpile("artifacts/api-server/src/lib/sectorPriority.ts", "sectorPriority.js");
@@ -94,6 +96,22 @@ try {
   writeFileSync(
     join(outputDirectory, "logger.js"),
     '"use strict"; Object.defineProperty(exports, "__esModule", { value: true }); exports.logger = { info() {}, warn() {}, error() {} };',
+  );
+  writeFileSync(
+    join(outputDirectory, "child-process.js"),
+    `"use strict";
+      const { EventEmitter } = require("node:events");
+      const children = [];
+      function spawn() {
+        const child = new EventEmitter();
+        child.stdout = new EventEmitter();
+        child.stderr = new EventEmitter();
+        child.kill = () => true;
+        children.push(child);
+        return child;
+      }
+      exports.spawn = spawn;
+      exports._children = children;`,
   );
   writeFileSync(
     join(outputDirectory, "signalValidation.js"),
@@ -119,10 +137,60 @@ try {
   } = require(join(outputDirectory, "databentoLive.js"));
   const {
     MarketUniverseRegistry,
+    MarketUniverseService,
     normalizeLifecycle,
     normalizeReferenceSymbol,
     normalizeSecurityType,
   } = require(join(outputDirectory, "marketUniverse.js"));
+  const childProcess = require(join(outputDirectory, "child-process.js"));
+  const previousDatabentoKey = process.env.DATABENTO_API_KEY;
+  delete process.env.DATABENTO_API_KEY;
+  const universeLifeline = new MarketUniverseService();
+  assert.equal(
+    universeLifeline.getLifelineHealth().state,
+    "blocked",
+    "an unstarted reference service must be independently blocked without affecting protected market data",
+  );
+  universeLifeline.start();
+  await Promise.resolve();
+  await Promise.resolve();
+  const unavailableUniverse = universeLifeline.getLifelineHealth();
+  assert.equal(unavailableUniverse.serviceRunning, true);
+  assert.equal(unavailableUniverse.state, "degraded", "missing reference credentials must degrade reference discovery only");
+  assert.equal(unavailableUniverse.freshness, "missing");
+  universeLifeline.stop();
+  assert.equal(universeLifeline.getLifelineHealth().state, "blocked", "stop must make reference service state explicit and fail-closed");
+  if (previousDatabentoKey === undefined) delete process.env.DATABENTO_API_KEY;
+  else process.env.DATABENTO_API_KEY = previousDatabentoKey;
+
+  // A stopped in-flight reference bridge must retire before a replacement
+  // generation starts. The old bridge can never fill the new service window.
+  const keyBeforeRestartRehearsal = process.env.DATABENTO_API_KEY;
+  process.env.DATABENTO_API_KEY = "test-only-reference-key";
+  const restartableUniverse = new MarketUniverseService();
+  const childCountBefore = childProcess._children.length;
+  restartableUniverse.start();
+  assert.equal(childProcess._children.length, childCountBefore + 1, "initial reference refresh must use the isolated child stub");
+  const oldReferenceChild = childProcess._children.at(-1);
+  restartableUniverse.stop();
+  restartableUniverse.start();
+  assert.equal(
+    childProcess._children.length,
+    childCountBefore + 1,
+    "replacement must wait for the retiring refresh instead of creating an overlapping bridge",
+  );
+  oldReferenceChild.emit("close", 0);
+  for (let i = 0; i < 6; i += 1) await Promise.resolve();
+  assert.equal(childProcess._children.length, childCountBefore + 2, "replacement generation must begin a new refresh after retirement");
+  const replacementReferenceChild = childProcess._children.at(-1);
+  const replacementUniverseHealth = restartableUniverse.getLifelineHealth();
+  assert.equal(replacementUniverseHealth.serviceRunning, true);
+  assert.equal(replacementUniverseHealth.freshness, "missing", "old reference evidence must not become fresh after restart");
+  restartableUniverse.stop();
+  replacementReferenceChild.emit("close", 0);
+  for (let i = 0; i < 3; i += 1) await Promise.resolve();
+  if (keyBeforeRestartRehearsal === undefined) delete process.env.DATABENTO_API_KEY;
+  else process.env.DATABENTO_API_KEY = keyBeforeRestartRehearsal;
   assert.equal(normalizeReferenceSymbol(" nvda "), "NVDA", "reference symbols must be normalized");
   assert.equal(normalizeReferenceSymbol("not a symbol"), null, "invalid reference symbols must be rejected");
   assert.equal(

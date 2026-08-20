@@ -8,6 +8,7 @@
 import type { BackendLifelineSnapshotAlertDelivery } from './backendLifelineSnapshotAlertDelivery';
 import type { BackendLifelineSnapshotHeartbeat } from './backendLifelineSnapshotHeartbeat';
 import type { BackendLifelineSnapshotMarketEvents } from './backendLifelineSnapshotMarketEvents';
+import type { BackendLifelineSnapshotMarketUniverse } from './backendLifelineSnapshotMarketUniverse';
 import type { BackendLifelineSnapshotOverall } from './backendLifelineSnapshotOverall';
 import type { BackendLifelineSnapshotOwner } from './backendLifelineSnapshotOwner';
 import type { BackendLifelineSnapshotPersistenceBoundary } from './backendLifelineSnapshotPersistenceBoundary';
@@ -32,6 +33,8 @@ export interface BackendLifelineSnapshot {
   scanners: BackendLifelineSnapshotScanners;
   recovery: BackendLifelineSnapshotRecovery;
   alertDelivery: BackendLifelineSnapshotAlertDelivery;
+  /** Read-only reference-universe health. It is classification-only and cannot establish market-event freshness, scoring, or alert eligibility. */
+  marketUniverse: BackendLifelineSnapshotMarketUniverse;
   persistenceBoundary: BackendLifelineSnapshotPersistenceBoundary;
   internalTasks: InternalTaskGovernanceSnapshot;
   symbols: DatabentoLifelineSymbolHealth[];

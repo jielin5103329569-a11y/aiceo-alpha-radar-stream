@@ -1607,7 +1607,7 @@ components:
       properties:
         schemaVersion:
           type: number
-          enum: [1]
+          enum: [2]
         generatedAt:
           type: string
           format: date-time
@@ -1868,9 +1868,21 @@ components:
           type: object
           properties:
             serviceRunning: { type: boolean }
+            health:
+              type: string
+              enum: [healthy, stale, stopped]
             capability:
               type: string
               enum: [available, unavailable]
+            lastHeartbeatAt:
+              type: [string, "null"]
+              format: date-time
+            lastActivityAt:
+              type: [string, "null"]
+              format: date-time
+            lastConsumeAt:
+              type: [string, "null"]
+              format: date-time
             deliveriesAttempted:
               type: number
               minimum: 0
@@ -1884,7 +1896,51 @@ components:
               type: number
               minimum: 0
             reason: { type: string }
-          required: [serviceRunning, capability, deliveriesAttempted, deliveriesSucceeded, deliveriesSkipped, deliveriesFailed, reason]
+          required: [serviceRunning, health, capability, lastHeartbeatAt, lastActivityAt, lastConsumeAt, deliveriesAttempted, deliveriesSucceeded, deliveriesSkipped, deliveriesFailed, reason]
+        marketUniverse:
+          type: object
+          description: >
+            Read-only reference-universe health. It is classification-only and
+            cannot establish market-event freshness, scoring, or alert eligibility.
+          properties:
+            state:
+              type: string
+              enum: [healthy, degraded, blocked]
+            serviceRunning: { type: boolean }
+            refreshState:
+              type: string
+              enum: [idle, refreshing, ready, degraded, unavailable]
+            refreshInFlight: { type: boolean }
+            bridgeRunning: { type: boolean }
+            startedAt:
+              type: [string, "null"]
+              format: date-time
+            stoppedAt:
+              type: [string, "null"]
+              format: date-time
+            lastActivityAt:
+              type: [string, "null"]
+              format: date-time
+            lastBridgeMessageAt:
+              type: [string, "null"]
+              format: date-time
+            lastCompletedAt:
+              type: [string, "null"]
+              format: date-time
+            lastAttemptAt:
+              type: [string, "null"]
+              format: date-time
+            refreshedAt:
+              type: [string, "null"]
+              format: date-time
+            freshness:
+              type: string
+              enum: [fresh, stale, missing]
+            dataQuality:
+              type: string
+              enum: [good, degraded, unavailable]
+            reason: { type: string }
+          required: [state, serviceRunning, refreshState, refreshInFlight, bridgeRunning, startedAt, stoppedAt, lastActivityAt, lastBridgeMessageAt, lastCompletedAt, lastAttemptAt, refreshedAt, freshness, dataQuality, reason]
         persistenceBoundary:
           type: object
           properties:
@@ -1927,6 +1983,7 @@ components:
         - scanners
         - recovery
         - alertDelivery
+        - marketUniverse
         - persistenceBoundary
         - internalTasks
         - symbols

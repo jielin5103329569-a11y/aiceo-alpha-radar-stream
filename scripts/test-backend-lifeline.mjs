@@ -36,6 +36,9 @@ function alert(overrides = {}) {
     running: true,
     startedAt: now,
     stoppedAt: null,
+    lastHeartbeatAt: now,
+    lastActivityAt: now,
+    lastConsumeAt: now,
     candidatesEvaluated: 0,
     newCandidatesProduced: 0,
     dbInsertsAttempted: 0,
@@ -51,6 +54,27 @@ function alert(overrides = {}) {
     lastErrorAt: null,
     lastError: null,
     vapid: { available: true, publicKey: "public", subject: "mailto:ops@example.test" },
+    ...overrides,
+  };
+}
+
+function marketUniverse(overrides = {}) {
+  return {
+    state: "healthy",
+    serviceRunning: true,
+    refreshState: "ready",
+    refreshInFlight: false,
+    bridgeRunning: false,
+    startedAt: now,
+    stoppedAt: null,
+    lastActivityAt: now,
+    lastBridgeMessageAt: now,
+    lastCompletedAt: now,
+    lastAttemptAt: now,
+    refreshedAt: now,
+    freshness: "fresh",
+    dataQuality: "good",
+    reason: "Reference fixture.",
     ...overrides,
   };
 }
@@ -120,6 +144,7 @@ try {
     owner: acceptedOwner.getOwner(),
     symbols: ["NVDA", "MU", "VRT", "CRDO", "AMD"].map((ticker) => symbol({ symbol: ticker })),
     alert: alert(),
+    marketUniverse: marketUniverse(),
     internalTasks: internalTasks(),
   });
   assert.equal(healthy.overall.state, "healthy");
@@ -129,6 +154,8 @@ try {
   assert.equal(healthy.persistenceBoundary.marketWindow, "memory_rebuilt_after_restart");
   assert.equal(healthy.persistenceBoundary.shadowLearning, "sidecar_not_on_lifeline");
   assert.equal(healthy.internalTasks.registryState, "healthy", "lifeline must expose the independent internal task governance projection");
+  assert.equal(healthy.alertDelivery.health, "healthy", "AlertService heartbeat must be independently observable");
+  assert.equal(healthy.marketUniverse.state, "healthy", "reference-universe lifeline must be independent and observable");
   assert.match(healthy.auditHash, /^[a-f0-9]{64}$/);
 
   const recovering = buildBackendLifelineSnapshot({
@@ -151,6 +178,7 @@ try {
       }),
     ],
     alert: alert({ vapid: { available: false, reason: "VAPID is absent" } }),
+    marketUniverse: marketUniverse({ state: "degraded", freshness: "stale", dataQuality: "degraded" }),
     internalTasks: internalTasks({ registryState: "blocked", timedOutCount: 1 }),
   });
   assert.equal(recovering.overall.state, "degraded", "provider recovery and unavailable push capability must remain visible");
@@ -159,20 +187,35 @@ try {
   assert.equal(recovering.scanners.inactiveSymbols, 1);
   assert.match(recovering.recovery.reason, /new verified market events/i);
 
+  const staleAlertConsumer = buildBackendLifelineSnapshot({
+    now,
+    owner: acceptedOwner.getOwner(),
+    symbols: ["NVDA", "MU", "VRT", "CRDO", "AMD"].map((ticker) => symbol({ symbol: ticker })),
+    alert: alert({ lastConsumeAt: null, lastActivityAt: null }),
+    marketUniverse: marketUniverse(),
+    internalTasks: internalTasks(),
+  });
+  assert.equal(staleAlertConsumer.alertDelivery.health, "stale", "a self-heartbeat cannot hide a disconnected AlertService consumer");
+  assert.equal(staleAlertConsumer.overall.state, "degraded", "stale alert consumption must remain fail-closed");
+
   const sameHealthy = buildBackendLifelineSnapshot({
     now,
     owner: acceptedOwner.getOwner(),
     symbols: ["NVDA", "MU", "VRT", "CRDO", "AMD"].map((ticker) => symbol({ symbol: ticker })),
     alert: alert(),
+    marketUniverse: marketUniverse(),
     internalTasks: internalTasks(),
   });
   assert.equal(healthy.auditHash, sameHealthy.auditHash, "same read-only lifeline inputs require a stable audit hash");
 
   const indexSource = readFileSync(resolve("artifacts/api-server/src/index.ts"), "utf8");
+  const lifecycleSource = readFileSync(resolve("artifacts/api-server/src/lib/serverLifecycle.ts"), "utf8");
   assert.match(indexSource, /backendLifeline\.owner\.claim\(port\)/);
   assert.match(indexSource, /EADDRINUSE/);
   assert.match(indexSource, /process\.once\("SIGTERM"/);
-  assert.match(indexSource, /closeAllConnections/);
+  assert.match(indexSource, /createGracefulShutdown/);
+  assert.match(indexSource, /closeEventStreams: \(reason\) => radarSseConnections\.closeAll\(reason\)/);
+  assert.match(lifecycleSource, /closeAllConnections/);
   assert.match(indexSource, /alertService\.stop\(\);\s*internalTaskRegistry\.stop\(\);\s*databentoLive\.stop\(\);\s*marketUniverse\.stop\(\)/s);
   const radarRouteSource = readFileSync(resolve("artifacts/api-server/src/routes/radar.ts"), "utf8");
   assert.doesNotMatch(radarRouteSource, /\/radar\/connect|\/radar\/disconnect/);

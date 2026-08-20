@@ -39,6 +39,17 @@ export function BackendLifelineCard() {
     );
   }
 
+  // The dashboard can hot-reload independently of the managed API workflow.
+  // Until a later approved API restart applies the matching read-only contract,
+  // keep the existing dashboard observable instead of dereferencing a missing
+  // field. This fallback grants no health or market authority.
+  const alertHealth = lifeline.alertDelivery.health ?? 'awaiting server update';
+  const marketUniverse = lifeline.marketUniverse ?? {
+    state: 'awaiting server update',
+    refreshState: 'unavailable',
+    freshness: 'missing',
+  };
+
   return (
     <Card className="border-border/80 shadow-sm" data-testid="backend-lifeline-card">
       <CardHeader className="border-b border-border/40 bg-muted/10 pb-4">
@@ -57,12 +68,14 @@ export function BackendLifelineCard() {
         </div>
       </CardHeader>
       <CardContent className="space-y-3 pt-4">
-        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
           <Metric label="Listener" value={lifeline.owner.listenerState} detail={lifeline.owner.environment} />
           <Metric label="Transport" value={`${lifeline.transport.streamingSymbols}/${lifeline.symbols.length} streaming`} detail={lifeline.transport.state} />
           <Metric label="Verified events" value={`${lifeline.marketEvents.freshSymbols} fresh`} detail={`${lifeline.marketEvents.missingSymbols} missing · ${lifeline.marketEvents.staleSymbols} stale`} />
           <Metric label="Scanners" value={`${lifeline.scanners.scheduledSymbols} scheduled`} detail={`${lifeline.scanners.delayedSymbols} delayed · ${lifeline.scanners.inactiveSymbols} inactive`} />
           <Metric label="Task leases" value={lifeline.internalTasks.registryState} detail={`${lifeline.internalTasks.activeLeaseCount} active · ${lifeline.internalTasks.timedOutCount + lifeline.internalTasks.zombieCount} unsafe`} />
+          <Metric label="Alert worker" value={alertHealth} detail={`heartbeat ${lifeline.alertDelivery.lastHeartbeatAt ? 'reported' : 'missing'} · ${lifeline.alertDelivery.capability}`} />
+          <Metric label="Market universe" value={marketUniverse.state} detail={`${marketUniverse.refreshState} · ${marketUniverse.freshness}`} />
         </div>
         <div className="rounded-md border border-border/60 bg-muted/10 p-3 text-[11px] text-muted-foreground">
           <div className="flex items-start gap-2">

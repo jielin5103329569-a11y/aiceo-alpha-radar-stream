@@ -13,6 +13,7 @@
     "test:engineering-governance": "node scripts/test-engineering-governance.mjs",
     "test:internal-task-registry": "node scripts/test-internal-task-registry.mjs",
     "test:backend-lifeline": "node scripts/test-backend-lifeline.mjs",
+    "test:lifeline-restart": "node scripts/test-lifeline-restart.mjs",
     "test:databento-live": "node scripts/test-databento-live.mjs",
     "test:opening-readiness": "node scripts/test-opening-readiness.mjs",
     "test:catalyst-radar": "node scripts/test-catalyst-radar.mjs",

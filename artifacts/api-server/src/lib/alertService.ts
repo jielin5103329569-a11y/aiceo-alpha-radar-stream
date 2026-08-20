@@ -47,6 +47,7 @@ import type { RadarStatus } from "./databentoLive";
 // ---------------------------------------------------------------------------
 
 const MAX_CONSECUTIVE_PUSH_FAILURES = 5;
+const ALERT_SERVICE_HEARTBEAT_MS = 10_000;
 /**
  * Display limit only. A fully confirmed #1 remains eligible for alert delivery
  * even when it is the sole leader surfaced for its sector.
@@ -226,6 +227,9 @@ export type AlertServiceHealthSnapshot = {
   readonly running: boolean;
   readonly startedAt: Date | null;
   readonly stoppedAt: Date | null;
+  readonly lastHeartbeatAt: Date | null;
+  readonly lastActivityAt: Date | null;
+  readonly lastConsumeAt: Date | null;
   readonly candidatesEvaluated: number;
   readonly newCandidatesProduced: number;
   readonly dbInsertsAttempted: number;
@@ -248,6 +252,9 @@ export type AlertServiceHealthSnapshot = {
 // ---------------------------------------------------------------------------
 
 type ServiceCounters = {
+  lastHeartbeatAt: Date | null;
+  lastActivityAt: Date | null;
+  lastConsumeAt: Date | null;
   candidatesEvaluated: number;
   newCandidatesProduced: number;
   dbInsertsAttempted: number;
@@ -266,6 +273,9 @@ type ServiceCounters = {
 
 function zeroCounters(): ServiceCounters {
   return {
+    lastHeartbeatAt: null,
+    lastActivityAt: null,
+    lastConsumeAt: null,
     candidatesEvaluated: 0,
     newCandidatesProduced: 0,
     dbInsertsAttempted: 0,
@@ -293,12 +303,19 @@ export class AlertService {
   private stoppedAt: Date | null = null;
   private readonly monitor = new AlertMonitor({ cooldownMs: 60_000 });
   private counters: ServiceCounters = zeroCounters();
+  private heartbeatTimer: NodeJS.Timeout | null = null;
+  private lifecycleEpoch = 0;
 
   // Bound listener reference so we can off() it exactly
   private readonly statusListener = (status: RadarStatus): void => {
+    if (!this.running) return;
+    const now = new Date();
+    const epoch = this.lifecycleEpoch;
+    this.counters.lastConsumeAt = now;
+    this.counters.lastActivityAt = now;
     // Fire-and-forget via setImmediate — never block the event emitter
     setImmediate(() => {
-      this.handleStatus(status).catch((err: unknown) => {
+      this.handleStatus(status, epoch).catch((err: unknown) => {
         this.recordError(err);
       });
     });
@@ -310,19 +327,26 @@ export class AlertService {
 
   start(): void {
     if (this.running) return;
+    this.lifecycleEpoch += 1;
     this.running = true;
     this.startedAt = new Date();
     this.stoppedAt = null;
     this.counters = zeroCounters();
+    this.recordHeartbeat(this.startedAt);
     this.monitor.resetAll();
     databentoLive.on("status", this.statusListener);
+    this.heartbeatTimer = setInterval(() => this.recordHeartbeat(), ALERT_SERVICE_HEARTBEAT_MS);
+    this.heartbeatTimer.unref();
     logger.info("AlertService started — subscribing to universe status events");
   }
 
   stop(): void {
     if (!this.running) return;
     this.running = false;
+    this.lifecycleEpoch += 1;
     this.stoppedAt = new Date();
+    if (this.heartbeatTimer) clearInterval(this.heartbeatTimer);
+    this.heartbeatTimer = null;
     databentoLive.off("status", this.statusListener);
     logger.info("AlertService stopped");
   }
@@ -339,6 +363,11 @@ export class AlertService {
       ...this.counters,
       vapid: vapidCapability,
     };
+  }
+
+  private recordHeartbeat(now = new Date()): void {
+    if (!this.running) return;
+    this.counters.lastHeartbeatAt = now;
   }
 
   /** List active push subscriptions for a user (for future route). */
@@ -449,13 +478,19 @@ export class AlertService {
   // Core status handler (always async, always caught by caller)
   // ---------------------------------------------------------------------------
 
-  private async handleStatus(status: RadarStatus): Promise<void> {
-    if (!this.running) return;
+  private isCurrentEpoch(epoch: number): boolean {
+    return this.running && this.lifecycleEpoch === epoch;
+  }
+
+  private async handleStatus(status: RadarStatus, epoch: number): Promise<void> {
+    if (!this.isCurrentEpoch(epoch)) return;
+    this.counters.lastActivityAt = new Date();
 
     const observations = observeRadarStatus(this.monitor, status);
     this.counters.candidatesEvaluated += observations.length;
 
     for (const obs of observations) {
+      if (!this.isCurrentEpoch(epoch)) return;
       if (!obs.isNewCandidate || !obs.result.ok) continue;
 
       this.counters.newCandidatesProduced += 1;
@@ -469,9 +504,9 @@ export class AlertService {
 
       // Persist the alert record idempotently, then dispatch delivery
       const alertId = await this.persistAlertRecord(candidate, classification, sectorLeaderContext);
-      if (alertId !== null) {
+      if (alertId !== null && this.isCurrentEpoch(epoch)) {
         // Fire-and-forget delivery pipeline — never awaited in this path
-        this.dispatchDelivery(alertId, candidate, classification, sectorLeaderContext).catch((err: unknown) => {
+        this.dispatchDelivery(alertId, candidate, classification, sectorLeaderContext, epoch).catch((err: unknown) => {
           this.recordError(err);
         });
       }
@@ -547,7 +582,9 @@ export class AlertService {
     candidate: NotificationCandidate,
     classification: AlertClassification | null,
     sectorLeaderContext: AlertSectorLeaderContext | null,
+    epoch: number,
   ): Promise<void> {
+    if (!this.isCurrentEpoch(epoch)) return;
     // Load active push subscriptions
     let subscriptions: typeof pushSubscriptionsTable.$inferSelect[] = [];
     try {
@@ -559,6 +596,7 @@ export class AlertService {
       this.recordError(err);
       return;
     }
+    if (!this.isCurrentEpoch(epoch)) return;
 
     if (subscriptions.length === 0) {
       await this.auditDelivery({
@@ -580,7 +618,8 @@ export class AlertService {
     }
 
     for (const [userId, userSubs] of byUser) {
-      await this.deliverToUser(alertRecordId, candidate, classification, sectorLeaderContext, userId, userSubs);
+      if (!this.isCurrentEpoch(epoch)) return;
+      await this.deliverToUser(alertRecordId, candidate, classification, sectorLeaderContext, userId, userSubs, epoch);
     }
   }
 
@@ -591,7 +630,9 @@ export class AlertService {
     sectorLeaderContext: AlertSectorLeaderContext | null,
     userId: string,
     subs: typeof pushSubscriptionsTable.$inferSelect[],
+    epoch: number,
   ): Promise<void> {
+    if (!this.isCurrentEpoch(epoch)) return;
     // Check global notification settings
     let settings: typeof notificationSettingsTable.$inferSelect | null = null;
     try {
@@ -604,6 +645,7 @@ export class AlertService {
     } catch {
       // Can't load settings — skip silently; this shouldn't block alert loop
     }
+    if (!this.isCurrentEpoch(epoch)) return;
 
     if (settings?.globalOptOut === true) {
       await this.auditDelivery({
@@ -710,7 +752,8 @@ export class AlertService {
 
     // Attempt push delivery to each active subscription for this user
     for (const sub of subs) {
-      await this.attemptPushDelivery(alertRecordId, candidate, classification, sectorLeaderContext, userId, sub);
+      if (!this.isCurrentEpoch(epoch)) return;
+      await this.attemptPushDelivery(alertRecordId, candidate, classification, sectorLeaderContext, userId, sub, epoch);
     }
   }
 
@@ -721,7 +764,9 @@ export class AlertService {
     sectorLeaderContext: AlertSectorLeaderContext | null,
     userId: string,
     sub: typeof pushSubscriptionsTable.$inferSelect,
+    epoch: number,
   ): Promise<void> {
+    if (!this.isCurrentEpoch(epoch)) return;
     this.counters.deliveriesAttempted += 1;
     const startMs = Date.now();
 
@@ -743,6 +788,7 @@ export class AlertService {
       // Dynamic import so the module is only loaded when VAPID is available
       // and we have a real subscription to deliver to.
       const webpush = await import("web-push").catch(() => null);
+      if (!this.isCurrentEpoch(epoch)) return;
       if (!webpush) {
         await this.auditDelivery({
           alertRecordId,
