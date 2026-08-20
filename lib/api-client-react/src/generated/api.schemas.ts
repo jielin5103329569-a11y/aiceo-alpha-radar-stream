@@ -1236,6 +1236,204 @@ export interface AlphaRadarRankingSnapshot {
   requiredObservationCount: number;
 }
 
+export type SectorPriorityState = typeof SectorPriorityState[keyof typeof SectorPriorityState];
+
+
+export const SectorPriorityState = {
+  ranked: 'ranked',
+  insufficient: 'insufficient',
+  unavailable: 'unavailable',
+} as const;
+
+export type SectorPriorityCandidateStage = typeof SectorPriorityCandidateStage[keyof typeof SectorPriorityCandidateStage];
+
+
+export const SectorPriorityCandidateStage = {
+  candidate: 'candidate',
+  pre_breakout: 'pre_breakout',
+  withheld: 'withheld',
+} as const;
+
+export interface SectorPriorityCoverage {
+  /** @minimum 0 */
+  eligibleLiveSymbols: number;
+  /** @minimum 0 */
+  classifiedLiveSymbols: number;
+  /** @minimum 0 */
+  rankedSectorCount: number;
+  /** @minimum 1 */
+  requiredConstituentsPerSector: number;
+  source: string;
+  reason: string;
+}
+
+export interface SectorPriorityMember {
+  symbol: string;
+  /**
+     * @minimum 1
+     * @nullable
+     */
+  rankWithinSector: number | null;
+  /**
+     * @minimum 0
+     * @maximum 100
+     * @nullable
+     */
+  individualAlphaScore: number | null;
+  /**
+     * @minimum 0
+     * @maximum 100
+     * @nullable
+     */
+  baseRankingScore: number | null;
+  /**
+     * @minimum 0
+     * @maximum 125
+     * @nullable
+     */
+  sectorWeightedScore: number | null;
+  /**
+     * @minimum 0.75
+     * @maximum 1.25
+     * @nullable
+     */
+  sectorMultiplier: number | null;
+  eligibility: AlphaRankingEligibility;
+  marketDataState: ProtectedScanMarketDataState;
+  preBreakoutState: PreBreakoutDetectionState;
+  reason: string;
+}
+
+export type SectorPrioritySectorEvidenceCatalyst = {
+  available: boolean;
+  reason: string;
+};
+
+export type SectorPrioritySectorEvidenceOptionsActivity = {
+  available: boolean;
+  reason: string;
+};
+
+export interface SectorPrioritySectorEvidence {
+  /**
+     * @minimum 0
+     * @maximum 100
+     * @nullable
+     */
+  momentum: number | null;
+  /**
+     * @minimum 0
+     * @maximum 100
+     * @nullable
+     */
+  volumeIntensity: number | null;
+  /**
+     * @minimum 0
+     * @maximum 100
+     * @nullable
+     */
+  orderFlowPressure: number | null;
+  /**
+     * @minimum 0
+     * @maximum 100
+     * @nullable
+     */
+  relativeStrength: number | null;
+  catalyst: SectorPrioritySectorEvidenceCatalyst;
+  optionsActivity: SectorPrioritySectorEvidenceOptionsActivity;
+}
+
+export interface SectorPrioritySector {
+  /** @nullable */
+  sector: string | null;
+  /** @nullable */
+  industryGroup: string | null;
+  /**
+     * @minimum 1
+     * @nullable
+     */
+  rank: number | null;
+  eligibility: SectorPriorityState;
+  /**
+     * @minimum 0
+     * @maximum 100
+     * @nullable
+     */
+  strength: number | null;
+  /** @minimum 0 */
+  constituentCount: number;
+  /** @minimum 1 */
+  requiredConstituentCount: number;
+  dataFresh: boolean;
+  evidence: SectorPrioritySectorEvidence;
+  members: SectorPriorityMember[];
+  reason: string;
+}
+
+export interface SectorPriorityCandidateEvidence {
+  marketFresh: boolean;
+  sectorStrength: boolean;
+  unfinishedExpansion: boolean;
+  catalyst: boolean;
+  moneyFlow: boolean;
+  optionsActivity: boolean;
+  fundamentals: boolean;
+  valuationExpectation: boolean;
+  riskReward: boolean;
+}
+
+export interface SectorPriorityCandidate {
+  symbol: string;
+  /**
+     * @minimum 1
+     * @nullable
+     */
+  finalRank: number | null;
+  /** @nullable */
+  sector: string | null;
+  /** @nullable */
+  industryGroup: string | null;
+  /**
+     * @minimum 0
+     * @maximum 125
+     * @nullable
+     */
+  finalScore: number | null;
+  /**
+     * @minimum 0
+     * @maximum 100
+     * @nullable
+     */
+  sectorStrength: number | null;
+  /**
+     * @minimum 0.75
+     * @maximum 1.25
+     * @nullable
+     */
+  sectorMultiplier: number | null;
+  /**
+     * @minimum 0
+     * @maximum 100
+     * @nullable
+     */
+  baseRankingScore: number | null;
+  stage: SectorPriorityCandidateStage;
+  evidence: SectorPriorityCandidateEvidence;
+  missing: string[];
+  reason: string;
+}
+
+export interface SectorPrioritySnapshot {
+  generatedAt: string;
+  state: SectorPriorityState;
+  coverage: SectorPriorityCoverage;
+  sectors: SectorPrioritySector[];
+  finalCandidates: SectorPriorityCandidate[];
+  preBreakoutCandidates: SectorPriorityCandidate[];
+  withheldCandidates: SectorPriorityCandidate[];
+  reason: string;
+}
+
 export type ValidationSignalState = typeof ValidationSignalState[keyof typeof ValidationSignalState];
 
 
@@ -1735,6 +1933,7 @@ export interface RadarStatus {
   opportunityCenter: OpportunityCenterSnapshot;
   symbolRadars: RadarSymbolStatus[];
   alphaRanking: AlphaRadarRankingSnapshot;
+  sectorPriority: SectorPrioritySnapshot;
   /** @nullable */
   preBreakoutLeader: RadarStatusPreBreakoutLeader;
 }

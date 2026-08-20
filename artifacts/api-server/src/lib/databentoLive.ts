@@ -32,6 +32,10 @@ import {
   type CatalystRadarSnapshot,
   type OpportunityCenterSnapshot,
 } from "./catalystRadar";
+import {
+  buildSectorPriority,
+  type SectorPrioritySnapshot,
+} from "./sectorPriority";
 import { signalValidation } from "./signalValidation";
 import {
   SHADOW_MODEL_VERSION,
@@ -252,6 +256,7 @@ export type RadarStatus = {
   focusedScans?: FocusedScanSnapshot;
   catalystRadar?: CatalystRadarSnapshot;
   opportunityCenter?: OpportunityCenterSnapshot;
+  sectorPriority?: SectorPrioritySnapshot;
 };
 
 export type RadarSymbolStatus = {
@@ -2989,6 +2994,19 @@ export class DatabentoUniverseService extends EventEmitter {
       })),
       now,
     );
+    const sectorPriority = buildSectorPriority({
+      symbols: symbolRadars,
+      alphaRanking: rankingResult.snapshot,
+      references: statuses.map((status) => ({
+        symbol: status.symbol,
+        reference: marketUniverse.getSecurity(status.symbol, now),
+      })),
+      catalystRadar: opportunityData.catalystRadar,
+      referenceFresh:
+        marketUniverseSnapshot.freshness === "fresh"
+        && marketUniverseSnapshot.dataQuality === "good",
+      now,
+    });
 
     return {
       ...primary,
@@ -2998,6 +3016,7 @@ export class DatabentoUniverseService extends EventEmitter {
       focusedScans: this.focusedScans.getStatus(statuses),
       catalystRadar: opportunityData.catalystRadar,
       opportunityCenter: opportunityData.opportunityCenter,
+      sectorPriority,
       preBreakoutLeader: leader
         ? {
             symbol: leader.symbol,

@@ -11,6 +11,7 @@ import { ShadowLearningStatusPanel } from '@/components/shadow-learning-status-p
 import { AccountControls } from '@/components/account-controls';
 import { AccountAlerts } from '@/components/account-alerts';
 import { CatalystOpportunityCenter } from '@/components/catalyst-opportunity-center';
+import { SectorPriorityHierarchy } from '@/components/sector-priority-hierarchy';
 import { formatAge, formatNumber, formatPercent, formatTime, cn } from '@/lib/utils';
 import {
   AlertCircle,
@@ -291,6 +292,8 @@ export default function Dashboard() {
           <SignalValidationPanel />
           <ShadowLearningStatusPanel />
           <AccountAlerts />
+
+          <SectorPriorityHierarchy snapshot={status?.sectorPriority} />
 
           <RadarUniverseCard
             symbols={status?.symbolRadars ?? []}

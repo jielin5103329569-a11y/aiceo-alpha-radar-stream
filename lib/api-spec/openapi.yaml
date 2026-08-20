@@ -1541,6 +1541,186 @@ components:
         - reorderPending
         - pendingObservationCount
         - requiredObservationCount
+    SectorPriorityState:
+      type: string
+      enum: [ranked, insufficient, unavailable]
+    SectorPriorityCandidateStage:
+      type: string
+      enum: [candidate, pre_breakout, withheld]
+    SectorPriorityCoverage:
+      type: object
+      properties:
+        eligibleLiveSymbols: { type: number, minimum: 0 }
+        classifiedLiveSymbols: { type: number, minimum: 0 }
+        rankedSectorCount: { type: number, minimum: 0 }
+        requiredConstituentsPerSector: { type: number, minimum: 1 }
+        source: { type: string }
+        reason: { type: string }
+      required:
+        - eligibleLiveSymbols
+        - classifiedLiveSymbols
+        - rankedSectorCount
+        - requiredConstituentsPerSector
+        - source
+        - reason
+    SectorPriorityMember:
+      type: object
+      properties:
+        symbol: { type: string }
+        rankWithinSector: { type: [number, "null"], minimum: 1 }
+        individualAlphaScore: { type: [number, "null"], minimum: 0, maximum: 100 }
+        baseRankingScore: { type: [number, "null"], minimum: 0, maximum: 100 }
+        sectorWeightedScore: { type: [number, "null"], minimum: 0, maximum: 125 }
+        sectorMultiplier: { type: [number, "null"], minimum: 0.75, maximum: 1.25 }
+        eligibility: { $ref: "#/components/schemas/AlphaRankingEligibility" }
+        marketDataState: { $ref: "#/components/schemas/ProtectedScanMarketDataState" }
+        preBreakoutState: { $ref: "#/components/schemas/PreBreakoutDetectionState" }
+        reason: { type: string }
+      required:
+        - symbol
+        - rankWithinSector
+        - individualAlphaScore
+        - baseRankingScore
+        - sectorWeightedScore
+        - sectorMultiplier
+        - eligibility
+        - marketDataState
+        - preBreakoutState
+        - reason
+    SectorPrioritySectorEvidence:
+      type: object
+      properties:
+        momentum: { type: [number, "null"], minimum: 0, maximum: 100 }
+        volumeIntensity: { type: [number, "null"], minimum: 0, maximum: 100 }
+        orderFlowPressure: { type: [number, "null"], minimum: 0, maximum: 100 }
+        relativeStrength: { type: [number, "null"], minimum: 0, maximum: 100 }
+        catalyst:
+          type: object
+          properties:
+            available: { type: boolean }
+            reason: { type: string }
+          required: [available, reason]
+        optionsActivity:
+          type: object
+          properties:
+            available: { type: boolean }
+            reason: { type: string }
+          required: [available, reason]
+      required:
+        - momentum
+        - volumeIntensity
+        - orderFlowPressure
+        - relativeStrength
+        - catalyst
+        - optionsActivity
+    SectorPrioritySector:
+      type: object
+      properties:
+        sector: { type: [string, "null"] }
+        industryGroup: { type: [string, "null"] }
+        rank: { type: [number, "null"], minimum: 1 }
+        eligibility: { $ref: "#/components/schemas/SectorPriorityState" }
+        strength: { type: [number, "null"], minimum: 0, maximum: 100 }
+        constituentCount: { type: number, minimum: 0 }
+        requiredConstituentCount: { type: number, minimum: 1 }
+        dataFresh: { type: boolean }
+        evidence: { $ref: "#/components/schemas/SectorPrioritySectorEvidence" }
+        members:
+          type: array
+          items: { $ref: "#/components/schemas/SectorPriorityMember" }
+        reason: { type: string }
+      required:
+        - sector
+        - industryGroup
+        - rank
+        - eligibility
+        - strength
+        - constituentCount
+        - requiredConstituentCount
+        - dataFresh
+        - evidence
+        - members
+        - reason
+    SectorPriorityCandidateEvidence:
+      type: object
+      properties:
+        marketFresh: { type: boolean }
+        sectorStrength: { type: boolean }
+        unfinishedExpansion: { type: boolean }
+        catalyst: { type: boolean }
+        moneyFlow: { type: boolean }
+        optionsActivity: { type: boolean }
+        fundamentals: { type: boolean }
+        valuationExpectation: { type: boolean }
+        riskReward: { type: boolean }
+      required:
+        - marketFresh
+        - sectorStrength
+        - unfinishedExpansion
+        - catalyst
+        - moneyFlow
+        - optionsActivity
+        - fundamentals
+        - valuationExpectation
+        - riskReward
+    SectorPriorityCandidate:
+      type: object
+      properties:
+        symbol: { type: string }
+        finalRank: { type: [number, "null"], minimum: 1 }
+        sector: { type: [string, "null"] }
+        industryGroup: { type: [string, "null"] }
+        finalScore: { type: [number, "null"], minimum: 0, maximum: 125 }
+        sectorStrength: { type: [number, "null"], minimum: 0, maximum: 100 }
+        sectorMultiplier: { type: [number, "null"], minimum: 0.75, maximum: 1.25 }
+        baseRankingScore: { type: [number, "null"], minimum: 0, maximum: 100 }
+        stage: { $ref: "#/components/schemas/SectorPriorityCandidateStage" }
+        evidence: { $ref: "#/components/schemas/SectorPriorityCandidateEvidence" }
+        missing:
+          type: array
+          items: { type: string }
+        reason: { type: string }
+      required:
+        - symbol
+        - finalRank
+        - sector
+        - industryGroup
+        - finalScore
+        - sectorStrength
+        - sectorMultiplier
+        - baseRankingScore
+        - stage
+        - evidence
+        - missing
+        - reason
+    SectorPrioritySnapshot:
+      type: object
+      properties:
+        generatedAt: { type: string, format: date-time }
+        state: { $ref: "#/components/schemas/SectorPriorityState" }
+        coverage: { $ref: "#/components/schemas/SectorPriorityCoverage" }
+        sectors:
+          type: array
+          items: { $ref: "#/components/schemas/SectorPrioritySector" }
+        finalCandidates:
+          type: array
+          items: { $ref: "#/components/schemas/SectorPriorityCandidate" }
+        preBreakoutCandidates:
+          type: array
+          items: { $ref: "#/components/schemas/SectorPriorityCandidate" }
+        withheldCandidates:
+          type: array
+          items: { $ref: "#/components/schemas/SectorPriorityCandidate" }
+        reason: { type: string }
+      required:
+        - generatedAt
+        - state
+        - coverage
+        - sectors
+        - finalCandidates
+        - preBreakoutCandidates
+        - withheldCandidates
+        - reason
     AlphaRadarSignalHistoryEntry:
       type: object
       properties:
@@ -2493,6 +2673,8 @@ components:
             $ref: "#/components/schemas/RadarSymbolStatus"
         alphaRanking:
           $ref: "#/components/schemas/AlphaRadarRankingSnapshot"
+        sectorPriority:
+          $ref: "#/components/schemas/SectorPrioritySnapshot"
         preBreakoutLeader:
           type: [object, "null"]
           properties:
@@ -2533,4 +2715,5 @@ components:
         - opportunityCenter
         - symbolRadars
         - alphaRanking
+        - sectorPriority
         - preBreakoutLeader

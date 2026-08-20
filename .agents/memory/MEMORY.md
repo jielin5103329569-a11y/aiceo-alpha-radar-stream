@@ -10,3 +10,4 @@
 - [Catalyst opportunity integrity](catalyst-opportunity-integrity.md) — External catalyst context is fail-closed; confirmation needs fresh, independent catalyst, market, Alpha, and peer evidence.
 - [Artifact workflow port ownership](artifact-workflow-port-ownership.md) — Managed API and web workflows need exclusive listener ownership; never add substitute workflows for port conflicts.
 - [Shadow Learning isolation](shadow-learning-isolation.md) — Experimental strategy evidence is archive-backed, sidecar-only, and can never alter production radar behavior.
+- [Sector-first priority](sector-first-priority.md) — Sector strength is a live-evidence multiplier and final promotion remains fail-closed across every independent input.

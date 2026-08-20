@@ -166,6 +166,84 @@ export const getRadarStatusResponseAlphaRankingEntriesItemConfidenceMax = 100;
 export const getRadarStatusResponseAlphaRankingPendingObservationCountMin = 0;
 
 
+export const getRadarStatusResponseSectorPriorityCoverageEligibleLiveSymbolsMin = 0;
+
+export const getRadarStatusResponseSectorPriorityCoverageClassifiedLiveSymbolsMin = 0;
+
+export const getRadarStatusResponseSectorPriorityCoverageRankedSectorCountMin = 0;
+
+
+
+export const getRadarStatusResponseSectorPrioritySectorsItemStrengthMin = 0;
+export const getRadarStatusResponseSectorPrioritySectorsItemStrengthMax = 100;
+
+export const getRadarStatusResponseSectorPrioritySectorsItemConstituentCountMin = 0;
+
+
+export const getRadarStatusResponseSectorPrioritySectorsItemEvidenceMomentumMin = 0;
+export const getRadarStatusResponseSectorPrioritySectorsItemEvidenceMomentumMax = 100;
+
+export const getRadarStatusResponseSectorPrioritySectorsItemEvidenceVolumeIntensityMin = 0;
+export const getRadarStatusResponseSectorPrioritySectorsItemEvidenceVolumeIntensityMax = 100;
+
+export const getRadarStatusResponseSectorPrioritySectorsItemEvidenceOrderFlowPressureMin = 0;
+export const getRadarStatusResponseSectorPrioritySectorsItemEvidenceOrderFlowPressureMax = 100;
+
+export const getRadarStatusResponseSectorPrioritySectorsItemEvidenceRelativeStrengthMin = 0;
+export const getRadarStatusResponseSectorPrioritySectorsItemEvidenceRelativeStrengthMax = 100;
+
+
+export const getRadarStatusResponseSectorPrioritySectorsItemMembersItemIndividualAlphaScoreMin = 0;
+export const getRadarStatusResponseSectorPrioritySectorsItemMembersItemIndividualAlphaScoreMax = 100;
+
+export const getRadarStatusResponseSectorPrioritySectorsItemMembersItemBaseRankingScoreMin = 0;
+export const getRadarStatusResponseSectorPrioritySectorsItemMembersItemBaseRankingScoreMax = 100;
+
+export const getRadarStatusResponseSectorPrioritySectorsItemMembersItemSectorWeightedScoreMin = 0;
+export const getRadarStatusResponseSectorPrioritySectorsItemMembersItemSectorWeightedScoreMax = 125;
+
+export const getRadarStatusResponseSectorPrioritySectorsItemMembersItemSectorMultiplierMin = 0.75;
+export const getRadarStatusResponseSectorPrioritySectorsItemMembersItemSectorMultiplierMax = 1.25;
+
+
+export const getRadarStatusResponseSectorPriorityFinalCandidatesItemFinalScoreMin = 0;
+export const getRadarStatusResponseSectorPriorityFinalCandidatesItemFinalScoreMax = 125;
+
+export const getRadarStatusResponseSectorPriorityFinalCandidatesItemSectorStrengthMin = 0;
+export const getRadarStatusResponseSectorPriorityFinalCandidatesItemSectorStrengthMax = 100;
+
+export const getRadarStatusResponseSectorPriorityFinalCandidatesItemSectorMultiplierMin = 0.75;
+export const getRadarStatusResponseSectorPriorityFinalCandidatesItemSectorMultiplierMax = 1.25;
+
+export const getRadarStatusResponseSectorPriorityFinalCandidatesItemBaseRankingScoreMin = 0;
+export const getRadarStatusResponseSectorPriorityFinalCandidatesItemBaseRankingScoreMax = 100;
+
+
+export const getRadarStatusResponseSectorPriorityPreBreakoutCandidatesItemFinalScoreMin = 0;
+export const getRadarStatusResponseSectorPriorityPreBreakoutCandidatesItemFinalScoreMax = 125;
+
+export const getRadarStatusResponseSectorPriorityPreBreakoutCandidatesItemSectorStrengthMin = 0;
+export const getRadarStatusResponseSectorPriorityPreBreakoutCandidatesItemSectorStrengthMax = 100;
+
+export const getRadarStatusResponseSectorPriorityPreBreakoutCandidatesItemSectorMultiplierMin = 0.75;
+export const getRadarStatusResponseSectorPriorityPreBreakoutCandidatesItemSectorMultiplierMax = 1.25;
+
+export const getRadarStatusResponseSectorPriorityPreBreakoutCandidatesItemBaseRankingScoreMin = 0;
+export const getRadarStatusResponseSectorPriorityPreBreakoutCandidatesItemBaseRankingScoreMax = 100;
+
+
+export const getRadarStatusResponseSectorPriorityWithheldCandidatesItemFinalScoreMin = 0;
+export const getRadarStatusResponseSectorPriorityWithheldCandidatesItemFinalScoreMax = 125;
+
+export const getRadarStatusResponseSectorPriorityWithheldCandidatesItemSectorStrengthMin = 0;
+export const getRadarStatusResponseSectorPriorityWithheldCandidatesItemSectorStrengthMax = 100;
+
+export const getRadarStatusResponseSectorPriorityWithheldCandidatesItemSectorMultiplierMin = 0.75;
+export const getRadarStatusResponseSectorPriorityWithheldCandidatesItemSectorMultiplierMax = 1.25;
+
+export const getRadarStatusResponseSectorPriorityWithheldCandidatesItemBaseRankingScoreMin = 0;
+export const getRadarStatusResponseSectorPriorityWithheldCandidatesItemBaseRankingScoreMax = 100;
+
 
 
 export const GetRadarStatusResponse = zod.object({
@@ -915,6 +993,128 @@ export const GetRadarStatusResponse = zod.object({
   "pendingObservationCount": zod.number().min(getRadarStatusResponseAlphaRankingPendingObservationCountMin),
   "requiredObservationCount": zod.number().min(1)
 }),
+  "sectorPriority": zod.object({
+  "generatedAt": zod.coerce.date(),
+  "state": zod.enum(['ranked', 'insufficient', 'unavailable']),
+  "coverage": zod.object({
+  "eligibleLiveSymbols": zod.number().min(getRadarStatusResponseSectorPriorityCoverageEligibleLiveSymbolsMin),
+  "classifiedLiveSymbols": zod.number().min(getRadarStatusResponseSectorPriorityCoverageClassifiedLiveSymbolsMin),
+  "rankedSectorCount": zod.number().min(getRadarStatusResponseSectorPriorityCoverageRankedSectorCountMin),
+  "requiredConstituentsPerSector": zod.number().min(1),
+  "source": zod.string(),
+  "reason": zod.string()
+}),
+  "sectors": zod.array(zod.object({
+  "sector": zod.string().nullable(),
+  "industryGroup": zod.string().nullable(),
+  "rank": zod.number().min(1).nullable(),
+  "eligibility": zod.enum(['ranked', 'insufficient', 'unavailable']),
+  "strength": zod.number().min(getRadarStatusResponseSectorPrioritySectorsItemStrengthMin).max(getRadarStatusResponseSectorPrioritySectorsItemStrengthMax).nullable(),
+  "constituentCount": zod.number().min(getRadarStatusResponseSectorPrioritySectorsItemConstituentCountMin),
+  "requiredConstituentCount": zod.number().min(1),
+  "dataFresh": zod.boolean(),
+  "evidence": zod.object({
+  "momentum": zod.number().min(getRadarStatusResponseSectorPrioritySectorsItemEvidenceMomentumMin).max(getRadarStatusResponseSectorPrioritySectorsItemEvidenceMomentumMax).nullable(),
+  "volumeIntensity": zod.number().min(getRadarStatusResponseSectorPrioritySectorsItemEvidenceVolumeIntensityMin).max(getRadarStatusResponseSectorPrioritySectorsItemEvidenceVolumeIntensityMax).nullable(),
+  "orderFlowPressure": zod.number().min(getRadarStatusResponseSectorPrioritySectorsItemEvidenceOrderFlowPressureMin).max(getRadarStatusResponseSectorPrioritySectorsItemEvidenceOrderFlowPressureMax).nullable(),
+  "relativeStrength": zod.number().min(getRadarStatusResponseSectorPrioritySectorsItemEvidenceRelativeStrengthMin).max(getRadarStatusResponseSectorPrioritySectorsItemEvidenceRelativeStrengthMax).nullable(),
+  "catalyst": zod.object({
+  "available": zod.boolean(),
+  "reason": zod.string()
+}),
+  "optionsActivity": zod.object({
+  "available": zod.boolean(),
+  "reason": zod.string()
+})
+}),
+  "members": zod.array(zod.object({
+  "symbol": zod.string(),
+  "rankWithinSector": zod.number().min(1).nullable(),
+  "individualAlphaScore": zod.number().min(getRadarStatusResponseSectorPrioritySectorsItemMembersItemIndividualAlphaScoreMin).max(getRadarStatusResponseSectorPrioritySectorsItemMembersItemIndividualAlphaScoreMax).nullable(),
+  "baseRankingScore": zod.number().min(getRadarStatusResponseSectorPrioritySectorsItemMembersItemBaseRankingScoreMin).max(getRadarStatusResponseSectorPrioritySectorsItemMembersItemBaseRankingScoreMax).nullable(),
+  "sectorWeightedScore": zod.number().min(getRadarStatusResponseSectorPrioritySectorsItemMembersItemSectorWeightedScoreMin).max(getRadarStatusResponseSectorPrioritySectorsItemMembersItemSectorWeightedScoreMax).nullable(),
+  "sectorMultiplier": zod.number().min(getRadarStatusResponseSectorPrioritySectorsItemMembersItemSectorMultiplierMin).max(getRadarStatusResponseSectorPrioritySectorsItemMembersItemSectorMultiplierMax).nullable(),
+  "eligibility": zod.enum(['ranked', 'building', 'ineligible']),
+  "marketDataState": zod.enum(['fresh', 'stale', 'offline', 'insufficient']),
+  "preBreakoutState": zod.enum(['unavailable', 'watch', 'accelerating', 'pre_breakout', 'confirmed']),
+  "reason": zod.string()
+})),
+  "reason": zod.string()
+})),
+  "finalCandidates": zod.array(zod.object({
+  "symbol": zod.string(),
+  "finalRank": zod.number().min(1).nullable(),
+  "sector": zod.string().nullable(),
+  "industryGroup": zod.string().nullable(),
+  "finalScore": zod.number().min(getRadarStatusResponseSectorPriorityFinalCandidatesItemFinalScoreMin).max(getRadarStatusResponseSectorPriorityFinalCandidatesItemFinalScoreMax).nullable(),
+  "sectorStrength": zod.number().min(getRadarStatusResponseSectorPriorityFinalCandidatesItemSectorStrengthMin).max(getRadarStatusResponseSectorPriorityFinalCandidatesItemSectorStrengthMax).nullable(),
+  "sectorMultiplier": zod.number().min(getRadarStatusResponseSectorPriorityFinalCandidatesItemSectorMultiplierMin).max(getRadarStatusResponseSectorPriorityFinalCandidatesItemSectorMultiplierMax).nullable(),
+  "baseRankingScore": zod.number().min(getRadarStatusResponseSectorPriorityFinalCandidatesItemBaseRankingScoreMin).max(getRadarStatusResponseSectorPriorityFinalCandidatesItemBaseRankingScoreMax).nullable(),
+  "stage": zod.enum(['candidate', 'pre_breakout', 'withheld']),
+  "evidence": zod.object({
+  "marketFresh": zod.boolean(),
+  "sectorStrength": zod.boolean(),
+  "unfinishedExpansion": zod.boolean(),
+  "catalyst": zod.boolean(),
+  "moneyFlow": zod.boolean(),
+  "optionsActivity": zod.boolean(),
+  "fundamentals": zod.boolean(),
+  "valuationExpectation": zod.boolean(),
+  "riskReward": zod.boolean()
+}),
+  "missing": zod.array(zod.string()),
+  "reason": zod.string()
+})),
+  "preBreakoutCandidates": zod.array(zod.object({
+  "symbol": zod.string(),
+  "finalRank": zod.number().min(1).nullable(),
+  "sector": zod.string().nullable(),
+  "industryGroup": zod.string().nullable(),
+  "finalScore": zod.number().min(getRadarStatusResponseSectorPriorityPreBreakoutCandidatesItemFinalScoreMin).max(getRadarStatusResponseSectorPriorityPreBreakoutCandidatesItemFinalScoreMax).nullable(),
+  "sectorStrength": zod.number().min(getRadarStatusResponseSectorPriorityPreBreakoutCandidatesItemSectorStrengthMin).max(getRadarStatusResponseSectorPriorityPreBreakoutCandidatesItemSectorStrengthMax).nullable(),
+  "sectorMultiplier": zod.number().min(getRadarStatusResponseSectorPriorityPreBreakoutCandidatesItemSectorMultiplierMin).max(getRadarStatusResponseSectorPriorityPreBreakoutCandidatesItemSectorMultiplierMax).nullable(),
+  "baseRankingScore": zod.number().min(getRadarStatusResponseSectorPriorityPreBreakoutCandidatesItemBaseRankingScoreMin).max(getRadarStatusResponseSectorPriorityPreBreakoutCandidatesItemBaseRankingScoreMax).nullable(),
+  "stage": zod.enum(['candidate', 'pre_breakout', 'withheld']),
+  "evidence": zod.object({
+  "marketFresh": zod.boolean(),
+  "sectorStrength": zod.boolean(),
+  "unfinishedExpansion": zod.boolean(),
+  "catalyst": zod.boolean(),
+  "moneyFlow": zod.boolean(),
+  "optionsActivity": zod.boolean(),
+  "fundamentals": zod.boolean(),
+  "valuationExpectation": zod.boolean(),
+  "riskReward": zod.boolean()
+}),
+  "missing": zod.array(zod.string()),
+  "reason": zod.string()
+})),
+  "withheldCandidates": zod.array(zod.object({
+  "symbol": zod.string(),
+  "finalRank": zod.number().min(1).nullable(),
+  "sector": zod.string().nullable(),
+  "industryGroup": zod.string().nullable(),
+  "finalScore": zod.number().min(getRadarStatusResponseSectorPriorityWithheldCandidatesItemFinalScoreMin).max(getRadarStatusResponseSectorPriorityWithheldCandidatesItemFinalScoreMax).nullable(),
+  "sectorStrength": zod.number().min(getRadarStatusResponseSectorPriorityWithheldCandidatesItemSectorStrengthMin).max(getRadarStatusResponseSectorPriorityWithheldCandidatesItemSectorStrengthMax).nullable(),
+  "sectorMultiplier": zod.number().min(getRadarStatusResponseSectorPriorityWithheldCandidatesItemSectorMultiplierMin).max(getRadarStatusResponseSectorPriorityWithheldCandidatesItemSectorMultiplierMax).nullable(),
+  "baseRankingScore": zod.number().min(getRadarStatusResponseSectorPriorityWithheldCandidatesItemBaseRankingScoreMin).max(getRadarStatusResponseSectorPriorityWithheldCandidatesItemBaseRankingScoreMax).nullable(),
+  "stage": zod.enum(['candidate', 'pre_breakout', 'withheld']),
+  "evidence": zod.object({
+  "marketFresh": zod.boolean(),
+  "sectorStrength": zod.boolean(),
+  "unfinishedExpansion": zod.boolean(),
+  "catalyst": zod.boolean(),
+  "moneyFlow": zod.boolean(),
+  "optionsActivity": zod.boolean(),
+  "fundamentals": zod.boolean(),
+  "valuationExpectation": zod.boolean(),
+  "riskReward": zod.boolean()
+}),
+  "missing": zod.array(zod.string()),
+  "reason": zod.string()
+})),
+  "reason": zod.string()
+}),
   "preBreakoutLeader": zod.object({
   "symbol": zod.string(),
   "state": zod.enum(['unavailable', 'watch', 'accelerating', 'pre_breakout', 'confirmed']),
@@ -1072,6 +1272,84 @@ export const startRadarConnectionResponseAlphaRankingEntriesItemConfidenceMax = 
 
 export const startRadarConnectionResponseAlphaRankingPendingObservationCountMin = 0;
 
+
+export const startRadarConnectionResponseSectorPriorityCoverageEligibleLiveSymbolsMin = 0;
+
+export const startRadarConnectionResponseSectorPriorityCoverageClassifiedLiveSymbolsMin = 0;
+
+export const startRadarConnectionResponseSectorPriorityCoverageRankedSectorCountMin = 0;
+
+
+
+export const startRadarConnectionResponseSectorPrioritySectorsItemStrengthMin = 0;
+export const startRadarConnectionResponseSectorPrioritySectorsItemStrengthMax = 100;
+
+export const startRadarConnectionResponseSectorPrioritySectorsItemConstituentCountMin = 0;
+
+
+export const startRadarConnectionResponseSectorPrioritySectorsItemEvidenceMomentumMin = 0;
+export const startRadarConnectionResponseSectorPrioritySectorsItemEvidenceMomentumMax = 100;
+
+export const startRadarConnectionResponseSectorPrioritySectorsItemEvidenceVolumeIntensityMin = 0;
+export const startRadarConnectionResponseSectorPrioritySectorsItemEvidenceVolumeIntensityMax = 100;
+
+export const startRadarConnectionResponseSectorPrioritySectorsItemEvidenceOrderFlowPressureMin = 0;
+export const startRadarConnectionResponseSectorPrioritySectorsItemEvidenceOrderFlowPressureMax = 100;
+
+export const startRadarConnectionResponseSectorPrioritySectorsItemEvidenceRelativeStrengthMin = 0;
+export const startRadarConnectionResponseSectorPrioritySectorsItemEvidenceRelativeStrengthMax = 100;
+
+
+export const startRadarConnectionResponseSectorPrioritySectorsItemMembersItemIndividualAlphaScoreMin = 0;
+export const startRadarConnectionResponseSectorPrioritySectorsItemMembersItemIndividualAlphaScoreMax = 100;
+
+export const startRadarConnectionResponseSectorPrioritySectorsItemMembersItemBaseRankingScoreMin = 0;
+export const startRadarConnectionResponseSectorPrioritySectorsItemMembersItemBaseRankingScoreMax = 100;
+
+export const startRadarConnectionResponseSectorPrioritySectorsItemMembersItemSectorWeightedScoreMin = 0;
+export const startRadarConnectionResponseSectorPrioritySectorsItemMembersItemSectorWeightedScoreMax = 125;
+
+export const startRadarConnectionResponseSectorPrioritySectorsItemMembersItemSectorMultiplierMin = 0.75;
+export const startRadarConnectionResponseSectorPrioritySectorsItemMembersItemSectorMultiplierMax = 1.25;
+
+
+export const startRadarConnectionResponseSectorPriorityFinalCandidatesItemFinalScoreMin = 0;
+export const startRadarConnectionResponseSectorPriorityFinalCandidatesItemFinalScoreMax = 125;
+
+export const startRadarConnectionResponseSectorPriorityFinalCandidatesItemSectorStrengthMin = 0;
+export const startRadarConnectionResponseSectorPriorityFinalCandidatesItemSectorStrengthMax = 100;
+
+export const startRadarConnectionResponseSectorPriorityFinalCandidatesItemSectorMultiplierMin = 0.75;
+export const startRadarConnectionResponseSectorPriorityFinalCandidatesItemSectorMultiplierMax = 1.25;
+
+export const startRadarConnectionResponseSectorPriorityFinalCandidatesItemBaseRankingScoreMin = 0;
+export const startRadarConnectionResponseSectorPriorityFinalCandidatesItemBaseRankingScoreMax = 100;
+
+
+export const startRadarConnectionResponseSectorPriorityPreBreakoutCandidatesItemFinalScoreMin = 0;
+export const startRadarConnectionResponseSectorPriorityPreBreakoutCandidatesItemFinalScoreMax = 125;
+
+export const startRadarConnectionResponseSectorPriorityPreBreakoutCandidatesItemSectorStrengthMin = 0;
+export const startRadarConnectionResponseSectorPriorityPreBreakoutCandidatesItemSectorStrengthMax = 100;
+
+export const startRadarConnectionResponseSectorPriorityPreBreakoutCandidatesItemSectorMultiplierMin = 0.75;
+export const startRadarConnectionResponseSectorPriorityPreBreakoutCandidatesItemSectorMultiplierMax = 1.25;
+
+export const startRadarConnectionResponseSectorPriorityPreBreakoutCandidatesItemBaseRankingScoreMin = 0;
+export const startRadarConnectionResponseSectorPriorityPreBreakoutCandidatesItemBaseRankingScoreMax = 100;
+
+
+export const startRadarConnectionResponseSectorPriorityWithheldCandidatesItemFinalScoreMin = 0;
+export const startRadarConnectionResponseSectorPriorityWithheldCandidatesItemFinalScoreMax = 125;
+
+export const startRadarConnectionResponseSectorPriorityWithheldCandidatesItemSectorStrengthMin = 0;
+export const startRadarConnectionResponseSectorPriorityWithheldCandidatesItemSectorStrengthMax = 100;
+
+export const startRadarConnectionResponseSectorPriorityWithheldCandidatesItemSectorMultiplierMin = 0.75;
+export const startRadarConnectionResponseSectorPriorityWithheldCandidatesItemSectorMultiplierMax = 1.25;
+
+export const startRadarConnectionResponseSectorPriorityWithheldCandidatesItemBaseRankingScoreMin = 0;
+export const startRadarConnectionResponseSectorPriorityWithheldCandidatesItemBaseRankingScoreMax = 100;
 
 
 
@@ -1822,6 +2100,128 @@ export const StartRadarConnectionResponse = zod.object({
   "pendingObservationCount": zod.number().min(startRadarConnectionResponseAlphaRankingPendingObservationCountMin),
   "requiredObservationCount": zod.number().min(1)
 }),
+  "sectorPriority": zod.object({
+  "generatedAt": zod.coerce.date(),
+  "state": zod.enum(['ranked', 'insufficient', 'unavailable']),
+  "coverage": zod.object({
+  "eligibleLiveSymbols": zod.number().min(startRadarConnectionResponseSectorPriorityCoverageEligibleLiveSymbolsMin),
+  "classifiedLiveSymbols": zod.number().min(startRadarConnectionResponseSectorPriorityCoverageClassifiedLiveSymbolsMin),
+  "rankedSectorCount": zod.number().min(startRadarConnectionResponseSectorPriorityCoverageRankedSectorCountMin),
+  "requiredConstituentsPerSector": zod.number().min(1),
+  "source": zod.string(),
+  "reason": zod.string()
+}),
+  "sectors": zod.array(zod.object({
+  "sector": zod.string().nullable(),
+  "industryGroup": zod.string().nullable(),
+  "rank": zod.number().min(1).nullable(),
+  "eligibility": zod.enum(['ranked', 'insufficient', 'unavailable']),
+  "strength": zod.number().min(startRadarConnectionResponseSectorPrioritySectorsItemStrengthMin).max(startRadarConnectionResponseSectorPrioritySectorsItemStrengthMax).nullable(),
+  "constituentCount": zod.number().min(startRadarConnectionResponseSectorPrioritySectorsItemConstituentCountMin),
+  "requiredConstituentCount": zod.number().min(1),
+  "dataFresh": zod.boolean(),
+  "evidence": zod.object({
+  "momentum": zod.number().min(startRadarConnectionResponseSectorPrioritySectorsItemEvidenceMomentumMin).max(startRadarConnectionResponseSectorPrioritySectorsItemEvidenceMomentumMax).nullable(),
+  "volumeIntensity": zod.number().min(startRadarConnectionResponseSectorPrioritySectorsItemEvidenceVolumeIntensityMin).max(startRadarConnectionResponseSectorPrioritySectorsItemEvidenceVolumeIntensityMax).nullable(),
+  "orderFlowPressure": zod.number().min(startRadarConnectionResponseSectorPrioritySectorsItemEvidenceOrderFlowPressureMin).max(startRadarConnectionResponseSectorPrioritySectorsItemEvidenceOrderFlowPressureMax).nullable(),
+  "relativeStrength": zod.number().min(startRadarConnectionResponseSectorPrioritySectorsItemEvidenceRelativeStrengthMin).max(startRadarConnectionResponseSectorPrioritySectorsItemEvidenceRelativeStrengthMax).nullable(),
+  "catalyst": zod.object({
+  "available": zod.boolean(),
+  "reason": zod.string()
+}),
+  "optionsActivity": zod.object({
+  "available": zod.boolean(),
+  "reason": zod.string()
+})
+}),
+  "members": zod.array(zod.object({
+  "symbol": zod.string(),
+  "rankWithinSector": zod.number().min(1).nullable(),
+  "individualAlphaScore": zod.number().min(startRadarConnectionResponseSectorPrioritySectorsItemMembersItemIndividualAlphaScoreMin).max(startRadarConnectionResponseSectorPrioritySectorsItemMembersItemIndividualAlphaScoreMax).nullable(),
+  "baseRankingScore": zod.number().min(startRadarConnectionResponseSectorPrioritySectorsItemMembersItemBaseRankingScoreMin).max(startRadarConnectionResponseSectorPrioritySectorsItemMembersItemBaseRankingScoreMax).nullable(),
+  "sectorWeightedScore": zod.number().min(startRadarConnectionResponseSectorPrioritySectorsItemMembersItemSectorWeightedScoreMin).max(startRadarConnectionResponseSectorPrioritySectorsItemMembersItemSectorWeightedScoreMax).nullable(),
+  "sectorMultiplier": zod.number().min(startRadarConnectionResponseSectorPrioritySectorsItemMembersItemSectorMultiplierMin).max(startRadarConnectionResponseSectorPrioritySectorsItemMembersItemSectorMultiplierMax).nullable(),
+  "eligibility": zod.enum(['ranked', 'building', 'ineligible']),
+  "marketDataState": zod.enum(['fresh', 'stale', 'offline', 'insufficient']),
+  "preBreakoutState": zod.enum(['unavailable', 'watch', 'accelerating', 'pre_breakout', 'confirmed']),
+  "reason": zod.string()
+})),
+  "reason": zod.string()
+})),
+  "finalCandidates": zod.array(zod.object({
+  "symbol": zod.string(),
+  "finalRank": zod.number().min(1).nullable(),
+  "sector": zod.string().nullable(),
+  "industryGroup": zod.string().nullable(),
+  "finalScore": zod.number().min(startRadarConnectionResponseSectorPriorityFinalCandidatesItemFinalScoreMin).max(startRadarConnectionResponseSectorPriorityFinalCandidatesItemFinalScoreMax).nullable(),
+  "sectorStrength": zod.number().min(startRadarConnectionResponseSectorPriorityFinalCandidatesItemSectorStrengthMin).max(startRadarConnectionResponseSectorPriorityFinalCandidatesItemSectorStrengthMax).nullable(),
+  "sectorMultiplier": zod.number().min(startRadarConnectionResponseSectorPriorityFinalCandidatesItemSectorMultiplierMin).max(startRadarConnectionResponseSectorPriorityFinalCandidatesItemSectorMultiplierMax).nullable(),
+  "baseRankingScore": zod.number().min(startRadarConnectionResponseSectorPriorityFinalCandidatesItemBaseRankingScoreMin).max(startRadarConnectionResponseSectorPriorityFinalCandidatesItemBaseRankingScoreMax).nullable(),
+  "stage": zod.enum(['candidate', 'pre_breakout', 'withheld']),
+  "evidence": zod.object({
+  "marketFresh": zod.boolean(),
+  "sectorStrength": zod.boolean(),
+  "unfinishedExpansion": zod.boolean(),
+  "catalyst": zod.boolean(),
+  "moneyFlow": zod.boolean(),
+  "optionsActivity": zod.boolean(),
+  "fundamentals": zod.boolean(),
+  "valuationExpectation": zod.boolean(),
+  "riskReward": zod.boolean()
+}),
+  "missing": zod.array(zod.string()),
+  "reason": zod.string()
+})),
+  "preBreakoutCandidates": zod.array(zod.object({
+  "symbol": zod.string(),
+  "finalRank": zod.number().min(1).nullable(),
+  "sector": zod.string().nullable(),
+  "industryGroup": zod.string().nullable(),
+  "finalScore": zod.number().min(startRadarConnectionResponseSectorPriorityPreBreakoutCandidatesItemFinalScoreMin).max(startRadarConnectionResponseSectorPriorityPreBreakoutCandidatesItemFinalScoreMax).nullable(),
+  "sectorStrength": zod.number().min(startRadarConnectionResponseSectorPriorityPreBreakoutCandidatesItemSectorStrengthMin).max(startRadarConnectionResponseSectorPriorityPreBreakoutCandidatesItemSectorStrengthMax).nullable(),
+  "sectorMultiplier": zod.number().min(startRadarConnectionResponseSectorPriorityPreBreakoutCandidatesItemSectorMultiplierMin).max(startRadarConnectionResponseSectorPriorityPreBreakoutCandidatesItemSectorMultiplierMax).nullable(),
+  "baseRankingScore": zod.number().min(startRadarConnectionResponseSectorPriorityPreBreakoutCandidatesItemBaseRankingScoreMin).max(startRadarConnectionResponseSectorPriorityPreBreakoutCandidatesItemBaseRankingScoreMax).nullable(),
+  "stage": zod.enum(['candidate', 'pre_breakout', 'withheld']),
+  "evidence": zod.object({
+  "marketFresh": zod.boolean(),
+  "sectorStrength": zod.boolean(),
+  "unfinishedExpansion": zod.boolean(),
+  "catalyst": zod.boolean(),
+  "moneyFlow": zod.boolean(),
+  "optionsActivity": zod.boolean(),
+  "fundamentals": zod.boolean(),
+  "valuationExpectation": zod.boolean(),
+  "riskReward": zod.boolean()
+}),
+  "missing": zod.array(zod.string()),
+  "reason": zod.string()
+})),
+  "withheldCandidates": zod.array(zod.object({
+  "symbol": zod.string(),
+  "finalRank": zod.number().min(1).nullable(),
+  "sector": zod.string().nullable(),
+  "industryGroup": zod.string().nullable(),
+  "finalScore": zod.number().min(startRadarConnectionResponseSectorPriorityWithheldCandidatesItemFinalScoreMin).max(startRadarConnectionResponseSectorPriorityWithheldCandidatesItemFinalScoreMax).nullable(),
+  "sectorStrength": zod.number().min(startRadarConnectionResponseSectorPriorityWithheldCandidatesItemSectorStrengthMin).max(startRadarConnectionResponseSectorPriorityWithheldCandidatesItemSectorStrengthMax).nullable(),
+  "sectorMultiplier": zod.number().min(startRadarConnectionResponseSectorPriorityWithheldCandidatesItemSectorMultiplierMin).max(startRadarConnectionResponseSectorPriorityWithheldCandidatesItemSectorMultiplierMax).nullable(),
+  "baseRankingScore": zod.number().min(startRadarConnectionResponseSectorPriorityWithheldCandidatesItemBaseRankingScoreMin).max(startRadarConnectionResponseSectorPriorityWithheldCandidatesItemBaseRankingScoreMax).nullable(),
+  "stage": zod.enum(['candidate', 'pre_breakout', 'withheld']),
+  "evidence": zod.object({
+  "marketFresh": zod.boolean(),
+  "sectorStrength": zod.boolean(),
+  "unfinishedExpansion": zod.boolean(),
+  "catalyst": zod.boolean(),
+  "moneyFlow": zod.boolean(),
+  "optionsActivity": zod.boolean(),
+  "fundamentals": zod.boolean(),
+  "valuationExpectation": zod.boolean(),
+  "riskReward": zod.boolean()
+}),
+  "missing": zod.array(zod.string()),
+  "reason": zod.string()
+})),
+  "reason": zod.string()
+}),
   "preBreakoutLeader": zod.object({
   "symbol": zod.string(),
   "state": zod.enum(['unavailable', 'watch', 'accelerating', 'pre_breakout', 'confirmed']),
@@ -1979,6 +2379,84 @@ export const stopRadarConnectionResponseAlphaRankingEntriesItemConfidenceMax = 1
 
 export const stopRadarConnectionResponseAlphaRankingPendingObservationCountMin = 0;
 
+
+export const stopRadarConnectionResponseSectorPriorityCoverageEligibleLiveSymbolsMin = 0;
+
+export const stopRadarConnectionResponseSectorPriorityCoverageClassifiedLiveSymbolsMin = 0;
+
+export const stopRadarConnectionResponseSectorPriorityCoverageRankedSectorCountMin = 0;
+
+
+
+export const stopRadarConnectionResponseSectorPrioritySectorsItemStrengthMin = 0;
+export const stopRadarConnectionResponseSectorPrioritySectorsItemStrengthMax = 100;
+
+export const stopRadarConnectionResponseSectorPrioritySectorsItemConstituentCountMin = 0;
+
+
+export const stopRadarConnectionResponseSectorPrioritySectorsItemEvidenceMomentumMin = 0;
+export const stopRadarConnectionResponseSectorPrioritySectorsItemEvidenceMomentumMax = 100;
+
+export const stopRadarConnectionResponseSectorPrioritySectorsItemEvidenceVolumeIntensityMin = 0;
+export const stopRadarConnectionResponseSectorPrioritySectorsItemEvidenceVolumeIntensityMax = 100;
+
+export const stopRadarConnectionResponseSectorPrioritySectorsItemEvidenceOrderFlowPressureMin = 0;
+export const stopRadarConnectionResponseSectorPrioritySectorsItemEvidenceOrderFlowPressureMax = 100;
+
+export const stopRadarConnectionResponseSectorPrioritySectorsItemEvidenceRelativeStrengthMin = 0;
+export const stopRadarConnectionResponseSectorPrioritySectorsItemEvidenceRelativeStrengthMax = 100;
+
+
+export const stopRadarConnectionResponseSectorPrioritySectorsItemMembersItemIndividualAlphaScoreMin = 0;
+export const stopRadarConnectionResponseSectorPrioritySectorsItemMembersItemIndividualAlphaScoreMax = 100;
+
+export const stopRadarConnectionResponseSectorPrioritySectorsItemMembersItemBaseRankingScoreMin = 0;
+export const stopRadarConnectionResponseSectorPrioritySectorsItemMembersItemBaseRankingScoreMax = 100;
+
+export const stopRadarConnectionResponseSectorPrioritySectorsItemMembersItemSectorWeightedScoreMin = 0;
+export const stopRadarConnectionResponseSectorPrioritySectorsItemMembersItemSectorWeightedScoreMax = 125;
+
+export const stopRadarConnectionResponseSectorPrioritySectorsItemMembersItemSectorMultiplierMin = 0.75;
+export const stopRadarConnectionResponseSectorPrioritySectorsItemMembersItemSectorMultiplierMax = 1.25;
+
+
+export const stopRadarConnectionResponseSectorPriorityFinalCandidatesItemFinalScoreMin = 0;
+export const stopRadarConnectionResponseSectorPriorityFinalCandidatesItemFinalScoreMax = 125;
+
+export const stopRadarConnectionResponseSectorPriorityFinalCandidatesItemSectorStrengthMin = 0;
+export const stopRadarConnectionResponseSectorPriorityFinalCandidatesItemSectorStrengthMax = 100;
+
+export const stopRadarConnectionResponseSectorPriorityFinalCandidatesItemSectorMultiplierMin = 0.75;
+export const stopRadarConnectionResponseSectorPriorityFinalCandidatesItemSectorMultiplierMax = 1.25;
+
+export const stopRadarConnectionResponseSectorPriorityFinalCandidatesItemBaseRankingScoreMin = 0;
+export const stopRadarConnectionResponseSectorPriorityFinalCandidatesItemBaseRankingScoreMax = 100;
+
+
+export const stopRadarConnectionResponseSectorPriorityPreBreakoutCandidatesItemFinalScoreMin = 0;
+export const stopRadarConnectionResponseSectorPriorityPreBreakoutCandidatesItemFinalScoreMax = 125;
+
+export const stopRadarConnectionResponseSectorPriorityPreBreakoutCandidatesItemSectorStrengthMin = 0;
+export const stopRadarConnectionResponseSectorPriorityPreBreakoutCandidatesItemSectorStrengthMax = 100;
+
+export const stopRadarConnectionResponseSectorPriorityPreBreakoutCandidatesItemSectorMultiplierMin = 0.75;
+export const stopRadarConnectionResponseSectorPriorityPreBreakoutCandidatesItemSectorMultiplierMax = 1.25;
+
+export const stopRadarConnectionResponseSectorPriorityPreBreakoutCandidatesItemBaseRankingScoreMin = 0;
+export const stopRadarConnectionResponseSectorPriorityPreBreakoutCandidatesItemBaseRankingScoreMax = 100;
+
+
+export const stopRadarConnectionResponseSectorPriorityWithheldCandidatesItemFinalScoreMin = 0;
+export const stopRadarConnectionResponseSectorPriorityWithheldCandidatesItemFinalScoreMax = 125;
+
+export const stopRadarConnectionResponseSectorPriorityWithheldCandidatesItemSectorStrengthMin = 0;
+export const stopRadarConnectionResponseSectorPriorityWithheldCandidatesItemSectorStrengthMax = 100;
+
+export const stopRadarConnectionResponseSectorPriorityWithheldCandidatesItemSectorMultiplierMin = 0.75;
+export const stopRadarConnectionResponseSectorPriorityWithheldCandidatesItemSectorMultiplierMax = 1.25;
+
+export const stopRadarConnectionResponseSectorPriorityWithheldCandidatesItemBaseRankingScoreMin = 0;
+export const stopRadarConnectionResponseSectorPriorityWithheldCandidatesItemBaseRankingScoreMax = 100;
 
 
 
@@ -2728,6 +3206,128 @@ export const StopRadarConnectionResponse = zod.object({
   "reorderPending": zod.boolean(),
   "pendingObservationCount": zod.number().min(stopRadarConnectionResponseAlphaRankingPendingObservationCountMin),
   "requiredObservationCount": zod.number().min(1)
+}),
+  "sectorPriority": zod.object({
+  "generatedAt": zod.coerce.date(),
+  "state": zod.enum(['ranked', 'insufficient', 'unavailable']),
+  "coverage": zod.object({
+  "eligibleLiveSymbols": zod.number().min(stopRadarConnectionResponseSectorPriorityCoverageEligibleLiveSymbolsMin),
+  "classifiedLiveSymbols": zod.number().min(stopRadarConnectionResponseSectorPriorityCoverageClassifiedLiveSymbolsMin),
+  "rankedSectorCount": zod.number().min(stopRadarConnectionResponseSectorPriorityCoverageRankedSectorCountMin),
+  "requiredConstituentsPerSector": zod.number().min(1),
+  "source": zod.string(),
+  "reason": zod.string()
+}),
+  "sectors": zod.array(zod.object({
+  "sector": zod.string().nullable(),
+  "industryGroup": zod.string().nullable(),
+  "rank": zod.number().min(1).nullable(),
+  "eligibility": zod.enum(['ranked', 'insufficient', 'unavailable']),
+  "strength": zod.number().min(stopRadarConnectionResponseSectorPrioritySectorsItemStrengthMin).max(stopRadarConnectionResponseSectorPrioritySectorsItemStrengthMax).nullable(),
+  "constituentCount": zod.number().min(stopRadarConnectionResponseSectorPrioritySectorsItemConstituentCountMin),
+  "requiredConstituentCount": zod.number().min(1),
+  "dataFresh": zod.boolean(),
+  "evidence": zod.object({
+  "momentum": zod.number().min(stopRadarConnectionResponseSectorPrioritySectorsItemEvidenceMomentumMin).max(stopRadarConnectionResponseSectorPrioritySectorsItemEvidenceMomentumMax).nullable(),
+  "volumeIntensity": zod.number().min(stopRadarConnectionResponseSectorPrioritySectorsItemEvidenceVolumeIntensityMin).max(stopRadarConnectionResponseSectorPrioritySectorsItemEvidenceVolumeIntensityMax).nullable(),
+  "orderFlowPressure": zod.number().min(stopRadarConnectionResponseSectorPrioritySectorsItemEvidenceOrderFlowPressureMin).max(stopRadarConnectionResponseSectorPrioritySectorsItemEvidenceOrderFlowPressureMax).nullable(),
+  "relativeStrength": zod.number().min(stopRadarConnectionResponseSectorPrioritySectorsItemEvidenceRelativeStrengthMin).max(stopRadarConnectionResponseSectorPrioritySectorsItemEvidenceRelativeStrengthMax).nullable(),
+  "catalyst": zod.object({
+  "available": zod.boolean(),
+  "reason": zod.string()
+}),
+  "optionsActivity": zod.object({
+  "available": zod.boolean(),
+  "reason": zod.string()
+})
+}),
+  "members": zod.array(zod.object({
+  "symbol": zod.string(),
+  "rankWithinSector": zod.number().min(1).nullable(),
+  "individualAlphaScore": zod.number().min(stopRadarConnectionResponseSectorPrioritySectorsItemMembersItemIndividualAlphaScoreMin).max(stopRadarConnectionResponseSectorPrioritySectorsItemMembersItemIndividualAlphaScoreMax).nullable(),
+  "baseRankingScore": zod.number().min(stopRadarConnectionResponseSectorPrioritySectorsItemMembersItemBaseRankingScoreMin).max(stopRadarConnectionResponseSectorPrioritySectorsItemMembersItemBaseRankingScoreMax).nullable(),
+  "sectorWeightedScore": zod.number().min(stopRadarConnectionResponseSectorPrioritySectorsItemMembersItemSectorWeightedScoreMin).max(stopRadarConnectionResponseSectorPrioritySectorsItemMembersItemSectorWeightedScoreMax).nullable(),
+  "sectorMultiplier": zod.number().min(stopRadarConnectionResponseSectorPrioritySectorsItemMembersItemSectorMultiplierMin).max(stopRadarConnectionResponseSectorPrioritySectorsItemMembersItemSectorMultiplierMax).nullable(),
+  "eligibility": zod.enum(['ranked', 'building', 'ineligible']),
+  "marketDataState": zod.enum(['fresh', 'stale', 'offline', 'insufficient']),
+  "preBreakoutState": zod.enum(['unavailable', 'watch', 'accelerating', 'pre_breakout', 'confirmed']),
+  "reason": zod.string()
+})),
+  "reason": zod.string()
+})),
+  "finalCandidates": zod.array(zod.object({
+  "symbol": zod.string(),
+  "finalRank": zod.number().min(1).nullable(),
+  "sector": zod.string().nullable(),
+  "industryGroup": zod.string().nullable(),
+  "finalScore": zod.number().min(stopRadarConnectionResponseSectorPriorityFinalCandidatesItemFinalScoreMin).max(stopRadarConnectionResponseSectorPriorityFinalCandidatesItemFinalScoreMax).nullable(),
+  "sectorStrength": zod.number().min(stopRadarConnectionResponseSectorPriorityFinalCandidatesItemSectorStrengthMin).max(stopRadarConnectionResponseSectorPriorityFinalCandidatesItemSectorStrengthMax).nullable(),
+  "sectorMultiplier": zod.number().min(stopRadarConnectionResponseSectorPriorityFinalCandidatesItemSectorMultiplierMin).max(stopRadarConnectionResponseSectorPriorityFinalCandidatesItemSectorMultiplierMax).nullable(),
+  "baseRankingScore": zod.number().min(stopRadarConnectionResponseSectorPriorityFinalCandidatesItemBaseRankingScoreMin).max(stopRadarConnectionResponseSectorPriorityFinalCandidatesItemBaseRankingScoreMax).nullable(),
+  "stage": zod.enum(['candidate', 'pre_breakout', 'withheld']),
+  "evidence": zod.object({
+  "marketFresh": zod.boolean(),
+  "sectorStrength": zod.boolean(),
+  "unfinishedExpansion": zod.boolean(),
+  "catalyst": zod.boolean(),
+  "moneyFlow": zod.boolean(),
+  "optionsActivity": zod.boolean(),
+  "fundamentals": zod.boolean(),
+  "valuationExpectation": zod.boolean(),
+  "riskReward": zod.boolean()
+}),
+  "missing": zod.array(zod.string()),
+  "reason": zod.string()
+})),
+  "preBreakoutCandidates": zod.array(zod.object({
+  "symbol": zod.string(),
+  "finalRank": zod.number().min(1).nullable(),
+  "sector": zod.string().nullable(),
+  "industryGroup": zod.string().nullable(),
+  "finalScore": zod.number().min(stopRadarConnectionResponseSectorPriorityPreBreakoutCandidatesItemFinalScoreMin).max(stopRadarConnectionResponseSectorPriorityPreBreakoutCandidatesItemFinalScoreMax).nullable(),
+  "sectorStrength": zod.number().min(stopRadarConnectionResponseSectorPriorityPreBreakoutCandidatesItemSectorStrengthMin).max(stopRadarConnectionResponseSectorPriorityPreBreakoutCandidatesItemSectorStrengthMax).nullable(),
+  "sectorMultiplier": zod.number().min(stopRadarConnectionResponseSectorPriorityPreBreakoutCandidatesItemSectorMultiplierMin).max(stopRadarConnectionResponseSectorPriorityPreBreakoutCandidatesItemSectorMultiplierMax).nullable(),
+  "baseRankingScore": zod.number().min(stopRadarConnectionResponseSectorPriorityPreBreakoutCandidatesItemBaseRankingScoreMin).max(stopRadarConnectionResponseSectorPriorityPreBreakoutCandidatesItemBaseRankingScoreMax).nullable(),
+  "stage": zod.enum(['candidate', 'pre_breakout', 'withheld']),
+  "evidence": zod.object({
+  "marketFresh": zod.boolean(),
+  "sectorStrength": zod.boolean(),
+  "unfinishedExpansion": zod.boolean(),
+  "catalyst": zod.boolean(),
+  "moneyFlow": zod.boolean(),
+  "optionsActivity": zod.boolean(),
+  "fundamentals": zod.boolean(),
+  "valuationExpectation": zod.boolean(),
+  "riskReward": zod.boolean()
+}),
+  "missing": zod.array(zod.string()),
+  "reason": zod.string()
+})),
+  "withheldCandidates": zod.array(zod.object({
+  "symbol": zod.string(),
+  "finalRank": zod.number().min(1).nullable(),
+  "sector": zod.string().nullable(),
+  "industryGroup": zod.string().nullable(),
+  "finalScore": zod.number().min(stopRadarConnectionResponseSectorPriorityWithheldCandidatesItemFinalScoreMin).max(stopRadarConnectionResponseSectorPriorityWithheldCandidatesItemFinalScoreMax).nullable(),
+  "sectorStrength": zod.number().min(stopRadarConnectionResponseSectorPriorityWithheldCandidatesItemSectorStrengthMin).max(stopRadarConnectionResponseSectorPriorityWithheldCandidatesItemSectorStrengthMax).nullable(),
+  "sectorMultiplier": zod.number().min(stopRadarConnectionResponseSectorPriorityWithheldCandidatesItemSectorMultiplierMin).max(stopRadarConnectionResponseSectorPriorityWithheldCandidatesItemSectorMultiplierMax).nullable(),
+  "baseRankingScore": zod.number().min(stopRadarConnectionResponseSectorPriorityWithheldCandidatesItemBaseRankingScoreMin).max(stopRadarConnectionResponseSectorPriorityWithheldCandidatesItemBaseRankingScoreMax).nullable(),
+  "stage": zod.enum(['candidate', 'pre_breakout', 'withheld']),
+  "evidence": zod.object({
+  "marketFresh": zod.boolean(),
+  "sectorStrength": zod.boolean(),
+  "unfinishedExpansion": zod.boolean(),
+  "catalyst": zod.boolean(),
+  "moneyFlow": zod.boolean(),
+  "optionsActivity": zod.boolean(),
+  "fundamentals": zod.boolean(),
+  "valuationExpectation": zod.boolean(),
+  "riskReward": zod.boolean()
+}),
+  "missing": zod.array(zod.string()),
+  "reason": zod.string()
+})),
+  "reason": zod.string()
 }),
   "preBreakoutLeader": zod.object({
   "symbol": zod.string(),

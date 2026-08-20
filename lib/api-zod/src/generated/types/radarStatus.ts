@@ -23,6 +23,7 @@ import type { RadarStatusPreBreakoutLeader } from './radarStatusPreBreakoutLeade
 import type { RadarStream } from './radarStream';
 import type { RadarSymbolStatus } from './radarSymbolStatus';
 import type { RadarTrade } from './radarTrade';
+import type { SectorPrioritySnapshot } from './sectorPrioritySnapshot';
 
 export interface RadarStatus {
   configured: boolean;
@@ -57,6 +58,7 @@ export interface RadarStatus {
   opportunityCenter: OpportunityCenterSnapshot;
   symbolRadars: RadarSymbolStatus[];
   alphaRanking: AlphaRadarRankingSnapshot;
+  sectorPriority: SectorPrioritySnapshot;
   /** @nullable */
   preBreakoutLeader: RadarStatusPreBreakoutLeader;
 }
