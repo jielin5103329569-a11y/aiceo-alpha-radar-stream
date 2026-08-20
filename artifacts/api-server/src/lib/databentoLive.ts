@@ -419,6 +419,7 @@ const bridgePath = path.join(currentDir, "databento_live_bridge.py");
 const HEARTBEAT_INTERVAL_MS = 5_000;
 const MAX_RECONNECT_ATTEMPTS = 5;
 const MAX_RECONNECT_DELAY_MS = 30_000;
+const EXHAUSTION_REARM_DELAY_MS = 5 * 60 * 1_000;
 const ROLLING_WINDOW_MS = 5 * 60 * 1_000;
 const RECENT_WINDOW_MS = 60 * 1_000;
 const MAX_QUOTE_OBSERVATIONS = 2;
@@ -766,6 +767,7 @@ export class DatabentoLiveService extends EventEmitter {
   private stopping = false;
   private heartbeatTimer: NodeJS.Timeout | null = null;
   private reconnectTimer: NodeJS.Timeout | null = null;
+  private exhaustionRearmTimer: NodeJS.Timeout | null = null;
   private scanTimer: NodeJS.Timeout | null = null;
   private status: RadarStatus;
   private quotes: QuoteObservation[] = [];
@@ -1039,6 +1041,7 @@ export class DatabentoLiveService extends EventEmitter {
   stop(): RadarStatus {
     this.stopping = true;
     this.clearReconnectTimer();
+    this.clearExhaustionRearmTimer();
     this.clearHeartbeatTimer();
     this.stopScanScheduler();
     if (this.child && !this.child.killed) {
@@ -1076,6 +1079,7 @@ export class DatabentoLiveService extends EventEmitter {
 
     this.stopping = false;
     this.clearReconnectTimer();
+    this.clearExhaustionRearmTimer();
     const now = new Date();
     if (!isReconnect) {
       this.resetObservations();
@@ -1187,6 +1191,7 @@ export class DatabentoLiveService extends EventEmitter {
   private applyEvent(event: BridgeEvent): void {
     const now = new Date();
     if (event.type === "ready") {
+      this.clearExhaustionRearmTimer();
       this.status = {
         ...this.status,
         connectionState: "connected",
@@ -1418,9 +1423,10 @@ export class DatabentoLiveService extends EventEmitter {
       this.status = {
         ...this.status,
         reconnectState: "exhausted",
-        nextReconnectAt: null,
-        error: `${this.status.error ?? "Databento live stream is unavailable."} Automatic reconnect paused after ${MAX_RECONNECT_ATTEMPTS} attempts.`,
+        nextReconnectAt: new Date(Date.now() + EXHAUSTION_REARM_DELAY_MS),
+        error: `${this.status.error ?? "Databento live stream is unavailable."} Automatic reconnect exhausted after ${MAX_RECONNECT_ATTEMPTS} attempts; a new bounded recovery cycle is scheduled after the cooldown.`,
       };
+      this.scheduleExhaustionRearm();
       this.publish();
       return;
     }
@@ -1470,6 +1476,39 @@ export class DatabentoLiveService extends EventEmitter {
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;
+    }
+  }
+
+  /**
+   * A failed connection burst must be bounded, but a permanently running API
+   * still needs a deterministic recovery path. This timer starts a fresh
+   * bounded burst after a quiet cooldown; it never treats the timer itself as
+   * market evidence and the normal live-event gates remain unchanged.
+   */
+  private scheduleExhaustionRearm(): void {
+    if (this.stopping || this.exhaustionRearmTimer || !process.env.DATABENTO_API_KEY) {
+      return;
+    }
+    this.exhaustionRearmTimer = setTimeout(() => {
+      this.exhaustionRearmTimer = null;
+      if (this.stopping || !process.env.DATABENTO_API_KEY) return;
+      this.status = {
+        ...this.status,
+        reconnectState: "scheduled",
+        reconnectAttempt: 0,
+        nextReconnectAt: null,
+        error: null,
+      };
+      this.publish();
+      this.launch(true);
+    }, EXHAUSTION_REARM_DELAY_MS);
+    this.exhaustionRearmTimer.unref();
+  }
+
+  private clearExhaustionRearmTimer(): void {
+    if (this.exhaustionRearmTimer) {
+      clearTimeout(this.exhaustionRearmTimer);
+      this.exhaustionRearmTimer = null;
     }
   }
 

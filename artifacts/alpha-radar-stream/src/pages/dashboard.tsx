@@ -12,6 +12,7 @@ import { AccountControls } from '@/components/account-controls';
 import { AccountAlerts } from '@/components/account-alerts';
 import { CatalystOpportunityCenter } from '@/components/catalyst-opportunity-center';
 import { SectorPriorityHierarchy } from '@/components/sector-priority-hierarchy';
+import { LiveSectorReadinessPanel } from '@/components/live-sector-readiness-panel';
 import { formatAge, formatNumber, formatPercent, formatTime, cn } from '@/lib/utils';
 import {
   AlertCircle,
@@ -288,6 +289,7 @@ export default function Dashboard() {
           <RadarSignalPanel alphaRadar={status?.alphaRadar} scanHealth={status?.scanHealth} />
 
           <LiveIngestionAcceptanceCard diagnostics={status?.liveIngestion} />
+          <LiveSectorReadinessPanel status={status ?? null} />
 
           <SignalValidationPanel />
           <ShadowLearningStatusPanel />

@@ -461,7 +461,7 @@ export function buildSectorPriority(input: SectorPriorityInput): SectorPriorityS
       ? "insufficient"
       : "unavailable";
   const coverageReason = !input.referenceFresh
-    ? "Reference classification is not fresh and cannot be used for sector grouping."
+    ? "Fresh trusted reference classification is unavailable and cannot be used for sector grouping."
     : classifiedLiveSymbols === 0
       ? "No symbol has both a trusted classification and a fresh eligible live Alpha window."
       : rankedSectorCount === 0

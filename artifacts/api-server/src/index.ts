@@ -1,5 +1,6 @@
 import app from "./app";
 import { logger } from "./lib/logger";
+import { databentoLive } from "./lib/databentoLive";
 import { marketUniverse } from "./lib/marketUniverse";
 import { alertService } from "./lib/alertService";
 
@@ -25,5 +26,13 @@ app.listen(port, (err) => {
 
   logger.info({ port }, "Server listening");
   marketUniverse.start();
+  const liveStatus = databentoLive.start();
+  logger.info(
+    {
+      symbols: liveStatus.symbolRadars?.map((symbol) => symbol.symbol) ?? [liveStatus.symbol],
+      configured: liveStatus.configured,
+    },
+    "Armed protected Databento live bridges",
+  );
   alertService.start();
 });

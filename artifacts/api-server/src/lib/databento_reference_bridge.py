@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import json
 import os
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import databento as db
@@ -73,6 +73,42 @@ def row_value(row: Any, *names: str) -> Any:
         if value is not None and text(value) is not None:
             return value
     return None
+
+
+def parse_utc_timestamp(value: Any, field: str) -> datetime:
+    """Parse provider availability values and reject invalid time bounds."""
+    if not isinstance(value, str) or not value.strip():
+        raise RuntimeError(f"Databento dataset range has no valid {field} timestamp.")
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError as error:
+        raise RuntimeError(f"Databento dataset range has an invalid {field} timestamp.") from error
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=UTC)
+    return parsed.astimezone(UTC)
+
+
+def definition_query_range(available: dict[str, Any]) -> tuple[datetime, datetime]:
+    """Return one non-empty, end-exclusive definition interval.
+
+    Databento metadata may report a definition availability end at midnight.
+    Treating that endpoint as both the end and the start of its UTC day creates
+    a zero-length request, which the API correctly rejects. Query the final
+    available 24-hour interval instead, capped by the published availability
+    start, and fail before making a provider call if no interval exists.
+    """
+    try:
+        definition = available["schema"]["definition"]
+    except (KeyError, TypeError) as error:
+        raise RuntimeError("Databento dataset range has no definition availability bounds.") from error
+    available_start = parse_utc_timestamp(definition.get("start"), "definition start")
+    available_end = parse_utc_timestamp(definition.get("end"), "definition end")
+    if available_end <= available_start:
+        raise RuntimeError("Databento definition availability has no non-empty query interval.")
+    query_start = max(available_start, available_end - timedelta(days=1))
+    if query_start >= available_end:
+        raise RuntimeError("Databento definition query interval is empty.")
+    return query_start, available_end
 
 
 def security_master_snapshot(key: str) -> int:
@@ -145,12 +181,7 @@ def definition_snapshot(key: str, fallback_reason: str) -> int:
     client = db.Historical(key=key)
     dataset = "EQUS.MINI"
     available = client.metadata.get_dataset_range(dataset)
-    end_text = available["schema"]["definition"]["end"]
-    end = datetime.fromisoformat(end_text.replace("Z", "+00:00"))
-    start = max(
-        datetime.fromisoformat(available["schema"]["definition"]["start"].replace("Z", "+00:00")),
-        end.replace(hour=0, minute=0, second=0, microsecond=0),
-    )
+    start, end = definition_query_range(available)
     store = client.timeseries.get_range(
         dataset=dataset,
         start=start,

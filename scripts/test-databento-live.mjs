@@ -309,6 +309,48 @@ try {
     ),
     "offline protected scanners must expose no fabricated completed scan or verified market-data gate",
   );
+  const startupUniverse = new DatabentoUniverseService();
+  const startupCalls = [];
+  startupUniverse.services.forEach((service) => {
+    service.start = () => {
+      startupCalls.push(service.getStatus().symbol);
+      return service.getStatus();
+    };
+  });
+  startupUniverse.start();
+  assert.deepEqual(
+    startupCalls,
+    [...MONITORED_SYMBOLS],
+    "universe startup must arm every protected live bridge without waiting for a manual dashboard action",
+  );
+  const exhaustionRecoveryService = new DatabentoLiveService("NVDA");
+  exhaustionRecoveryService.status = {
+    ...exhaustionRecoveryService.getStatus(),
+    configured: true,
+    connectionState: "error",
+    reconnectAttempt: 5,
+  };
+  exhaustionRecoveryService.scheduleReconnect();
+  const exhaustedRecovery = exhaustionRecoveryService.getStatus();
+  assert.equal(
+    exhaustedRecovery.reconnectState,
+    "exhausted",
+    "a failed reconnect burst must remain explicitly bounded",
+  );
+  assert.ok(
+    exhaustedRecovery.nextReconnectAt instanceof Date,
+    "retry exhaustion must expose the scheduled cooldown recovery rather than leaving the service permanently stopped",
+  );
+  assert.ok(
+    exhaustionRecoveryService.exhaustionRearmTimer,
+    "retry exhaustion must arm a fresh bounded recovery cycle for a long-running process",
+  );
+  exhaustionRecoveryService.stop();
+  assert.equal(
+    exhaustionRecoveryService.exhaustionRearmTimer,
+    null,
+    "an explicit stop must cancel an exhausted-cycle recovery timer",
+  );
   const muService = new DatabentoLiveService("MU");
   muService.applyEvent({ type: "ready" });
   muService.applyEvent(marketEvent(new Date(), 100, "B"));
