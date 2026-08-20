@@ -755,6 +755,31 @@ export const GetRadarStatusResponse = zod.object({
   "degradation": zod.enum(['ready', 'offline', 'stale_market_data', 'scheduler_inactive', 'scheduler_delayed', 'awaiting_live_event', 'insufficient_data']),
   "reason": zod.string()
 }).describe('Per-symbol scheduler and market-data health. Scheduler timestamps and heartbeats are never evidence of a fresh verified market event.\n'),
+  "governance": zod.object({
+  "schemaVersion": zod.literal(1),
+  "generatedAt": zod.coerce.date(),
+  "auditHash": zod.string(),
+  "layers": zod.array(zod.object({
+  "id": zod.enum(['raw_market', 'basic_features', 'market_structure', 'stage_state', 'final_decision']),
+  "state": zod.enum(['available', 'withheld', 'unavailable']),
+  "observedAt": zod.coerce.date().nullable(),
+  "sources": zod.array(zod.string()),
+  "reason": zod.string()
+})),
+  "stages": zod.array(zod.object({
+  "id": zod.enum(['pre_breakout', 'true_breakout', 'post_breakout']),
+  "state": zod.enum(['available', 'withheld', 'unavailable']),
+  "productionState": zod.string(),
+  "evidence": zod.array(zod.string()),
+  "reason": zod.string()
+})),
+  "decision": zod.object({
+  "state": zod.enum(['available', 'withheld', 'unavailable']),
+  "eligibleForReadOnlyPresentation": zod.boolean(),
+  "eligibleForProductionPromotion": zod.boolean(),
+  "reason": zod.string()
+})
+}).describe('Read-only governed evidence path. It never changes live scoring, ranking, alerts, or notification delivery.'),
   "marketUniverse": zod.object({
   "provider": zod.enum(['Databento']),
   "dataset": zod.string(),
@@ -1236,6 +1261,31 @@ export const GetRadarStatusResponse = zod.object({
   "degradation": zod.enum(['ready', 'offline', 'stale_market_data', 'scheduler_inactive', 'scheduler_delayed', 'awaiting_live_event', 'insufficient_data']),
   "reason": zod.string()
 }).describe('Per-symbol scheduler and market-data health. Scheduler timestamps and heartbeats are never evidence of a fresh verified market event.\n'),
+  "governance": zod.object({
+  "schemaVersion": zod.literal(1),
+  "generatedAt": zod.coerce.date(),
+  "auditHash": zod.string(),
+  "layers": zod.array(zod.object({
+  "id": zod.enum(['raw_market', 'basic_features', 'market_structure', 'stage_state', 'final_decision']),
+  "state": zod.enum(['available', 'withheld', 'unavailable']),
+  "observedAt": zod.coerce.date().nullable(),
+  "sources": zod.array(zod.string()),
+  "reason": zod.string()
+})),
+  "stages": zod.array(zod.object({
+  "id": zod.enum(['pre_breakout', 'true_breakout', 'post_breakout']),
+  "state": zod.enum(['available', 'withheld', 'unavailable']),
+  "productionState": zod.string(),
+  "evidence": zod.array(zod.string()),
+  "reason": zod.string()
+})),
+  "decision": zod.object({
+  "state": zod.enum(['available', 'withheld', 'unavailable']),
+  "eligibleForReadOnlyPresentation": zod.boolean(),
+  "eligibleForProductionPromotion": zod.boolean(),
+  "reason": zod.string()
+})
+}).describe('Read-only governed evidence path. It never changes live scoring, ranking, alerts, or notification delivery.'),
   "error": zod.string().nullable()
 })),
   "alphaRanking": zod.object({
@@ -2186,6 +2236,31 @@ export const StartRadarConnectionResponse = zod.object({
   "degradation": zod.enum(['ready', 'offline', 'stale_market_data', 'scheduler_inactive', 'scheduler_delayed', 'awaiting_live_event', 'insufficient_data']),
   "reason": zod.string()
 }).describe('Per-symbol scheduler and market-data health. Scheduler timestamps and heartbeats are never evidence of a fresh verified market event.\n'),
+  "governance": zod.object({
+  "schemaVersion": zod.literal(1),
+  "generatedAt": zod.coerce.date(),
+  "auditHash": zod.string(),
+  "layers": zod.array(zod.object({
+  "id": zod.enum(['raw_market', 'basic_features', 'market_structure', 'stage_state', 'final_decision']),
+  "state": zod.enum(['available', 'withheld', 'unavailable']),
+  "observedAt": zod.coerce.date().nullable(),
+  "sources": zod.array(zod.string()),
+  "reason": zod.string()
+})),
+  "stages": zod.array(zod.object({
+  "id": zod.enum(['pre_breakout', 'true_breakout', 'post_breakout']),
+  "state": zod.enum(['available', 'withheld', 'unavailable']),
+  "productionState": zod.string(),
+  "evidence": zod.array(zod.string()),
+  "reason": zod.string()
+})),
+  "decision": zod.object({
+  "state": zod.enum(['available', 'withheld', 'unavailable']),
+  "eligibleForReadOnlyPresentation": zod.boolean(),
+  "eligibleForProductionPromotion": zod.boolean(),
+  "reason": zod.string()
+})
+}).describe('Read-only governed evidence path. It never changes live scoring, ranking, alerts, or notification delivery.'),
   "marketUniverse": zod.object({
   "provider": zod.enum(['Databento']),
   "dataset": zod.string(),
@@ -2667,6 +2742,31 @@ export const StartRadarConnectionResponse = zod.object({
   "degradation": zod.enum(['ready', 'offline', 'stale_market_data', 'scheduler_inactive', 'scheduler_delayed', 'awaiting_live_event', 'insufficient_data']),
   "reason": zod.string()
 }).describe('Per-symbol scheduler and market-data health. Scheduler timestamps and heartbeats are never evidence of a fresh verified market event.\n'),
+  "governance": zod.object({
+  "schemaVersion": zod.literal(1),
+  "generatedAt": zod.coerce.date(),
+  "auditHash": zod.string(),
+  "layers": zod.array(zod.object({
+  "id": zod.enum(['raw_market', 'basic_features', 'market_structure', 'stage_state', 'final_decision']),
+  "state": zod.enum(['available', 'withheld', 'unavailable']),
+  "observedAt": zod.coerce.date().nullable(),
+  "sources": zod.array(zod.string()),
+  "reason": zod.string()
+})),
+  "stages": zod.array(zod.object({
+  "id": zod.enum(['pre_breakout', 'true_breakout', 'post_breakout']),
+  "state": zod.enum(['available', 'withheld', 'unavailable']),
+  "productionState": zod.string(),
+  "evidence": zod.array(zod.string()),
+  "reason": zod.string()
+})),
+  "decision": zod.object({
+  "state": zod.enum(['available', 'withheld', 'unavailable']),
+  "eligibleForReadOnlyPresentation": zod.boolean(),
+  "eligibleForProductionPromotion": zod.boolean(),
+  "reason": zod.string()
+})
+}).describe('Read-only governed evidence path. It never changes live scoring, ranking, alerts, or notification delivery.'),
   "error": zod.string().nullable()
 })),
   "alphaRanking": zod.object({
@@ -3617,6 +3717,31 @@ export const StopRadarConnectionResponse = zod.object({
   "degradation": zod.enum(['ready', 'offline', 'stale_market_data', 'scheduler_inactive', 'scheduler_delayed', 'awaiting_live_event', 'insufficient_data']),
   "reason": zod.string()
 }).describe('Per-symbol scheduler and market-data health. Scheduler timestamps and heartbeats are never evidence of a fresh verified market event.\n'),
+  "governance": zod.object({
+  "schemaVersion": zod.literal(1),
+  "generatedAt": zod.coerce.date(),
+  "auditHash": zod.string(),
+  "layers": zod.array(zod.object({
+  "id": zod.enum(['raw_market', 'basic_features', 'market_structure', 'stage_state', 'final_decision']),
+  "state": zod.enum(['available', 'withheld', 'unavailable']),
+  "observedAt": zod.coerce.date().nullable(),
+  "sources": zod.array(zod.string()),
+  "reason": zod.string()
+})),
+  "stages": zod.array(zod.object({
+  "id": zod.enum(['pre_breakout', 'true_breakout', 'post_breakout']),
+  "state": zod.enum(['available', 'withheld', 'unavailable']),
+  "productionState": zod.string(),
+  "evidence": zod.array(zod.string()),
+  "reason": zod.string()
+})),
+  "decision": zod.object({
+  "state": zod.enum(['available', 'withheld', 'unavailable']),
+  "eligibleForReadOnlyPresentation": zod.boolean(),
+  "eligibleForProductionPromotion": zod.boolean(),
+  "reason": zod.string()
+})
+}).describe('Read-only governed evidence path. It never changes live scoring, ranking, alerts, or notification delivery.'),
   "marketUniverse": zod.object({
   "provider": zod.enum(['Databento']),
   "dataset": zod.string(),
@@ -4098,6 +4223,31 @@ export const StopRadarConnectionResponse = zod.object({
   "degradation": zod.enum(['ready', 'offline', 'stale_market_data', 'scheduler_inactive', 'scheduler_delayed', 'awaiting_live_event', 'insufficient_data']),
   "reason": zod.string()
 }).describe('Per-symbol scheduler and market-data health. Scheduler timestamps and heartbeats are never evidence of a fresh verified market event.\n'),
+  "governance": zod.object({
+  "schemaVersion": zod.literal(1),
+  "generatedAt": zod.coerce.date(),
+  "auditHash": zod.string(),
+  "layers": zod.array(zod.object({
+  "id": zod.enum(['raw_market', 'basic_features', 'market_structure', 'stage_state', 'final_decision']),
+  "state": zod.enum(['available', 'withheld', 'unavailable']),
+  "observedAt": zod.coerce.date().nullable(),
+  "sources": zod.array(zod.string()),
+  "reason": zod.string()
+})),
+  "stages": zod.array(zod.object({
+  "id": zod.enum(['pre_breakout', 'true_breakout', 'post_breakout']),
+  "state": zod.enum(['available', 'withheld', 'unavailable']),
+  "productionState": zod.string(),
+  "evidence": zod.array(zod.string()),
+  "reason": zod.string()
+})),
+  "decision": zod.object({
+  "state": zod.enum(['available', 'withheld', 'unavailable']),
+  "eligibleForReadOnlyPresentation": zod.boolean(),
+  "eligibleForProductionPromotion": zod.boolean(),
+  "reason": zod.string()
+})
+}).describe('Read-only governed evidence path. It never changes live scoring, ranking, alerts, or notification delivery.'),
   "error": zod.string().nullable()
 })),
   "alphaRanking": zod.object({

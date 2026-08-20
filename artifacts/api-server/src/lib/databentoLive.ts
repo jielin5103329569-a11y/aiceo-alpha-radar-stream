@@ -55,6 +55,10 @@ import {
   evaluateShadowPreBreakout,
 } from "./shadowLearningCore";
 import { shadowLearning } from "./shadowLearning";
+import {
+  buildDataGovernanceSnapshot,
+  type DataGovernanceSnapshot,
+} from "./dataGovernance";
 
 export type RadarConnectionState =
   | "not_configured"
@@ -253,6 +257,8 @@ export type RadarStatus = {
   }>;
   liveIngestion: LiveIngestionDiagnostics;
   scanHealth: ProtectedScanHealth;
+  /** Read-only proof of the existing raw → feature → structure → stage → decision path. */
+  governance: DataGovernanceSnapshot;
   symbolRadars?: RadarSymbolStatus[];
   alphaRanking?: AlphaRadarRankingSnapshot;
   preBreakoutLeader?: {
@@ -280,6 +286,7 @@ export type RadarSymbolStatus = {
   market: RadarStatus["market"];
   liveIngestion: LiveIngestionDiagnostics;
   scanHealth: ProtectedScanHealth;
+  governance: DataGovernanceSnapshot;
   /** Per-symbol stream states — required for fail-closed stream-receiving gate. */
   streams: RadarStatus["streams"];
   error: string | null;
@@ -497,6 +504,22 @@ function redactMessage(message: string): string {
 function blankStatus(symbol = "NVDA"): RadarStatus {
   const configured = Boolean(process.env.DATABENTO_API_KEY);
   const emptyAlphaRadar = createEmptyAlphaRadar(new Date(), symbol);
+  const liveIngestion = blankLiveIngestionDiagnostics(symbol, configured);
+  const scanHealth: ProtectedScanHealth = {
+    schedulerState: "inactive",
+    scanMode: "normal",
+    scanIntervalMs: NORMAL_SCAN_INTERVAL_MS,
+    lastScanAt: null,
+    lastScanAgeMs: null,
+    nextScanAt: null,
+    scanLagMs: null,
+    lastMarketEventAt: null,
+    lastMarketEventAgeMs: null,
+    marketDataState: "offline",
+    marketDataGateReady: false,
+    degradation: "offline",
+    reason: "Scanner is inactive. No scheduled scan, transport state, or cached value is treated as live market evidence.",
+  };
   return {
     configured,
     connectionState: configured ? "stopped" : "not_configured",
@@ -535,22 +558,20 @@ function blankStatus(symbol = "NVDA"): RadarStatus {
       { schema: "mbp-1", state: "waiting", eventCount: 0, lastEventAt: null },
       { schema: "ohlcv-1s", state: "waiting", eventCount: 0, lastEventAt: null },
     ],
-    liveIngestion: blankLiveIngestionDiagnostics(symbol, configured),
-    scanHealth: {
-      schedulerState: "inactive",
-      scanMode: "normal",
-      scanIntervalMs: NORMAL_SCAN_INTERVAL_MS,
-      lastScanAt: null,
-      lastScanAgeMs: null,
-      nextScanAt: null,
-      scanLagMs: null,
-      lastMarketEventAt: null,
-      lastMarketEventAgeMs: null,
-      marketDataState: "offline",
+    liveIngestion,
+    scanHealth,
+    governance: buildDataGovernanceSnapshot({
+      now: new Date(),
+      connectionState: configured ? "stopped" : "not_configured",
+      marketFeedState: "offline",
+      latestMarketEventAt: null,
+      subscriptionVerified: configured,
+      realMarketEventReceived: false,
+      enteredScoringWindow: false,
       marketDataGateReady: false,
-      degradation: "offline",
-      reason: "Scanner is inactive. No scheduled scan, transport state, or cached value is treated as live market evidence.",
-    },
+      reference: { state: "unavailable", source: null, observedAt: null, reason: "Reference data has not been evaluated." },
+      alphaRadar: emptyAlphaRadar,
+    }),
     openingReadiness: null,
   };
 }
@@ -904,6 +925,7 @@ export class DatabentoLiveService extends EventEmitter {
     }
     const liveIngestion = this.currentLiveIngestionDiagnostics(alphaRadar, marketFeedState, now);
     const scanHealth = this.currentScanHealth(alphaRadar, marketFeedState, liveIngestion, now);
+    const governance = this.currentGovernance(alphaRadar, marketFeedState, liveIngestion, scanHealth, now);
     return {
       ...this.status,
       marketFeedState,
@@ -912,7 +934,34 @@ export class DatabentoLiveService extends EventEmitter {
       radar: this.calculateRadar(now),
       liveIngestion,
       scanHealth,
+      governance,
     };
+  }
+
+  private currentGovernance(
+    alphaRadar: AlphaRadarSnapshot,
+    marketFeedState: MarketFeedState,
+    liveIngestion: LiveIngestionDiagnostics,
+    scanHealth: ProtectedScanHealth,
+    now: Date,
+  ): DataGovernanceSnapshot {
+    return buildDataGovernanceSnapshot({
+      now,
+      connectionState: this.status.connectionState,
+      marketFeedState,
+      latestMarketEventAt: liveIngestion.lastMarketEventAt,
+      subscriptionVerified: liveIngestion.conditions.subscriptionVerified,
+      realMarketEventReceived: liveIngestion.conditions.realMarketEventReceived,
+      enteredScoringWindow: liveIngestion.enteredScoringWindow,
+      marketDataGateReady: scanHealth.marketDataGateReady,
+      reference: {
+        state: "unavailable",
+        source: null,
+        observedAt: null,
+        reason: "Reference classification is not market evidence.",
+      },
+      alphaRadar,
+    });
   }
 
   private currentScanHealth(
@@ -1685,6 +1734,23 @@ export class DatabentoLiveService extends EventEmitter {
       },
     );
     const alphaRadar = postBreakout.snapshot;
+    const governance = buildDataGovernanceSnapshot({
+      now,
+      connectionState: this.status.connectionState,
+      marketFeedState: this.marketFeedStateAt(now),
+      latestMarketEventAt: this.status.liveIngestion.lastMarketEventAt,
+      subscriptionVerified: this.status.liveIngestion.conditions.subscriptionVerified,
+      realMarketEventReceived: this.status.liveIngestion.conditions.realMarketEventReceived,
+      enteredScoringWindow: this.status.liveIngestion.enteredScoringWindow,
+      marketDataGateReady: this.currentScanHealth(
+        alphaRadar,
+        this.marketFeedStateAt(now),
+        this.status.liveIngestion,
+        now,
+      ).marketDataGateReady,
+      reference: { state: "unavailable", source: null, observedAt: null, reason: "Reference classification is not market evidence." },
+      alphaRadar,
+    });
     this.preBreakoutMachine = detection.machine;
     this.postBreakoutMachine = postBreakout.machine;
     const radar = this.calculateRadar(now);
@@ -2546,6 +2612,7 @@ function toSymbolStatus(status: RadarStatus): RadarSymbolStatus {
     market: status.market,
     liveIngestion: status.liveIngestion,
     scanHealth: status.scanHealth,
+    governance: status.governance,
     streams: status.streams,
     error: status.error,
   };

@@ -70,6 +70,7 @@ function seedCompleteLegacyWindow(service, now) {
 
 try {
   transpile("artifacts/api-server/src/lib/alphaRadar.ts", "alphaRadar.js");
+  transpile("artifacts/api-server/src/lib/dataGovernance.ts", "dataGovernance.js");
   transpile("artifacts/api-server/src/lib/marketFeed.ts", "marketFeed.js");
   transpile(
     "artifacts/api-server/src/lib/marketUniverse.ts",

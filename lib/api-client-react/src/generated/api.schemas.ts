@@ -1171,6 +1171,78 @@ export interface ProtectedScanHealth {
   reason: string;
 }
 
+export type GovernanceLayerId = typeof GovernanceLayerId[keyof typeof GovernanceLayerId];
+
+
+export const GovernanceLayerId = {
+  raw_market: 'raw_market',
+  basic_features: 'basic_features',
+  market_structure: 'market_structure',
+  stage_state: 'stage_state',
+  final_decision: 'final_decision',
+} as const;
+
+export type GovernanceLayerState = typeof GovernanceLayerState[keyof typeof GovernanceLayerState];
+
+
+export const GovernanceLayerState = {
+  available: 'available',
+  withheld: 'withheld',
+  unavailable: 'unavailable',
+} as const;
+
+export interface GovernanceLayer {
+  id: GovernanceLayerId;
+  state: GovernanceLayerState;
+  /** @nullable */
+  observedAt: string | null;
+  sources: string[];
+  reason: string;
+}
+
+export type GovernanceStageId = typeof GovernanceStageId[keyof typeof GovernanceStageId];
+
+
+export const GovernanceStageId = {
+  pre_breakout: 'pre_breakout',
+  true_breakout: 'true_breakout',
+  post_breakout: 'post_breakout',
+} as const;
+
+export interface GovernanceStage {
+  id: GovernanceStageId;
+  state: GovernanceLayerState;
+  productionState: string;
+  evidence: string[];
+  reason: string;
+}
+
+export type DataGovernanceSnapshotSchemaVersion = typeof DataGovernanceSnapshotSchemaVersion[keyof typeof DataGovernanceSnapshotSchemaVersion];
+
+
+export const DataGovernanceSnapshotSchemaVersion = {
+  NUMBER_1: 1,
+} as const;
+
+export type DataGovernanceSnapshotDecision = {
+  state: GovernanceLayerState;
+  eligibleForReadOnlyPresentation: boolean;
+  eligibleForProductionPromotion: boolean;
+  reason: string;
+};
+
+/**
+ * Read-only governed evidence path. It never changes live scoring, ranking, alerts, or notification delivery.
+ */
+export interface DataGovernanceSnapshot {
+  schemaVersion: DataGovernanceSnapshotSchemaVersion;
+  generatedAt: string;
+  auditHash: string;
+  layers: GovernanceLayer[];
+  stages: GovernanceStage[];
+  decision: DataGovernanceSnapshotDecision;
+}
+
 export interface AlphaRadarSignalHistoryEntry {
   occurredAt: string;
   fromState: PreBreakoutDetectionState;
@@ -1370,6 +1442,7 @@ export interface RadarSymbolStatus {
   market: RadarMarketSnapshot;
   liveIngestion: LiveIngestionDiagnostics;
   scanHealth: ProtectedScanHealth;
+  governance: DataGovernanceSnapshot;
   /** @nullable */
   error: string | null;
 }
@@ -2328,6 +2401,7 @@ export interface RadarStatus {
   streams: RadarStream[];
   liveIngestion: LiveIngestionDiagnostics;
   scanHealth: ProtectedScanHealth;
+  governance: DataGovernanceSnapshot;
   marketUniverse: MarketUniverseSummary;
   focusedScans: FocusedScanSnapshot;
   catalystRadar: CatalystRadarSnapshot;

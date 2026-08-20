@@ -9,6 +9,7 @@
     "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./artifacts/**\" --filter \"./scripts\" --if-present run typecheck",
     "test:alpha-radar": "node scripts/test-alpha-radar.mjs",
     "test:market-feed": "node scripts/test-market-feed.mjs",
+    "test:data-governance": "node scripts/test-data-governance.mjs",
     "test:databento-live": "node scripts/test-databento-live.mjs",
     "test:opening-readiness": "node scripts/test-opening-readiness.mjs",
     "test:catalyst-radar": "node scripts/test-catalyst-radar.mjs",

@@ -1504,6 +1504,79 @@ components:
         - marketDataGateReady
         - degradation
         - reason
+    GovernanceLayerId:
+      type: string
+      enum: [raw_market, basic_features, market_structure, stage_state, final_decision]
+    GovernanceLayerState:
+      type: string
+      enum: [available, withheld, unavailable]
+    GovernanceLayer:
+      type: object
+      properties:
+        id:
+          $ref: "#/components/schemas/GovernanceLayerId"
+        state:
+          $ref: "#/components/schemas/GovernanceLayerState"
+        observedAt:
+          type: [string, "null"]
+          format: date-time
+        sources:
+          type: array
+          items:
+            type: string
+        reason:
+          type: string
+      required: [id, state, observedAt, sources, reason]
+    GovernanceStage:
+      type: object
+      properties:
+        id:
+          type: string
+          enum: [pre_breakout, true_breakout, post_breakout]
+        state:
+          $ref: "#/components/schemas/GovernanceLayerState"
+        productionState:
+          type: string
+        evidence:
+          type: array
+          items:
+            type: string
+        reason:
+          type: string
+      required: [id, state, productionState, evidence, reason]
+    DataGovernanceSnapshot:
+      type: object
+      description: Read-only governed evidence path. It never changes live scoring, ranking, alerts, or notification delivery.
+      properties:
+        schemaVersion:
+          type: number
+          enum: [1]
+        generatedAt:
+          type: string
+          format: date-time
+        auditHash:
+          type: string
+        layers:
+          type: array
+          items:
+            $ref: "#/components/schemas/GovernanceLayer"
+        stages:
+          type: array
+          items:
+            $ref: "#/components/schemas/GovernanceStage"
+        decision:
+          type: object
+          properties:
+            state:
+              $ref: "#/components/schemas/GovernanceLayerState"
+            eligibleForReadOnlyPresentation:
+              type: boolean
+            eligibleForProductionPromotion:
+              type: boolean
+            reason:
+              type: string
+          required: [state, eligibleForReadOnlyPresentation, eligibleForProductionPromotion, reason]
+      required: [schemaVersion, generatedAt, auditHash, layers, stages, decision]
     RadarSymbolStatus:
       type: object
       properties:
@@ -1528,6 +1601,8 @@ components:
           $ref: "#/components/schemas/LiveIngestionDiagnostics"
         scanHealth:
           $ref: "#/components/schemas/ProtectedScanHealth"
+        governance:
+          $ref: "#/components/schemas/DataGovernanceSnapshot"
         error:
           type: [string, "null"]
       required:
@@ -1540,6 +1615,7 @@ components:
         - market
         - liveIngestion
         - scanHealth
+        - governance
         - error
     AlphaRankingEligibility:
       type: string
@@ -2945,6 +3021,8 @@ components:
           $ref: "#/components/schemas/LiveIngestionDiagnostics"
         scanHealth:
           $ref: "#/components/schemas/ProtectedScanHealth"
+        governance:
+          $ref: "#/components/schemas/DataGovernanceSnapshot"
         marketUniverse:
           $ref: "#/components/schemas/MarketUniverseSummary"
         focusedScans:
@@ -2997,6 +3075,7 @@ components:
         - streams
         - liveIngestion
         - scanHealth
+        - governance
         - marketUniverse
         - focusedScans
         - catalystRadar
