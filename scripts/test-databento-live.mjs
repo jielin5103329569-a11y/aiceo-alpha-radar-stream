@@ -503,6 +503,26 @@ try {
     globalThis.clearTimeout = originalClearTimeout;
   }
 
+  const preStreamingScanService = new DatabentoLiveService("NVDA");
+  preStreamingScanService.runAlphaScan("scheduled_scan", false);
+  assert.equal(
+    preStreamingScanService.lastAlphaScanAt,
+    null,
+    "a scan while connecting must not be recorded as a completed market scan",
+  );
+  preStreamingScanService.applyEvent({ type: "ready" });
+  preStreamingScanService.runAlphaScan("scheduled_scan", false);
+  assert.equal(
+    preStreamingScanService.lastAlphaScanAt,
+    null,
+    "a scan while connected but before the first live event must not be recorded as completed",
+  );
+  preStreamingScanService.applyEvent(marketEvent(new Date(), 100, "B"));
+  assert.ok(
+    preStreamingScanService.lastAlphaScanAt instanceof Date,
+    "the first completed scan must follow a real market event and streaming state",
+  );
+
   function rankingSymbol({
     symbol,
     score,

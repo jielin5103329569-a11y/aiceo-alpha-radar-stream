@@ -863,7 +863,7 @@ export class DatabentoLiveService extends EventEmitter {
     const schedulerState: ProtectedScanSchedulerState =
       !this.scanSchedulerActive
         ? "inactive"
-        : scanLagMs !== null && scanLagMs > profile.scanIntervalMs
+        : scanLagMs !== null && scanLagMs > 0
           ? "delayed"
           : "scheduled";
     const coreComponentsEligible =
@@ -1539,7 +1539,11 @@ export class DatabentoLiveService extends EventEmitter {
   }
 
   private runAlphaScan(triggerReason: string, eventTriggered: boolean): void {
-    if (this.scanInProgress) return;
+    // A scheduler tick is activity, not market evidence. Do not record a
+    // completed scan while the bridge is still connecting, reconnecting, or
+    // otherwise not streaming. The next armed tick will retry after a real
+    // market event moves the service into the streaming state.
+    if (this.scanInProgress || this.status.connectionState !== "streaming") return;
     this.scanInProgress = true;
     try {
     const now = new Date();
