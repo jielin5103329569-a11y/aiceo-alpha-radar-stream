@@ -64,6 +64,13 @@
       "when": 1787244000000,
       "tag": "0008_runtime_supervisor",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1787258887803,
+      "tag": "0009_autonomous_operations",
+      "breakpoints": true
     }
   ]
 }

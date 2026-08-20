@@ -18,7 +18,7 @@ export type GracefulShutdownOptions = {
   readonly getServer: () => Server | null;
   readonly activeSockets: Set<Socket>;
   readonly closeEventStreams: (reason: string) => number;
-  readonly stopServices: () => void;
+  readonly stopServices: () => void | Promise<void>;
   readonly logger: LifecycleLogger;
   readonly gracePeriodMs?: number;
   readonly onComplete?: (state: "stopped" | "failed") => void;
@@ -39,7 +39,9 @@ export function createGracefulShutdown(options: GracefulShutdownOptions): (signa
     options.owner.markStopping();
     options.logger.info({ signal }, "Stopping server-owned Alpha Radar lifeline");
     const closedSseConnections = options.closeEventStreams("server_stopping");
-    options.stopServices();
+    void Promise.resolve(options.stopServices()).catch((error) => {
+      options.logger.error({ error }, "Error while stopping service dependencies");
+    });
 
     const server = options.getServer();
     if (!server) {
