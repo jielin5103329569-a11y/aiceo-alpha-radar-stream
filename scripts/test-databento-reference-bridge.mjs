@@ -76,6 +76,7 @@ class FakeFrame:
                 "industry_group": "Semiconductors",
                 "industry": "AI chips",
                 "classification_source": "licensed",
+                "classification_ts_effective": datetime(2026, 8, 20, tzinfo=UTC),
                 "ts_effective": datetime(2026, 8, 20, tzinfo=UTC),
                 "listing_source": "primary",
             },
@@ -98,8 +99,41 @@ assert events[0]["authorizationState"] == "verified"
 assert events[1]["providerSymbol"] == "ACME"
 assert events[1]["sector"] == "Technology"
 assert events[1]["classificationSource"] == "licensed"
+assert events[1]["classificationUpdatedAt"] == "2026-08-20T00:00:00Z"
+
+authorized = module.authorized_classification(
+    {
+        "gics_sector_name": "Information Technology",
+        "gics_industry_group_name": "Software & Services",
+        "gics_industry_name": "Application Software",
+        "classification_ts_effective": "2026-08-20T12:00:00Z",
+    },
+    "2026-08-20T12:00:00Z",
+)
+assert authorized["classificationAuthorized"] is True
+assert authorized["classificationSource"] == "Databento Security Master"
+assert authorized["classificationUpdatedAt"] == "2026-08-20T12:00:00Z"
+
+missing_timestamp = module.authorized_classification(
+    {
+        "sector": "Information Technology",
+        "industry_group": "Software & Services",
+        "industry": "Application Software",
+    },
+    "2026-08-20T12:00:00Z",
+)
+assert missing_timestamp["classificationAuthorized"] is True
+assert missing_timestamp["classificationUpdatedAt"] is None
+
+partial = module.authorized_classification(
+    {"sector": "Information Technology", "industry_group": "Software"},
+    "2026-08-20T12:00:00Z",
+)
+assert partial["classificationAuthorized"] is False
+assert partial["classificationSource"] is None
+assert partial["industry"] is None
 `;
 
 const result = spawnSync("python3", ["-c", probe], { encoding: "utf8" });
 assert.equal(result.status, 0, result.stderr || result.stdout);
-console.log("Databento reference bridge tests passed: definition queries always use a non-empty end-exclusive interval.");
+console.log("Databento reference bridge tests passed: definition queries are bounded and classification requires a complete authorized hierarchy.");

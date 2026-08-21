@@ -97,7 +97,48 @@ def row_value(row: Any, *names: str) -> Any:
             return value
     return None
 
+def authorized_classification(
+    row: Any,
+    reference_updated_at: Any,
+) -> dict[str, str | bool | None]:
+    """Extract a complete taxonomy only from an authorized Security Master row.
 
+    Security Master entitlements can return lifecycle and security-type fields
+    without a licensed classification hierarchy. A partial taxonomy must never
+    look usable: sector ranking needs every level and a provider provenance.
+    """
+    sector = text(row_value(row, "sector", "gics_sector", "gics_sector_name"))
+    industry_group = text(
+        row_value(
+            row,
+            "industry_group",
+            "industryGroup",
+            "gics_industry_group",
+            "gics_industry_group_name",
+        )
+    )
+    industry = text(row_value(row, "industry", "gics_industry", "gics_industry_name"))
+    complete = bool(sector and industry_group and industry)
+    source = text(row_value(row, "classification_source", "taxonomy_source", "gics_source"))
+    updated_at = iso_timestamp(
+        row_value(
+            row,
+            "classification_updated_at",
+            "classification_ts_effective",
+            "taxonomy_updated_at",
+            "gics_updated_at",
+        )
+    )
+    return {
+        "sector": sector,
+        "industryGroup": industry_group,
+        "industry": industry,
+        # Security Master is the authorized provider boundary. Do not infer
+        # this provenance for definition records or incomplete taxonomies.
+        "classificationSource": source or ("Databento Security Master" if complete else None),
+        "classificationAuthorized": complete,
+        "classificationUpdatedAt": updated_at,
+    }
 def parse_utc_timestamp(value: Any, field: str) -> datetime:
     """Parse provider availability values and reject invalid time bounds."""
     if not isinstance(value, str) or not value.strip():
@@ -163,7 +204,8 @@ def security_master_snapshot(key: str) -> int:
             "authorizationReason": "Databento Security Master responded with a licensed reference snapshot.",
             "reason": (
                 "Licensed Security Master records verify listing lifecycle and security type. "
-                "Sector hierarchy remains unavailable unless supplied by a classification field."
+                "Sector hierarchy is available only for rows with a complete authorized "
+                "sector, industry-group, and industry classification."
             ),
         }
     )
@@ -175,6 +217,7 @@ def security_master_snapshot(key: str) -> int:
         if text(provider_symbol) is None or iso_timestamp(reference_updated_at) is None:
             continue
         listing_source = row_value(row, "listing_source")
+        classification = authorized_classification(row, reference_updated_at)
         record = {
             "type": "security",
             "providerSymbol": text(provider_symbol),
@@ -189,10 +232,7 @@ def security_master_snapshot(key: str) -> int:
             "listingStatus": text(row_value(row, "listing_status")),
             "tradingStatus": None,
             "cfi": text(row_value(row, "cfi")),
-            "sector": text(row_value(row, "sector")),
-            "industryGroup": text(row_value(row, "industry_group", "industryGroup")),
-            "industry": text(row_value(row, "industry")),
-            "classificationSource": text(row_value(row, "classification_source")),
+            **classification,
             "referenceUpdatedAt": iso_timestamp(reference_updated_at),
             "primaryListing": bool_value(listing_source),
         }
@@ -245,6 +285,8 @@ def definition_snapshot(key: str, fallback_reason: str) -> int:
             "industryGroup": None,
             "industry": None,
             "classificationSource": None,
+            "classificationAuthorized": False,
+            "classificationUpdatedAt": None,
             "referenceUpdatedAt": updated_at,
             "primaryListing": True,
         }

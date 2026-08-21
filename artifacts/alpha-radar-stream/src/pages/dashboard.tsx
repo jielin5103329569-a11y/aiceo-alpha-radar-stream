@@ -373,9 +373,9 @@ function MarketUniverseFoundationCard({
     : summary?.freshness === 'stale'
       ? 'border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300'
       : 'border-muted-foreground/30 bg-muted/50 text-muted-foreground';
-  const qualityStyle = summary?.dataQuality === 'good'
+  const qualityStyle = summary?.classificationQuality === 'good'
     ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
-    : summary?.dataQuality === 'degraded'
+    : summary?.classificationQuality === 'degraded'
       ? 'border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300'
       : 'border-destructive/30 bg-destructive/10 text-destructive';
 
@@ -397,7 +397,7 @@ function MarketUniverseFoundationCard({
               {summary?.freshness ?? 'missing'} reference
             </Badge>
             <Badge variant="outline" className={`font-mono text-[10px] ${qualityStyle}`} data-testid="market-universe-quality">
-              {summary?.dataQuality ?? 'unavailable'} quality
+              {summary?.classificationQuality ?? 'unavailable'} classification
             </Badge>
           </div>
         </div>
@@ -406,7 +406,7 @@ function MarketUniverseFoundationCard({
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <UniverseMetric label="Discovered" value={formatNumber(summary?.totalCount, 0)} />
           <UniverseMetric label="Verified candidates" value={formatNumber(summary?.eligibleCount, 0)} />
-          <UniverseMetric label="Classified" value={formatNumber(summary?.classificationCoverageCount, 0)} />
+          <UniverseMetric label="Authorized classifications" value={formatNumber(summary?.classificationCoverageCount, 0)} />
           <UniverseMetric label="Live deep scans" value={formatNumber(liveSymbolCount, 0)} emphasize />
         </div>
 
@@ -421,17 +421,12 @@ function MarketUniverseFoundationCard({
             </p>
           </div>
           <div className="space-y-1.5">
-            <p className="font-medium text-foreground">Lifecycle coverage</p>
+            <p className="font-medium text-foreground">Classification source</p>
             <p className="font-mono text-[11px] text-muted-foreground">
-              Active {formatNumber(summary?.lifecycleCounts?.active, 0)}
-              {' · '}halted {formatNumber(summary?.lifecycleCounts?.halted, 0)}
-              {' · '}inactive {formatNumber(summary?.lifecycleCounts?.inactive, 0)}
-              {' · '}delisted {formatNumber(summary?.lifecycleCounts?.delisted, 0)}
+              {summary?.classificationSource ?? 'No authorized classification source'}
             </p>
             <p className="text-muted-foreground">
-              {summary?.deliveryMode === 'reference_only'
-                ? 'No broad-market high-frequency channels are open.'
-                : 'Reference-only delivery is required.'}
+              {summary?.classificationReason ?? 'Classification is unavailable until an authorized reference refresh completes.'}
             </p>
           </div>
         </div>

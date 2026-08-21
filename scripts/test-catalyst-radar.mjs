@@ -185,6 +185,7 @@ try {
     industryGroup: "Semiconductors",
     industry: "Semiconductors",
     classificationSource: "Trusted reference",
+    classificationAvailability: "available",
   };
   const sector = calculateSectorConfirmation(reference, [{
     symbol: "MU",

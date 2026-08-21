@@ -19,3 +19,4 @@
 - [Autonomous execution durability](autonomous-execution-durability.md) — Unsettled operations remain blocked across shutdown, timeout, and restart; audit success never certifies a failed work-state write.
 - [AI pool reference capacity](ai-pool-reference-capacity.md) — Reserve each targeted Reference identifier durably before provider access; partial responses remain withheld per symbol.
 - [AI pool live-source isolation](ai-pool-live-source-isolation.md) — Pool enrichment consumes only independently verified focused scans; background failure can never escape into protected services.
+- [Classification freshness](classification-freshness.md) — A fresh reference snapshot cannot refresh an old or timestamp-less taxonomy; classification provenance has its own gate.

@@ -233,6 +233,8 @@ try {
         industryGroup: "Software",
         industry: "Application Software",
         classificationSource: "Deterministic fixture",
+        classificationAuthorized: true,
+        classificationUpdatedAt: referenceAt.toISOString(),
         referenceUpdatedAt: referenceAt.toISOString(),
         primaryListing: true,
       },
@@ -284,6 +286,8 @@ try {
   assert.equal(freshReference.totalCount, 4, "primary-listing deduplication must retain one record per normalized symbol");
   assert.equal(freshReference.eligibleCount, 1, "only an active verified common stock may be a candidate");
   assert.equal(freshReference.classificationCoverageCount, 1, "complete supplied sector hierarchy must be counted");
+  assert.equal(freshReference.classificationQuality, "good", "good quality requires complete authorized classifications");
+  assert.equal(freshReference.classificationSource, "Deterministic fixture");
   assert.equal(
     freshReference.authorization.state,
     "verified",
@@ -312,6 +316,75 @@ try {
     [],
     "stale reference summaries must not advertise an obsolete candidate sample",
   );
+  assert.equal(staleReference.classificationQuality, "unavailable");
+
+  const staleClassificationRegistry = new MarketUniverseRegistry();
+  staleClassificationRegistry.replace(
+    [{
+      providerSymbol: "OLDC",
+      providerSecurityType: "CS",
+      listingStatus: "A",
+      sector: "Information Technology",
+      industryGroup: "Software",
+      industry: "Application Software",
+      classificationSource: "Authorized fixture",
+      classificationAuthorized: true,
+      classificationUpdatedAt: new Date(referenceAt.getTime() - 61_000).toISOString(),
+      referenceUpdatedAt: referenceAt.toISOString(),
+    }],
+    {
+      dataset: "Fixture",
+      source: "Fresh reference fixture with old classification",
+      sourceKind: "security_master",
+      sourceTimestamp: referenceAt,
+      maxAgeMs: 60_000,
+      reason: "Fixture.",
+    },
+    referenceAt,
+  );
+  const staleClassificationSummary = staleClassificationRegistry.getSummary(
+    new Date(referenceAt.getTime() + 10_000),
+  );
+  assert.equal(staleClassificationSummary.freshness, "fresh");
+  assert.equal(staleClassificationSummary.classificationCoverageCount, 0);
+  assert.equal(staleClassificationSummary.classificationQuality, "degraded");
+  assert.equal(
+    staleClassificationRegistry.query({}, new Date(referenceAt.getTime() + 10_000)).items[0]?.classificationAvailability,
+    "stale",
+    "an old taxonomy timestamp must remain unavailable even while the reference snapshot is fresh",
+  );
+
+  const unauthorizedClassificationRegistry = new MarketUniverseRegistry();
+  unauthorizedClassificationRegistry.replace(
+    [{
+      providerSymbol: "UNTRUSTED",
+      providerSecurityType: "CS",
+      listingStatus: "A",
+      sector: "Information Technology",
+      industryGroup: "Software",
+      industry: "Application Software",
+      classificationSource: "Unlicensed fixture",
+      classificationAuthorized: false,
+      referenceUpdatedAt: referenceAt.toISOString(),
+    }],
+    {
+      dataset: "Fixture",
+      source: "Security Master fixture with unauthorized taxonomy",
+      sourceKind: "security_master",
+      sourceTimestamp: referenceAt,
+      maxAgeMs: 60_000,
+      reason: "Fixture.",
+    },
+    referenceAt,
+  );
+  const unauthorizedSummary = unauthorizedClassificationRegistry.getSummary(referenceAt);
+  assert.equal(unauthorizedSummary.classificationCoverageCount, 0);
+  assert.equal(unauthorizedSummary.classificationQuality, "degraded");
+  assert.equal(
+    unauthorizedClassificationRegistry.query({}, referenceAt).items[0]?.classificationAvailability,
+    "unauthorized",
+    "taxonomy fields without authorized provenance must remain explicitly unavailable",
+  );
   const definitionsOnlyRegistry = new MarketUniverseRegistry();
   definitionsOnlyRegistry.replace(
     [
@@ -322,6 +395,11 @@ try {
         cfi: "ESVUFR",
         securityUpdateAction: "A",
         tradingStatus: "17",
+        sector: "Information Technology",
+        industryGroup: "Software",
+        industry: "Application Software",
+        classificationSource: "Definition guess",
+        classificationAuthorized: true,
         referenceUpdatedAt: referenceAt.toISOString(),
       },
     ],
@@ -345,6 +423,11 @@ try {
     definitionsOnlyRegistry.getSummary(referenceAt).authorization.state,
     "blocked",
     "an entitlement-blocked Security Master fallback must remain explicitly external and non-promoting",
+  );
+  assert.equal(
+    definitionsOnlyRegistry.query({ eligibility: "all" }, referenceAt).items[0]?.classificationAvailability,
+    "unauthorized",
+    "definition-only metadata must never be treated as authorized classification",
   );
   assert.deepEqual(
     scanProfileAt(new Date("2026-08-17T13:27:00.000Z")),

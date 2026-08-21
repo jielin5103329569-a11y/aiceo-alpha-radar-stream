@@ -29,6 +29,10 @@ export interface MarketUniverseSummary {
   expiresAt: Date | null;
   freshness: ReferenceFreshness;
   dataQuality: ReferenceDataQuality;
+  classificationQuality: ReferenceDataQuality;
+  /** @nullable */
+  classificationSource: string | null;
+  classificationReason: string;
   reason: string;
   /** @minimum 0 */
   totalCount: number;

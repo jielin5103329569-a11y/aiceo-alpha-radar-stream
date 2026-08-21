@@ -87,6 +87,7 @@ export * from './catalystRadarSnapshot';
 export * from './catalystSourceAvailability';
 export * from './catalystSourceReadiness';
 export * from './catalystSourceStatus';
+export * from './classificationAvailability';
 export * from './databentoAuthorizationState';
 export * from './databentoLifelineSymbolHealth';
 export * from './databentoLifelineSymbolHealthRecoveryPhase';

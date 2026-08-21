@@ -232,6 +232,16 @@ export const ReferenceDataQuality = {
   unavailable: 'unavailable',
 } as const;
 
+export type ClassificationAvailability = typeof ClassificationAvailability[keyof typeof ClassificationAvailability];
+
+
+export const ClassificationAvailability = {
+  available: 'available',
+  missing: 'missing',
+  unauthorized: 'unauthorized',
+  stale: 'stale',
+} as const;
+
 export type SecurityLifecycleStatus = typeof SecurityLifecycleStatus[keyof typeof SecurityLifecycleStatus];
 
 
@@ -296,6 +306,9 @@ export interface SecurityReference {
   industry: string | null;
   /** @nullable */
   classificationSource: string | null;
+  classificationAvailability: ClassificationAvailability;
+  /** @nullable */
+  classificationUpdatedAt: string | null;
   referenceUpdatedAt: string;
 }
 
@@ -358,6 +371,10 @@ export interface MarketUniverseSummary {
   expiresAt: string | null;
   freshness: ReferenceFreshness;
   dataQuality: ReferenceDataQuality;
+  classificationQuality: ReferenceDataQuality;
+  /** @nullable */
+  classificationSource: string | null;
+  classificationReason: string;
   reason: string;
   /** @minimum 0 */
   totalCount: number;

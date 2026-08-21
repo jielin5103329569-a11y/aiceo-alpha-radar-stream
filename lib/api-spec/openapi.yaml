@@ -650,6 +650,9 @@ components:
     ReferenceDataQuality:
       type: string
       enum: [good, degraded, unavailable]
+    ClassificationAvailability:
+      type: string
+      enum: [available, missing, unauthorized, stale]
     SecurityLifecycleStatus:
       type: string
       enum: [active, halted, inactive, delisted, unknown]
@@ -700,6 +703,11 @@ components:
           type: [string, "null"]
         classificationSource:
           type: [string, "null"]
+        classificationAvailability:
+          $ref: "#/components/schemas/ClassificationAvailability"
+        classificationUpdatedAt:
+          type: ["string", "null"]
+          format: date-time
         referenceUpdatedAt:
           type: string
           format: date-time
@@ -722,6 +730,8 @@ components:
         - industryGroup
         - industry
         - classificationSource
+        - classificationAvailability
+        - classificationUpdatedAt
         - referenceUpdatedAt
     MarketUniverseLifecycleCounts:
       type: object
@@ -784,6 +794,12 @@ components:
           $ref: "#/components/schemas/ReferenceFreshness"
         dataQuality:
           $ref: "#/components/schemas/ReferenceDataQuality"
+        classificationQuality:
+          $ref: "#/components/schemas/ReferenceDataQuality"
+        classificationSource:
+          type: [string, "null"]
+        classificationReason:
+          type: string
         reason:
           type: string
         totalCount:
@@ -821,6 +837,9 @@ components:
         - expiresAt
         - freshness
         - dataQuality
+        - classificationQuality
+        - classificationSource
+        - classificationReason
         - reason
         - totalCount
         - eligibleCount

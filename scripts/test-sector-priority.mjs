@@ -18,6 +18,7 @@ function reference(symbol, sector, industryGroup = "Semiconductors") {
     industryGroup,
     industry: "Semiconductor Devices",
     classificationSource: "Databento security master",
+    classificationAvailability: "available",
   };
 }
 
@@ -268,6 +269,31 @@ try {
   assert.equal(staleReference.coverage.rankedSectorCount, 0);
   assert.equal(staleReference.finalCandidates.length, 0);
   assert.equal(staleReference.withheldCandidates.length, 0);
+
+  const unauthorizedClassification = buildSectorPriority({
+    symbols: [symbolStatus("NVDA"), symbolStatus("MU")],
+    alphaRanking: { entries: [ranking("NVDA", 90), ranking("MU", 81)] },
+    references: [
+      {
+        symbol: "NVDA",
+        reference: { ...reference("NVDA", "Information Technology"), classificationAvailability: "unauthorized" },
+      },
+      {
+        symbol: "MU",
+        reference: { ...reference("MU", "Information Technology"), classificationAvailability: "unauthorized" },
+      },
+    ],
+    catalystRadar: catalystRadar(),
+    referenceFresh: true,
+    now,
+  });
+  assert.equal(unauthorizedClassification.state, "insufficient");
+  assert.equal(unauthorizedClassification.coverage.classifiedLiveSymbols, 0);
+  assert.equal(
+    unauthorizedClassification.coverage.rankedSectorCount,
+    0,
+    "unauthorized classifications must not unlock sector ranking even with two fresh live constituents",
+  );
 
   const broaderLiveCoverage = buildSectorPriority({
     symbols: [symbolStatus("NVDA")],

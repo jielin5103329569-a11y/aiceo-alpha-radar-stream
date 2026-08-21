@@ -5,6 +5,7 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { ClassificationAvailability } from './classificationAvailability';
 import type { NormalizedSecurityType } from './normalizedSecurityType';
 import type { SecurityEligibility } from './securityEligibility';
 import type { SecurityLifecycleStatus } from './securityLifecycleStatus';
@@ -39,5 +40,8 @@ export interface SecurityReference {
   industry: string | null;
   /** @nullable */
   classificationSource: string | null;
+  classificationAvailability: ClassificationAvailability;
+  /** @nullable */
+  classificationUpdatedAt: Date | null;
   referenceUpdatedAt: Date;
 }

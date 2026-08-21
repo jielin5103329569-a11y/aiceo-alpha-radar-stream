@@ -13,6 +13,8 @@ export type MarketUniverseRefreshState =
   | "unavailable";
 export type ReferenceFreshness = "fresh" | "stale" | "missing";
 export type ReferenceDataQuality = "good" | "degraded" | "unavailable";
+
+export type ClassificationAvailability = "available" | "missing" | "unauthorized" | "stale";
 export type SecurityLifecycleStatus =
   | "active"
   | "halted"
@@ -50,6 +52,8 @@ export type SecurityReference = {
   industryGroup: string | null;
   industry: string | null;
   classificationSource: string | null;
+  classificationAvailability: ClassificationAvailability;
+  classificationUpdatedAt: Date | null;
   referenceUpdatedAt: Date;
 };
 
@@ -65,6 +69,9 @@ export type MarketUniverseSummary = {
   expiresAt: Date | null;
   freshness: ReferenceFreshness;
   dataQuality: ReferenceDataQuality;
+  classificationQuality: ReferenceDataQuality;
+  classificationSource: string | null;
+  classificationReason: string;
   reason: string;
   totalCount: number;
   eligibleCount: number;
@@ -138,6 +145,8 @@ export type RawSecurityReference = {
   industryGroup?: unknown;
   industry?: unknown;
   classificationSource?: unknown;
+  classificationAuthorized?: unknown;
+  classificationUpdatedAt?: unknown;
   referenceUpdatedAt?: unknown;
   primaryListing?: unknown;
 };
@@ -285,6 +294,21 @@ function eligibilityFor(
   };
 }
 
+function classificationAvailabilityFor(
+  raw: RawSecurityReference,
+  sourceKind: MarketUniverseSourceMetadata["sourceKind"],
+): ClassificationAvailability {
+  if (sourceKind !== "security_master") return "unauthorized";
+  const complete = Boolean(
+    cleanText(raw.sector)
+      && cleanText(raw.industryGroup)
+      && cleanText(raw.industry)
+      && cleanText(raw.classificationSource),
+  );
+  if (!complete) return "missing";
+  if (raw.classificationAuthorized !== true) return "unauthorized";
+  return dateValue(raw.classificationUpdatedAt) ? "available" : "missing";
+}
 function normalizeSecurity(
   raw: RawSecurityReference,
   sourceKind: MarketUniverseSourceMetadata["sourceKind"],
@@ -303,6 +327,7 @@ function normalizeSecurity(
     lifecycle.status,
     sourceKind === "security_master",
   );
+  const classificationUpdatedAt = dateValue(raw.classificationUpdatedAt);
   return {
     symbol,
     providerSymbol: cleanText(raw.providerSymbol) ?? symbol,
@@ -322,6 +347,8 @@ function normalizeSecurity(
     industryGroup: cleanText(raw.industryGroup),
     industry: cleanText(raw.industry),
     classificationSource: cleanText(raw.classificationSource),
+    classificationAvailability: classificationAvailabilityFor(raw, sourceKind),
+    classificationUpdatedAt,
     referenceUpdatedAt,
   };
 }
@@ -382,7 +409,6 @@ export class MarketUniverseRegistry {
   private lifecycleCounts = emptyLifecycleCounts();
   private eligibleCount = 0;
   private commonEquityVerifiedCount = 0;
-  private classificationCoverageCount = 0;
   private eligibleSample: string[] = [];
 
   replace(
@@ -421,20 +447,55 @@ export class MarketUniverseRegistry {
     this.lifecycleCounts = emptyLifecycleCounts();
     this.eligibleCount = 0;
     this.commonEquityVerifiedCount = 0;
-    this.classificationCoverageCount = 0;
     const sample: string[] = [];
     this.securities.forEach((security) => {
       this.lifecycleCounts[security.lifecycleStatus] += 1;
       if (security.securityType === "common_stock") this.commonEquityVerifiedCount += 1;
-      if (security.sector && security.industryGroup && security.industry) {
-        this.classificationCoverageCount += 1;
-      }
       if (security.eligibility === "eligible") {
         this.eligibleCount += 1;
         if (sample.length < 8) sample.push(security.symbol);
       }
     });
     this.eligibleSample = sample.sort();
+  }
+
+  private classificationAvailabilityAt(
+    security: SecurityReference,
+    now: Date,
+  ): ClassificationAvailability {
+    if (security.classificationAvailability !== "available") {
+      return security.classificationAvailability;
+    }
+    const updatedAt = security.classificationUpdatedAt;
+    const maxAgeMs = this.metadata?.maxAgeMs
+      ?? (this.metadata?.sourceKind === "security_master"
+        ? SECURITY_MASTER_MAX_AGE_MS
+        : DEFAULT_REFERENCE_MAX_AGE_MS);
+    const ageMs = updatedAt ? now.getTime() - updatedAt.getTime() : Number.POSITIVE_INFINITY;
+    return ageMs >= 0 && ageMs <= maxAgeMs ? "available" : "stale";
+  }
+
+  private classificationReason(
+    freshness: ReferenceFreshness,
+    eligibleCount: number,
+    classificationComplete: boolean,
+    classificationCoverageCount: number,
+    classificationSources: string[],
+    unavailableKinds: ClassificationAvailability[],
+  ): string {
+    if (freshness !== "fresh") {
+      return "The reference snapshot is stale or missing, so every classification is explicitly unavailable until an authorized refresh completes.";
+    }
+    if (eligibleCount === 0) {
+      return "No fresh eligible common-equity records are available for classification.";
+    }
+    if (!classificationComplete) {
+      return `Only ${classificationCoverageCount}/${eligibleCount} eligible records have a complete authorized sector hierarchy; ${unavailableKinds.join(", ")} classifications remain unavailable.`;
+    }
+    const source = classificationSources.length === 1
+      ? classificationSources[0]
+      : "authorized Security Master sources";
+    return `${classificationCoverageCount} eligible records have fresh complete sector, industry-group, and industry classifications from ${source}.`;
   }
 
   getSummary(
@@ -452,13 +513,39 @@ export class MarketUniverseRegistry {
     const totalCount = this.securities.size;
     const eligibleCount = freshness === "fresh" ? this.eligibleCount : 0;
     const ineligibleCount = totalCount - eligibleCount;
+    const classifiedEligible = freshness === "fresh"
+      ? [...this.securities.values()].filter(
+        (security) => security.eligibility === "eligible"
+          && this.classificationAvailabilityAt(security, now) === "available",
+      )
+      : [];
+    const classificationCoverageCount = classifiedEligible.length;
+    const classificationSources = [...new Set(
+      classifiedEligible
+        .map((security) => security.classificationSource)
+        .filter((source): source is string => source !== null),
+    )].sort();
+    const unavailableKinds = [...new Set(
+      [...this.securities.values()]
+        .filter((security) => security.eligibility === "eligible"
+          && this.classificationAvailabilityAt(security, now) !== "available")
+        .map((security) => this.classificationAvailabilityAt(security, now)),
+    )];
     const classificationComplete = eligibleCount > 0
-      && this.classificationCoverageCount >= eligibleCount;
+      && classificationCoverageCount >= eligibleCount;
     const dataQuality: ReferenceDataQuality = totalCount === 0 || freshness !== "fresh"
       ? "unavailable"
       : classificationComplete
         ? "good"
         : "degraded";
+    const classificationReason = this.classificationReason(
+      freshness,
+      eligibleCount,
+      classificationComplete,
+      classificationCoverageCount,
+      classificationSources,
+      unavailableKinds,
+    );
     const reason = overrideReason
       ?? (freshness === "stale"
         ? "The reference snapshot is stale, so all discovered symbols are ineligible until refresh."
@@ -477,12 +564,17 @@ export class MarketUniverseRegistry {
       expiresAt: this.expiresAt,
       freshness,
       dataQuality,
+      classificationQuality: dataQuality,
+      classificationSource: classificationSources.length === 1
+        ? classificationSources[0]
+        : null,
+      classificationReason,
       reason,
       totalCount,
       eligibleCount,
       ineligibleCount,
       commonEquityVerifiedCount: this.commonEquityVerifiedCount,
-      classificationCoverageCount: this.classificationCoverageCount,
+      classificationCoverageCount,
       lifecycleCounts: { ...this.lifecycleCounts },
       authorization: referenceAuthorization(this.metadata),
       eligibleSample: freshness === "fresh" ? [...this.eligibleSample] : [],
@@ -491,6 +583,19 @@ export class MarketUniverseRegistry {
 
   getSecurity(symbol: string): SecurityReference | null {
     return this.securities.get(symbol) ?? null;
+  }
+
+  withFreshness(
+    security: SecurityReference,
+    freshness: ReferenceFreshness,
+    now: Date,
+  ): SecurityReference {
+    return {
+      ...security,
+      classificationAvailability: freshness === "fresh"
+        ? this.classificationAvailabilityAt(security, now)
+        : "stale",
+    };
   }
 
   query(
@@ -510,9 +615,10 @@ export class MarketUniverseRegistry {
 
     const items = [...this.securities.values()]
       .map((security): SecurityReference => {
-        if (!stale || security.eligibility === "ineligible") return security;
+        const classification = this.withFreshness(security, summary.freshness, now);
+        if (!stale || security.eligibility === "ineligible") return classification;
         return {
-          ...security,
+          ...classification,
           eligibility: "ineligible",
           eligibilityReasons: [
             ...security.eligibilityReasons,
@@ -634,9 +740,12 @@ export class MarketUniverseService extends EventEmitter {
    * A stale reference must never be used as sector confirmation evidence.
    */
   getSecurity(symbol: string, now = new Date()): SecurityReference | null {
-    if (this.getSummary(now).freshness !== "fresh") return null;
+    const summary = this.getSummary(now);
+    if (summary.freshness !== "fresh") return null;
     const security = this.registry.getSecurity(symbol);
-    return security?.eligibility === "eligible" ? security : null;
+    return security?.eligibility === "eligible"
+      ? this.registry.withFreshness(security, summary.freshness, now)
+      : null;
   }
 
   query(query: MarketUniverseQuery = {}, now = new Date()): MarketUniverseResult {

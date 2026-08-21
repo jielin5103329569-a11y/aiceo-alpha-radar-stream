@@ -148,7 +148,8 @@ function hasTrustedClassification(
       && reference.sector
       && reference.industryGroup
       && reference.industry
-      && reference.classificationSource,
+      && reference.classificationSource
+      && reference.classificationAvailability === "available",
   );
 }
 

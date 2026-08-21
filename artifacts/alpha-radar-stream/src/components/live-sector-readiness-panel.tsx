@@ -124,9 +124,10 @@ export function LiveSectorReadinessPanel({ status }: LiveSectorReadinessPanelPro
 
           <SummaryCard title="Market Universe">
             <MetricRow label="Freshness" value={status.marketUniverse.freshness} />
-            <MetricRow label="Quality" value={status.marketUniverse.dataQuality} />
-            <MetricRow label="Verified/Disc." value={formatNumber(status.marketUniverse.eligibleCount, 0)} />
-            <ReasonBox reason={status.marketUniverse.reason} />
+            <MetricRow label="Classification" value={status.marketUniverse.classificationQuality} />
+            <MetricRow label="Authorized" value={formatNumber(status.marketUniverse.classificationCoverageCount, 0)} />
+            <MetricRow label="Source" value={status.marketUniverse.classificationSource ?? 'Unavailable'} />
+            <ReasonBox reason={status.marketUniverse.classificationReason} />
           </SummaryCard>
 
           <SummaryCard title="Sector Coverage">
