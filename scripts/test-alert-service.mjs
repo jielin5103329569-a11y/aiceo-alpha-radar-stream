@@ -278,6 +278,10 @@ exports.inArray = (col, vals) => ({ col, vals, type: "inArray" });
         degradation: "ready",
         reason: "Deterministic verified scan-health fixture.",
       },
+      network: {
+        alertReady: true,
+        reason: "Deterministic verified network-path fixture.",
+      },
       alphaRadar: {
         score,
         scoreState: "available",

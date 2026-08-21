@@ -4100,6 +4100,15 @@ components:
     RadarStatus:
       type: object
       properties:
+        statusEpoch:
+          type: string
+          minLength: 1
+          description: Unique server-process identifier for ordering status snapshots across restarts.
+        statusRevision:
+          type: number
+          minimum: 0
+          multipleOf: 1
+          description: Strictly monotonic snapshot revision within statusEpoch, independent of market-event timestamps.
         configured:
           type: boolean
         connectionState:
@@ -4185,6 +4194,8 @@ components:
               type: [number, "null"]
           required: [symbol, state, confirmationStatus, alphaVelocity]
       required:
+        - statusEpoch
+        - statusRevision
         - configured
         - connectionState
         - marketFeedState

@@ -58,10 +58,72 @@ export type DataGovernanceInput = {
   alphaRadar: AlphaRadarSnapshot;
 };
 
+type GovernanceAuditPayload = {
+  schemaVersion: 1;
+  generatedAt: string;
+  layers: Array<{
+    id: GovernanceLayerId;
+    state: GovernanceLayerState;
+    observedAt: string | null;
+    sources: string[];
+    reason: string;
+  }>;
+  stages: Array<{
+    id: GovernanceStage["id"];
+    state: GovernanceLayerState;
+    productionState: string;
+    evidence: string[];
+    reason: string;
+  }>;
+  decision: DataGovernanceSnapshot["decision"];
+};
+
+function safeIso(value: unknown): string | null {
+  return value instanceof Date && Number.isFinite(value.getTime())
+    ? value.toISOString()
+    : null;
+}
+
+function safeText(value: unknown): string {
+  return typeof value === "string" ? value : "[unavailable]";
+}
+
+/**
+ * Keep governance auditing on a bounded primitive-only projection. Live
+ * service objects and event emitters must never reach JSON.stringify because
+ * an audit failure must not interrupt the protected market pipeline.
+ */
+function toAuditPayload(value: Omit<DataGovernanceSnapshot, "auditHash">): GovernanceAuditPayload {
+  return {
+    schemaVersion: 1,
+    generatedAt: safeIso(value.generatedAt) ?? "[unavailable]",
+    layers: value.layers.map((layer) => ({
+      id: layer.id,
+      state: layer.state,
+      observedAt: safeIso(layer.observedAt),
+      sources: layer.sources.map(safeText),
+      reason: safeText(layer.reason),
+    })),
+    stages: value.stages.map((stage) => ({
+      id: stage.id,
+      state: stage.state,
+      productionState: safeText(stage.productionState),
+      evidence: stage.evidence.map(safeText),
+      reason: safeText(stage.reason),
+    })),
+    decision: {
+      state: value.decision.state,
+      eligibleForReadOnlyPresentation: Boolean(value.decision.eligibleForReadOnlyPresentation),
+      eligibleForProductionPromotion: Boolean(value.decision.eligibleForProductionPromotion),
+      reason: safeText(value.decision.reason),
+    },
+  };
+}
+
 function hashSnapshot(value: Omit<DataGovernanceSnapshot, "auditHash">): string {
-  return createHash("sha256").update(JSON.stringify(value, (_key, item) => (
-    item instanceof Date ? item.toISOString() : item
-  ))).digest("hex");
+  return createHash("sha256")
+    .update(JSON.stringify(toAuditPayload(value)))
+    .digest("hex");
 }
 
 /**
@@ -183,5 +245,19 @@ export function buildDataGovernanceSnapshot(input: DataGovernanceInput): DataGov
     stages,
     decision,
   };
-  return { ...unsigned, auditHash: hashSnapshot(unsigned) };
+  try {
+    return { ...unsigned, auditHash: hashSnapshot(unsigned) };
+  } catch {
+    return {
+      ...unsigned,
+      auditHash: "withheld",
+      decision: {
+        ...unsigned.decision,
+        state: "unavailable",
+        eligibleForReadOnlyPresentation: false,
+        eligibleForProductionPromotion: false,
+        reason: "Governance audit projection is unavailable. Market, Alert, and protected scanner authority remain unchanged.",
+      },
+    };
+  }
 }

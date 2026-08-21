@@ -19,6 +19,7 @@
     "test:server-lifecycle": "node scripts/test-server-lifecycle.mjs",
     "test:runtime-supervisor-schema": "node scripts/test-runtime-supervisor-schema.mjs",
     "test:lifeline-restart": "node scripts/test-lifeline-restart.mjs",
+    "test:radar-stream-recovery": "node scripts/test-radar-stream-recovery.mjs",
     "test:databento-live": "node scripts/test-databento-live.mjs",
     "test:opening-readiness": "node scripts/test-opening-readiness.mjs",
     "test:catalyst-radar": "node scripts/test-catalyst-radar.mjs",

@@ -20,6 +20,10 @@ export const HealthCheckResponse = zod.object({
 /**
  * @summary Get the current safe market-data stream status
  */
+
+export const getRadarStatusResponseStatusRevisionMin = 0;
+export const getRadarStatusResponseStatusRevisionMultipleOf = 1;
+
 export const getRadarStatusResponseAlphaRadarDataConfidenceScoreMin = 0;
 export const getRadarStatusResponseAlphaRadarDataConfidenceScoreMax = 100;
 
@@ -352,6 +356,8 @@ export const getRadarStatusResponseSectorPriorityWithheldCandidatesItemBreakoutC
 
 
 export const GetRadarStatusResponse = zod.object({
+  "statusEpoch": zod.string().min(1).describe('Unique server-process identifier for ordering status snapshots across restarts.'),
+  "statusRevision": zod.number().min(getRadarStatusResponseStatusRevisionMin).multipleOf(getRadarStatusResponseStatusRevisionMultipleOf).describe('Strictly monotonic snapshot revision within statusEpoch, independent of market-event timestamps.'),
   "configured": zod.boolean(),
   "connectionState": zod.enum(['not_configured', 'connecting', 'connected', 'streaming', 'error', 'stopped']),
   "marketFeedState": zod.enum(['streaming', 'stale', 'offline']),

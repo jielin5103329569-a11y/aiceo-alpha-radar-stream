@@ -1,5 +1,6 @@
 import { EventEmitter } from "node:events";
 import { spawn, type ChildProcess } from "node:child_process";
+import { randomUUID } from "node:crypto";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -280,6 +281,10 @@ export type LiveIngestionDiagnostics = {
 };
 
 export type RadarStatus = {
+  /** Unique server-process identifier for ordering status snapshots across restarts. */
+  statusEpoch: string;
+  /** Strictly monotonic snapshot revision within statusEpoch; distinct from market-event time. */
+  statusRevision: number;
   configured: boolean;
   connectionState: RadarConnectionState;
   marketFeedState: MarketFeedState;
@@ -669,6 +674,8 @@ function blankStatus(symbol = "NVDA"): RadarStatus {
     reason: "Scanner is inactive. No scheduled scan, transport state, or cached value is treated as live market evidence.",
   };
   return {
+    statusEpoch: "uninitialized",
+    statusRevision: 0,
     configured,
     connectionState: configured ? "stopped" : "not_configured",
     marketFeedState: "offline",
@@ -4007,6 +4014,7 @@ export type AiIndustryLeaderProbeCoordinatorOptions = {
   createService?: (symbol: string) => AiIndustryLeaderProbeLiveService;
   apiKeyAvailable?: () => boolean;
   probeDwellMs?: number;
+  symbolSupported?: (symbol: string) => boolean;
 };
 
 const AI_INDUSTRY_LEADER_PROBE_CAPACITY = 1;
@@ -4023,6 +4031,7 @@ export class AiIndustryLeaderProbeCoordinator extends EventEmitter {
   private readonly createService: (symbol: string) => AiIndustryLeaderProbeLiveService;
   private readonly apiKeyAvailable: () => boolean;
   private readonly probeDwellMs: number;
+  private readonly symbolSupported: (symbol: string) => boolean;
   private active: { symbol: string; service: AiIndustryLeaderProbeLiveService; startedAt: Date } | null = null;
   private readonly routedAt = new Map<string, Date>();
   private cursor = 0;
@@ -4030,8 +4039,11 @@ export class AiIndustryLeaderProbeCoordinator extends EventEmitter {
 
   constructor(options: AiIndustryLeaderProbeCoordinatorOptions = {}) {
     super();
+    this.symbolSupported = options.symbolSupported
+      ?? ((symbol) => MONITORED_SYMBOLS.includes(symbol as (typeof MONITORED_SYMBOLS)[number]));
     this.symbols = [...new Set(options.symbols ?? AI_INDUSTRY_TAXONOMY.map((entry) => entry.symbol))]
       .filter((symbol) => !MONITORED_SYMBOLS.includes(symbol as (typeof MONITORED_SYMBOLS)[number]))
+      .filter((symbol) => this.symbolSupported(symbol))
       .sort();
     this.createService = options.createService ?? ((symbol) => new DatabentoLiveService(symbol));
     this.apiKeyAvailable = options.apiKeyAvailable ?? (() => Boolean(process.env.DATABENTO_API_KEY));
@@ -4115,6 +4127,12 @@ export class DatabentoUniverseService extends EventEmitter {
   private readonly services = MONITORED_SYMBOLS.map((symbol) => new DatabentoLiveService(symbol));
   private readonly focusedScans = new FocusedScanCoordinator();
   private readonly aiIndustryLeaderProbe = new AiIndustryLeaderProbeCoordinator();
+  private snapshot: RadarStatus | null = null;
+  private snapshotDirty = true;
+  private snapshotBuildQueued = false;
+  private snapshotBuildInProgress = false;
+  private readonly statusEpoch = randomUUID();
+  private statusRevision = 0;
   private rankingMachine: AlphaRadarRankingMachine = {
     order: [],
     pendingOrder: null,
@@ -4131,14 +4149,46 @@ export class DatabentoUniverseService extends EventEmitter {
   constructor() {
     super();
     this.services.forEach((service) => {
-      service.on("status", () => this.emit("status", this.getStatus()));
+      service.on("status", () => this.markSnapshotDirty());
     });
-    this.focusedScans.on("status", () => this.emit("status", this.getStatus()));
-    this.aiIndustryLeaderProbe.on("status", () => this.emit("status", this.getStatus()));
-    marketUniverse.on("status", () => this.emit("status", this.getStatus()));
+    this.focusedScans.on("status", () => this.markSnapshotDirty());
+    this.aiIndustryLeaderProbe.on("status", () => this.markSnapshotDirty());
+    marketUniverse.on("status", () => this.markSnapshotDirty());
   }
 
   getStatus(): RadarStatus {
+    if (!this.snapshot) return this.buildSnapshot();
+    if (this.snapshotDirty) this.queueSnapshotBuild();
+    return this.snapshot;
+  }
+
+  private markSnapshotDirty(): void {
+    this.snapshotDirty = true;
+    this.queueSnapshotBuild();
+  }
+
+  private nextStatusRevision(): number {
+    return ++this.statusRevision;
+  }
+
+  private queueSnapshotBuild(): void {
+    if (this.snapshotBuildQueued || this.snapshotBuildInProgress) return;
+    this.snapshotBuildQueued = true;
+    queueMicrotask(() => {
+      this.snapshotBuildQueued = false;
+      if (!this.snapshotDirty || this.snapshotBuildInProgress) return;
+      this.emit("status", this.buildSnapshot());
+    });
+  }
+
+  private buildSnapshot(): RadarStatus {
+    if (this.snapshotBuildInProgress) {
+      if (this.snapshot) return this.snapshot;
+      throw new Error("Radar status snapshot build re-entered before an initial snapshot existed.");
+    }
+    this.snapshotBuildInProgress = true;
+    this.snapshotDirty = false;
+    try {
     const statuses = this.services.map((service) => service.getStatus());
     const primary = statuses.find((status) => status.symbol === "NVDA") ?? statuses[0];
     const symbolRadars = statuses.map(toSymbolStatus);
@@ -4210,8 +4260,10 @@ export class DatabentoUniverseService extends EventEmitter {
       now,
     });
 
-    return {
+    const snapshot: RadarStatus = {
       ...primary,
+      statusEpoch: this.statusEpoch,
+      statusRevision: this.nextStatusRevision(),
       symbolRadars,
       alphaRanking: rankingResult.snapshot,
       marketUniverse: marketUniverseSnapshot,
@@ -4229,6 +4281,12 @@ export class DatabentoUniverseService extends EventEmitter {
           }
         : null,
     };
+    this.snapshot = snapshot;
+    return snapshot;
+    } finally {
+      this.snapshotBuildInProgress = false;
+      if (this.snapshotDirty) this.queueSnapshotBuild();
+    }
   }
 
   /**

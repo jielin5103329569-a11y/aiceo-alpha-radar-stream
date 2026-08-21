@@ -36,11 +36,18 @@ import {
 import type { AlphaRadarRankingSnapshot, FocusedScanSnapshot, MarketFeedState, MarketUniverseSummary, RadarConnectionState, RadarReconnectState, RadarSignal, RadarSnapshot, RadarStatus, RadarSymbolStatus } from '@workspace/api-client-react';
 
 export default function Dashboard() {
-  const { status, isLoading, isError, transportState } = useRadarStream();
+  const {
+    status,
+    isLoading,
+    isError,
+    transportState,
+    hasReceivedStatus,
+    backendUnavailable,
+  } = useRadarStream();
   const isStopped = status?.connectionState === 'stopped';
   const isNotConfigured = status?.connectionState === 'not_configured';
 
-  if (isLoading && !status) {
+  if (!hasReceivedStatus && isLoading && !status) {
     return (
       <div className="flex h-screen w-full items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-4 text-muted-foreground animate-pulse">
@@ -96,6 +103,19 @@ export default function Dashboard() {
           </div>
         </div>
       </header>
+
+      {backendUnavailable && (
+        <div
+          className="mx-auto mt-4 flex max-w-7xl items-center gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-800 dark:text-amber-300"
+          role="status"
+          data-testid="radar-backend-reconnecting"
+        >
+          <WifiOff className="h-4 w-4 shrink-0" />
+          <span>
+            Backend unavailable — reconnecting. Displaying the last successful Radar status.
+          </span>
+        </div>
+      )}
 
       {/* Main Grid */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-8 grid gap-6 grid-cols-1 lg:grid-cols-12">

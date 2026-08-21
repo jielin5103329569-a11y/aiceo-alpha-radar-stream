@@ -446,6 +446,16 @@ try {
   );
   const universe = new DatabentoUniverseService();
   const universeStatus = universe.getStatus();
+  assert.equal(
+    Number.isSafeInteger(universeStatus.statusRevision),
+    true,
+    "the global status snapshot must expose a server-issued revision",
+  );
+  assert.equal(
+    typeof universeStatus.statusEpoch,
+    "string",
+    "the global status snapshot must identify the running server epoch",
+  );
   assert.deepEqual(
     poolSidecar.lastCandidates,
     [],
@@ -477,7 +487,15 @@ try {
     },
   };
   universe.focusedScans.getSectorSymbols = () => [focusedCandidate];
-  universe.getStatus();
+  // Global snapshots coalesce collaborator events asynchronously so a status
+  // listener cannot recursively rebuild the universe in the same stack.
+  universe.focusedScans.emit("status");
+  await new Promise((resolve) => setImmediate(resolve));
+  const refreshedUniverseStatus = universe.getStatus();
+  assert.ok(
+    refreshedUniverseStatus.statusRevision > universeStatus.statusRevision,
+    "a rebuilt global status snapshot must advance its revision independently of market-event time",
+  );
   assert.deepEqual(
     poolSidecar.lastCandidates,
     [{
@@ -488,6 +506,18 @@ try {
     }],
     "a non-protected taxonomy member with focused-scan live confirmation must reach the isolated pool sidecar",
   );
+  const restartedUniverse = new DatabentoUniverseService();
+  const restartedUniverseStatus = restartedUniverse.getStatus();
+  assert.notEqual(
+    restartedUniverseStatus.statusEpoch,
+    refreshedUniverseStatus.statusEpoch,
+    "a recreated universe must establish a new server epoch instead of reusing the old process revision",
+  );
+  assert.equal(
+    restartedUniverseStatus.statusRevision,
+    1,
+    "a new epoch may restart its local revision sequence",
+  );
   const probeService = new (require("node:events").EventEmitter)();
   probeService.getStatus = () => focusedCandidate;
   probeService.start = () => focusedCandidate;
@@ -497,6 +527,7 @@ try {
     symbols: ["NVDA", "AMAT"],
     createService: () => probeService,
     apiKeyAvailable: () => true,
+    symbolSupported: (symbol) => symbol === "AMAT",
   });
   runtimeUniverse.aiIndustryLeaderProbe = runtimeProbe;
   const admittedLeaders = [];

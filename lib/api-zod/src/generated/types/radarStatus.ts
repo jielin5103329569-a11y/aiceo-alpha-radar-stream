@@ -28,6 +28,16 @@ import type { RadarTrade } from './radarTrade';
 import type { SectorPrioritySnapshot } from './sectorPrioritySnapshot';
 
 export interface RadarStatus {
+  /**
+     * Unique server-process identifier for ordering status snapshots across restarts.
+     * @minLength 1
+     */
+  statusEpoch: string;
+  /**
+     * Strictly monotonic snapshot revision within statusEpoch, independent of market-event timestamps.
+     * @minimum 0
+     */
+  statusRevision: number;
   configured: boolean;
   connectionState: RadarConnectionState;
   marketFeedState: MarketFeedState;

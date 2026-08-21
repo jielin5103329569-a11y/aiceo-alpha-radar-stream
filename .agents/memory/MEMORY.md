@@ -15,6 +15,7 @@
 - [Signal quality mechanisms](signal-quality-mechanisms.md) — Signal strength stays separate from confidence; multi-timeframe and counter-evidence constrain high-grade upgrades.
 - [Post-breakout production policy](post-breakout-production-policy.md) — Keep the verified production trend, take-profit, and reversal monitor as the third-stage capability.
 - [Governance read isolation](governance-read-isolation.md) — Governance reads must never advance live ranking, alert, or market state.
+- [Dashboard transport recovery](dashboard-transport-recovery.md) — Render the newest verified status across SSE and REST; a broken stream must not mask poll recovery.
 - [Operational audit isolation](operational-audit-isolation.md) — Incident-audit storage is best-effort; its outage must not stop supervision or affect market/Alert authority.
 - [Autonomous execution durability](autonomous-execution-durability.md) — Unsettled operations remain blocked across shutdown, timeout, and restart; audit success never certifies a failed work-state write.
 - [AI pool reference capacity](ai-pool-reference-capacity.md) — Reserve each targeted Reference identifier durably before provider access; partial responses remain withheld per symbol.
