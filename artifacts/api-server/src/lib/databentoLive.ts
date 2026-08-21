@@ -74,6 +74,65 @@ export type RadarReconnectState = "idle" | "scheduled" | "reconnecting" | "exhau
 export type RadarFreshness = "fresh" | "stale" | "insufficient" | "quiet";
 export type ProtectedScanSchedulerState = "inactive" | "scheduled" | "delayed";
 export type ProtectedScanMarketDataState = "fresh" | "stale" | "offline" | "insufficient";
+export type LiveNetworkState = "healthy" | "degraded" | "blocked";
+export type LiveBackpressureState = "normal" | "active" | "blocked";
+export type LiveRecoveryState =
+  | "not_started"
+  | "awaiting_heartbeat"
+  | "awaiting_market_event"
+  | "rebuilding_window"
+  | "running"
+  | "reconnecting"
+  | "stopped";
+
+/**
+ * Observability for the bridge path only. These values never become market
+ * evidence: a healthy transport or heartbeat still needs a separate fresh
+ * market event and scoring window before it can be alert-ready.
+ */
+export type LiveNetworkHealth = {
+  transportState: "offline" | "connecting" | "connected" | "streaming" | "error";
+  heartbeatAt: Date | null;
+  heartbeatAgeMs: number | null;
+  heartbeatFresh: boolean;
+  marketEventAt: Date | null;
+  marketEventAgeMs: number | null;
+  marketEventFresh: boolean;
+  lastTransportLatencyMs: number | null;
+  lastProcessingLatencyMs: number | null;
+  lastEndToEndLatencyMs: number | null;
+  jitterMs: number | null;
+  latencyState: LiveNetworkState;
+  latencyReason: string;
+  queue: {
+    depth: number;
+    highWatermark: number;
+    capacity: number;
+    state: LiveBackpressureState;
+    enqueued: number;
+    processed: number;
+    rejected: number;
+  };
+  integrity: {
+    state: LiveNetworkState;
+    duplicateEvents: number;
+    outOfOrderEvents: number;
+    malformedEvents: number;
+    lastEventKey: string | null;
+    reason: string;
+  };
+  recovery: {
+    generation: number;
+    state: LiveRecoveryState;
+    windowResetRequired: boolean;
+    lastResetAt: Date | null;
+    recoveredAt: Date | null;
+    reason: string;
+  };
+  marketEventPathHealthy: boolean;
+  alertReady: boolean;
+  reason: string;
+};
 export type ProtectedScanDegradation =
   | "ready"
   | "offline"
@@ -207,6 +266,8 @@ export type LiveIngestionDiagnostics = {
     satisfiedEvidence: string[];
     missingEvidence: string[];
   };
+  /** Transport, queue, and integrity health; never itself market evidence. */
+  network: LiveNetworkHealth;
   scoringStatus: {
     scoreState: AlphaRadarSnapshot["scoreState"];
     status: AlphaRadarSnapshot["status"];
@@ -258,6 +319,8 @@ export type RadarStatus = {
     lastEventAt: Date | null;
   }>;
   liveIngestion: LiveIngestionDiagnostics;
+  /** Independent real-time transport and event-path health. */
+  network: LiveNetworkHealth;
   scanHealth: ProtectedScanHealth;
   /** Read-only proof of the existing raw → feature → structure → stage → decision path. */
   governance: DataGovernanceSnapshot;
@@ -287,6 +350,7 @@ export type RadarSymbolStatus = {
   signalHistory: AlphaRadarSignalHistoryEntry[];
   market: RadarStatus["market"];
   liveIngestion: LiveIngestionDiagnostics;
+  network: LiveNetworkHealth;
   scanHealth: ProtectedScanHealth;
   governance: DataGovernanceSnapshot;
   /** Per-symbol stream states — required for fail-closed stream-receiving gate. */
@@ -425,6 +489,7 @@ export type DatabentoLifelineSymbolHealth = {
 
 type BridgeEvent =
   | { type: "ready" }
+  | { type: "heartbeat"; source: "databento_live"; emittedAt: string }
   | {
       type: "mbp";
       source: "databento_live";
@@ -456,10 +521,13 @@ type BridgeEvent =
       volume: number | null;
     }
   | { type: "error"; message: string };
+type BridgeMarketEvent = Extract<BridgeEvent, { type: "mbp" | "ohlcv" }>;
+type BridgeQueueEntry = { generation: number; event: BridgeEvent };
 
 const currentDir = path.dirname(fileURLToPath(import.meta.url));
 const bridgePath = path.join(currentDir, "databento_live_bridge.py");
 const HEARTBEAT_INTERVAL_MS = 5_000;
+const HEARTBEAT_TIMEOUT_MS = HEARTBEAT_INTERVAL_MS * 3;
 const MAX_RECONNECT_ATTEMPTS = 5;
 const MAX_RECONNECT_DELAY_MS = 30_000;
 const EXHAUSTION_REARM_DELAY_MS = 5 * 60 * 1_000;
@@ -482,6 +550,14 @@ const RAPID_MIDPOINT_CHANGE_PERCENT = 0.03;
 const SPREAD_CHANGE_BPS = 1;
 const DEPTH_PRESSURE_CHANGE_PERCENT = 20;
 const VOLUME_SPIKE_MULTIPLIER = 3;
+const MAX_BRIDGE_OUTPUT_BUFFER_BYTES = 1_000_000;
+const MAX_BRIDGE_EVENT_QUEUE = 256;
+const BRIDGE_EVENT_BATCH_SIZE = 64;
+const NETWORK_LATENCY_WARNING_MS = 2_000;
+const NETWORK_LATENCY_BLOCK_MS = 10_000;
+const NETWORK_PROCESSING_BLOCK_MS = 5_000;
+const NETWORK_JITTER_BLOCK_MS = 5_000;
+const MAX_NETWORK_LATENCY_SAMPLES = 64;
 
 type QuoteObservation = {
   timestamp: Date;
@@ -526,10 +602,57 @@ function redactMessage(message: string): string {
   return withoutKey.replace(/db-[a-z0-9_-]{16,}/gi, "[redacted]").slice(0, 320);
 }
 
+function blankNetworkHealth(): LiveNetworkHealth {
+  return {
+    transportState: "offline",
+    heartbeatAt: null,
+    heartbeatAgeMs: null,
+    heartbeatFresh: false,
+    marketEventAt: null,
+    marketEventAgeMs: null,
+    marketEventFresh: false,
+    lastTransportLatencyMs: null,
+    lastProcessingLatencyMs: null,
+    lastEndToEndLatencyMs: null,
+    jitterMs: null,
+    latencyState: "blocked",
+    latencyReason: "No live market event has traversed the bridge.",
+    queue: {
+      depth: 0,
+      highWatermark: 0,
+      capacity: MAX_BRIDGE_EVENT_QUEUE,
+      state: "normal",
+      enqueued: 0,
+      processed: 0,
+      rejected: 0,
+    },
+    integrity: {
+      state: "blocked",
+      duplicateEvents: 0,
+      outOfOrderEvents: 0,
+      malformedEvents: 0,
+      lastEventKey: null,
+      reason: "No verified event has established an ordered live window.",
+    },
+    recovery: {
+      generation: 0,
+      state: "not_started",
+      windowResetRequired: true,
+      lastResetAt: null,
+      recoveredAt: null,
+      reason: "Awaiting a new verified transport session and market-event window.",
+    },
+    marketEventPathHealthy: false,
+    alertReady: false,
+    reason: "No live network path is ready. Connection or heartbeat alone cannot produce market evidence.",
+  };
+}
+
 function blankStatus(symbol = "NVDA"): RadarStatus {
   const configured = Boolean(process.env.DATABENTO_API_KEY);
   const emptyAlphaRadar = createEmptyAlphaRadar(new Date(), symbol);
   const liveIngestion = blankLiveIngestionDiagnostics(symbol, configured);
+  const network = blankNetworkHealth();
   const scanHealth: ProtectedScanHealth = {
     schedulerState: "inactive",
     scanMode: "normal",
@@ -584,6 +707,7 @@ function blankStatus(symbol = "NVDA"): RadarStatus {
       { schema: "ohlcv-1s", state: "waiting", eventCount: 0, lastEventAt: null },
     ],
     liveIngestion,
+    network,
     scanHealth,
     governance: buildDataGovernanceSnapshot({
       now: new Date(),
@@ -649,6 +773,7 @@ function blankLiveIngestionDiagnostics(symbol: string, configured: boolean): Liv
       satisfiedEvidence: [],
       missingEvidence: [],
     },
+    network: blankNetworkHealth(),
     scoringStatus: {
       scoreState: "insufficient",
       status: null,
@@ -848,6 +973,13 @@ export class DatabentoLiveService extends EventEmitter {
 
   private child: ChildProcess | null = null;
   private outputBuffer = "";
+  private bridgeEventQueue: BridgeQueueEntry[] = [];
+  private drainingBridgeEvents = false;
+  private bridgeTransportStartedAt: Date | null = null;
+  private activeBridgeGeneration = 0;
+  private readonly observedEventKeys = new Set<string>();
+  private readonly lastAcceptedEventTimestampBySchema = new Map<BridgeMarketEvent["schema"], number>();
+  private readonly endToEndLatencySamples: number[] = [];
   private stopping = false;
   private heartbeatTimer: NodeJS.Timeout | null = null;
   private reconnectTimer: NodeJS.Timeout | null = null;
@@ -948,8 +1080,9 @@ export class DatabentoLiveService extends EventEmitter {
       );
       this.status = { ...this.status, alphaRadar };
     }
-    const liveIngestion = this.currentLiveIngestionDiagnostics(alphaRadar, marketFeedState, now);
-    const scanHealth = this.currentScanHealth(alphaRadar, marketFeedState, liveIngestion, now);
+    const network = this.currentNetworkHealth(now);
+    const liveIngestion = this.currentLiveIngestionDiagnostics(alphaRadar, marketFeedState, network, now);
+    const scanHealth = this.currentScanHealth(alphaRadar, marketFeedState, liveIngestion, network, now);
     const governance = this.currentGovernance(alphaRadar, marketFeedState, liveIngestion, scanHealth, now);
     return {
       ...this.status,
@@ -958,6 +1091,7 @@ export class DatabentoLiveService extends EventEmitter {
       signalHistory: [...this.signalHistory],
       radar: this.calculateRadar(now),
       liveIngestion,
+      network,
       scanHealth,
       governance,
     };
@@ -1084,6 +1218,7 @@ export class DatabentoLiveService extends EventEmitter {
     alphaRadar: AlphaRadarSnapshot,
     marketFeedState: MarketFeedState,
     liveIngestion: LiveIngestionDiagnostics,
+    network: LiveNetworkHealth,
     now: Date,
   ): ProtectedScanHealth {
     const profile = scanProfileAt(now);
@@ -1112,6 +1247,7 @@ export class DatabentoLiveService extends EventEmitter {
       && liveIngestion.conditions.realMarketEventReceived
       && liveIngestion.conditions.enteredScoringWindow
       && liveIngestion.conditions.scoringEligible
+      && network.marketEventPathHealthy
       && alphaRadar.dataQuality === "good"
       && alphaRadar.score !== null
       && Number.isFinite(alphaRadar.score)
@@ -1170,9 +1306,105 @@ export class DatabentoLiveService extends EventEmitter {
     };
   }
 
+  private currentNetworkHealth(now: Date): LiveNetworkHealth {
+    const stored = this.status.network;
+    const heartbeatAt = this.status.lastHeartbeatAt;
+    const heartbeatAgeMs = heartbeatAt === null
+      ? null
+      : Math.max(0, now.getTime() - heartbeatAt.getTime());
+    const marketEventAt = this.status.liveIngestion.lastMarketEventAt;
+    const marketEventAgeMs = marketEventAt === null
+      ? null
+      : Math.max(0, now.getTime() - marketEventAt.getTime());
+    const transportState =
+      this.status.connectionState === "not_configured" || this.status.connectionState === "stopped"
+        ? "offline"
+        : this.status.connectionState;
+    const heartbeatFresh = heartbeatAgeMs !== null && heartbeatAgeMs <= HEARTBEAT_TIMEOUT_MS;
+    const marketEventFresh = marketEventAgeMs !== null && marketEventAgeMs <= STALE_AFTER_MS;
+    const queueState: LiveBackpressureState =
+      stored.queue.state === "blocked"
+        ? "blocked"
+        : this.bridgeEventQueue.length >= Math.ceil(MAX_BRIDGE_EVENT_QUEUE * 0.75)
+          ? "active"
+          : "normal";
+    const integrityState = stored.integrity.state;
+    const latencyState = stored.latencyState;
+    const marketEventPathHealthy =
+      transportState === "streaming"
+      && marketEventFresh
+      && latencyState === "healthy"
+      && queueState === "normal"
+      && integrityState === "healthy"
+      && !this.analysisWindowNeedsReset;
+    const recoveryState: LiveRecoveryState =
+      transportState === "offline"
+        ? "stopped"
+        : transportState === "error" || this.status.reconnectState !== "idle"
+          ? "reconnecting"
+          : !heartbeatAt
+            ? "awaiting_heartbeat"
+            : !marketEventAt
+              ? "awaiting_market_event"
+              : this.analysisWindowNeedsReset || !marketEventPathHealthy
+                ? "rebuilding_window"
+                : "running";
+    const alertReady =
+      marketEventPathHealthy
+      && heartbeatFresh
+      && this.status.liveIngestion.currentWindowMarketEventCount > 0;
+    const reason =
+      transportState === "offline"
+        ? "Transport is offline. Cached events, local heartbeats, and prior windows are not live market evidence."
+        : recoveryState === "reconnecting"
+          ? "Transport recovery is bounded and in progress; the prior market window is withheld."
+          : !heartbeatFresh
+            ? "The bridge has not emitted a timely transport heartbeat."
+            : !marketEventFresh
+              ? "No fresh verified market event is available; heartbeat freshness does not refresh market data."
+              : queueState !== "normal"
+                ? queueState === "blocked"
+                  ? "The bounded bridge queue overflowed; no alert readiness is allowed until a new clean window is rebuilt."
+                  : "The bridge queue is under backpressure; alert readiness is withheld until it drains."
+                : latencyState !== "healthy"
+                  ? stored.latencyReason
+                  : integrityState !== "healthy"
+                    ? stored.integrity.reason
+                    : this.analysisWindowNeedsReset
+                      ? "A new ordered market-event window must be rebuilt after recovery or integrity loss."
+                      : alertReady
+                        ? "Transport, heartbeat, ordered event delivery, and bounded processing are healthy. Separate scanner and Alert gates still apply."
+                        : "The event path is healthy but the current market window is still building.";
+    return {
+      ...stored,
+      transportState,
+      heartbeatAt,
+      heartbeatAgeMs,
+      heartbeatFresh,
+      marketEventAt,
+      marketEventAgeMs,
+      marketEventFresh,
+      queue: {
+        ...stored.queue,
+        depth: this.bridgeEventQueue.length,
+        state: queueState,
+      },
+      recovery: {
+        ...stored.recovery,
+        state: recoveryState,
+        windowResetRequired: this.analysisWindowNeedsReset,
+        reason,
+      },
+      marketEventPathHealthy,
+      alertReady,
+      reason,
+    };
+  }
+
   private currentLiveIngestionDiagnostics(
     alphaRadar: AlphaRadarSnapshot,
     marketFeedState: MarketFeedState,
+    network: LiveNetworkHealth,
     now: Date,
   ): LiveIngestionDiagnostics {
     const stored = this.status.liveIngestion;
@@ -1231,6 +1463,7 @@ export class DatabentoLiveService extends EventEmitter {
                 : "Verified market records are present, but the active scoring window is still rebuilding.";
     return {
       ...stored,
+      network,
       marketSession: marketSessionAt(now),
       lastMarketEventAgeMs,
       freshnessCounters,
@@ -1271,10 +1504,7 @@ export class DatabentoLiveService extends EventEmitter {
     this.clearExhaustionRearmTimer();
     this.clearHeartbeatTimer();
     this.stopScanScheduler();
-    if (this.child && !this.child.killed) {
-      this.child.kill("SIGTERM");
-    }
-    this.child = null;
+    this.retireActiveBridge();
     this.resetObservations();
     this.status = {
       ...this.status,
@@ -1289,6 +1519,19 @@ export class DatabentoLiveService extends EventEmitter {
     this.analysisWindowNeedsReset = false;
     this.publish();
     return this.getStatus();
+  }
+
+  private retireActiveBridge(): number {
+    const discardedCount = this.bridgeEventQueue.length;
+    this.activeBridgeGeneration += 1;
+    this.outputBuffer = "";
+    this.bridgeEventQueue = [];
+    const child = this.child;
+    this.child = null;
+    if (child && !child.killed) {
+      child.kill("SIGTERM");
+    }
+    return discardedCount;
   }
 
   private launch(isReconnect: boolean): RadarStatus {
@@ -1308,6 +1551,7 @@ export class DatabentoLiveService extends EventEmitter {
     this.clearReconnectTimer();
     this.clearExhaustionRearmTimer();
     const now = new Date();
+    this.bridgeTransportStartedAt = now;
     if (!isReconnect) {
       this.resetObservations();
       this.analysisWindowNeedsReset = false;
@@ -1319,7 +1563,7 @@ export class DatabentoLiveService extends EventEmitter {
           ...this.status,
           configured: true,
           connectionState: "connecting",
-          lastHeartbeatAt: now,
+          lastHeartbeatAt: null,
           reconnectState: "reconnecting",
           nextReconnectAt: null,
           error: null,
@@ -1330,7 +1574,7 @@ export class DatabentoLiveService extends EventEmitter {
           configured: true,
           connectionState: "connecting",
           startedAt: now,
-          lastHeartbeatAt: now,
+          lastHeartbeatAt: null,
           error: null,
         };
     this.startHeartbeat();
@@ -1345,23 +1589,23 @@ export class DatabentoLiveService extends EventEmitter {
       },
       stdio: ["ignore", "pipe", "pipe"],
     });
+    const bridgeGeneration = this.activeBridgeGeneration + 1;
+    this.activeBridgeGeneration = bridgeGeneration;
     this.child = child;
 
     child.stdout?.on("data", (chunk: Buffer) => {
-      this.consumeOutput(child, chunk.toString());
+      this.consumeOutput(child, bridgeGeneration, chunk.toString());
     });
     child.stderr?.on("data", () => {
       // The bridge intentionally does not write raw diagnostics to the public API.
       // If it does, keep the bytes out of logs and present a generic connection error.
     });
     child.on("error", () => {
-      if (this.child !== child) return;
-      this.child = null;
+      if (this.child !== child || bridgeGeneration !== this.activeBridgeGeneration) return;
       this.fail("Unable to launch the Databento live bridge.", true);
     });
     child.on("close", (code) => {
-      if (this.child !== child) return;
-      this.child = null;
+      if (this.child !== child || bridgeGeneration !== this.activeBridgeGeneration) return;
       if (!this.stopping && !this.reconnectTimer) {
         this.fail(
           this.status.error ??
@@ -1376,23 +1620,150 @@ export class DatabentoLiveService extends EventEmitter {
     return this.getStatus();
   }
 
-  private consumeOutput(child: ChildProcess, chunk: string): void {
-    if (this.child !== child) {
+  private consumeOutput(child: ChildProcess, generation: number, chunk: string): void {
+    if (this.child !== child || generation !== this.activeBridgeGeneration) {
       return;
     }
     this.outputBuffer += chunk;
+    if (Buffer.byteLength(this.outputBuffer, "utf8") > MAX_BRIDGE_OUTPUT_BUFFER_BYTES) {
+      this.outputBuffer = "";
+      this.recordRejectedBridgeEvents(
+        1,
+        "The bridge output buffer exceeded its bounded capacity before complete events could be processed.",
+      );
+      this.fail("Databento bridge output exceeded the bounded processing buffer.", true);
+      return;
+    }
     const lines = this.outputBuffer.split("\n");
     this.outputBuffer = lines.pop() ?? "";
-
+    const parsedEvents: BridgeEvent[] = [];
     for (const line of lines) {
       if (!line.trim()) continue;
       try {
-        const event = JSON.parse(line) as BridgeEvent;
-        this.applyEvent(event);
+        parsedEvents.push(JSON.parse(line) as BridgeEvent);
       } catch {
-        this.fail("The Databento bridge returned an unreadable status update.");
+        this.recordMalformedBridgeEvent();
+        this.fail("The Databento bridge returned an unreadable status update.", true);
+        return;
       }
     }
+    this.enqueueBridgeEvents(parsedEvents, generation);
+  }
+
+  private enqueueBridgeEvents(events: BridgeEvent[], generation = this.activeBridgeGeneration): void {
+    if (events.length === 0) return;
+    if (generation !== this.activeBridgeGeneration) {
+      this.recordRejectedBridgeEvents(
+        events.length,
+        "Events from a retired bridge generation were discarded before they could affect the active market window.",
+      );
+      return;
+    }
+    const available = MAX_BRIDGE_EVENT_QUEUE - this.bridgeEventQueue.length;
+    if (events.length > available) {
+      this.recordRejectedBridgeEvents(
+        events.length + this.bridgeEventQueue.length,
+        "The bounded bridge event queue reached capacity; events were rejected explicitly and the live window was invalidated.",
+      );
+      this.bridgeEventQueue = [];
+      this.fail("Databento bridge event queue exceeded its bounded capacity.", true);
+      return;
+    }
+    this.bridgeEventQueue.push(...events.map((event) => ({ generation, event })));
+    this.status = {
+      ...this.status,
+      network: {
+        ...this.status.network,
+        queue: {
+          ...this.status.network.queue,
+          depth: this.bridgeEventQueue.length,
+          highWatermark: Math.max(this.status.network.queue.highWatermark, this.bridgeEventQueue.length),
+          enqueued: this.status.network.queue.enqueued + events.length,
+          state: this.bridgeEventQueue.length >= Math.ceil(MAX_BRIDGE_EVENT_QUEUE * 0.75)
+            ? "active"
+            : this.status.network.queue.state,
+        },
+      },
+    };
+    this.drainBridgeEvents();
+  }
+
+  private drainBridgeEvents(): void {
+    if (this.drainingBridgeEvents) return;
+    this.drainingBridgeEvents = true;
+    try {
+      let processed = 0;
+      while (this.bridgeEventQueue.length > 0 && processed < BRIDGE_EVENT_BATCH_SIZE) {
+        const entry = this.bridgeEventQueue.shift();
+        if (!entry) break;
+        if (entry.generation !== this.activeBridgeGeneration) {
+          this.recordRejectedBridgeEvents(
+            1,
+            "A queued event belonged to a retired bridge generation and was discarded.",
+          );
+          continue;
+        }
+        this.applyEvent(entry.event);
+        processed += 1;
+        this.status = {
+          ...this.status,
+          network: {
+            ...this.status.network,
+            queue: {
+              ...this.status.network.queue,
+              depth: this.bridgeEventQueue.length,
+              processed: this.status.network.queue.processed + 1,
+              state: this.status.network.queue.state === "blocked"
+                ? "blocked"
+                : this.bridgeEventQueue.length >= Math.ceil(MAX_BRIDGE_EVENT_QUEUE * 0.75)
+                  ? "active"
+                  : "normal",
+            },
+          },
+        };
+      }
+    } finally {
+      this.drainingBridgeEvents = false;
+    }
+    if (this.bridgeEventQueue.length > 0) {
+      setImmediate(() => this.drainBridgeEvents());
+    }
+  }
+
+  private recordMalformedBridgeEvent(): void {
+    this.status = {
+      ...this.status,
+      network: {
+        ...this.status.network,
+        integrity: {
+          ...this.status.network.integrity,
+          state: "blocked",
+          malformedEvents: this.status.network.integrity.malformedEvents + 1,
+          reason: "The bridge emitted an unreadable event. The current analysis window is no longer trusted.",
+        },
+      },
+    };
+    this.analysisWindowNeedsReset = true;
+  }
+
+  private recordRejectedBridgeEvents(count: number, reason: string): void {
+    this.status = {
+      ...this.status,
+      network: {
+        ...this.status.network,
+        queue: {
+          ...this.status.network.queue,
+          state: "blocked",
+          rejected: this.status.network.queue.rejected + count,
+        },
+        integrity: {
+          ...this.status.network.integrity,
+          state: "blocked",
+          reason,
+        },
+      },
+    };
+    this.analysisWindowNeedsReset = true;
   }
 
   private recordVerifiedMarketEvent(event: LiveIngestionEvent): void {
@@ -1415,6 +1786,134 @@ export class DatabentoLiveService extends EventEmitter {
     };
   }
 
+  private bridgeEventKey(event: BridgeMarketEvent): string {
+    if (event.type === "mbp") {
+      return [
+        event.schema,
+        event.timestamp,
+        event.bidPrice,
+        event.askPrice,
+        event.bidSize,
+        event.askSize,
+        event.trade?.price ?? null,
+        event.trade?.size ?? null,
+        event.trade?.timestamp ?? null,
+        event.trade?.side ?? null,
+      ].join("|");
+    }
+    return [event.schema, event.timestamp, event.close, event.volume].join("|");
+  }
+
+  private rejectIntegrityEvent(kind: "duplicate" | "out_of_order", eventKey: string): void {
+    const current = this.status.network.integrity;
+    const reason = kind === "duplicate"
+      ? "A duplicate bridge event was detected. The event was rejected and a new ordered window is required."
+      : "An out-of-order bridge event was detected. The event was rejected and a new ordered window is required.";
+    this.status = {
+      ...this.status,
+      network: {
+        ...this.status.network,
+        integrity: {
+          ...current,
+          state: "blocked",
+          duplicateEvents: current.duplicateEvents + (kind === "duplicate" ? 1 : 0),
+          outOfOrderEvents: current.outOfOrderEvents + (kind === "out_of_order" ? 1 : 0),
+          lastEventKey: eventKey,
+          reason,
+        },
+      },
+    };
+    this.analysisWindowNeedsReset = true;
+  }
+
+  private acceptOrderedBridgeEvent(
+    event: BridgeMarketEvent,
+    eventTimestamp: Date,
+    receiveTimestamp: Date | null,
+    ingestedAt: Date,
+    now: Date,
+  ): boolean {
+    const eventKey = this.bridgeEventKey(event);
+    if (this.observedEventKeys.has(eventKey)) {
+      this.rejectIntegrityEvent("duplicate", eventKey);
+      return false;
+    }
+    const lastAcceptedForSchema = this.lastAcceptedEventTimestampBySchema.get(event.schema);
+    if (lastAcceptedForSchema !== undefined && eventTimestamp.getTime() < lastAcceptedForSchema) {
+      this.rejectIntegrityEvent("out_of_order", eventKey);
+      return false;
+    }
+
+    this.observedEventKeys.add(eventKey);
+    if (this.observedEventKeys.size > MAX_ALPHA_OBSERVATIONS) {
+      const oldest = this.observedEventKeys.values().next().value;
+      if (oldest) this.observedEventKeys.delete(oldest);
+    }
+    this.lastAcceptedEventTimestampBySchema.set(event.schema, eventTimestamp.getTime());
+
+    const transportLatencyMs = receiveTimestamp === null
+      ? null
+      : Math.max(0, receiveTimestamp.getTime() - eventTimestamp.getTime());
+    const processingLatencyMs = Math.max(0, now.getTime() - ingestedAt.getTime());
+    const endToEndLatencyMs = Math.max(0, now.getTime() - eventTimestamp.getTime());
+    // Jitter measures delivery-path variance, not the normal event-time span
+    // while a rolling market window is being built.
+    const pathLatencyForJitter = transportLatencyMs ?? processingLatencyMs;
+    const previousPathLatency = this.endToEndLatencySamples.at(-1) ?? null;
+    const jitterMs = previousPathLatency === null
+      ? null
+      : Math.abs(pathLatencyForJitter - previousPathLatency);
+    this.endToEndLatencySamples.push(pathLatencyForJitter);
+    if (this.endToEndLatencySamples.length > MAX_NETWORK_LATENCY_SAMPLES) {
+      this.endToEndLatencySamples.splice(0, this.endToEndLatencySamples.length - MAX_NETWORK_LATENCY_SAMPLES);
+    }
+    const latencyBlocked =
+      endToEndLatencyMs > NETWORK_LATENCY_BLOCK_MS
+      || (transportLatencyMs !== null && transportLatencyMs > NETWORK_LATENCY_BLOCK_MS)
+      || processingLatencyMs > NETWORK_PROCESSING_BLOCK_MS
+      || (jitterMs !== null && jitterMs > NETWORK_JITTER_BLOCK_MS);
+    const latencyDegraded =
+      !latencyBlocked
+      && (
+        endToEndLatencyMs > NETWORK_LATENCY_WARNING_MS
+        || (transportLatencyMs !== null && transportLatencyMs > NETWORK_LATENCY_WARNING_MS)
+        || processingLatencyMs > NETWORK_LATENCY_WARNING_MS
+      );
+    const latencyState: LiveNetworkState = latencyBlocked
+      ? "blocked"
+      : latencyDegraded
+        ? "degraded"
+        : "healthy";
+    const latencyReason = latencyBlocked
+      ? "Event transport, processing, end-to-end latency, or jitter exceeded a fail-closed network threshold."
+      : latencyDegraded
+        ? "Event latency is elevated; production alert readiness is withheld until transport stabilizes."
+        : "Event transport and processing latency are within the bounded real-time threshold.";
+    this.status = {
+      ...this.status,
+      network: {
+        ...this.status.network,
+        lastTransportLatencyMs: transportLatencyMs,
+        lastProcessingLatencyMs: processingLatencyMs,
+        lastEndToEndLatencyMs: endToEndLatencyMs,
+        jitterMs,
+        latencyState,
+        latencyReason,
+        integrity: {
+          ...this.status.network.integrity,
+          state: "healthy",
+          lastEventKey: eventKey,
+          reason: "Verified bridge events are ordered and unique within the current recovery generation.",
+        },
+      },
+    };
+    if (latencyBlocked) {
+      this.analysisWindowNeedsReset = true;
+      return false;
+    }
+    return true;
+  }
+
   private applyEvent(event: BridgeEvent): void {
     const now = new Date();
     if (event.type === "ready") {
@@ -1423,17 +1922,33 @@ export class DatabentoLiveService extends EventEmitter {
         ...this.status,
         connectionState: "connected",
         error: null,
-        lastHeartbeatAt: now,
         reconnectState: "idle",
         reconnectAttempt: 0,
         nextReconnectAt: null,
+        network: {
+          ...this.status.network,
+          transportState: "connected",
+        },
+      };
+      this.publish();
+      return;
+    }
+
+    if (event.type === "heartbeat") {
+      const emittedAt = observedAt(event.emittedAt, now);
+      if (event.source !== "databento_live" || !emittedAt) return;
+      this.status = {
+        ...this.status,
+        // Heartbeat freshness is evidence of the bridge's emission time, not
+        // the later moment a buffered line happens to reach this process.
+        lastHeartbeatAt: emittedAt,
       };
       this.publish();
       return;
     }
 
     if (event.type === "error") {
-      this.fail(redactMessage(event.message));
+      this.fail(redactMessage(event.message), true);
       return;
     }
     const eventTimestamp = observedAt(event.timestamp, now);
@@ -1507,6 +2022,10 @@ export class DatabentoLiveService extends EventEmitter {
       this.recordVerifiedMarketEvent({ ...liveEvent, enteredScoringWindow: false });
       return;
     }
+    if (!this.acceptOrderedBridgeEvent(event, eventTimestamp, receiveTimestamp, ingestedAt, now)) {
+      this.publish();
+      return;
+    }
 
     const streams = this.status.streams.map((stream) =>
       stream.schema === (event.type === "mbp" ? "mbp-1" : "ohlcv-1s")
@@ -1570,7 +2089,6 @@ export class DatabentoLiveService extends EventEmitter {
           && this.status.lastUpdatedAt.getTime() > eventTimestamp.getTime()
             ? this.status.lastUpdatedAt
             : eventTimestamp,
-        lastHeartbeatAt: now,
         streams,
         market: {
           ...this.status.market,
@@ -1600,7 +2118,6 @@ export class DatabentoLiveService extends EventEmitter {
           && this.status.lastUpdatedAt.getTime() > eventTimestamp.getTime()
             ? this.status.lastUpdatedAt
             : eventTimestamp,
-        lastHeartbeatAt: now,
         streams,
         market: {
           ...this.status.market,
@@ -1624,11 +2141,17 @@ export class DatabentoLiveService extends EventEmitter {
   private fail(message: string, shouldReconnect = false): void {
     this.stopScanScheduler();
     this.analysisWindowNeedsReset = true;
+    const discardedCount = this.retireActiveBridge();
+    if (discardedCount > 0) {
+      this.recordRejectedBridgeEvents(
+        discardedCount,
+        "Queued events from a failed bridge generation were discarded before reconnect.",
+      );
+    }
     this.status = {
       ...this.status,
       connectionState: "error",
       error: redactMessage(message),
-      lastHeartbeatAt: new Date(),
       streams: this.status.streams.map((stream) => ({ ...stream, state: "error" as const })),
     };
     logger.warn({ reason: this.status.error }, "Databento live stream is unavailable");
@@ -1683,9 +2206,17 @@ export class DatabentoLiveService extends EventEmitter {
       if (this.status.connectionState === "stopped" || this.status.connectionState === "not_configured") {
         return;
       }
+      const heartbeatReference = this.status.lastHeartbeatAt ?? this.bridgeTransportStartedAt;
+      if (
+        this.child
+        && heartbeatReference
+        && Date.now() - heartbeatReference.getTime() > HEARTBEAT_TIMEOUT_MS
+      ) {
+        this.fail("Databento bridge transport heartbeat timed out.", true);
+        return;
+      }
       this.status = {
         ...this.status,
-        lastHeartbeatAt: new Date(),
         radar: this.calculateRadar(new Date()),
       };
       this.publish();
@@ -1862,6 +2393,7 @@ export class DatabentoLiveService extends EventEmitter {
         alphaRadar,
         this.marketFeedStateAt(now),
         this.status.liveIngestion,
+        this.currentNetworkHealth(now),
         now,
       ).marketDataGateReady,
       reference: { state: "unavailable", source: null, observedAt: null, reason: "Reference classification is not market evidence." },
@@ -2078,6 +2610,9 @@ export class DatabentoLiveService extends EventEmitter {
     this.bars = [];
     this.quoteWindow = [];
     this.tradeBuckets.clear();
+    this.observedEventKeys.clear();
+    this.lastAcceptedEventTimestampBySchema.clear();
+    this.endToEndLatencySamples.splice(0);
     this.analysisWindowStartedAt = null;
     this.alphaHistory = [];
     this.signalHistory = [];
@@ -2114,6 +2649,35 @@ export class DatabentoLiveService extends EventEmitter {
         ...this.status.liveIngestion,
         currentWindowMarketEventCount: 0,
         windowStartedAt: null,
+      },
+      network: {
+        ...this.status.network,
+        lastTransportLatencyMs: null,
+        lastProcessingLatencyMs: null,
+        lastEndToEndLatencyMs: null,
+        jitterMs: null,
+        latencyState: "blocked",
+        latencyReason: "The previous network window was retired. A new low-latency verified event must rebuild it.",
+        queue: {
+          ...this.status.network.queue,
+          depth: this.bridgeEventQueue.length,
+          state: "normal",
+        },
+        integrity: {
+          ...this.status.network.integrity,
+          state: "healthy",
+          lastEventKey: null,
+          reason: "A new recovery generation is awaiting an ordered verified market event.",
+        },
+        recovery: {
+          ...this.status.network.recovery,
+          generation: this.status.network.recovery.generation + 1,
+          state: "awaiting_market_event",
+          windowResetRequired: true,
+          lastResetAt: now,
+          recoveredAt: null,
+          reason: "Prior observations were retired. This generation cannot reuse their freshness or alert eligibility.",
+        },
       },
     };
   }
@@ -2446,7 +3010,9 @@ export class DatabentoLiveService extends EventEmitter {
       this.status.lastUpdatedAt,
       now,
     );
-    return this.analysisWindowNeedsReset && derived === "streaming"
+    if (derived !== "streaming") return derived;
+    const network = this.currentNetworkHealth(now);
+    return this.analysisWindowNeedsReset || !network.marketEventPathHealthy
       ? "stale"
       : derived;
   }
@@ -2727,6 +3293,7 @@ function toSymbolStatus(status: RadarStatus): RadarSymbolStatus {
     signalHistory: status.signalHistory,
     market: status.market,
     liveIngestion: status.liveIngestion,
+    network: status.network,
     scanHealth: status.scanHealth,
     governance: status.governance,
     streams: status.streams,

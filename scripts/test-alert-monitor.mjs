@@ -100,6 +100,49 @@ try {
         degradation: "ready",
         reason: "Deterministic verified scan-health fixture.",
       },
+      network: {
+        transportState: "streaming",
+        heartbeatAt: new Date(),
+        heartbeatAgeMs: 0,
+        heartbeatFresh: true,
+        marketEventAt: new Date(),
+        marketEventAgeMs: 0,
+        marketEventFresh: true,
+        lastTransportLatencyMs: 20,
+        lastProcessingLatencyMs: 5,
+        lastEndToEndLatencyMs: 25,
+        jitterMs: 2,
+        latencyState: "healthy",
+        latencyReason: "Deterministic healthy network fixture.",
+        queue: {
+          depth: 0,
+          highWatermark: 3,
+          capacity: 256,
+          state: "normal",
+          enqueued: 100,
+          processed: 100,
+          rejected: 0,
+        },
+        integrity: {
+          state: "healthy",
+          duplicateEvents: 0,
+          outOfOrderEvents: 0,
+          malformedEvents: 0,
+          lastEventKey: "fixture-event",
+          reason: "Ordered event fixture.",
+        },
+        recovery: {
+          generation: 1,
+          state: "running",
+          windowResetRequired: false,
+          lastResetAt: new Date(Date.now() - 60_000),
+          recoveredAt: new Date(),
+          reason: "Fixture recovery complete.",
+        },
+        marketEventPathHealthy: true,
+        alertReady: true,
+        reason: "Deterministic healthy network fixture.",
+      },
       alphaRadar: {
         score,
         scoreState,
@@ -450,6 +493,32 @@ try {
     "scan-health rejection must be auditable as its own gate",
   );
   assert.equal(scheduledResult.failedGate, "eventTriggeredScan", "event-triggered scan gate must explain the block");
+
+  const backpressuredNetwork = buildPassingSnapshot();
+  backpressuredNetwork.network = {
+    ...backpressuredNetwork.network,
+    alertReady: false,
+    marketEventPathHealthy: false,
+    queue: {
+      ...backpressuredNetwork.network.queue,
+      depth: 256,
+      state: "blocked",
+      rejected: 1,
+    },
+    integrity: {
+      ...backpressuredNetwork.network.integrity,
+      state: "blocked",
+      reason: "Bounded queue overflow fixture.",
+    },
+    reason: "Bounded queue overflow fixture.",
+  };
+  const backpressuredNetworkResult = evaluateAlertGates(backpressuredNetwork);
+  assert.equal(backpressuredNetworkResult.ok, false, "a backpressured or integrity-unknown network path must fail closed");
+  assert.equal(
+    backpressuredNetworkResult.failedGate,
+    "networkAlertReady",
+    "network readiness must be an auditable independent alert gate",
+  );
 
   // Score movement within the same transition is not a new candidate.
   const fixedTransitionAt = new Date("2026-08-20T12:00:00.000Z");

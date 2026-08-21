@@ -11,6 +11,7 @@ import json
 import os
 import signal
 import sys
+import threading
 from datetime import UTC, datetime
 from typing import Any
 
@@ -19,11 +20,14 @@ import databento as db
 
 PRICE_SCALE = 1_000_000_000
 RUNNING = True
+HEARTBEAT_INTERVAL_SECONDS = 5
+WRITE_LOCK = threading.Lock()
 ALLOWED_SYMBOLS = frozenset({"NVDA", "MU", "VRT", "CRDO", "AMD"})
 
 
 def write_event(payload: dict[str, Any]) -> None:
-    print(json.dumps(payload, separators=(",", ":")), flush=True)
+    with WRITE_LOCK:
+        print(json.dumps(payload, separators=(",", ":")), flush=True)
 
 
 def now_iso() -> str:
@@ -161,6 +165,13 @@ def stop_handler(_signum: int, _frame: Any) -> None:
     RUNNING = False
 
 
+def heartbeat_loop(stop_event: threading.Event) -> None:
+    """Publish bridge liveness without ever claiming a market event occurred."""
+    write_event({"type": "heartbeat", "source": "databento_live", "emittedAt": now_iso()})
+    while not stop_event.wait(HEARTBEAT_INTERVAL_SECONDS):
+        write_event({"type": "heartbeat", "source": "databento_live", "emittedAt": now_iso()})
+
+
 def main() -> None:
     api_key = os.environ.get("DATABENTO_API_KEY")
     if not api_key:
@@ -175,12 +186,21 @@ def main() -> None:
         return
     dataset = "EQUS.MINI"
     client: Any = None
+    heartbeat_stop = threading.Event()
+    heartbeat_thread: threading.Thread | None = None
 
     try:
         client = db.Live(key=api_key)
         client.subscribe(dataset=dataset, schema="mbp-1", symbols=symbol, stype_in="raw_symbol")
         client.subscribe(dataset=dataset, schema="ohlcv-1s", symbols=symbol, stype_in="raw_symbol")
         write_event({"type": "ready"})
+        heartbeat_thread = threading.Thread(
+            target=heartbeat_loop,
+            args=(heartbeat_stop,),
+            name="databento-bridge-heartbeat",
+            daemon=True,
+        )
+        heartbeat_thread.start()
 
         for record in client:
             if not RUNNING:
@@ -193,6 +213,9 @@ def main() -> None:
     except Exception as error:
         write_event({"type": "error", "message": safe_error(error)})
     finally:
+        heartbeat_stop.set()
+        if heartbeat_thread is not None:
+            heartbeat_thread.join(timeout=1)
         if client is not None:
             try:
                 client.stop()

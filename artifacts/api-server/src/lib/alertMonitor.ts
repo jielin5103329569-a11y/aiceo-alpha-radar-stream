@@ -11,6 +11,8 @@
  *  Live ingestion — subscriptionVerified, realMarketEventReceived,
  *                   enteredScoringWindow, scoringEligible,
  *                   triggerEvidenceAvailable (all true)
+ *  Network path — bounded queue, ordered/integrity-verified event delivery,
+ *                 and latency/jitter health must independently be alert-ready
  *  Scan health — current scheduler plus verified fresh market-data window
  *  Shadow / heartbeat / ranking / focused-leader / missing-stale veto
  *
@@ -82,6 +84,7 @@ export type AlertGateSnapshot = {
   readonly scoringEligible: boolean;
   readonly triggerEvidenceAvailable: boolean;
   readonly scanHealthMarketDataReady: boolean;
+  readonly networkAlertReady: boolean;
   readonly eventTriggeredScan: boolean;
   readonly transitionInstanceAvailable: boolean;
   readonly noShadowVeto: boolean;
@@ -313,7 +316,28 @@ export function evaluateAlertGates(
     }
 
     // ------------------------------------------------------------------
-    // Gate 4–6: score available / good / non-null
+    // Gate 4: network transport is an independent fail-closed boundary.
+    // A connection, heartbeat, queue drain, or cached market window alone
+    // never passes it. This checks the read-only network projection that
+    // accounts for event latency, jitter, bounded backpressure, ordering, and
+    // recovery-window validity.
+    // ------------------------------------------------------------------
+    const networkAlertReady = symbolStatus.network?.alertReady === true;
+    partial.networkAlertReady = networkAlertReady;
+    if (!networkAlertReady) {
+      const network = symbolStatus.network;
+      return {
+        ok: false,
+        reason: network
+          ? `Network event path is not alert-ready: ${network.reason}`
+          : "Network event path health is missing — fail closed",
+        failedGate: "networkAlertReady",
+        gateSnapshot: partial,
+      };
+    }
+
+    // ------------------------------------------------------------------
+    // Gate 5–7: score available / good / non-null
     // ------------------------------------------------------------------
     const scoreAvailable = alpha.scoreState === "available";
     partial.scoreAvailable = scoreAvailable;
@@ -597,6 +621,7 @@ export function evaluateAlertGates(
       scoringEligible: partial.scoringEligible!,
       triggerEvidenceAvailable: partial.triggerEvidenceAvailable!,
       scanHealthMarketDataReady: partial.scanHealthMarketDataReady!,
+      networkAlertReady: partial.networkAlertReady!,
       eventTriggeredScan: partial.eventTriggeredScan!,
       transitionInstanceAvailable: partial.transitionInstanceAvailable!,
       noShadowVeto: partial.noShadowVeto!,

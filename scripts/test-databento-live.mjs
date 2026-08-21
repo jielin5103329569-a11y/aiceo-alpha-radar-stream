@@ -820,6 +820,21 @@ try {
       1,
       "only the currently armed scheduler generation may execute a scheduled scan",
     );
+
+    const bridgeErrorRecovery = new DatabentoLiveService("NVDA");
+    const reconnectTimersBeforeError = scheduledCallbacks.length;
+    bridgeErrorRecovery.applyEvent({ type: "error", message: "deterministic bridge protocol error" });
+    assert.equal(
+      bridgeErrorRecovery.getStatus().reconnectState,
+      "scheduled",
+      "a bridge-originated protocol error must enter bounded reconnect rather than remain terminal",
+    );
+    assert.equal(
+      scheduledCallbacks.length,
+      reconnectTimersBeforeError + 1,
+      "a bridge-originated protocol error must arm exactly one reconnect timer",
+    );
+    bridgeErrorRecovery.stop();
   } finally {
     globalThis.setTimeout = originalSetTimeout;
     globalThis.clearTimeout = originalClearTimeout;
@@ -1290,7 +1305,105 @@ try {
   assert.equal(staleNestedTrade.radar.score, null, "a stale nested trade must not restore the secondary score");
   assert.equal(staleNestedTrade.alphaRadar.score, null, "a stale nested trade must not restore Alpha Radar");
 
-  console.log("Databento live service tests passed: per-symbol confirmation history, stale invalidation, stop/reset isolation, adaptive scans, and recovery-window reset.");
+  // Delivery-path health is independent from market evidence and must fail
+  // closed for duplicate, reordered, delayed, and backpressured bridge data.
+  const networkNow = new Date();
+  const duplicateNetworkService = new DatabentoLiveService("NVDA");
+  duplicateNetworkService.applyEvent({ type: "ready" });
+  duplicateNetworkService.applyEvent({
+    type: "heartbeat",
+    source: "databento_live",
+    emittedAt: networkNow.toISOString(),
+  });
+  assert.equal(
+    duplicateNetworkService.getStatus().liveIngestion.verifiedMarketEventCount,
+    0,
+    "a bridge heartbeat must not count as a market event or establish a market window",
+  );
+  const delayedHeartbeatService = new DatabentoLiveService("NVDA");
+  delayedHeartbeatService.applyEvent({ type: "ready" });
+  delayedHeartbeatService.applyEvent({
+    type: "heartbeat",
+    source: "databento_live",
+    emittedAt: new Date(Date.now() - 16_000).toISOString(),
+  });
+  const delayedHeartbeat = delayedHeartbeatService.getStatus().network;
+  assert.equal(delayedHeartbeat.heartbeatFresh, false, "a buffered old heartbeat must not be refreshed at processing time");
+  assert.equal(delayedHeartbeat.alertReady, false, "a buffered old heartbeat must fail closed for alert readiness");
+  const firstNetworkEvent = marketEvent(networkNow, 100, "B");
+  duplicateNetworkService.applyEvent(firstNetworkEvent);
+  const initialNetwork = duplicateNetworkService.getStatus().network;
+  assert.equal(initialNetwork.transportState, "streaming", "a verified market record must advance transport state");
+  assert.equal(initialNetwork.latencyState, "healthy", "a low-latency bridge record must expose healthy delivery latency");
+  assert.equal(initialNetwork.integrity.state, "healthy", "the first ordered event starts a verified integrity window");
+  assert.equal(initialNetwork.queue.state, "normal", "normal-load ingestion must expose a normal bounded queue");
+  assert.equal(
+    duplicateNetworkService.getStatus().liveIngestion.verifiedMarketEventCount,
+    1,
+    "a verified first market event must be counted exactly once",
+  );
+  duplicateNetworkService.applyEvent(firstNetworkEvent);
+  const duplicateNetwork = duplicateNetworkService.getStatus();
+  assert.equal(duplicateNetwork.liveIngestion.verifiedMarketEventCount, 1, "a duplicate bridge record must not count twice");
+  assert.equal(duplicateNetwork.network.integrity.duplicateEvents, 1, "duplicate delivery must be observable");
+  assert.equal(duplicateNetwork.network.integrity.state, "blocked", "duplicate delivery must fail closed");
+  assert.equal(duplicateNetwork.marketFeedState, "stale", "duplicate integrity loss must withhold market freshness");
+  const generationBeforeRecovery = duplicateNetwork.network.recovery.generation;
+  duplicateNetworkService.applyEvent(marketEvent(new Date(), 100.2, "B"));
+  const duplicateRecovered = duplicateNetworkService.getStatus();
+  assert.ok(
+    duplicateRecovered.network.recovery.generation > generationBeforeRecovery,
+    "post-integrity recovery must create a new bounded network generation",
+  );
+  assert.equal(duplicateRecovered.network.integrity.state, "healthy", "a new ordered event may establish a recovery window");
+  assert.equal(duplicateRecovered.alphaRadar.score, null, "recovery must not reuse a pre-integrity-loss Alpha score");
+
+  const outOfOrderNetworkService = new DatabentoLiveService("NVDA");
+  const outOfOrderNow = new Date();
+  outOfOrderNetworkService.applyEvent({ type: "ready" });
+  outOfOrderNetworkService.applyEvent(marketEvent(new Date(outOfOrderNow.getTime() - 6_000), 100, "B"));
+  outOfOrderNetworkService.applyEvent(marketEvent(new Date(outOfOrderNow.getTime() - 2_000), 100.2, "B"));
+  outOfOrderNetworkService.applyEvent(marketEvent(new Date(outOfOrderNow.getTime() - 3_000), 100.1, "B"));
+  const outOfOrderNetwork = outOfOrderNetworkService.getStatus().network;
+  assert.equal(outOfOrderNetwork.integrity.outOfOrderEvents, 1, "reordered bridge delivery must be observable");
+  assert.equal(outOfOrderNetwork.integrity.state, "blocked", "reordered bridge delivery must fail closed");
+  assert.equal(outOfOrderNetwork.alertReady, false, "integrity loss must never claim alert readiness");
+
+  const delayedNetworkService = new DatabentoLiveService("NVDA");
+  delayedNetworkService.applyEvent({ type: "ready" });
+  delayedNetworkService.applyEvent(marketEvent(new Date(Date.now() - 11_000), 100, "B"));
+  const delayedNetwork = delayedNetworkService.getStatus();
+  assert.equal(delayedNetwork.network.latencyState, "blocked", "severe event delay must breach the network threshold");
+  assert.equal(delayedNetwork.network.alertReady, false, "severe delivery delay must block alert readiness");
+  assert.equal(delayedNetwork.marketFeedState, "stale", "severe delivery delay must not remain a streaming feed");
+
+  const retiredGenerationService = new DatabentoLiveService("NVDA");
+  const retiredGeneration = retiredGenerationService.activeBridgeGeneration;
+  retiredGenerationService.fail("deterministic bridge retirement", false);
+  retiredGenerationService.enqueueBridgeEvents(
+    [marketEvent(new Date(), 100, "B")],
+    retiredGeneration,
+  );
+  assert.equal(
+    retiredGenerationService.getStatus().liveIngestion.verifiedMarketEventCount,
+    0,
+    "a retired bridge generation must never refill a failed market window",
+  );
+  assert.equal(
+    retiredGenerationService.getStatus().network.alertReady,
+    false,
+    "retired bridge callbacks must remain ineligible for alert recovery",
+  );
+
+  const overflowNetworkService = new DatabentoLiveService("NVDA");
+  overflowNetworkService.enqueueBridgeEvents(Array.from({ length: 257 }, () => ({ type: "ready" })));
+  const overflowNetwork = overflowNetworkService.getStatus().network;
+  assert.equal(overflowNetwork.queue.state, "blocked", "queue overflow must be explicit rather than silently dropped");
+  assert.equal(overflowNetwork.queue.rejected, 257, "queue overflow must record every rejected event");
+  assert.equal(overflowNetwork.alertReady, false, "bounded queue overflow must fail closed for alerts");
+  overflowNetworkService.stop();
+
+  console.log("Databento live service tests passed: recovery windows, bounded reconnect, latency/jitter, queue backpressure, duplicate/reordered events, and alert-safe network health.");
 } finally {
   rmSync(outputDirectory, { recursive: true, force: true });
 }

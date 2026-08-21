@@ -20,3 +20,4 @@
 - [AI pool reference capacity](ai-pool-reference-capacity.md) — Reserve each targeted Reference identifier durably before provider access; partial responses remain withheld per symbol.
 - [AI pool live-source isolation](ai-pool-live-source-isolation.md) — Pool enrichment consumes only independently verified focused scans; background failure can never escape into protected services.
 - [Classification freshness](classification-freshness.md) — A fresh reference snapshot cannot refresh an old or timestamp-less taxonomy; classification provenance has its own gate.
+- [Live network event-path integrity](live-network-event-path-integrity.md) — Only bridge-emitted heartbeat and generation-bound market events can re-establish alert readiness after a failure.
