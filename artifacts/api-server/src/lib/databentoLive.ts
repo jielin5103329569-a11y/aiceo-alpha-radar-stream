@@ -30,6 +30,8 @@ import {
   normalizeReferenceSymbol,
   type MarketUniverseSummary,
 } from "./marketUniverse";
+import { aiIndustryStockPool } from "./aiIndustryStockPool";
+import { AI_INDUSTRY_TAXONOMY } from "./aiIndustryTaxonomy";
 import {
   buildOpportunityCenter,
   type CatalystRadarSnapshot,
@@ -3426,9 +3428,126 @@ export class FocusedScanCoordinator extends EventEmitter {
   }
 }
 
+type AiIndustryLeaderProbeLiveService = {
+  getStatus(): RadarStatus;
+  start(): RadarStatus;
+  stop(): RadarStatus;
+  on(event: "status", listener: () => void): unknown;
+};
+
+export type AiIndustryLeaderProbeCoordinatorOptions = {
+  symbols?: readonly string[];
+  createService?: (symbol: string) => AiIndustryLeaderProbeLiveService;
+  apiKeyAvailable?: () => boolean;
+  probeDwellMs?: number;
+};
+
+const AI_INDUSTRY_LEADER_PROBE_CAPACITY = 1;
+const AI_INDUSTRY_LEADER_PROBE_DWELL_MS = 2 * 60_000;
+const AI_INDUSTRY_LEADER_PROBE_ROUTE_COOLDOWN_MS = 5 * 60_000;
+
+/**
+ * Bounded producer for the optional AI discovery pool. It probes at most one
+ * non-protected taxonomy member at a time, then delegates leader admission to
+ * the existing independent Focused Scan gate. It is never a protected radar.
+ */
+export class AiIndustryLeaderProbeCoordinator extends EventEmitter {
+  private readonly symbols: string[];
+  private readonly createService: (symbol: string) => AiIndustryLeaderProbeLiveService;
+  private readonly apiKeyAvailable: () => boolean;
+  private readonly probeDwellMs: number;
+  private active: { symbol: string; service: AiIndustryLeaderProbeLiveService; startedAt: Date } | null = null;
+  private readonly routedAt = new Map<string, Date>();
+  private cursor = 0;
+  private started = false;
+
+  constructor(options: AiIndustryLeaderProbeCoordinatorOptions = {}) {
+    super();
+    this.symbols = [...new Set(options.symbols ?? AI_INDUSTRY_TAXONOMY.map((entry) => entry.symbol))]
+      .filter((symbol) => !MONITORED_SYMBOLS.includes(symbol as (typeof MONITORED_SYMBOLS)[number]))
+      .sort();
+    this.createService = options.createService ?? ((symbol) => new DatabentoLiveService(symbol));
+    this.apiKeyAvailable = options.apiKeyAvailable ?? (() => Boolean(process.env.DATABENTO_API_KEY));
+    this.probeDwellMs = Math.max(30_000, options.probeDwellMs ?? AI_INDUSTRY_LEADER_PROBE_DWELL_MS);
+  }
+
+  start(): void {
+    this.started = true;
+  }
+
+  stop(): void {
+    this.started = false;
+    this.active?.service.stop();
+    this.active = null;
+  }
+
+  observe(
+    protectedStatuses: RadarStatus[],
+    admitLeader: (leader: VerifiedMarketLeader, protectedStatuses: RadarStatus[]) => FocusedScanCandidate,
+    now = new Date(),
+  ): void {
+    if (!this.started || !this.apiKeyAvailable() || this.symbols.length === 0) return;
+    if (!this.active) this.startNext(now);
+    const active = this.active;
+    if (!active) return;
+    const status = active.service.getStatus();
+    const confirmed =
+      status.connectionState === "streaming"
+      && status.marketFeedState === "streaming"
+      && status.alphaRadar.preBreakout.dataFresh
+      && status.alphaRadar.preBreakout.state === "confirmed"
+      && status.alphaRadar.preBreakout.confirmation.status === "confirmed";
+    if (!confirmed) {
+      if (now.getTime() - active.startedAt.getTime() >= this.probeDwellMs) this.rotate();
+      return;
+    }
+
+    const completeMarketFields =
+      status.market.latestPrice !== null
+      && status.market.bidPrice !== null
+      && status.market.askPrice !== null
+      && status.market.sessionVolume !== null;
+    this.routedAt.set(active.symbol, now);
+    admitLeader({
+      symbol: active.symbol,
+      observedAt: status.lastUpdatedAt ?? now,
+      source: "databento_live",
+      schema: "mbp-1",
+      subscriptionVerified: status.configured,
+      completeMarketFields,
+      fresh: true,
+      minimumLiquiditySatisfied: (status.market.sessionVolume ?? 0) > 0,
+      independentEvidenceCount: 2,
+    }, protectedStatuses);
+    this.rotate();
+  }
+
+  private startNext(now: Date): void {
+    for (let attempts = 0; attempts < this.symbols.length; attempts += 1) {
+      const symbol = this.symbols[this.cursor % this.symbols.length];
+      this.cursor = (this.cursor + 1) % this.symbols.length;
+      const lastRoutedAt = this.routedAt.get(symbol);
+      if (lastRoutedAt && now.getTime() - lastRoutedAt.getTime() < AI_INDUSTRY_LEADER_PROBE_ROUTE_COOLDOWN_MS) {
+        continue;
+      }
+      const service = this.createService(symbol);
+      this.active = { symbol, service, startedAt: now };
+      service.on("status", () => this.emit("status"));
+      service.start();
+      return;
+    }
+  }
+
+  private rotate(): void {
+    this.active?.service.stop();
+    this.active = null;
+  }
+}
+
 export class DatabentoUniverseService extends EventEmitter {
   private readonly services = MONITORED_SYMBOLS.map((symbol) => new DatabentoLiveService(symbol));
   private readonly focusedScans = new FocusedScanCoordinator();
+  private readonly aiIndustryLeaderProbe = new AiIndustryLeaderProbeCoordinator();
   private rankingMachine: AlphaRadarRankingMachine = {
     order: [],
     pendingOrder: null,
@@ -3448,6 +3567,7 @@ export class DatabentoUniverseService extends EventEmitter {
       service.on("status", () => this.emit("status", this.getStatus()));
     });
     this.focusedScans.on("status", () => this.emit("status", this.getStatus()));
+    this.aiIndustryLeaderProbe.on("status", () => this.emit("status", this.getStatus()));
     marketUniverse.on("status", () => this.emit("status", this.getStatus()));
   }
 
@@ -3456,9 +3576,22 @@ export class DatabentoUniverseService extends EventEmitter {
     const primary = statuses.find((status) => status.symbol === "NVDA") ?? statuses[0];
     const symbolRadars = statuses.map(toSymbolStatus);
     const now = new Date();
+    this.aiIndustryLeaderProbe.observe(
+      statuses,
+      (leader, protectedStatuses) => this.focusedScans.routeVerifiedMarketLeader(leader, protectedStatuses, now),
+      now,
+    );
     const rankingResult = updateAlphaRadarRanking(symbolRadars, this.rankingMachine, now);
     this.rankingMachine = rankingResult.machine;
     const focusedSectorSymbols = this.focusedScans.getSectorSymbols();
+    // Only the bounded, independently verified non-protected focused scans
+    // may propose live pool enrichment. Protected radars never feed this path.
+    aiIndustryStockPool.considerPrequalifiedLiveCandidates(focusedSectorSymbols.map((status) => ({
+      symbol: status.symbol,
+      marketFeedState: status.marketFeedState,
+      preBreakoutState: status.alphaRadar.preBreakout.state,
+      confirmationStatus: status.alphaRadar.preBreakout.confirmation.status,
+    })));
     const sectorSymbolsByName = new Map<string, RadarSymbolStatus>();
     [...symbolRadars, ...focusedSectorSymbols].forEach((status) => {
       if (!sectorSymbolsByName.has(status.symbol)) sectorSymbolsByName.set(status.symbol, status);
@@ -3545,11 +3678,13 @@ export class DatabentoUniverseService extends EventEmitter {
   }
 
   start(): RadarStatus {
+    this.aiIndustryLeaderProbe.start();
     this.services.forEach((service) => service.start());
     return this.getStatus();
   }
 
   stop(): RadarStatus {
+    this.aiIndustryLeaderProbe.stop();
     this.focusedScans.stop();
     this.services.forEach((service) => service.stop());
     return this.getStatus();

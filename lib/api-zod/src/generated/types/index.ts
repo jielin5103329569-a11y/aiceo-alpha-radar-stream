@@ -6,6 +6,15 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from './aiIndustryPoolHistoryEvent';
+export * from './aiIndustryPoolHistoryEventEvidence';
+export * from './aiIndustryPoolMember';
+export * from './aiIndustryPoolMemberMembershipState';
+export * from './aiIndustryPoolMemberSectorReviewState';
+export * from './aiIndustryPoolSnapshot';
+export * from './aiIndustryPoolSnapshotCapacityState';
+export * from './aiIndustryPoolSnapshotPersistenceState';
+export * from './aiIndustryPoolSnapshotReferenceAuthorizationState';
 export * from './alertSectorLeader';
 export * from './alertSectorLeaderContext';
 export * from './alertSectorLeaderGrade';

@@ -11,6 +11,7 @@ import { internalTaskRegistry } from "./lib/internalTaskRegistry";
 import { radarSseConnections } from "./lib/sseConnections";
 import { runtimeSupervisor } from "./lib/runtimeSupervisor";
 import { autonomousOperationsCoordinator } from "./lib/autonomousOperationsRuntime";
+import { aiIndustryStockPool } from "./lib/aiIndustryStockPool";
 import type { AutonomousWorkDefinition } from "./lib/autonomousOperationsCoordinator";
 import { createGracefulShutdown } from "./lib/serverLifecycle";
 
@@ -52,6 +53,7 @@ const shutdown = createGracefulShutdown({
     internalTaskRegistry.stop();
     databentoLive.stop();
     marketUniverse.stop();
+    aiIndustryStockPool.stop();
   },
   onComplete: (state) => {
     if (state === "failed") process.exitCode = 1;
@@ -83,6 +85,7 @@ server.once("listening", () => {
   backendLifeline.owner.markListening();
   logger.info({ port, ownerId: ownership.ownerId }, "Server-owned Alpha Radar lifeline is listening");
   marketUniverse.start();
+    aiIndustryStockPool.start();
   const liveStatus = databentoLive.start();
   logger.info(
     {

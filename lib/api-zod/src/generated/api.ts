@@ -2155,6 +2155,60 @@ export const GetMarketUniverseResponse = zod.object({
 
 
 /**
+ * @summary Get the read-only, dynamically maintained AI industry discovery pool
+ */
+export const getAiIndustryPoolResponseActiveCountMin = 0;
+
+export const getAiIndustryPoolResponseHistoricalDistinctCountMin = 0;
+
+
+export const getAiIndustryPoolResponseRemainingEstimateMin = 0;
+
+export const getAiIndustryPoolResponseMembersMax = 40;
+
+
+
+export const GetAiIndustryPoolResponse = zod.object({
+  "strategyVersion": zod.string(),
+  "generatedAt": zod.coerce.date(),
+  "activeCount": zod.number().min(getAiIndustryPoolResponseActiveCountMin),
+  "historicalDistinctCount": zod.number().min(getAiIndustryPoolResponseHistoricalDistinctCountMin),
+  "identifierCapacity": zod.number().min(1),
+  "remainingEstimate": zod.number().min(getAiIndustryPoolResponseRemainingEstimateMin),
+  "capacityState": zod.enum(['normal', 'near_limit', 'at_capacity', 'blocked']),
+  "persistenceState": zod.enum(['ready', 'recovering', 'unavailable']),
+  "referenceAuthorizationState": zod.enum(['unknown', 'verified', 'blocked', 'unavailable']),
+  "referenceReason": zod.string(),
+  "reason": zod.string(),
+  "isolatedServices": zod.array(zod.string()),
+  "members": zod.array(zod.object({
+  "symbol": zod.string(),
+  "categories": zod.array(zod.string()),
+  "membershipState": zod.enum(['observed', 'enrichment_pending', 'withheld', 'verified', 'exited']),
+  "sectorReviewState": zod.enum(['not_eligible', 'withheld_reference', 'ready_for_sector_review']),
+  "entryReason": zod.string(),
+  "exitReason": zod.string().nullable(),
+  "referenceIdentifier": zod.string().nullable(),
+  "updatedAt": zod.coerce.date()
+})).max(getAiIndustryPoolResponseMembersMax)
+})
+
+
+/**
+ * @summary Get append-only AI industry pool membership and enrichment lifecycle history
+ */
+export const GetAiIndustryPoolHistoryResponseItem = zod.object({
+  "eventKey": zod.string(),
+  "symbol": zod.string(),
+  "eventType": zod.string(),
+  "reason": zod.string(),
+  "evidence": zod.record(zod.string(), zod.union([zod.string(),zod.number(),zod.boolean(),zod.null()])),
+  "occurredAt": zod.coerce.date()
+})
+export const GetAiIndustryPoolHistoryResponse = zod.array(GetAiIndustryPoolHistoryResponseItem)
+
+
+/**
  * @summary Get bounded focused-scan routing status and capability gates
  */
 export const getFocusedScanStatusResponseReferenceEligibleCountMin = 0;

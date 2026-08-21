@@ -85,6 +85,10 @@ try {
   transpile("artifacts/api-server/src/lib/catalystRadar.ts", "catalystRadar.js");
   transpile("artifacts/api-server/src/lib/sectorPriority.ts", "sectorPriority.js");
   transpile("artifacts/api-server/src/lib/openingReadiness.ts", "openingReadiness.js");
+  writeFileSync(
+    join(outputDirectory, "aiIndustryTaxonomy.js"),
+    '"use strict"; Object.defineProperty(exports, "__esModule", { value: true }); exports.AI_INDUSTRY_TAXONOMY = [{ symbol: "AMAT", categories: ["semiconductor_equipment"] }, { symbol: "NVDA", categories: ["ai_chips"] }];',
+  );
   transpile(
     "artifacts/api-server/src/lib/databentoLive.ts",
     "databentoLive.js",
@@ -125,12 +129,17 @@ try {
     join(outputDirectory, "shadowLearning.js"),
     '"use strict"; Object.defineProperty(exports, "__esModule", { value: true }); exports.shadowLearning = { captureObservation() {}, observePrice() {} };',
   );
+  writeFileSync(
+    join(outputDirectory, "aiIndustryStockPool.js"),
+    '"use strict"; Object.defineProperty(exports, "__esModule", { value: true }); exports.aiIndustryStockPool = { lastCandidates: null, considerPrequalifiedLiveCandidates(candidates) { this.lastCandidates = candidates; } };',
+  );
   writeFileSync(join(outputDirectory, "package.json"), '{"type":"commonjs"}');
 
   const require = createRequire(import.meta.url);
   const {
     DatabentoLiveService,
     DatabentoUniverseService,
+    AiIndustryLeaderProbeCoordinator,
     MONITORED_SYMBOLS,
     scanProfileAt,
     updateAlphaRadarRanking,
@@ -142,6 +151,7 @@ try {
     normalizeReferenceSymbol,
     normalizeSecurityType,
   } = require(join(outputDirectory, "marketUniverse.js"));
+  const { aiIndustryStockPool: poolSidecar } = require(join(outputDirectory, "aiIndustryStockPool.js"));
   const childProcess = require(join(outputDirectory, "child-process.js"));
   const previousDatabentoKey = process.env.DATABENTO_API_KEY;
   delete process.env.DATABENTO_API_KEY;
@@ -354,6 +364,77 @@ try {
   const universe = new DatabentoUniverseService();
   const universeStatus = universe.getStatus();
   assert.deepEqual(
+    poolSidecar.lastCandidates,
+    [],
+    "protected five-symbol status reads must not be forwarded into the AI pool sidecar",
+  );
+  const focusedService = new DatabentoLiveService("AMAT");
+  const focusedCandidate = focusedService.getStatus();
+  focusedCandidate.connectionState = "streaming";
+  focusedCandidate.marketFeedState = "streaming";
+  focusedCandidate.configured = true;
+  focusedCandidate.lastUpdatedAt = new Date();
+  focusedCandidate.market = {
+    ...focusedCandidate.market,
+    latestPrice: 100,
+    bidPrice: 99.99,
+    askPrice: 100.01,
+    sessionVolume: 1_000,
+  };
+  focusedCandidate.alphaRadar = {
+    ...focusedCandidate.alphaRadar,
+    preBreakout: {
+      ...focusedCandidate.alphaRadar.preBreakout,
+      dataFresh: true,
+      state: "confirmed",
+      confirmation: {
+        ...focusedCandidate.alphaRadar.preBreakout.confirmation,
+        status: "confirmed",
+      },
+    },
+  };
+  universe.focusedScans.getSectorSymbols = () => [focusedCandidate];
+  universe.getStatus();
+  assert.deepEqual(
+    poolSidecar.lastCandidates,
+    [{
+      symbol: "AMAT",
+      marketFeedState: "streaming",
+      preBreakoutState: "confirmed",
+      confirmationStatus: "confirmed",
+    }],
+    "a non-protected taxonomy member with focused-scan live confirmation must reach the isolated pool sidecar",
+  );
+  const probeService = new (require("node:events").EventEmitter)();
+  probeService.getStatus = () => focusedCandidate;
+  probeService.start = () => focusedCandidate;
+  probeService.stop = () => focusedCandidate;
+  const runtimeUniverse = new DatabentoUniverseService();
+  const runtimeProbe = new AiIndustryLeaderProbeCoordinator({
+    symbols: ["NVDA", "AMAT"],
+    createService: () => probeService,
+    apiKeyAvailable: () => true,
+  });
+  runtimeUniverse.aiIndustryLeaderProbe = runtimeProbe;
+  const admittedLeaders = [];
+  runtimeUniverse.focusedScans.routeVerifiedMarketLeader = (leader, protectedStatuses) => {
+    admittedLeaders.push({ leader, protectedSymbols: protectedStatuses.map((status) => status.symbol) });
+    return { symbol: leader.symbol, state: "admitted", reason: "test", observedAt: leader.observedAt, independentEvidenceCount: 2, updatedAt: new Date() };
+  };
+  runtimeProbe.start();
+  runtimeUniverse.getStatus();
+  assert.deepEqual(
+    admittedLeaders.map(({ leader }) => leader.symbol),
+    ["AMAT"],
+    "the production universe must route a confirmed non-protected leader probe into Focused Scan admission",
+  );
+  assert.deepEqual(
+    admittedLeaders[0].protectedSymbols,
+    [...MONITORED_SYMBOLS],
+    "leader admission may inspect protected authorization only; protected symbols never become probe candidates",
+  );
+  runtimeProbe.stop();
+  assert.deepEqual(
     universeStatus.symbolRadars.map((radar) => radar.symbol),
     [...MONITORED_SYMBOLS],
     "the scan universe must expose independent NVDA, MU, VRT, CRDO, and AMD radar windows",
@@ -437,6 +518,7 @@ try {
     [...MONITORED_SYMBOLS],
     "universe startup must arm every protected live bridge without waiting for a manual dashboard action",
   );
+  startupUniverse.aiIndustryLeaderProbe.stop();
   const exhaustionRecoveryService = new DatabentoLiveService("NVDA");
   exhaustionRecoveryService.status = {
     ...exhaustionRecoveryService.getStatus(),

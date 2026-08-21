@@ -385,6 +385,100 @@ export interface MarketUniverseResult {
   offset: number;
 }
 
+export type AiIndustryPoolMemberMembershipState = typeof AiIndustryPoolMemberMembershipState[keyof typeof AiIndustryPoolMemberMembershipState];
+
+
+export const AiIndustryPoolMemberMembershipState = {
+  observed: 'observed',
+  enrichment_pending: 'enrichment_pending',
+  withheld: 'withheld',
+  verified: 'verified',
+  exited: 'exited',
+} as const;
+
+export type AiIndustryPoolMemberSectorReviewState = typeof AiIndustryPoolMemberSectorReviewState[keyof typeof AiIndustryPoolMemberSectorReviewState];
+
+
+export const AiIndustryPoolMemberSectorReviewState = {
+  not_eligible: 'not_eligible',
+  withheld_reference: 'withheld_reference',
+  ready_for_sector_review: 'ready_for_sector_review',
+} as const;
+
+export interface AiIndustryPoolMember {
+  symbol: string;
+  categories: string[];
+  membershipState: AiIndustryPoolMemberMembershipState;
+  sectorReviewState: AiIndustryPoolMemberSectorReviewState;
+  entryReason: string;
+  /** @nullable */
+  exitReason: string | null;
+  /** @nullable */
+  referenceIdentifier: string | null;
+  updatedAt: string;
+}
+
+export type AiIndustryPoolSnapshotCapacityState = typeof AiIndustryPoolSnapshotCapacityState[keyof typeof AiIndustryPoolSnapshotCapacityState];
+
+
+export const AiIndustryPoolSnapshotCapacityState = {
+  normal: 'normal',
+  near_limit: 'near_limit',
+  at_capacity: 'at_capacity',
+  blocked: 'blocked',
+} as const;
+
+export type AiIndustryPoolSnapshotPersistenceState = typeof AiIndustryPoolSnapshotPersistenceState[keyof typeof AiIndustryPoolSnapshotPersistenceState];
+
+
+export const AiIndustryPoolSnapshotPersistenceState = {
+  ready: 'ready',
+  recovering: 'recovering',
+  unavailable: 'unavailable',
+} as const;
+
+export type AiIndustryPoolSnapshotReferenceAuthorizationState = typeof AiIndustryPoolSnapshotReferenceAuthorizationState[keyof typeof AiIndustryPoolSnapshotReferenceAuthorizationState];
+
+
+export const AiIndustryPoolSnapshotReferenceAuthorizationState = {
+  unknown: 'unknown',
+  verified: 'verified',
+  blocked: 'blocked',
+  unavailable: 'unavailable',
+} as const;
+
+export interface AiIndustryPoolSnapshot {
+  strategyVersion: string;
+  generatedAt: string;
+  /** @minimum 0 */
+  activeCount: number;
+  /** @minimum 0 */
+  historicalDistinctCount: number;
+  /** @minimum 1 */
+  identifierCapacity: number;
+  /** @minimum 0 */
+  remainingEstimate: number;
+  capacityState: AiIndustryPoolSnapshotCapacityState;
+  persistenceState: AiIndustryPoolSnapshotPersistenceState;
+  referenceAuthorizationState: AiIndustryPoolSnapshotReferenceAuthorizationState;
+  referenceReason: string;
+  reason: string;
+  isolatedServices: string[];
+  /** @maxItems 40 */
+  members: AiIndustryPoolMember[];
+}
+
+export type AiIndustryPoolHistoryEventEvidence = {[key: string]: string | number | boolean | null};
+
+export interface AiIndustryPoolHistoryEvent {
+  eventKey: string;
+  symbol: string;
+  eventType: string;
+  reason: string;
+  evidence: AiIndustryPoolHistoryEventEvidence;
+  occurredAt: string;
+}
+
 export type DatabentoAuthorizationState = typeof DatabentoAuthorizationState[keyof typeof DatabentoAuthorizationState];
 
 

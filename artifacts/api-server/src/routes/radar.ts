@@ -2,6 +2,8 @@ import { Router, type IRouter, type Request, type Response } from "express";
 import {
   GetMarketUniverseQueryParams,
   GetMarketUniverseResponse,
+  GetAiIndustryPoolResponse,
+  GetAiIndustryPoolHistoryResponse,
   GetFocusedScanStatusResponse,
   GetCatalystRadarResponse,
   GetBackendLifelineResponse,
@@ -30,6 +32,7 @@ import { internalTaskRegistry } from "../lib/internalTaskRegistry";
 import { radarSseConnections } from "../lib/sseConnections";
 import { runtimeSupervisor } from "../lib/runtimeSupervisor";
 import { autonomousOperationsCoordinator } from "../lib/autonomousOperationsRuntime";
+import { aiIndustryStockPool } from "../lib/aiIndustryStockPool";
 
 const router: IRouter = Router();
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -92,6 +95,14 @@ router.get("/radar/universe", (req: Request, res: Response): void => {
     return;
   }
   res.json(GetMarketUniverseResponse.parse(marketUniverse.query(parsed.data)));
+});
+
+router.get("/radar/ai-industry-pool", (_req: Request, res: Response): void => {
+  res.json(GetAiIndustryPoolResponse.parse(aiIndustryStockPool.getSnapshot()));
+});
+
+router.get("/radar/ai-industry-pool/history", async (_req: Request, res: Response): Promise<void> => {
+  res.json(GetAiIndustryPoolHistoryResponse.parse(await aiIndustryStockPool.listRecentHistory()));
 });
 
 router.get("/radar/focused-scans", (_req: Request, res: Response): void => {

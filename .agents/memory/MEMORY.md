@@ -17,3 +17,5 @@
 - [Governance read isolation](governance-read-isolation.md) — Governance reads must never advance live ranking, alert, or market state.
 - [Operational audit isolation](operational-audit-isolation.md) — Incident-audit storage is best-effort; its outage must not stop supervision or affect market/Alert authority.
 - [Autonomous execution durability](autonomous-execution-durability.md) — Unsettled operations remain blocked across shutdown, timeout, and restart; audit success never certifies a failed work-state write.
+- [AI pool reference capacity](ai-pool-reference-capacity.md) — Reserve each targeted Reference identifier durably before provider access; partial responses remain withheld per symbol.
+- [AI pool live-source isolation](ai-pool-live-source-isolation.md) — Pool enrichment consumes only independently verified focused scans; background failure can never escape into protected services.

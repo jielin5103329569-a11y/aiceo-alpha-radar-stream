@@ -96,6 +96,22 @@ try {
     join(outputDirectory, "shadowLearning.js"),
     '"use strict"; Object.defineProperty(exports, "__esModule", { value: true }); exports.shadowLearning = { captureObservation() {}, observePrice() {} };',
   );
+  writeFileSync(
+    join(outputDirectory, "aiIndustryStockPool.js"),
+    '"use strict"; Object.defineProperty(exports, "__esModule", { value: true }); exports.aiIndustryStockPool = { considerPrequalifiedLiveCandidates() {} };',
+  );
+  writeFileSync(
+    join(outputDirectory, "aiIndustryTaxonomy.js"),
+    '"use strict"; Object.defineProperty(exports, "__esModule", { value: true }); exports.AI_INDUSTRY_TAXONOMY = [{ symbol: "AMAT", categories: ["semiconductor_equipment"] }];',
+  );
+  writeFileSync(
+    join(outputDirectory, "openingReadiness.js"),
+    '"use strict"; Object.defineProperty(exports, "__esModule", { value: true }); exports.buildOpeningReadiness = () => ({});',
+  );
+  writeFileSync(
+    join(outputDirectory, "dataGovernance.js"),
+    '"use strict"; Object.defineProperty(exports, "__esModule", { value: true }); exports.buildDataGovernanceSnapshot = () => ({});',
+  );
   writeFileSync(join(outputDirectory, "package.json"), '{"type":"commonjs"}');
 
   const require = createRequire(import.meta.url);

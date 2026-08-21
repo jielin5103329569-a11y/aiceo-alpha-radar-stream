@@ -280,6 +280,10 @@ def main() -> None:
         write_event({"type": "error", "message": "DATABENTO_API_KEY is not configured."})
         return
     try:
+        # Existing Market Universe authority continues to use the licensed,
+        # provider-wide Security Master classification refresh when available.
+        # The AI pool's bounded targeted bridge is separate and never changes
+        # this established classification contract.
         security_master_snapshot(key)
         return
     except Exception as error:

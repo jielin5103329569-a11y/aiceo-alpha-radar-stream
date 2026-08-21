@@ -179,6 +179,32 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/MarketUniverseResult"
+  /radar/ai-industry-pool:
+    get:
+      operationId: getAiIndustryPool
+      tags: [radar]
+      summary: Get the read-only, dynamically maintained AI industry discovery pool
+      responses:
+        "200":
+          description: Taxonomy lifecycle, bounded reference-enrichment capacity, and withheld states
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AiIndustryPoolSnapshot"
+  /radar/ai-industry-pool/history:
+    get:
+      operationId: getAiIndustryPoolHistory
+      tags: [radar]
+      summary: Get append-only AI industry pool membership and enrichment lifecycle history
+      responses:
+        "200":
+          description: Bounded, newest-first audit events for automated pool lifecycle decisions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AiIndustryPoolHistoryEvent"
   /radar/focused-scans:
     get:
       operationId: getFocusedScanStatus
@@ -823,6 +849,70 @@ components:
           type: number
           minimum: 0
       required: [summary, items, total, limit, offset]
+    AiIndustryPoolMember:
+      type: object
+      properties:
+        symbol: { type: string }
+        categories:
+          type: array
+          items: { type: string }
+        membershipState:
+          type: string
+          enum: [observed, enrichment_pending, withheld, verified, exited]
+        sectorReviewState:
+          type: string
+          enum: [not_eligible, withheld_reference, ready_for_sector_review]
+        entryReason: { type: string }
+        exitReason: { type: [string, "null"] }
+        referenceIdentifier: { type: [string, "null"] }
+        updatedAt: { type: string, format: date-time }
+      required: [symbol, categories, membershipState, sectorReviewState, entryReason, exitReason, referenceIdentifier, updatedAt]
+    AiIndustryPoolSnapshot:
+      type: object
+      properties:
+        strategyVersion: { type: string }
+        generatedAt: { type: string, format: date-time }
+        activeCount: { type: number, minimum: 0 }
+        historicalDistinctCount: { type: number, minimum: 0 }
+        identifierCapacity: { type: number, minimum: 1 }
+        remainingEstimate: { type: number, minimum: 0 }
+        capacityState:
+          type: string
+          enum: [normal, near_limit, at_capacity, blocked]
+        persistenceState:
+          type: string
+          enum: [ready, recovering, unavailable]
+        referenceAuthorizationState:
+          type: string
+          enum: [unknown, verified, blocked, unavailable]
+        referenceReason: { type: string }
+        reason: { type: string }
+        isolatedServices:
+          type: array
+          items: { type: string }
+        members:
+          type: array
+          maxItems: 40
+          items:
+            $ref: "#/components/schemas/AiIndustryPoolMember"
+      required: [strategyVersion, generatedAt, activeCount, historicalDistinctCount, identifierCapacity, remainingEstimate, capacityState, persistenceState, referenceAuthorizationState, referenceReason, reason, isolatedServices, members]
+    AiIndustryPoolHistoryEvent:
+      type: object
+      properties:
+        eventKey: { type: string }
+        symbol: { type: string }
+        eventType: { type: string }
+        reason: { type: string }
+        evidence:
+          type: object
+          additionalProperties:
+            anyOf:
+              - type: string
+              - type: number
+              - type: boolean
+              - type: "null"
+        occurredAt: { type: string, format: date-time }
+      required: [eventKey, symbol, eventType, reason, evidence, occurredAt]
     DatabentoAuthorizationState:
       type: string
       enum: [unavailable, unverified, available, blocked]

@@ -160,6 +160,10 @@ globalThis.__dirname = __bannerPath.dirname(globalThis.__filename);
     path.resolve(artifactDir, "src/lib/databento_reference_bridge.py"),
     path.resolve(distDir, "databento_reference_bridge.py"),
   );
+  await copyFile(
+    path.resolve(artifactDir, "src/lib/databento_targeted_reference_bridge.py"),
+    path.resolve(distDir, "databento_targeted_reference_bridge.py"),
+  );
   // Validation's runtime recovery owns only its archive schema migration.
   // Alert tables are managed by the workspace migration/publish flow, never
   // replayed as part of a live host's recovery loop.

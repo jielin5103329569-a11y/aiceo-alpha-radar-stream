@@ -20,6 +20,8 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  AiIndustryPoolHistoryEvent,
+  AiIndustryPoolSnapshot,
   AlertSettings,
   AlertsListResponse,
   BackendLifelineSnapshot,
@@ -698,6 +700,160 @@ export function useGetMarketUniverse<TData = Awaited<ReturnType<typeof getMarket
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getGetMarketUniverseQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetAiIndustryPoolUrl = () => {
+
+
+
+
+  return `/api/radar/ai-industry-pool`
+}
+
+/**
+ * @summary Get the read-only, dynamically maintained AI industry discovery pool
+ */
+export const getAiIndustryPool = async ( options?: Parameters<typeof customFetch>[1]): Promise<AiIndustryPoolSnapshot> => {
+
+  return customFetch<AiIndustryPoolSnapshot>(getGetAiIndustryPoolUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetAiIndustryPoolQueryKey = () => {
+    return [
+    `/api/radar/ai-industry-pool`
+    ] as const;
+    }
+
+
+export const getGetAiIndustryPoolQueryOptions = <TData = Awaited<ReturnType<typeof getAiIndustryPool>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAiIndustryPool>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetAiIndustryPoolQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getAiIndustryPool>>> = ({ signal }) => getAiIndustryPool({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getAiIndustryPool>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetAiIndustryPoolQueryResult = NonNullable<Awaited<ReturnType<typeof getAiIndustryPool>>>
+export type GetAiIndustryPoolQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get the read-only, dynamically maintained AI industry discovery pool
+ */
+
+export function useGetAiIndustryPool<TData = Awaited<ReturnType<typeof getAiIndustryPool>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAiIndustryPool>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetAiIndustryPoolQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetAiIndustryPoolHistoryUrl = () => {
+
+
+
+
+  return `/api/radar/ai-industry-pool/history`
+}
+
+/**
+ * @summary Get append-only AI industry pool membership and enrichment lifecycle history
+ */
+export const getAiIndustryPoolHistory = async ( options?: Parameters<typeof customFetch>[1]): Promise<AiIndustryPoolHistoryEvent[]> => {
+
+  return customFetch<AiIndustryPoolHistoryEvent[]>(getGetAiIndustryPoolHistoryUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetAiIndustryPoolHistoryQueryKey = () => {
+    return [
+    `/api/radar/ai-industry-pool/history`
+    ] as const;
+    }
+
+
+export const getGetAiIndustryPoolHistoryQueryOptions = <TData = Awaited<ReturnType<typeof getAiIndustryPoolHistory>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAiIndustryPoolHistory>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetAiIndustryPoolHistoryQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getAiIndustryPoolHistory>>> = ({ signal }) => getAiIndustryPoolHistory({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getAiIndustryPoolHistory>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetAiIndustryPoolHistoryQueryResult = NonNullable<Awaited<ReturnType<typeof getAiIndustryPoolHistory>>>
+export type GetAiIndustryPoolHistoryQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get append-only AI industry pool membership and enrichment lifecycle history
+ */
+
+export function useGetAiIndustryPoolHistory<TData = Awaited<ReturnType<typeof getAiIndustryPoolHistory>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAiIndustryPoolHistory>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetAiIndustryPoolHistoryQueryOptions(options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 
