@@ -14,6 +14,7 @@ import { Toaster } from '@/components/ui/toaster';
 import { setAuthTokenGetter } from '@workspace/api-client-react';
 import NotFound from '@/pages/not-found';
 import Dashboard from '@/pages/dashboard';
+import DiagnosticsCenter from '@/pages/diagnostics';
 import {
   Route,
   Switch,
@@ -94,6 +95,7 @@ function Router() {
     <RoutedErrorBoundary>
       <Switch>
         <Route path="/" component={Dashboard} />
+        <Route path="/diagnostics" component={DiagnosticsCenter} />
         <Route path="/sign-in/*?" component={SignInPage} />
         <Route path="/sign-up/*?" component={SignUpPage} />
         <Route component={NotFound} />

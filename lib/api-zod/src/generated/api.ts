@@ -2048,6 +2048,158 @@ export const GetRuntimeSupervisorIncidentsResponse = zod.array(GetRuntimeSupervi
 
 
 /**
+ * Read-only diagnostics that classify operational evidence without changing market freshness, scoring, candidate eligibility, Alert authority, configuration, external permissions, or governance policy.
+ * @summary Read the unified Alpha Radar Diagnostics Center projection
+ */
+export const GetDiagnosticsResponse = zod.object({
+  "schemaVersion": zod.number(),
+  "generatedAt": zod.coerce.date(),
+  "overall": zod.object({
+  "state": zod.enum(['healthy', 'degraded', 'blocked', 'unknown']),
+  "score": zod.number(),
+  "reason": zod.string()
+}),
+  "modules": zod.array(zod.object({
+  "id": zod.string(),
+  "label": zod.string(),
+  "category": zod.enum(['infrastructure', 'application', 'data', 'configuration', 'permission_subscription', 'governance', 'performance']),
+  "state": zod.enum(['healthy', 'degraded', 'blocked', 'unknown']),
+  "freshness": zod.enum(['fresh', 'stale', 'missing', 'unknown']),
+  "disposition": zod.enum(['code_defect', 'configuration', 'permission_subscription', 'data_unavailable', 'governance_enforced', 'expected_rejection', 'recovery_event', 'infrastructure_fault', 'unknown']),
+  "impactScope": zod.string(),
+  "reason": zod.string(),
+  "evidence": zod.object({
+  "source": zod.string(),
+  "summary": zod.string(),
+  "facts": zod.record(zod.string(), zod.union([zod.string(),zod.number(),zod.boolean()]).nullable()),
+  "collectedAt": zod.coerce.date()
+})
+})),
+  "activeAlerts": zod.array(zod.object({
+  "id": zod.string(),
+  "moduleId": zod.string(),
+  "category": zod.enum(['infrastructure', 'application', 'data', 'configuration', 'permission_subscription', 'governance', 'performance']),
+  "priority": zod.enum(['P0', 'P1', 'P2', 'P3']),
+  "disposition": zod.enum(['code_defect', 'configuration', 'permission_subscription', 'data_unavailable', 'governance_enforced', 'expected_rejection', 'recovery_event', 'infrastructure_fault', 'unknown']),
+  "status": zod.enum(['active', 'resolved']),
+  "symptom": zod.string(),
+  "rootCause": zod.string().nullable(),
+  "candidateRootCauses": zod.array(zod.string()),
+  "impactScope": zod.string(),
+  "recommendedFix": zod.string(),
+  "verification": zod.object({
+  "id": zod.string(),
+  "label": zod.string(),
+  "state": zod.enum(['passed', 'failed', 'waiting', 'skipped']),
+  "reason": zod.string(),
+  "checkedAt": zod.coerce.date()
+}),
+  "remainingRisk": zod.string(),
+  "evidence": zod.array(zod.object({
+  "source": zod.string(),
+  "summary": zod.string(),
+  "facts": zod.record(zod.string(), zod.union([zod.string(),zod.number(),zod.boolean()]).nullable()),
+  "collectedAt": zod.coerce.date()
+})),
+  "firstObservedAt": zod.coerce.date(),
+  "lastObservedAt": zod.coerce.date()
+})),
+  "knownIssues": zod.array(zod.object({
+  "id": zod.string(),
+  "moduleId": zod.string(),
+  "category": zod.enum(['infrastructure', 'application', 'data', 'configuration', 'permission_subscription', 'governance', 'performance']),
+  "priority": zod.enum(['P0', 'P1', 'P2', 'P3']),
+  "disposition": zod.enum(['code_defect', 'configuration', 'permission_subscription', 'data_unavailable', 'governance_enforced', 'expected_rejection', 'recovery_event', 'infrastructure_fault', 'unknown']),
+  "status": zod.enum(['active', 'resolved']),
+  "symptom": zod.string(),
+  "rootCause": zod.string().nullable(),
+  "candidateRootCauses": zod.array(zod.string()),
+  "impactScope": zod.string(),
+  "recommendedFix": zod.string(),
+  "verification": zod.object({
+  "id": zod.string(),
+  "label": zod.string(),
+  "state": zod.enum(['passed', 'failed', 'waiting', 'skipped']),
+  "reason": zod.string(),
+  "checkedAt": zod.coerce.date()
+}),
+  "remainingRisk": zod.string(),
+  "evidence": zod.array(zod.object({
+  "source": zod.string(),
+  "summary": zod.string(),
+  "facts": zod.record(zod.string(), zod.union([zod.string(),zod.number(),zod.boolean()]).nullable()),
+  "collectedAt": zod.coerce.date()
+})),
+  "firstObservedAt": zod.coerce.date(),
+  "lastObservedAt": zod.coerce.date()
+})),
+  "recentEvents": zod.array(zod.object({
+  "id": zod.string(),
+  "kind": zod.enum(['detected', 'recovery', 'observation']),
+  "occurredAt": zod.coerce.date(),
+  "reportId": zod.string(),
+  "moduleId": zod.string(),
+  "category": zod.enum(['infrastructure', 'application', 'data', 'configuration', 'permission_subscription', 'governance', 'performance']),
+  "priority": zod.enum(['P0', 'P1', 'P2', 'P3']),
+  "disposition": zod.enum(['code_defect', 'configuration', 'permission_subscription', 'data_unavailable', 'governance_enforced', 'expected_rejection', 'recovery_event', 'infrastructure_fault', 'unknown']),
+  "summary": zod.string(),
+  "evidence": zod.object({
+  "source": zod.string(),
+  "summary": zod.string(),
+  "facts": zod.record(zod.string(), zod.union([zod.string(),zod.number(),zod.boolean()]).nullable()),
+  "collectedAt": zod.coerce.date()
+})
+})),
+  "healthTimeline": zod.array(zod.object({
+  "id": zod.string(),
+  "kind": zod.enum(['detected', 'recovery', 'observation']),
+  "occurredAt": zod.coerce.date(),
+  "reportId": zod.string(),
+  "moduleId": zod.string(),
+  "category": zod.enum(['infrastructure', 'application', 'data', 'configuration', 'permission_subscription', 'governance', 'performance']),
+  "priority": zod.enum(['P0', 'P1', 'P2', 'P3']),
+  "disposition": zod.enum(['code_defect', 'configuration', 'permission_subscription', 'data_unavailable', 'governance_enforced', 'expected_rejection', 'recovery_event', 'infrastructure_fault', 'unknown']),
+  "summary": zod.string(),
+  "evidence": zod.object({
+  "source": zod.string(),
+  "summary": zod.string(),
+  "facts": zod.record(zod.string(), zod.union([zod.string(),zod.number(),zod.boolean()]).nullable()),
+  "collectedAt": zod.coerce.date()
+})
+})),
+  "knowledgeBase": zod.array(zod.object({
+  "id": zod.string(),
+  "title": zod.string(),
+  "status": zod.enum(['resolved', 'reference']),
+  "summary": zod.string(),
+  "lesson": zod.string(),
+  "verification": zod.string(),
+  "remainingRisk": zod.string(),
+  "categories": zod.array(zod.enum(['infrastructure', 'application', 'data', 'configuration', 'permission_subscription', 'governance', 'performance'])),
+  "relatedReportIds": zod.array(zod.string())
+})),
+  "validations": zod.array(zod.object({
+  "id": zod.string(),
+  "label": zod.string(),
+  "state": zod.enum(['passed', 'failed', 'waiting', 'skipped']),
+  "reason": zod.string(),
+  "checkedAt": zod.coerce.date()
+})),
+  "futureEngines": zod.object({
+  "selfHealing": zod.enum(['read_only_suggestions_only']),
+  "predictiveDiagnostics": zod.enum(['context_available_no_prediction']),
+  "learningEngine": zod.enum(['context_available_no_production_authority']),
+  "reason": zod.string()
+}),
+  "persistence": zod.object({
+  "state": zod.enum(['process_bounded']),
+  "reason": zod.string()
+}),
+  "auditHash": zod.string()
+})
+
+
+/**
  * @summary Receive safe radar status updates as server-sent events
  */
 export const StreamRadarEventsResponse = zod.unknown()

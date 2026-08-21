@@ -122,6 +122,22 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/RuntimeSupervisorError"
+  /radar/diagnostics:
+    get:
+      operationId: getDiagnostics
+      tags: [radar]
+      summary: Read the unified Alpha Radar Diagnostics Center projection
+      description: >
+        Read-only diagnostics that classify operational evidence without changing
+        market freshness, scoring, candidate eligibility, Alert authority,
+        configuration, external permissions, or governance policy.
+      responses:
+        "200":
+          description: Current diagnostic health, evidence, reports, timeline, validation, and knowledge base.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DiagnosticsSnapshot"
   /radar/events:
     get:
       operationId: streamRadarEvents
@@ -509,6 +525,161 @@ components:
       schema:
         type: string
   schemas:
+    DiagnosticCategory:
+      type: string
+      enum: [infrastructure, application, data, configuration, permission_subscription, governance, performance]
+    DiagnosticPriority:
+      type: string
+      enum: [P0, P1, P2, P3]
+    DiagnosticDisposition:
+      type: string
+      enum: [code_defect, configuration, permission_subscription, data_unavailable, governance_enforced, expected_rejection, recovery_event, infrastructure_fault, unknown]
+    DiagnosticHealth:
+      type: string
+      enum: [healthy, degraded, blocked, unknown]
+    DiagnosticFreshness:
+      type: string
+      enum: [fresh, stale, missing, unknown]
+    DiagnosticVerificationState:
+      type: string
+      enum: [passed, failed, waiting, skipped]
+    DiagnosticEvidence:
+      type: object
+      required: [source, summary, facts, collectedAt]
+      properties:
+        source: { type: string }
+        summary: { type: string }
+        facts:
+          type: object
+          additionalProperties:
+            type: [string, number, boolean, "null"]
+        collectedAt: { type: string, format: date-time }
+    DiagnosticModuleHealth:
+      type: object
+      required: [id, label, category, state, freshness, disposition, impactScope, reason, evidence]
+      properties:
+        id: { type: string }
+        label: { type: string }
+        category: { $ref: "#/components/schemas/DiagnosticCategory" }
+        state: { $ref: "#/components/schemas/DiagnosticHealth" }
+        freshness: { $ref: "#/components/schemas/DiagnosticFreshness" }
+        disposition: { $ref: "#/components/schemas/DiagnosticDisposition" }
+        impactScope: { type: string }
+        reason: { type: string }
+        evidence: { $ref: "#/components/schemas/DiagnosticEvidence" }
+    DiagnosticValidation:
+      type: object
+      required: [id, label, state, reason, checkedAt]
+      properties:
+        id: { type: string }
+        label: { type: string }
+        state: { $ref: "#/components/schemas/DiagnosticVerificationState" }
+        reason: { type: string }
+        checkedAt: { type: string, format: date-time }
+    DiagnosticReport:
+      type: object
+      required: [id, moduleId, category, priority, disposition, status, symptom, rootCause, candidateRootCauses, impactScope, recommendedFix, verification, remainingRisk, evidence, firstObservedAt, lastObservedAt]
+      properties:
+        id: { type: string }
+        moduleId: { type: string }
+        category: { $ref: "#/components/schemas/DiagnosticCategory" }
+        priority: { $ref: "#/components/schemas/DiagnosticPriority" }
+        disposition: { $ref: "#/components/schemas/DiagnosticDisposition" }
+        status: { type: string, enum: [active, resolved] }
+        symptom: { type: string }
+        rootCause: { type: [string, "null"] }
+        candidateRootCauses:
+          type: array
+          items: { type: string }
+        impactScope: { type: string }
+        recommendedFix: { type: string }
+        verification: { $ref: "#/components/schemas/DiagnosticValidation" }
+        remainingRisk: { type: string }
+        evidence:
+          type: array
+          items: { $ref: "#/components/schemas/DiagnosticEvidence" }
+        firstObservedAt: { type: string, format: date-time }
+        lastObservedAt: { type: string, format: date-time }
+    DiagnosticEvent:
+      type: object
+      required: [id, kind, occurredAt, reportId, moduleId, category, priority, disposition, summary, evidence]
+      properties:
+        id: { type: string }
+        kind: { type: string, enum: [detected, recovery, observation] }
+        occurredAt: { type: string, format: date-time }
+        reportId: { type: string }
+        moduleId: { type: string }
+        category: { $ref: "#/components/schemas/DiagnosticCategory" }
+        priority: { $ref: "#/components/schemas/DiagnosticPriority" }
+        disposition: { $ref: "#/components/schemas/DiagnosticDisposition" }
+        summary: { type: string }
+        evidence: { $ref: "#/components/schemas/DiagnosticEvidence" }
+    DiagnosticKnowledgeEntry:
+      type: object
+      required: [id, title, status, summary, lesson, verification, remainingRisk, categories, relatedReportIds]
+      properties:
+        id: { type: string }
+        title: { type: string }
+        status: { type: string, enum: [resolved, reference] }
+        summary: { type: string }
+        lesson: { type: string }
+        verification: { type: string }
+        remainingRisk: { type: string }
+        categories:
+          type: array
+          items: { $ref: "#/components/schemas/DiagnosticCategory" }
+        relatedReportIds:
+          type: array
+          items: { type: string }
+    DiagnosticsSnapshot:
+      type: object
+      required: [schemaVersion, generatedAt, overall, modules, activeAlerts, knownIssues, recentEvents, healthTimeline, knowledgeBase, validations, futureEngines, persistence, auditHash]
+      properties:
+        schemaVersion: { type: number }
+        generatedAt: { type: string, format: date-time }
+        overall:
+          type: object
+          required: [state, score, reason]
+          properties:
+            state: { $ref: "#/components/schemas/DiagnosticHealth" }
+            score: { type: number }
+            reason: { type: string }
+        modules:
+          type: array
+          items: { $ref: "#/components/schemas/DiagnosticModuleHealth" }
+        activeAlerts:
+          type: array
+          items: { $ref: "#/components/schemas/DiagnosticReport" }
+        knownIssues:
+          type: array
+          items: { $ref: "#/components/schemas/DiagnosticReport" }
+        recentEvents:
+          type: array
+          items: { $ref: "#/components/schemas/DiagnosticEvent" }
+        healthTimeline:
+          type: array
+          items: { $ref: "#/components/schemas/DiagnosticEvent" }
+        knowledgeBase:
+          type: array
+          items: { $ref: "#/components/schemas/DiagnosticKnowledgeEntry" }
+        validations:
+          type: array
+          items: { $ref: "#/components/schemas/DiagnosticValidation" }
+        futureEngines:
+          type: object
+          required: [selfHealing, predictiveDiagnostics, learningEngine, reason]
+          properties:
+            selfHealing: { type: string, enum: [read_only_suggestions_only] }
+            predictiveDiagnostics: { type: string, enum: [context_available_no_prediction] }
+            learningEngine: { type: string, enum: [context_available_no_production_authority] }
+            reason: { type: string }
+        persistence:
+          type: object
+          required: [state, reason]
+          properties:
+            state: { type: string, enum: [process_bounded] }
+            reason: { type: string }
+        auditHash: { type: string }
     AlertSeverity:
       type: string
       enum: [info, watch, alert, critical]

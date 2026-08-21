@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link } from 'wouter';
 import { useRadarStream } from '@/hooks/use-radar-stream';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -93,6 +94,10 @@ export default function Dashboard() {
             </div>
             
             <div className="flex items-center gap-2 sm:gap-4">
+              <Link href="/diagnostics" className="text-xs font-medium uppercase tracking-widest text-muted-foreground hover:text-foreground hidden sm:flex items-center gap-1.5 transition-colors">
+                <Activity className="h-3 w-3" />
+                Diagnostics
+              </Link>
               <MarketFeedStatusBadge
                 state={status?.marketFeedState}
                 error={isError}

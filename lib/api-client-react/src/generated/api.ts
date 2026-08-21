@@ -26,6 +26,7 @@ import type {
   AlertsListResponse,
   BackendLifelineSnapshot,
   CatalystRadarSnapshot,
+  DiagnosticsSnapshot,
   EngineeringGovernanceSnapshot,
   FocusedScanSnapshot,
   GetAlertsParams,
@@ -539,6 +540,84 @@ export function useGetRuntimeSupervisorIncidents<TData = Awaited<ReturnType<type
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getGetRuntimeSupervisorIncidentsQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetDiagnosticsUrl = () => {
+
+
+
+
+  return `/api/radar/diagnostics`
+}
+
+/**
+ * Read-only diagnostics that classify operational evidence without changing market freshness, scoring, candidate eligibility, Alert authority, configuration, external permissions, or governance policy.
+ * @summary Read the unified Alpha Radar Diagnostics Center projection
+ */
+export const getDiagnostics = async ( options?: Parameters<typeof customFetch>[1]): Promise<DiagnosticsSnapshot> => {
+
+  return customFetch<DiagnosticsSnapshot>(getGetDiagnosticsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetDiagnosticsQueryKey = () => {
+    return [
+    `/api/radar/diagnostics`
+    ] as const;
+    }
+
+
+export const getGetDiagnosticsQueryOptions = <TData = Awaited<ReturnType<typeof getDiagnostics>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getDiagnostics>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetDiagnosticsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getDiagnostics>>> = ({ signal }) => getDiagnostics({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getDiagnostics>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetDiagnosticsQueryResult = NonNullable<Awaited<ReturnType<typeof getDiagnostics>>>
+export type GetDiagnosticsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Read the unified Alpha Radar Diagnostics Center projection
+ */
+
+export function useGetDiagnostics<TData = Awaited<ReturnType<typeof getDiagnostics>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getDiagnostics>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetDiagnosticsQueryOptions(options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

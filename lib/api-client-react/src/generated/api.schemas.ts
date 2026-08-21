@@ -5,6 +5,235 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+export type DiagnosticCategory = typeof DiagnosticCategory[keyof typeof DiagnosticCategory];
+
+
+export const DiagnosticCategory = {
+  infrastructure: 'infrastructure',
+  application: 'application',
+  data: 'data',
+  configuration: 'configuration',
+  permission_subscription: 'permission_subscription',
+  governance: 'governance',
+  performance: 'performance',
+} as const;
+
+export type DiagnosticPriority = typeof DiagnosticPriority[keyof typeof DiagnosticPriority];
+
+
+export const DiagnosticPriority = {
+  P0: 'P0',
+  P1: 'P1',
+  P2: 'P2',
+  P3: 'P3',
+} as const;
+
+export type DiagnosticDisposition = typeof DiagnosticDisposition[keyof typeof DiagnosticDisposition];
+
+
+export const DiagnosticDisposition = {
+  code_defect: 'code_defect',
+  configuration: 'configuration',
+  permission_subscription: 'permission_subscription',
+  data_unavailable: 'data_unavailable',
+  governance_enforced: 'governance_enforced',
+  expected_rejection: 'expected_rejection',
+  recovery_event: 'recovery_event',
+  infrastructure_fault: 'infrastructure_fault',
+  unknown: 'unknown',
+} as const;
+
+export type DiagnosticHealth = typeof DiagnosticHealth[keyof typeof DiagnosticHealth];
+
+
+export const DiagnosticHealth = {
+  healthy: 'healthy',
+  degraded: 'degraded',
+  blocked: 'blocked',
+  unknown: 'unknown',
+} as const;
+
+export type DiagnosticFreshness = typeof DiagnosticFreshness[keyof typeof DiagnosticFreshness];
+
+
+export const DiagnosticFreshness = {
+  fresh: 'fresh',
+  stale: 'stale',
+  missing: 'missing',
+  unknown: 'unknown',
+} as const;
+
+export type DiagnosticVerificationState = typeof DiagnosticVerificationState[keyof typeof DiagnosticVerificationState];
+
+
+export const DiagnosticVerificationState = {
+  passed: 'passed',
+  failed: 'failed',
+  waiting: 'waiting',
+  skipped: 'skipped',
+} as const;
+
+export type DiagnosticEvidenceFacts = {[key: string]: string | number | boolean | null};
+
+export interface DiagnosticEvidence {
+  source: string;
+  summary: string;
+  facts: DiagnosticEvidenceFacts;
+  collectedAt: string;
+}
+
+export interface DiagnosticModuleHealth {
+  id: string;
+  label: string;
+  category: DiagnosticCategory;
+  state: DiagnosticHealth;
+  freshness: DiagnosticFreshness;
+  disposition: DiagnosticDisposition;
+  impactScope: string;
+  reason: string;
+  evidence: DiagnosticEvidence;
+}
+
+export interface DiagnosticValidation {
+  id: string;
+  label: string;
+  state: DiagnosticVerificationState;
+  reason: string;
+  checkedAt: string;
+}
+
+export type DiagnosticReportStatus = typeof DiagnosticReportStatus[keyof typeof DiagnosticReportStatus];
+
+
+export const DiagnosticReportStatus = {
+  active: 'active',
+  resolved: 'resolved',
+} as const;
+
+export interface DiagnosticReport {
+  id: string;
+  moduleId: string;
+  category: DiagnosticCategory;
+  priority: DiagnosticPriority;
+  disposition: DiagnosticDisposition;
+  status: DiagnosticReportStatus;
+  symptom: string;
+  /** @nullable */
+  rootCause: string | null;
+  candidateRootCauses: string[];
+  impactScope: string;
+  recommendedFix: string;
+  verification: DiagnosticValidation;
+  remainingRisk: string;
+  evidence: DiagnosticEvidence[];
+  firstObservedAt: string;
+  lastObservedAt: string;
+}
+
+export type DiagnosticEventKind = typeof DiagnosticEventKind[keyof typeof DiagnosticEventKind];
+
+
+export const DiagnosticEventKind = {
+  detected: 'detected',
+  recovery: 'recovery',
+  observation: 'observation',
+} as const;
+
+export interface DiagnosticEvent {
+  id: string;
+  kind: DiagnosticEventKind;
+  occurredAt: string;
+  reportId: string;
+  moduleId: string;
+  category: DiagnosticCategory;
+  priority: DiagnosticPriority;
+  disposition: DiagnosticDisposition;
+  summary: string;
+  evidence: DiagnosticEvidence;
+}
+
+export type DiagnosticKnowledgeEntryStatus = typeof DiagnosticKnowledgeEntryStatus[keyof typeof DiagnosticKnowledgeEntryStatus];
+
+
+export const DiagnosticKnowledgeEntryStatus = {
+  resolved: 'resolved',
+  reference: 'reference',
+} as const;
+
+export interface DiagnosticKnowledgeEntry {
+  id: string;
+  title: string;
+  status: DiagnosticKnowledgeEntryStatus;
+  summary: string;
+  lesson: string;
+  verification: string;
+  remainingRisk: string;
+  categories: DiagnosticCategory[];
+  relatedReportIds: string[];
+}
+
+export type DiagnosticsSnapshotOverall = {
+  state: DiagnosticHealth;
+  score: number;
+  reason: string;
+};
+
+export type DiagnosticsSnapshotFutureEnginesSelfHealing = typeof DiagnosticsSnapshotFutureEnginesSelfHealing[keyof typeof DiagnosticsSnapshotFutureEnginesSelfHealing];
+
+
+export const DiagnosticsSnapshotFutureEnginesSelfHealing = {
+  read_only_suggestions_only: 'read_only_suggestions_only',
+} as const;
+
+export type DiagnosticsSnapshotFutureEnginesPredictiveDiagnostics = typeof DiagnosticsSnapshotFutureEnginesPredictiveDiagnostics[keyof typeof DiagnosticsSnapshotFutureEnginesPredictiveDiagnostics];
+
+
+export const DiagnosticsSnapshotFutureEnginesPredictiveDiagnostics = {
+  context_available_no_prediction: 'context_available_no_prediction',
+} as const;
+
+export type DiagnosticsSnapshotFutureEnginesLearningEngine = typeof DiagnosticsSnapshotFutureEnginesLearningEngine[keyof typeof DiagnosticsSnapshotFutureEnginesLearningEngine];
+
+
+export const DiagnosticsSnapshotFutureEnginesLearningEngine = {
+  context_available_no_production_authority: 'context_available_no_production_authority',
+} as const;
+
+export type DiagnosticsSnapshotFutureEngines = {
+  selfHealing: DiagnosticsSnapshotFutureEnginesSelfHealing;
+  predictiveDiagnostics: DiagnosticsSnapshotFutureEnginesPredictiveDiagnostics;
+  learningEngine: DiagnosticsSnapshotFutureEnginesLearningEngine;
+  reason: string;
+};
+
+export type DiagnosticsSnapshotPersistenceState = typeof DiagnosticsSnapshotPersistenceState[keyof typeof DiagnosticsSnapshotPersistenceState];
+
+
+export const DiagnosticsSnapshotPersistenceState = {
+  process_bounded: 'process_bounded',
+} as const;
+
+export type DiagnosticsSnapshotPersistence = {
+  state: DiagnosticsSnapshotPersistenceState;
+  reason: string;
+};
+
+export interface DiagnosticsSnapshot {
+  schemaVersion: number;
+  generatedAt: string;
+  overall: DiagnosticsSnapshotOverall;
+  modules: DiagnosticModuleHealth[];
+  activeAlerts: DiagnosticReport[];
+  knownIssues: DiagnosticReport[];
+  recentEvents: DiagnosticEvent[];
+  healthTimeline: DiagnosticEvent[];
+  knowledgeBase: DiagnosticKnowledgeEntry[];
+  validations: DiagnosticValidation[];
+  futureEngines: DiagnosticsSnapshotFutureEngines;
+  persistence: DiagnosticsSnapshotPersistence;
+  auditHash: string;
+}
+
 export type AlertSeverity = typeof AlertSeverity[keyof typeof AlertSeverity];
 
 

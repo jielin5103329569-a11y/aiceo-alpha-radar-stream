@@ -7,6 +7,7 @@ import {
   GetFocusedScanStatusResponse,
   GetCatalystRadarResponse,
   GetBackendLifelineResponse,
+  GetDiagnosticsResponse,
   GetEngineeringGovernanceResponse,
   GetOpportunityCenterResponse,
   GetRadarStatusResponse,
@@ -33,6 +34,7 @@ import { radarSseConnections } from "../lib/sseConnections";
 import { runtimeSupervisor } from "../lib/runtimeSupervisor";
 import { autonomousOperationsCoordinator } from "../lib/autonomousOperationsRuntime";
 import { aiIndustryStockPool } from "../lib/aiIndustryStockPool";
+import { diagnosticsCenter } from "../lib/diagnosticsCenter";
 
 const router: IRouter = Router();
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -60,6 +62,26 @@ router.get("/radar/lifeline", (_req: Request, res: Response): void => {
 
 router.get("/radar/runtime-supervisor", (_req: Request, res: Response): void => {
   res.json(GetRuntimeSupervisorResponse.parse(runtimeSupervisor.getSnapshot()));
+});
+
+router.get("/radar/diagnostics", (_req: Request, res: Response): void => {
+  const now = new Date();
+  res.json(GetDiagnosticsResponse.parse(diagnosticsCenter.getSnapshot({
+    now,
+    lifeline: backendLifeline.getSnapshot({
+      now,
+      symbols: databentoLive.getLifelineHealth(now),
+      alert: alertService.getHealth(),
+      marketUniverse: marketUniverse.getLifelineHealth(now),
+      internalTasks: internalTaskRegistry.getSnapshot(now),
+    }),
+    supervisor: runtimeSupervisor.getSnapshot(now),
+    engineeringGovernance: buildEngineeringGovernanceSnapshot({
+      now,
+      protectedScanners: databentoLive.getEngineeringScannerHealth(now),
+      internalTaskHealth: internalTaskRegistry.getSnapshot(now),
+    }),
+  })));
 });
 
 router.get("/radar/operations-coordinator", (_req: Request, res: Response): void => {

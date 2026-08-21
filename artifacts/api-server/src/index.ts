@@ -10,9 +10,11 @@ import { backendLifeline } from "./lib/backendLifeline";
 import { internalTaskRegistry } from "./lib/internalTaskRegistry";
 import { radarSseConnections } from "./lib/sseConnections";
 import { runtimeSupervisor } from "./lib/runtimeSupervisor";
+import { diagnosticsCenter } from "./lib/diagnosticsCenter";
 import { autonomousOperationsCoordinator } from "./lib/autonomousOperationsRuntime";
 import { aiIndustryStockPool } from "./lib/aiIndustryStockPool";
 import type { AutonomousWorkDefinition } from "./lib/autonomousOperationsCoordinator";
+import { buildEngineeringGovernanceSnapshot } from "./lib/engineeringGovernance";
 import { createGracefulShutdown } from "./lib/serverLifecycle";
 
 const rawPort = process.env["PORT"];
@@ -47,6 +49,7 @@ const shutdown = createGracefulShutdown({
   // subscribed AlertService. Market windows and scanner state are intentionally
   // discarded by DatabentoLiveService.stop() and rebuild after the next start.
   stopServices: async () => {
+    diagnosticsCenter.stop();
     runtimeSupervisor.stop();
     await autonomousOperationsCoordinator.stop();
     alertService.stop();
@@ -170,6 +173,25 @@ server.once("listening", () => {
     }),
     getDashboardDelivery: () => ({ activeSseConnections: radarSseConnections.size }),
     reclaimInternalTask: (taskKey, operatorId, now) => internalTaskRegistry.reclaim(taskKey, operatorId, now),
+  });
+  diagnosticsCenter.start(() => {
+    const now = new Date();
+    return {
+      now,
+      lifeline: backendLifeline.getSnapshot({
+        now,
+        symbols: databentoLive.getLifelineHealth(now),
+        alert: alertService.getHealth(),
+        marketUniverse: marketUniverse.getLifelineHealth(now),
+        internalTasks: internalTaskRegistry.getSnapshot(now),
+      }),
+      supervisor: runtimeSupervisor.getSnapshot(now),
+      engineeringGovernance: buildEngineeringGovernanceSnapshot({
+        now,
+        protectedScanners: databentoLive.getEngineeringScannerHealth(now),
+        internalTaskHealth: internalTaskRegistry.getSnapshot(now),
+      }),
+    };
   });
 });
 
