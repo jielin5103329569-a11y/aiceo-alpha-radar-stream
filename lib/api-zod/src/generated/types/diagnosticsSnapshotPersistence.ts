@@ -5,9 +5,15 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { DiagnosticEvent } from './diagnosticEvent';
+import type { DiagnosticReport } from './diagnosticReport';
 import type { DiagnosticsSnapshotPersistenceState } from './diagnosticsSnapshotPersistenceState';
 
 export type DiagnosticsSnapshotPersistence = {
   state: DiagnosticsSnapshotPersistenceState;
   reason: string;
+  /** @nullable */
+  restoredAt: Date | null;
+  restoredReports: DiagnosticReport[];
+  restoredEvents: DiagnosticEvent[];
 };

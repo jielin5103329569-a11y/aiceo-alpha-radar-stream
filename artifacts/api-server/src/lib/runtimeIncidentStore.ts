@@ -2,6 +2,7 @@ import {
   db,
   runtimeSupervisorAuditTable,
   runtimeSupervisorIncidentsTable,
+  type RuntimeDiagnosticPayload,
   type RuntimeSupervisorEvidence,
   type RuntimeSupervisorRecoveryAudit,
 } from "@workspace/db";
@@ -38,6 +39,17 @@ export type RuntimeIncidentStoreHealth = {
   lastPersistedAt: Date | null;
   lastErrorAt: Date | null;
   lastError: string | null;
+};
+
+export type DiagnosticPersistenceInput = {
+  incidentKey: string;
+  state: "open" | "resolved";
+  event: "detected" | "observed" | "resolved";
+  severity: RuntimeIncidentSeverity;
+  reason: string;
+  evidence: RuntimeSupervisorEvidence;
+  payload: RuntimeDiagnosticPayload;
+  occurredAt?: Date;
 };
 
 function safeText(value: string, max: number): string {
@@ -101,12 +113,14 @@ export class RuntimeIncidentStore {
           reasonCode,
           severity: input.severity,
           state: input.state,
+          source: "runtime",
           firstDetectedAt: occurredAt,
           lastObservedAt: occurredAt,
           resolvedAt: input.state === "resolved" ? occurredAt : null,
           occurrenceCount: 1,
           evidence,
           lastRecovery: input.recovery ?? null,
+          diagnosticPayload: null,
           updatedAt: occurredAt,
         })
         .onConflictDoUpdate({
@@ -116,6 +130,7 @@ export class RuntimeIncidentStore {
             reasonCode,
             severity: input.severity,
             state: input.state,
+            source: "runtime",
             lastObservedAt: occurredAt,
             resolvedAt: input.state === "resolved" ? occurredAt : null,
             occurrenceCount: incrementsOccurrence
@@ -123,6 +138,7 @@ export class RuntimeIncidentStore {
               : runtimeSupervisorIncidentsTable.occurrenceCount,
             evidence,
             lastRecovery: input.recovery ?? null,
+            diagnosticPayload: null,
             updatedAt: occurredAt,
           },
         });
@@ -132,9 +148,73 @@ export class RuntimeIncidentStore {
         reasonCode,
         event: input.event,
         severity: input.severity,
+        source: "runtime",
         reason,
         evidence,
         recovery: input.recovery ?? null,
+        diagnosticPayload: null,
+        occurredAt,
+      });
+      this.lastPersistedAt = occurredAt;
+      this.lastErrorAt = null;
+      this.lastError = null;
+    } catch (error) {
+      this.markUnavailable(error);
+    }
+  }
+
+  async recordDiagnostic(input: DiagnosticPersistenceInput): Promise<void> {
+    const occurredAt = input.occurredAt ?? new Date();
+    const incidentKey = safeText(input.incidentKey, 160);
+    const reason = safeText(input.reason, 500);
+    const evidence = normalizeEvidence(input.evidence);
+    try {
+      await db
+        .insert(runtimeSupervisorIncidentsTable)
+        .values({
+          incidentKey,
+          component: "diagnostics",
+          reasonCode: safeText(input.payload.report.moduleId, 96),
+          severity: input.severity,
+          state: input.state,
+          source: "diagnostics",
+          firstDetectedAt: occurredAt,
+          lastObservedAt: occurredAt,
+          resolvedAt: input.state === "resolved" ? occurredAt : null,
+          occurrenceCount: 1,
+          evidence,
+          lastRecovery: null,
+          diagnosticPayload: input.payload,
+          updatedAt: occurredAt,
+        })
+        .onConflictDoUpdate({
+          target: runtimeSupervisorIncidentsTable.incidentKey,
+          set: {
+            component: "diagnostics",
+            reasonCode: safeText(input.payload.report.moduleId, 96),
+            severity: input.severity,
+            state: input.state,
+            source: "diagnostics",
+            lastObservedAt: occurredAt,
+            resolvedAt: input.state === "resolved" ? occurredAt : null,
+            occurrenceCount: sql`${runtimeSupervisorIncidentsTable.occurrenceCount} + 1`,
+            evidence,
+            lastRecovery: null,
+            diagnosticPayload: input.payload,
+            updatedAt: occurredAt,
+          },
+        });
+      await db.insert(runtimeSupervisorAuditTable).values({
+        incidentKey,
+        component: "diagnostics",
+        reasonCode: safeText(input.payload.report.moduleId, 96),
+        event: input.event,
+        severity: input.severity,
+        source: "diagnostics",
+        reason,
+        evidence,
+        recovery: null,
+        diagnosticPayload: input.payload,
         occurredAt,
       });
       this.lastPersistedAt = occurredAt;
@@ -162,4 +242,26 @@ export class RuntimeIncidentStore {
       .limit(1);
     return incident ?? null;
   }
+
+  async listRecentDiagnostics(limit = 100) {
+    const boundedLimit = Math.max(1, Math.min(200, Math.trunc(limit)));
+    const [incidents, events] = await Promise.all([
+      db
+        .select()
+        .from(runtimeSupervisorIncidentsTable)
+        .where(eq(runtimeSupervisorIncidentsTable.source, "diagnostics"))
+        .orderBy(desc(runtimeSupervisorIncidentsTable.lastObservedAt))
+        .limit(boundedLimit),
+      db
+        .select()
+        .from(runtimeSupervisorAuditTable)
+        .where(eq(runtimeSupervisorAuditTable.source, "diagnostics"))
+        .orderBy(desc(runtimeSupervisorAuditTable.occurredAt))
+        .limit(boundedLimit),
+    ]);
+    return { incidents, events };
+  }
 }
+
+/** Shared database boundary for runtime supervision and Diagnostics Center. */
+export const runtimeIncidentStore = new RuntimeIncidentStore();

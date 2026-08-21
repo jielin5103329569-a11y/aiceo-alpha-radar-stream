@@ -33,6 +33,7 @@ type DiagnosticReport = {
   category: string;
   priority: "P0" | "P1" | "P2" | "P3";
   disposition: string;
+  status: "active" | "resolved";
   symptom: string;
   rootCause: string | null;
   candidateRootCauses: string[];
@@ -41,6 +42,7 @@ type DiagnosticReport = {
   verification: { state: ValidationState; reason: string; checkedAt: string };
   remainingRisk: string;
   evidence: Evidence[];
+  origin: "live" | "restored";
 };
 
 type DiagnosticsSnapshot = {
@@ -61,13 +63,14 @@ type DiagnosticsSnapshot = {
   knownIssues: DiagnosticReport[];
   recentEvents: Array<{
     id: string;
-    kind: "detected" | "recovery" | "observation";
+    kind: "detected" | "observed" | "recovery";
     occurredAt: string;
     moduleId: string;
     category: string;
     priority: string;
     disposition: string;
     summary: string;
+    origin: "live" | "restored";
   }>;
   knowledgeBase: Array<{
     id: string;
@@ -86,7 +89,13 @@ type DiagnosticsSnapshot = {
     learningEngine: string;
     reason: string;
   };
-  persistence: { state: string; reason: string };
+  persistence: {
+    state: "restoring" | "ready" | "empty" | "unavailable" | "corrupted";
+    reason: string;
+    restoredAt: string | null;
+    restoredReports: DiagnosticReport[];
+    restoredEvents: Array<{ id: string; kind: string; occurredAt: string; summary: string; priority: string }>;
+  };
 };
 
 const apiPath = `${import.meta.env.BASE_URL.replace(/\/$/, "")}/api/radar/diagnostics`;
@@ -127,6 +136,7 @@ function ReportCard({ report }: { report: DiagnosticReport }) {
           {report.priority}
         </Badge>
         <Badge variant="outline" className="font-mono text-[10px]">{report.category}</Badge>
+        {report.origin === "restored" && <Badge variant="outline" className="font-mono text-[10px] text-muted-foreground">historical</Badge>}
         <span className="text-xs text-muted-foreground">{report.moduleId}</span>
       </div>
       <p className="font-medium">{report.symptom}</p>
@@ -287,7 +297,7 @@ export default function DiagnosticsCenter() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-base"><Clock3 className="h-4 w-4" /> Health timeline</CardTitle>
-              <CardDescription>Bounded, process-local V1 event history.</CardDescription>
+              <CardDescription>Current process events. Restored events are kept separate below.</CardDescription>
             </CardHeader>
             <CardContent>
               {data.recentEvents.length ? (
@@ -295,12 +305,36 @@ export default function DiagnosticsCenter() {
                   {data.recentEvents.map((event) => (
                     <li key={event.id} className="relative">
                       <span className={cn("absolute -left-[25px] top-1 h-2.5 w-2.5 rounded-full ring-4 ring-background", event.kind === "recovery" ? "bg-emerald-500" : event.priority === "P0" || event.priority === "P1" ? "bg-destructive" : "bg-amber-500")} />
-                      <p className="text-[10px] font-mono uppercase text-muted-foreground">{timestamp(event.occurredAt)} · {event.kind} · {event.priority}</p>
+                      <p className="text-[10px] font-mono uppercase text-muted-foreground">{timestamp(event.occurredAt)} · {event.kind} · {event.priority} · {event.origin}</p>
                       <p className="mt-1 text-sm">{event.summary}</p>
                     </li>
                   ))}
                 </ol>
               ) : <p className="py-6 text-center text-sm text-muted-foreground">No changes recorded since this process began.</p>}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-base"><Database className="h-4 w-4" /> Restored diagnostic evidence</CardTitle>
+              <CardDescription>Historical records are read-only context, never a substitute for current live evidence.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge variant="outline" className={cn("font-mono text-[10px]", healthClass(data.persistence.state === "ready" ? "healthy" : data.persistence.state === "unavailable" || data.persistence.state === "corrupted" ? "blocked" : "unknown"))}>{data.persistence.state}</Badge>
+                {data.persistence.restoredAt && <span className="text-xs text-muted-foreground">Checked {timestamp(data.persistence.restoredAt)}</span>}
+              </div>
+              <p className="text-xs text-muted-foreground">{data.persistence.reason}</p>
+              {data.persistence.restoredReports.length ? (
+                <div className="space-y-2 border-t border-border pt-3">
+                  {data.persistence.restoredReports.map((report) => (
+                    <div key={report.id} className="rounded-md border border-dashed border-border p-3">
+                      <div className="flex flex-wrap items-center gap-2"><Badge variant="outline" className="font-mono text-[10px]">historical</Badge><span className="text-sm font-medium">{report.moduleId}</span><span className="text-xs text-muted-foreground">{report.status} · {report.priority}</span></div>
+                      <p className="mt-1 text-xs text-muted-foreground">{report.symptom}</p>
+                    </div>
+                  ))}
+                </div>
+              ) : <p className="border-t border-border pt-3 text-xs text-muted-foreground">No valid historical reports were restored.</p>}
             </CardContent>
           </Card>
 

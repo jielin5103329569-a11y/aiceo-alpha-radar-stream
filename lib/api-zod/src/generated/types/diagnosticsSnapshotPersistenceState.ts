@@ -10,5 +10,9 @@ export type DiagnosticsSnapshotPersistenceState = typeof DiagnosticsSnapshotPers
 
 
 export const DiagnosticsSnapshotPersistenceState = {
-  process_bounded: 'process_bounded',
+  restoring: 'restoring',
+  ready: 'ready',
+  empty: 'empty',
+  unavailable: 'unavailable',
+  corrupted: 'corrupted',
 } as const;

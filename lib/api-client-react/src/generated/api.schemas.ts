@@ -110,6 +110,14 @@ export const DiagnosticReportStatus = {
   resolved: 'resolved',
 } as const;
 
+export type DiagnosticReportOrigin = typeof DiagnosticReportOrigin[keyof typeof DiagnosticReportOrigin];
+
+
+export const DiagnosticReportOrigin = {
+  live: 'live',
+  restored: 'restored',
+} as const;
+
 export interface DiagnosticReport {
   id: string;
   moduleId: string;
@@ -128,6 +136,7 @@ export interface DiagnosticReport {
   evidence: DiagnosticEvidence[];
   firstObservedAt: string;
   lastObservedAt: string;
+  origin: DiagnosticReportOrigin;
 }
 
 export type DiagnosticEventKind = typeof DiagnosticEventKind[keyof typeof DiagnosticEventKind];
@@ -135,8 +144,16 @@ export type DiagnosticEventKind = typeof DiagnosticEventKind[keyof typeof Diagno
 
 export const DiagnosticEventKind = {
   detected: 'detected',
+  observed: 'observed',
   recovery: 'recovery',
-  observation: 'observation',
+} as const;
+
+export type DiagnosticEventOrigin = typeof DiagnosticEventOrigin[keyof typeof DiagnosticEventOrigin];
+
+
+export const DiagnosticEventOrigin = {
+  live: 'live',
+  restored: 'restored',
 } as const;
 
 export interface DiagnosticEvent {
@@ -150,6 +167,7 @@ export interface DiagnosticEvent {
   disposition: DiagnosticDisposition;
   summary: string;
   evidence: DiagnosticEvidence;
+  origin: DiagnosticEventOrigin;
 }
 
 export type DiagnosticKnowledgeEntryStatus = typeof DiagnosticKnowledgeEntryStatus[keyof typeof DiagnosticKnowledgeEntryStatus];
@@ -210,12 +228,20 @@ export type DiagnosticsSnapshotPersistenceState = typeof DiagnosticsSnapshotPers
 
 
 export const DiagnosticsSnapshotPersistenceState = {
-  process_bounded: 'process_bounded',
+  restoring: 'restoring',
+  ready: 'ready',
+  empty: 'empty',
+  unavailable: 'unavailable',
+  corrupted: 'corrupted',
 } as const;
 
 export type DiagnosticsSnapshotPersistence = {
   state: DiagnosticsSnapshotPersistenceState;
   reason: string;
+  /** @nullable */
+  restoredAt: string | null;
+  restoredReports: DiagnosticReport[];
+  restoredEvents: DiagnosticEvent[];
 };
 
 export interface DiagnosticsSnapshot {

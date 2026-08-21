@@ -578,7 +578,7 @@ components:
         checkedAt: { type: string, format: date-time }
     DiagnosticReport:
       type: object
-      required: [id, moduleId, category, priority, disposition, status, symptom, rootCause, candidateRootCauses, impactScope, recommendedFix, verification, remainingRisk, evidence, firstObservedAt, lastObservedAt]
+      required: [id, moduleId, category, priority, disposition, status, symptom, rootCause, candidateRootCauses, impactScope, recommendedFix, verification, remainingRisk, evidence, firstObservedAt, lastObservedAt, origin]
       properties:
         id: { type: string }
         moduleId: { type: string }
@@ -600,12 +600,13 @@ components:
           items: { $ref: "#/components/schemas/DiagnosticEvidence" }
         firstObservedAt: { type: string, format: date-time }
         lastObservedAt: { type: string, format: date-time }
+        origin: { type: string, enum: [live, restored] }
     DiagnosticEvent:
       type: object
-      required: [id, kind, occurredAt, reportId, moduleId, category, priority, disposition, summary, evidence]
+      required: [id, kind, occurredAt, reportId, moduleId, category, priority, disposition, summary, evidence, origin]
       properties:
         id: { type: string }
-        kind: { type: string, enum: [detected, recovery, observation] }
+        kind: { type: string, enum: [detected, observed, recovery] }
         occurredAt: { type: string, format: date-time }
         reportId: { type: string }
         moduleId: { type: string }
@@ -614,6 +615,7 @@ components:
         disposition: { $ref: "#/components/schemas/DiagnosticDisposition" }
         summary: { type: string }
         evidence: { $ref: "#/components/schemas/DiagnosticEvidence" }
+        origin: { type: string, enum: [live, restored] }
     DiagnosticKnowledgeEntry:
       type: object
       required: [id, title, status, summary, lesson, verification, remainingRisk, categories, relatedReportIds]
@@ -675,10 +677,17 @@ components:
             reason: { type: string }
         persistence:
           type: object
-          required: [state, reason]
+          required: [state, reason, restoredAt, restoredReports, restoredEvents]
           properties:
-            state: { type: string, enum: [process_bounded] }
+            state: { type: string, enum: [restoring, ready, empty, unavailable, corrupted] }
             reason: { type: string }
+            restoredAt: { type: [string, "null"], format: date-time }
+            restoredReports:
+              type: array
+              items: { $ref: "#/components/schemas/DiagnosticReport" }
+            restoredEvents:
+              type: array
+              items: { $ref: "#/components/schemas/DiagnosticEvent" }
         auditHash: { type: string }
     AlertSeverity:
       type: string

@@ -11,6 +11,6 @@ export type DiagnosticEventKind = typeof DiagnosticEventKind[keyof typeof Diagno
 
 export const DiagnosticEventKind = {
   detected: 'detected',
+  observed: 'observed',
   recovery: 'recovery',
-  observation: 'observation',
 } as const;

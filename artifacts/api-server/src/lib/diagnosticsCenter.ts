@@ -1,13 +1,22 @@
 import { createHash, randomUUID } from "node:crypto";
 
+import type { RuntimeDiagnosticPayload } from "@workspace/db";
+
 import type { BackendLifelineSnapshot } from "./backendLifeline";
 import type { EngineeringGovernanceSnapshot } from "./engineeringGovernance";
 import { logger } from "./logger";
+import {
+  runtimeIncidentStore,
+  type DiagnosticPersistenceInput,
+  type RuntimeIncidentStoreHealth,
+} from "./runtimeIncidentStore";
 import type { RuntimeSupervisorSnapshot } from "./runtimeSupervisor";
 
 export const DIAGNOSTICS_CENTER_SCHEMA_VERSION = 1;
 export const DIAGNOSTICS_EVENT_LIMIT = 120;
 export const DIAGNOSTICS_REFRESH_INTERVAL_MS = 15_000;
+export const DIAGNOSTICS_PERSIST_QUEUE_MAX = 24;
+export const DIAGNOSTICS_PERSIST_TIMEOUT_MS = 3_000;
 
 export type DiagnosticCategory =
   | "infrastructure"
@@ -76,11 +85,12 @@ export type DiagnosticReport = {
   evidence: DiagnosticEvidence[];
   firstObservedAt: Date;
   lastObservedAt: Date;
+  origin: "live" | "restored";
 };
 
 export type DiagnosticEvent = {
   id: string;
-  kind: "detected" | "recovery" | "observation";
+  kind: "detected" | "observed" | "recovery";
   occurredAt: Date;
   reportId: string;
   moduleId: string;
@@ -89,6 +99,7 @@ export type DiagnosticEvent = {
   disposition: DiagnosticDisposition;
   summary: string;
   evidence: DiagnosticEvidence;
+  origin: "live" | "restored";
 };
 
 export type DiagnosticKnowledgeEntry = {
@@ -125,8 +136,11 @@ export type DiagnosticsSnapshot = {
     reason: string;
   };
   persistence: {
-    state: "process_bounded";
+    state: "restoring" | "ready" | "empty" | "unavailable" | "corrupted";
     reason: string;
+    restoredAt: Date | null;
+    restoredReports: DiagnosticReport[];
+    restoredEvents: DiagnosticEvent[];
   };
   auditHash: string;
 };
@@ -138,7 +152,16 @@ export type DiagnosticsInputs = {
   now?: Date;
 };
 
-type IssueCandidate = Omit<DiagnosticReport, "id" | "status" | "firstObservedAt" | "lastObservedAt">;
+export type DiagnosticsPersistence = {
+  getHealth(): RuntimeIncidentStoreHealth;
+  recordDiagnostic(input: DiagnosticPersistenceInput): Promise<void>;
+  listRecentDiagnostics(limit?: number): Promise<{
+    incidents: Array<{ diagnosticPayload: RuntimeDiagnosticPayload | null }>;
+    events: Array<{ diagnosticPayload: RuntimeDiagnosticPayload | null }>;
+  }>;
+};
+
+type IssueCandidate = Omit<DiagnosticReport, "id" | "status" | "firstObservedAt" | "lastObservedAt" | "origin">;
 type ActiveIssue = DiagnosticReport;
 
 function safeText(value: string, max = 420): string {
@@ -529,6 +552,118 @@ function knownKnowledge(): DiagnosticKnowledgeEntry[] {
   ];
 }
 
+function validEnum<T extends string>(value: unknown, values: readonly T[]): value is T {
+  return typeof value === "string" && values.includes(value as T);
+}
+
+function parseDate(value: unknown): Date | null {
+  if (typeof value !== "string") return null;
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function isPlainRecord(value: unknown): value is Record<string, unknown> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const prototype = Object.getPrototypeOf(value);
+  return prototype === Object.prototype || prototype === null;
+}
+
+function isFactRecord(value: unknown): value is Record<string, string | number | boolean | null> {
+  return isPlainRecord(value)
+    && Object.entries(value).every(([key, item]) => (
+      key.length <= 64
+      && (typeof item === "string" || typeof item === "number" || typeof item === "boolean" || item === null)
+    ));
+}
+
+function restorePayload(payload: RuntimeDiagnosticPayload): { report: DiagnosticReport; event: DiagnosticEvent } | null {
+  const report = payload?.report;
+  const persistedEvent = payload?.event;
+  if (
+    !report
+    || !persistedEvent
+    || payload.schemaVersion !== 1
+    || typeof report.id !== "string"
+    || typeof report.moduleId !== "string"
+    || !validEnum(report.category, ["infrastructure", "application", "data", "configuration", "permission_subscription", "governance", "performance"] as const)
+    || !validEnum(report.priority, ["P0", "P1", "P2", "P3"] as const)
+    || !validEnum(report.disposition, ["code_defect", "configuration", "permission_subscription", "data_unavailable", "governance_enforced", "expected_rejection", "recovery_event", "infrastructure_fault", "unknown"] as const)
+    || !validEnum(report.status, ["active", "resolved"] as const)
+    || !validEnum(report.validation?.state, ["passed", "failed", "waiting", "skipped"] as const)
+    || !validEnum(persistedEvent.kind, ["detected", "observed", "recovery"] as const)
+    || typeof report.symptom !== "string"
+    || (report.rootCause !== null && typeof report.rootCause !== "string")
+    || typeof report.impactScope !== "string"
+    || typeof report.recommendedFix !== "string"
+    || typeof report.remainingRisk !== "string"
+    || typeof report.validation.id !== "string"
+    || typeof report.validation.label !== "string"
+    || typeof report.validation.reason !== "string"
+    || typeof persistedEvent.id !== "string"
+    || typeof persistedEvent.summary !== "string"
+    || !parseDate(report.firstObservedAt)
+    || !parseDate(report.lastObservedAt)
+    || !parseDate(report.validation.checkedAt)
+    || !parseDate(persistedEvent.occurredAt)
+    || !Array.isArray(report.candidateRootCauses)
+    || report.candidateRootCauses.some((item) => typeof item !== "string")
+    || !Array.isArray(report.evidence)
+    || report.evidence.some((item) => !isPlainRecord(item)
+      || typeof item.source !== "string"
+      || typeof item.summary !== "string"
+      || !isFactRecord(item.facts)
+      || !parseDate(item.collectedAt))
+  ) return null;
+
+  const evidenceItems: DiagnosticEvidence[] = report.evidence.map((item) => ({
+    source: safeText(item.source, 96),
+    summary: safeText(item.summary),
+    facts: item.facts,
+    collectedAt: parseDate(item.collectedAt)!,
+  }));
+  const restoredReport: DiagnosticReport = {
+    id: safeText(report.id, 160),
+    moduleId: safeText(report.moduleId, 96),
+    category: report.category,
+    priority: report.priority,
+    disposition: report.disposition,
+    status: report.status,
+    symptom: safeText(report.symptom ?? ""),
+    rootCause: report.rootCause === null ? null : typeof report.rootCause === "string" ? safeText(report.rootCause) : null,
+    candidateRootCauses: report.candidateRootCauses.filter((item): item is string => typeof item === "string").map((item) => safeText(item)),
+    impactScope: safeText(report.impactScope ?? ""),
+    recommendedFix: safeText(report.recommendedFix ?? ""),
+    verification: {
+      id: safeText(report.validation.id ?? "", 128),
+      label: safeText(report.validation.label ?? ""),
+      state: report.validation.state,
+      reason: safeText(report.validation.reason ?? ""),
+      checkedAt: parseDate(report.validation.checkedAt)!,
+    },
+    remainingRisk: safeText(report.remainingRisk ?? ""),
+    evidence: evidenceItems,
+    firstObservedAt: parseDate(report.firstObservedAt)!,
+    lastObservedAt: parseDate(report.lastObservedAt)!,
+    origin: "restored",
+  };
+  return {
+    report: restoredReport,
+    event: {
+      id: safeText(persistedEvent.id, 160),
+      kind: persistedEvent.kind,
+      occurredAt: parseDate(persistedEvent.occurredAt)!,
+      reportId: restoredReport.id,
+      moduleId: restoredReport.moduleId,
+      category: restoredReport.category,
+      priority: restoredReport.priority,
+      disposition: persistedEvent.kind === "recovery" ? "recovery_event" : restoredReport.disposition,
+      summary: safeText(persistedEvent.summary),
+      evidence: evidenceItems[0] ?? evidence("diagnostics_restore", "Persisted diagnostic event did not retain evidence.", {}, new Date()),
+      origin: "restored",
+    },
+  };
+}
+
 /**
  * Shared, read-only diagnostic projection. It is intentionally process-bounded
  * in V1: loss of diagnostic history after restart is visible, and never allowed
@@ -539,21 +674,32 @@ export class DiagnosticsCenter {
   private monitor: NodeJS.Timeout | null = null;
   private readonly active = new Map<string, ActiveIssue>();
   private readonly events: DiagnosticEvent[] = [];
+  private readonly restoredReports: DiagnosticReport[] = [];
+  private readonly restoredEvents: DiagnosticEvent[] = [];
+  private restoreState: "restoring" | "ready" | "empty" | "unavailable" | "corrupted" = "restoring";
+  private restoreReason = "Persistent diagnostic evidence has not been checked yet.";
+  private restoredAt: Date | null = null;
+  private restoreInFlight: Promise<void> | null = null;
+  private readonly persistenceQueue: Array<{ report: DiagnosticReport; event: DiagnosticEvent }> = [];
+  private persistenceWorker: Promise<void> | null = null;
   private latest: DiagnosticsSnapshot | null = null;
+
+  constructor(private readonly persistence: DiagnosticsPersistence = runtimeIncidentStore) {}
 
   start(getInputs: () => DiagnosticsInputs): void {
     if (this.monitor) return;
     this.getInputs = getInputs;
-    this.refresh();
+    void this.restore().finally(() => this.refresh());
     this.monitor = setInterval(() => this.refresh(), DIAGNOSTICS_REFRESH_INTERVAL_MS);
     this.monitor.unref();
     logger.info({ diagnostics: { intervalMs: DIAGNOSTICS_REFRESH_INTERVAL_MS } }, "Diagnostics Center started as a read-only observer");
   }
 
-  stop(): void {
+  async stop(): Promise<void> {
     if (this.monitor) clearInterval(this.monitor);
     this.monitor = null;
     this.getInputs = null;
+    await this.flushPersistence();
   }
 
   getSnapshot(inputs?: DiagnosticsInputs): DiagnosticsSnapshot {
@@ -574,6 +720,47 @@ export class DiagnosticsCenter {
     }
   }
 
+  async restore(): Promise<void> {
+    if (this.restoreInFlight) return this.restoreInFlight;
+    this.restoreState = "restoring";
+    this.restoreReason = "Loading bounded diagnostic evidence from the shared operational store.";
+    this.restoreInFlight = (async () => {
+      try {
+        const persisted = await this.persistence.listRecentDiagnostics(DIAGNOSTICS_EVENT_LIMIT);
+        const reports = persisted.incidents
+          .map((record) => record.diagnosticPayload ? restorePayload(record.diagnosticPayload) : null);
+        const events = persisted.events
+          .map((record) => record.diagnosticPayload ? restorePayload(record.diagnosticPayload) : null);
+        const malformed = reports.some((item) => item === null) || events.some((item) => item === null);
+        this.restoredReports.splice(0, this.restoredReports.length, ...reports.flatMap((item) => item ? [item.report] : []));
+        this.restoredEvents.splice(0, this.restoredEvents.length, ...events.flatMap((item) => item ? [item.event] : []));
+        this.restoredAt = new Date();
+        this.restoreState = malformed ? "corrupted" : this.restoredReports.length || this.restoredEvents.length ? "ready" : "empty";
+        this.restoreReason = malformed
+          ? "Some persisted diagnostic records were rejected as incomplete or corrupt. Valid historical evidence remains read-only and live services are unaffected."
+          : this.restoreState === "empty"
+            ? "No prior diagnostic evidence is available in the shared operational store."
+            : "Historical diagnostic evidence was restored from the shared operational store and is labeled separately from live observations.";
+        logger.info({
+          diagnostics: {
+            restoredReports: this.restoredReports.length,
+            restoredEvents: this.restoredEvents.length,
+            restoreState: this.restoreState,
+          },
+        }, "Diagnostics Center restored historical evidence");
+      } catch (error) {
+        const failure = safeText(error instanceof Error ? error.message : String(error));
+        this.restoreState = "unavailable";
+        this.restoreReason = "Persistent diagnostic evidence is unavailable. Live Alpha Radar and Diagnostics Center observations remain isolated and continue without restoration.";
+        this.restoredAt = new Date();
+        logger.warn({ diagnostics: { error: failure } }, "Diagnostics Center persistence restore failed without affecting Alpha Radar services");
+      } finally {
+        this.restoreInFlight = null;
+      }
+    })();
+    return this.restoreInFlight;
+  }
+
   private assess(inputs: DiagnosticsInputs): DiagnosticsSnapshot {
     const now = inputs.now ?? new Date();
     const modules = moduleHealth(inputs, now);
@@ -590,6 +777,7 @@ export class DiagnosticsCenter {
             ...candidate,
             status: "active",
             lastObservedAt: now,
+            origin: "live",
           }
         : {
             ...candidate,
@@ -597,8 +785,13 @@ export class DiagnosticsCenter {
             status: "active",
             firstObservedAt: now,
             lastObservedAt: now,
+            origin: "live",
           };
-      if (!existing) this.recordEvent("detected", report, now);
+      if (!existing) {
+        this.recordEvent("detected", report, now);
+      } else if (this.reportFingerprint(existing) !== this.reportFingerprint(report)) {
+        this.recordEvent("observed", report, now);
+      }
       this.active.set(candidate.moduleId, report);
     }
 
@@ -616,6 +809,7 @@ export class DiagnosticsCenter {
           checkedAt: now,
         },
         remainingRisk: "Continue normal bounded observation; no market or Alert state was used as recovery proof.",
+        origin: "live",
       };
       this.recordEvent("recovery", resolved, now);
       this.active.delete(moduleId);
@@ -659,10 +853,7 @@ export class DiagnosticsCenter {
         learningEngine: "context_available_no_production_authority" as const,
         reason: "V1 exposes evidence and recommendations only. No future engine can change configuration, permissions, governance, market data, scores, or Alerts through this interface.",
       },
-      persistence: {
-        state: "process_bounded" as const,
-        reason: "V1 retains a bounded in-process event timeline and uses existing supervisor persistence independently. Diagnostic observation failure never blocks Alpha Radar runtime paths.",
-      },
+      persistence: this.persistenceSummary(),
     };
     return { ...unsigned, auditHash: digest(unsigned) };
   }
@@ -681,6 +872,7 @@ export class DiagnosticsCenter {
         ? `Recovered: ${safeText(report.symptom)}`
         : safeText(report.symptom),
       evidence: report.evidence[0],
+      origin: "live",
     };
     this.events.unshift(event);
     if (this.events.length > DIAGNOSTICS_EVENT_LIMIT) this.events.length = DIAGNOSTICS_EVENT_LIMIT;
@@ -695,6 +887,172 @@ export class DiagnosticsCenter {
         evidence: event.evidence,
       },
     }, "Diagnostic event recorded");
+    this.enqueuePersistence(report, event);
+  }
+
+  private enqueuePersistence(report: DiagnosticReport, event: DiagnosticEvent): void {
+    if (this.persistenceQueue.length >= DIAGNOSTICS_PERSIST_QUEUE_MAX) {
+      this.persistenceQueue.length = 0;
+      this.restoreState = "unavailable";
+      this.restoreReason = "Diagnostic persistence queue reached its bounded capacity. Live observations remain available and Alpha Radar is unaffected.";
+      logger.warn("Diagnostics Center persistence queue reached bounded capacity; live services remain isolated");
+      return;
+    }
+    this.persistenceQueue.push({ report, event });
+    if (!this.persistenceWorker) this.persistenceWorker = this.drainPersistenceQueue();
+  }
+
+  private async drainPersistenceQueue(): Promise<void> {
+    try {
+      while (this.persistenceQueue.length) {
+        const entry = this.persistenceQueue.shift();
+        if (!entry) continue;
+        const write = this.persistence.recordDiagnostic(this.persistenceInput(entry.report, entry.event));
+        const outcome = await new Promise<"completed" | "timed_out" | { error: unknown }>((resolve) => {
+          const timeout = setTimeout(() => resolve("timed_out"), DIAGNOSTICS_PERSIST_TIMEOUT_MS);
+          timeout.unref();
+          void write.then(
+            () => {
+              clearTimeout(timeout);
+              resolve("completed");
+            },
+            (error) => {
+              clearTimeout(timeout);
+              resolve({ error });
+            },
+          );
+        });
+        if (outcome === "completed" && this.persistence.getHealth().state === "ready") continue;
+        this.persistenceQueue.length = 0;
+        this.restoreState = "unavailable";
+        this.restoreReason = "Diagnostic persistence is unavailable. Live observations continue without using storage as a runtime dependency.";
+        logger.warn({
+          diagnostics: {
+            error: outcome === "timed_out"
+              ? "Diagnostic persistence write timed out."
+              : typeof outcome === "object" && "error" in outcome
+                ? safeText(outcome.error instanceof Error ? outcome.error.message : String(outcome.error))
+                : this.persistence.getHealth().lastError,
+          },
+        }, "Diagnostics Center persistence write failed without affecting Alpha Radar services");
+        return;
+      }
+    } finally {
+      this.persistenceWorker = null;
+      if (this.persistenceQueue.length) this.persistenceWorker = this.drainPersistenceQueue();
+    }
+  }
+
+  private persistenceInput(report: DiagnosticReport, event: DiagnosticEvent): DiagnosticPersistenceInput {
+    const payload: RuntimeDiagnosticPayload = {
+      schemaVersion: 1,
+      report: {
+        id: report.id,
+        moduleId: report.moduleId,
+        category: report.category,
+        priority: report.priority,
+        disposition: report.disposition,
+        status: report.status,
+        symptom: report.symptom,
+        rootCause: report.rootCause,
+        candidateRootCauses: report.candidateRootCauses,
+        impactScope: report.impactScope,
+        recommendedFix: report.recommendedFix,
+        validation: {
+          id: report.verification.id,
+          label: report.verification.label,
+          state: report.verification.state,
+          reason: report.verification.reason,
+          checkedAt: report.verification.checkedAt.toISOString(),
+        },
+        remainingRisk: report.remainingRisk,
+        evidence: report.evidence.map((item) => ({
+          source: item.source,
+          summary: item.summary,
+          facts: item.facts,
+          collectedAt: item.collectedAt.toISOString(),
+        })),
+        firstObservedAt: report.firstObservedAt.toISOString(),
+        lastObservedAt: report.lastObservedAt.toISOString(),
+      },
+      event: {
+        id: event.id,
+        kind: event.kind,
+        occurredAt: event.occurredAt.toISOString(),
+        summary: event.summary,
+      },
+    };
+    return {
+      incidentKey: `diagnostic:${report.moduleId}`,
+      state: report.status === "resolved" ? "resolved" : "open",
+      event: event.kind === "recovery" ? "resolved" : event.kind,
+      severity: report.priority === "P0" || report.priority === "P1" ? "critical" : "warning",
+      reason: report.symptom,
+      evidence: {
+        summary: event.summary,
+        componentState: report.status,
+        details: {
+          category: report.category,
+          priority: report.priority,
+          disposition: report.disposition,
+          validationState: report.verification.state,
+        },
+      },
+      payload,
+      occurredAt: event.occurredAt,
+    };
+  }
+
+  private persistenceSummary(): DiagnosticsSnapshot["persistence"] {
+    const health = this.persistence.getHealth();
+    const state = health.state === "unavailable"
+      ? "unavailable" as const
+      : this.restoreState;
+    const reason = health.state === "unavailable"
+      ? "Shared operational persistence is unavailable. Historical evidence may be incomplete, while live Alpha Radar and Diagnostics Center observations remain isolated."
+      : this.restoreReason;
+    return {
+      state,
+      reason,
+      restoredAt: this.restoredAt,
+      restoredReports: this.restoredReports.slice(0, DIAGNOSTICS_EVENT_LIMIT),
+      restoredEvents: this.restoredEvents.slice(0, DIAGNOSTICS_EVENT_LIMIT),
+    };
+  }
+
+  private reportFingerprint(report: DiagnosticReport): string {
+    return JSON.stringify({
+      category: report.category,
+      priority: report.priority,
+      disposition: report.disposition,
+      symptom: report.symptom,
+      rootCause: report.rootCause,
+      candidateRootCauses: report.candidateRootCauses,
+      impactScope: report.impactScope,
+      recommendedFix: report.recommendedFix,
+      verification: {
+        state: report.verification.state,
+        reason: report.verification.reason,
+      },
+      remainingRisk: report.remainingRisk,
+      evidence: report.evidence.map((item) => ({
+        source: item.source,
+        summary: item.summary,
+        facts: item.facts,
+      })),
+    });
+  }
+
+  private async flushPersistence(): Promise<void> {
+    if (!this.persistenceWorker && this.persistenceQueue.length) this.persistenceWorker = this.drainPersistenceQueue();
+    if (!this.persistenceWorker) return;
+    await Promise.race([
+      this.persistenceWorker,
+      new Promise<void>((resolve) => {
+        const timeout = setTimeout(resolve, DIAGNOSTICS_PERSIST_TIMEOUT_MS);
+        timeout.unref();
+      }),
+    ]);
   }
 
   private emptySnapshot(now: Date, error?: string): DiagnosticsSnapshot {
@@ -730,10 +1088,7 @@ export class DiagnosticsCenter {
         learningEngine: "context_available_no_production_authority" as const,
         reason: "The interface remains read-only even when no current diagnostic observation is available.",
       },
-      persistence: {
-        state: "process_bounded" as const,
-        reason: "Diagnostics V1 does not block runtime services when its own projection is unavailable.",
-      },
+      persistence: this.persistenceSummary(),
     };
     return { ...unsigned, auditHash: digest(unsigned) };
   }

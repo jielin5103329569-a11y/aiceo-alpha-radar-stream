@@ -9,6 +9,7 @@ import type { DiagnosticCategory } from './diagnosticCategory';
 import type { DiagnosticDisposition } from './diagnosticDisposition';
 import type { DiagnosticEvidence } from './diagnosticEvidence';
 import type { DiagnosticPriority } from './diagnosticPriority';
+import type { DiagnosticReportOrigin } from './diagnosticReportOrigin';
 import type { DiagnosticReportStatus } from './diagnosticReportStatus';
 import type { DiagnosticValidation } from './diagnosticValidation';
 
@@ -30,4 +31,5 @@ export interface DiagnosticReport {
   evidence: DiagnosticEvidence[];
   firstObservedAt: Date;
   lastObservedAt: Date;
+  origin: DiagnosticReportOrigin;
 }

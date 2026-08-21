@@ -5,6 +5,7 @@ import type { InternalTaskSummary } from "./internalTaskRegistry";
 import { logger } from "./logger";
 import {
   RuntimeIncidentStore,
+  runtimeIncidentStore,
   type RuntimeIncidentInput,
   type RuntimeIncidentSeverity,
   type RuntimeIncidentState,
@@ -156,7 +157,7 @@ export class RuntimeSupervisor {
   private dashboardDelivery = { activeSseConnections: 0 };
   private lastCandidates: IncidentCandidate[] = [];
 
-  constructor(store = new RuntimeIncidentStore(), options: RuntimeSupervisorOptions = {}) {
+  constructor(store: RuntimeIncidentStore = runtimeIncidentStore, options: RuntimeSupervisorOptions = {}) {
     this.store = store;
     this.persistenceTimeoutMs = options.persistenceTimeoutMs ?? RUNTIME_SUPERVISOR_PERSIST_TIMEOUT_MS;
     this.persistenceQueueMax = options.persistenceQueueMax ?? RUNTIME_SUPERVISOR_PERSIST_QUEUE_MAX;

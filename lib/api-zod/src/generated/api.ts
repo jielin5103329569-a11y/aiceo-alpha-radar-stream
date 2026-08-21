@@ -2102,7 +2102,8 @@ export const GetDiagnosticsResponse = zod.object({
   "collectedAt": zod.coerce.date()
 })),
   "firstObservedAt": zod.coerce.date(),
-  "lastObservedAt": zod.coerce.date()
+  "lastObservedAt": zod.coerce.date(),
+  "origin": zod.enum(['live', 'restored'])
 })),
   "knownIssues": zod.array(zod.object({
   "id": zod.string(),
@@ -2131,11 +2132,12 @@ export const GetDiagnosticsResponse = zod.object({
   "collectedAt": zod.coerce.date()
 })),
   "firstObservedAt": zod.coerce.date(),
-  "lastObservedAt": zod.coerce.date()
+  "lastObservedAt": zod.coerce.date(),
+  "origin": zod.enum(['live', 'restored'])
 })),
   "recentEvents": zod.array(zod.object({
   "id": zod.string(),
-  "kind": zod.enum(['detected', 'recovery', 'observation']),
+  "kind": zod.enum(['detected', 'observed', 'recovery']),
   "occurredAt": zod.coerce.date(),
   "reportId": zod.string(),
   "moduleId": zod.string(),
@@ -2148,11 +2150,12 @@ export const GetDiagnosticsResponse = zod.object({
   "summary": zod.string(),
   "facts": zod.record(zod.string(), zod.union([zod.string(),zod.number(),zod.boolean()]).nullable()),
   "collectedAt": zod.coerce.date()
-})
+}),
+  "origin": zod.enum(['live', 'restored'])
 })),
   "healthTimeline": zod.array(zod.object({
   "id": zod.string(),
-  "kind": zod.enum(['detected', 'recovery', 'observation']),
+  "kind": zod.enum(['detected', 'observed', 'recovery']),
   "occurredAt": zod.coerce.date(),
   "reportId": zod.string(),
   "moduleId": zod.string(),
@@ -2165,7 +2168,8 @@ export const GetDiagnosticsResponse = zod.object({
   "summary": zod.string(),
   "facts": zod.record(zod.string(), zod.union([zod.string(),zod.number(),zod.boolean()]).nullable()),
   "collectedAt": zod.coerce.date()
-})
+}),
+  "origin": zod.enum(['live', 'restored'])
 })),
   "knowledgeBase": zod.array(zod.object({
   "id": zod.string(),
@@ -2192,8 +2196,57 @@ export const GetDiagnosticsResponse = zod.object({
   "reason": zod.string()
 }),
   "persistence": zod.object({
-  "state": zod.enum(['process_bounded']),
-  "reason": zod.string()
+  "state": zod.enum(['restoring', 'ready', 'empty', 'unavailable', 'corrupted']),
+  "reason": zod.string(),
+  "restoredAt": zod.coerce.date().nullable(),
+  "restoredReports": zod.array(zod.object({
+  "id": zod.string(),
+  "moduleId": zod.string(),
+  "category": zod.enum(['infrastructure', 'application', 'data', 'configuration', 'permission_subscription', 'governance', 'performance']),
+  "priority": zod.enum(['P0', 'P1', 'P2', 'P3']),
+  "disposition": zod.enum(['code_defect', 'configuration', 'permission_subscription', 'data_unavailable', 'governance_enforced', 'expected_rejection', 'recovery_event', 'infrastructure_fault', 'unknown']),
+  "status": zod.enum(['active', 'resolved']),
+  "symptom": zod.string(),
+  "rootCause": zod.string().nullable(),
+  "candidateRootCauses": zod.array(zod.string()),
+  "impactScope": zod.string(),
+  "recommendedFix": zod.string(),
+  "verification": zod.object({
+  "id": zod.string(),
+  "label": zod.string(),
+  "state": zod.enum(['passed', 'failed', 'waiting', 'skipped']),
+  "reason": zod.string(),
+  "checkedAt": zod.coerce.date()
+}),
+  "remainingRisk": zod.string(),
+  "evidence": zod.array(zod.object({
+  "source": zod.string(),
+  "summary": zod.string(),
+  "facts": zod.record(zod.string(), zod.union([zod.string(),zod.number(),zod.boolean()]).nullable()),
+  "collectedAt": zod.coerce.date()
+})),
+  "firstObservedAt": zod.coerce.date(),
+  "lastObservedAt": zod.coerce.date(),
+  "origin": zod.enum(['live', 'restored'])
+})),
+  "restoredEvents": zod.array(zod.object({
+  "id": zod.string(),
+  "kind": zod.enum(['detected', 'observed', 'recovery']),
+  "occurredAt": zod.coerce.date(),
+  "reportId": zod.string(),
+  "moduleId": zod.string(),
+  "category": zod.enum(['infrastructure', 'application', 'data', 'configuration', 'permission_subscription', 'governance', 'performance']),
+  "priority": zod.enum(['P0', 'P1', 'P2', 'P3']),
+  "disposition": zod.enum(['code_defect', 'configuration', 'permission_subscription', 'data_unavailable', 'governance_enforced', 'expected_rejection', 'recovery_event', 'infrastructure_fault', 'unknown']),
+  "summary": zod.string(),
+  "evidence": zod.object({
+  "source": zod.string(),
+  "summary": zod.string(),
+  "facts": zod.record(zod.string(), zod.union([zod.string(),zod.number(),zod.boolean()]).nullable()),
+  "collectedAt": zod.coerce.date()
+}),
+  "origin": zod.enum(['live', 'restored'])
+}))
 }),
   "auditHash": zod.string()
 })

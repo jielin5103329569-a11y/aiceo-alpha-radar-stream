@@ -49,7 +49,7 @@ const shutdown = createGracefulShutdown({
   // subscribed AlertService. Market windows and scanner state are intentionally
   // discarded by DatabentoLiveService.stop() and rebuild after the next start.
   stopServices: async () => {
-    diagnosticsCenter.stop();
+    await diagnosticsCenter.stop();
     runtimeSupervisor.stop();
     await autonomousOperationsCoordinator.stop();
     alertService.stop();

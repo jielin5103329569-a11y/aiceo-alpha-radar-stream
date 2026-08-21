@@ -8,6 +8,7 @@
 import type { DiagnosticCategory } from './diagnosticCategory';
 import type { DiagnosticDisposition } from './diagnosticDisposition';
 import type { DiagnosticEventKind } from './diagnosticEventKind';
+import type { DiagnosticEventOrigin } from './diagnosticEventOrigin';
 import type { DiagnosticEvidence } from './diagnosticEvidence';
 import type { DiagnosticPriority } from './diagnosticPriority';
 
@@ -22,4 +23,5 @@ export interface DiagnosticEvent {
   disposition: DiagnosticDisposition;
   summary: string;
   evidence: DiagnosticEvidence;
+  origin: DiagnosticEventOrigin;
 }
