@@ -156,6 +156,12 @@ try {
     normalizeSecurityType,
   } = require(join(outputDirectory, "marketUniverse.js"));
   const { AlertMonitor, observeRadarStatus } = require(join(outputDirectory, "alertMonitor.js"));
+  const { buildSectorPriority } = require(join(outputDirectory, "sectorPriority.js"));
+  const {
+    calculateSectorConfirmation,
+    createCatalystRadar,
+    fuseOpportunity,
+  } = require(join(outputDirectory, "catalystRadar.js"));
   const { aiIndustryStockPool: poolSidecar } = require(join(outputDirectory, "aiIndustryStockPool.js"));
   const childProcess = require(join(outputDirectory, "child-process.js"));
   const previousDatabentoKey = process.env.DATABENTO_API_KEY;
@@ -325,8 +331,8 @@ try {
 
   const staleClassificationRegistry = new MarketUniverseRegistry();
   staleClassificationRegistry.replace(
-    [{
-      providerSymbol: "OLDC",
+    ["OLDC", "OLDP"].map((providerSymbol) => ({
+      providerSymbol,
       providerSecurityType: "CS",
       listingStatus: "A",
       sector: "Information Technology",
@@ -336,7 +342,7 @@ try {
       classificationAuthorized: true,
       classificationUpdatedAt: new Date(referenceAt.getTime() - 61_000).toISOString(),
       referenceUpdatedAt: referenceAt.toISOString(),
-    }],
+    })),
     {
       dataset: "Fixture",
       source: "Fresh reference fixture with old classification",
@@ -357,6 +363,183 @@ try {
     staleClassificationRegistry.query({}, new Date(referenceAt.getTime() + 10_000)).items[0]?.classificationAvailability,
     "stale",
     "an old taxonomy timestamp must remain unavailable even while the reference snapshot is fresh",
+  );
+  const staleClassificationNow = new Date(referenceAt.getTime() + 10_000);
+  const staleClassificationReferences = staleClassificationRegistry.query(
+    { eligibility: "eligible", limit: 10 },
+    staleClassificationNow,
+  ).items;
+  assert.equal(
+    staleClassificationReferences.length,
+    2,
+    "the fresh reference fixture must retain both active common stocks while their taxonomy is stale",
+  );
+  assert.equal(
+    staleClassificationReferences.every((reference) => reference.classificationAvailability === "stale"),
+    true,
+    "classification freshness must fail independently for every otherwise-fresh reference record",
+  );
+  const freshClassificationGuardStatus = (symbol) => ({
+    symbol,
+    connectionState: "streaming",
+    marketFeedState: "streaming",
+    scanHealth: {
+      schedulerState: "scheduled",
+      marketDataState: "fresh",
+      marketDataGateReady: true,
+    },
+    liveIngestion: {
+      conditions: {
+        subscriptionVerified: true,
+        realMarketEventReceived: true,
+        enteredScoringWindow: true,
+        scoringEligible: true,
+      },
+    },
+    alphaRadar: {
+      score: 82,
+      scoreState: "available",
+      dataQuality: "good",
+      confidence: 100,
+      scan: { lastScannedAt: staleClassificationNow },
+      alphaVelocity: { rate30s: 12 },
+      changeIndicators: {
+        momentumAcceleration: 9,
+        volumeAcceleration: 8,
+        orderFlowShift: 7,
+        spreadTightening: 6,
+      },
+      preBreakout: {
+        state: "breakout_critical",
+        dataFresh: true,
+        latentScore: null,
+        breakoutCriticalScore: 80,
+        confirmation: {
+          status: "confirmed",
+          evidence: [
+            { key: "price_momentum", label: "Fresh price momentum", satisfied: true, detail: "Fixture." },
+            { key: "volume_acceleration", label: "Volume acceleration", satisfied: true, detail: "Fixture." },
+            { key: "order_flow_pressure", label: "Order-flow pressure", satisfied: true, detail: "Fixture." },
+          ],
+          missingEvidence: [],
+          reason: "Deterministic fixture confirmation.",
+        },
+      },
+      momentum: { value: 1.2, score: 86 },
+      volumeIntensity: { score: 84 },
+      orderFlowPressure: { score: 81, scoreEligible: true, freshness: "fresh" },
+    },
+  });
+  const staleClassificationStatuses = ["OLDC", "OLDP"].map(freshClassificationGuardStatus);
+  const staleClassificationSector = buildSectorPriority({
+    symbols: staleClassificationStatuses,
+    alphaRanking: {
+      entries: staleClassificationStatuses.map((status, index) => ({
+        symbol: status.symbol,
+        eligibility: "ranked",
+        rankingScore: 90 - index,
+        reason: "Fresh individual Alpha fixture.",
+      })),
+    },
+    references: staleClassificationReferences.map((reference) => ({
+      symbol: reference.symbol,
+      reference,
+    })),
+    catalystRadar: createCatalystRadar(staleClassificationNow),
+    referenceFresh: true,
+    now: staleClassificationNow,
+  });
+  assert.equal(
+    staleClassificationSector.coverage.eligibleLiveSymbols,
+    2,
+    "both live constituents must remain independently fresh and ranking-eligible",
+  );
+  assert.equal(
+    staleClassificationSector.coverage.classifiedLiveSymbols,
+    0,
+    "stale taxonomy must not count as classified live coverage",
+  );
+  assert.equal(
+    staleClassificationSector.coverage.rankedSectorCount,
+    0,
+    "two fresh live constituents with stale taxonomy must not create a ranked sector",
+  );
+  assert.equal(
+    staleClassificationSector.sectors.every((sector) => sector.eligibility !== "ranked"),
+    true,
+  );
+  assert.equal(
+    staleClassificationSector.sectors
+      .flatMap((sector) => sector.members)
+      .every((member) => member.reason.includes("Trusted fresh sector and industry classification is unavailable")),
+    true,
+    "sector members must state that fresh trusted classification is missing",
+  );
+
+  const staleReferenceBySymbol = new Map(
+    staleClassificationReferences.map((reference) => [reference.symbol, reference]),
+  );
+  const staleSectorConfirmation = calculateSectorConfirmation(
+    staleReferenceBySymbol.get("OLDC"),
+    [{
+      symbol: "OLDP",
+      reference: staleReferenceBySymbol.get("OLDP"),
+      marketFresh: true,
+      independentEvidenceCount: 3,
+    }],
+  );
+  assert.equal(staleSectorConfirmation.status, "unavailable");
+  assert.equal(staleSectorConfirmation.freshEligiblePeerCount, 0);
+  assert.deepEqual(
+    staleSectorConfirmation.missing,
+    ["Trusted sector and industry classification"],
+    "same-industry confirmation must explicitly withhold stale taxonomy",
+  );
+  const authorizedCatalyst = createCatalystRadar(staleClassificationNow);
+  authorizedCatalyst.eventState = "observed";
+  authorizedCatalyst.availableSourceCount = 1;
+  authorizedCatalyst.events = [{
+    id: "stale-classification-fixture-event",
+    symbol: "OLDC",
+    category: "company_news",
+    observedAt: staleClassificationNow,
+    freshness: "fresh",
+    source: "Authorized fixture provider",
+    summary: "Deterministic fixture event.",
+    dataQuality: "good",
+  }];
+  authorizedCatalyst.sourceStatuses = authorizedCatalyst.sourceStatuses.map((sourceStatus) => (
+    sourceStatus.category === "company_news"
+      ? {
+          ...sourceStatus,
+          availability: "available",
+          authorized: true,
+          source: "Authorized fixture provider",
+          freshness: "fresh",
+          dataQuality: "good",
+          lastEventAt: staleClassificationNow,
+        }
+      : sourceStatus
+  ));
+  const staleClassificationOpportunity = fuseOpportunity(
+    {
+      ...staleClassificationStatuses[0],
+      reference: staleReferenceBySymbol.get("OLDC"),
+    },
+    authorizedCatalyst,
+    staleSectorConfirmation,
+    staleClassificationNow,
+  );
+  assert.equal(
+    staleClassificationOpportunity.alertReady,
+    false,
+    "stale classification must block alert handoff even when catalyst, market, and Alpha fixtures are fresh",
+  );
+  assert.notEqual(staleClassificationOpportunity.state, "CONFIRMED");
+  assert.deepEqual(
+    staleClassificationOpportunity.missingConfirmationItems,
+    ["Trusted sector and industry classification"],
+    "classification must be the explicit missing handoff requirement when every independent fixture is otherwise ready",
   );
 
   const unauthorizedClassificationRegistry = new MarketUniverseRegistry();
