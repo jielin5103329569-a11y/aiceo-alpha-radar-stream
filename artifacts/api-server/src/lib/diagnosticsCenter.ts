@@ -4,6 +4,11 @@ import type { RuntimeDiagnosticPayload } from "@workspace/db";
 
 import type { BackendLifelineSnapshot } from "./backendLifeline";
 import type { EngineeringGovernanceSnapshot } from "./engineeringGovernance";
+import {
+  sanitizeDiagnosticPayload,
+  sanitizeDiagnosticRecord,
+  sanitizeDiagnosticText,
+} from "./diagnosticSanitization";
 import { logger } from "./logger";
 import {
   runtimeIncidentStore,
@@ -165,10 +170,7 @@ type IssueCandidate = Omit<DiagnosticReport, "id" | "status" | "firstObservedAt"
 type ActiveIssue = DiagnosticReport;
 
 function safeText(value: string, max = 420): string {
-  return value
-    .replace(/(?:sk|pk|rk|db)[-_][a-z0-9_-]{12,}/gi, "[redacted]")
-    .replace(/[\r\n]/g, " ")
-    .slice(0, max);
+  return sanitizeDiagnosticText(value, max);
 }
 
 function canonicalize(value: unknown): unknown {
@@ -197,7 +199,7 @@ function evidence(
   return {
     source,
     summary: safeText(summary),
-    facts,
+    facts: sanitizeDiagnosticRecord(facts),
     collectedAt: now,
   };
 }
@@ -618,7 +620,7 @@ function restorePayload(payload: RuntimeDiagnosticPayload): { report: Diagnostic
   const evidenceItems: DiagnosticEvidence[] = report.evidence.map((item) => ({
     source: safeText(item.source, 96),
     summary: safeText(item.summary),
-    facts: item.facts,
+    facts: sanitizeDiagnosticRecord(item.facts),
     collectedAt: parseDate(item.collectedAt)!,
   }));
   const restoredReport: DiagnosticReport = {
@@ -998,7 +1000,7 @@ export class DiagnosticsCenter {
           validationState: report.verification.state,
         },
       },
-      payload,
+      payload: sanitizeDiagnosticPayload(payload),
       occurredAt: event.occurredAt,
     };
   }

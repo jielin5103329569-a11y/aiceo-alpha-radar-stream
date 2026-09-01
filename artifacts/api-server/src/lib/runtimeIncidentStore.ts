@@ -6,8 +6,13 @@ import {
   type RuntimeSupervisorEvidence,
   type RuntimeSupervisorRecoveryAudit,
 } from "@workspace/db";
-import { desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, gte, lt, sql, type SQL } from "drizzle-orm";
 
+import {
+  sanitizeDiagnosticEvidence,
+  sanitizeDiagnosticPayload,
+  sanitizeDiagnosticText,
+} from "./diagnosticSanitization";
 import { logger } from "./logger";
 
 export type RuntimeIncidentState = "open" | "recovering" | "resolved";
@@ -52,20 +57,39 @@ export type DiagnosticPersistenceInput = {
   occurredAt?: Date;
 };
 
+export type DiagnosticQueryFilters = {
+  limit?: number;
+  from?: Date;
+  to?: Date;
+  moduleId?: string;
+  category?: string;
+  priority?: string;
+  disposition?: string;
+  validationState?: string;
+};
+
+export const DIAGNOSTIC_RETENTION_MS = 30 * 24 * 60 * 60 * 1_000;
+
 function safeText(value: string, max: number): string {
-  return value.replace(/[\r\n]/g, " ").slice(0, max);
+  return sanitizeDiagnosticText(value, max);
 }
 
 function normalizeEvidence(evidence: RuntimeSupervisorEvidence): RuntimeSupervisorEvidence {
-  return {
+  return sanitizeDiagnosticEvidence({
     summary: safeText(evidence.summary, 320),
     componentState: safeText(evidence.componentState, 80),
-    details: Object.fromEntries(
-      Object.entries(evidence.details)
-        .slice(0, 16)
-        .map(([key, value]) => [safeText(key, 64), typeof value === "string" ? safeText(value, 320) : value]),
-    ),
-  };
+    details: Object.fromEntries(Object.entries(evidence.details).slice(0, 16)),
+  });
+}
+
+function diagnosticPayloadFilter(path: string[], value: string): SQL {
+  const postgresPath = `{${path.join(",")}}`;
+  return sql`${runtimeSupervisorIncidentsTable.diagnosticPayload} #>> ${postgresPath} = ${value}`;
+}
+
+function diagnosticAuditPayloadFilter(path: string[], value: string): SQL {
+  const postgresPath = `{${path.join(",")}}`;
+  return sql`${runtimeSupervisorAuditTable.diagnosticPayload} #>> ${postgresPath} = ${value}`;
 }
 
 /**
@@ -168,13 +192,14 @@ export class RuntimeIncidentStore {
     const incidentKey = safeText(input.incidentKey, 160);
     const reason = safeText(input.reason, 500);
     const evidence = normalizeEvidence(input.evidence);
+    const payload = sanitizeDiagnosticPayload(input.payload);
     try {
       await db
         .insert(runtimeSupervisorIncidentsTable)
         .values({
           incidentKey,
           component: "diagnostics",
-          reasonCode: safeText(input.payload.report.moduleId, 96),
+          reasonCode: safeText(payload.report.moduleId, 96),
           severity: input.severity,
           state: input.state,
           source: "diagnostics",
@@ -184,14 +209,14 @@ export class RuntimeIncidentStore {
           occurrenceCount: 1,
           evidence,
           lastRecovery: null,
-          diagnosticPayload: input.payload,
+          diagnosticPayload: payload,
           updatedAt: occurredAt,
         })
         .onConflictDoUpdate({
           target: runtimeSupervisorIncidentsTable.incidentKey,
           set: {
             component: "diagnostics",
-            reasonCode: safeText(input.payload.report.moduleId, 96),
+            reasonCode: safeText(payload.report.moduleId, 96),
             severity: input.severity,
             state: input.state,
             source: "diagnostics",
@@ -200,21 +225,21 @@ export class RuntimeIncidentStore {
             occurrenceCount: sql`${runtimeSupervisorIncidentsTable.occurrenceCount} + 1`,
             evidence,
             lastRecovery: null,
-            diagnosticPayload: input.payload,
+            diagnosticPayload: payload,
             updatedAt: occurredAt,
           },
         });
       await db.insert(runtimeSupervisorAuditTable).values({
         incidentKey,
         component: "diagnostics",
-        reasonCode: safeText(input.payload.report.moduleId, 96),
+        reasonCode: safeText(payload.report.moduleId, 96),
         event: input.event,
         severity: input.severity,
         source: "diagnostics",
         reason,
         evidence,
         recovery: null,
-        diagnosticPayload: input.payload,
+        diagnosticPayload: payload,
         occurredAt,
       });
       this.lastPersistedAt = occurredAt;
@@ -243,23 +268,69 @@ export class RuntimeIncidentStore {
     return incident ?? null;
   }
 
-  async listRecentDiagnostics(limit = 100) {
-    const boundedLimit = Math.max(1, Math.min(200, Math.trunc(limit)));
+  async listRecentDiagnostics(options: number | DiagnosticQueryFilters = 100) {
+    const filters = typeof options === "number" ? { limit: options } : options;
+    const boundedLimit = Math.max(1, Math.min(200, Math.trunc(filters.limit ?? 100)));
+    const retentionCutoff = new Date(Date.now() - DIAGNOSTIC_RETENTION_MS);
+    const effectiveFrom = filters.from && filters.from > retentionCutoff ? filters.from : retentionCutoff;
+    await this.cleanupExpiredDiagnostics(retentionCutoff);
+    const incidentConditions: SQL[] = [eq(runtimeSupervisorIncidentsTable.source, "diagnostics")];
+    const auditConditions: SQL[] = [eq(runtimeSupervisorAuditTable.source, "diagnostics")];
+    incidentConditions.push(gte(runtimeSupervisorIncidentsTable.lastObservedAt, effectiveFrom));
+    auditConditions.push(gte(runtimeSupervisorAuditTable.occurredAt, effectiveFrom));
+    if (filters.to) {
+      incidentConditions.push(lt(runtimeSupervisorIncidentsTable.lastObservedAt, filters.to));
+      auditConditions.push(lt(runtimeSupervisorAuditTable.occurredAt, filters.to));
+    }
+    const payloadFilters = [
+      ["moduleId", filters.moduleId],
+      ["category", filters.category],
+      ["priority", filters.priority],
+      ["disposition", filters.disposition],
+    ] as const;
+    for (const [field, value] of payloadFilters) {
+      if (!value) continue;
+      incidentConditions.push(diagnosticPayloadFilter(["report", field], safeText(value, 96)));
+      auditConditions.push(diagnosticAuditPayloadFilter(["report", field], safeText(value, 96)));
+    }
+    if (filters.validationState) {
+      const value = safeText(filters.validationState, 32);
+      incidentConditions.push(diagnosticPayloadFilter(["report", "validation", "state"], value));
+      auditConditions.push(diagnosticAuditPayloadFilter(["report", "validation", "state"], value));
+    }
     const [incidents, events] = await Promise.all([
       db
         .select()
         .from(runtimeSupervisorIncidentsTable)
-        .where(eq(runtimeSupervisorIncidentsTable.source, "diagnostics"))
+        .where(and(...incidentConditions))
         .orderBy(desc(runtimeSupervisorIncidentsTable.lastObservedAt))
         .limit(boundedLimit),
       db
         .select()
         .from(runtimeSupervisorAuditTable)
-        .where(eq(runtimeSupervisorAuditTable.source, "diagnostics"))
+        .where(and(...auditConditions))
         .orderBy(desc(runtimeSupervisorAuditTable.occurredAt))
         .limit(boundedLimit),
     ]);
     return { incidents, events };
+  }
+
+  async cleanupExpiredDiagnostics(cutoff: Date): Promise<{ incidents: number; events: number }> {
+    const [incidents, events] = await db.transaction(async (tx) => Promise.all([
+      tx.delete(runtimeSupervisorIncidentsTable)
+        .where(and(
+          eq(runtimeSupervisorIncidentsTable.source, "diagnostics"),
+          lt(runtimeSupervisorIncidentsTable.lastObservedAt, cutoff),
+        ))
+        .returning({ id: runtimeSupervisorIncidentsTable.id }),
+      tx.delete(runtimeSupervisorAuditTable)
+        .where(and(
+          eq(runtimeSupervisorAuditTable.source, "diagnostics"),
+          lt(runtimeSupervisorAuditTable.occurredAt, cutoff),
+        ))
+        .returning({ id: runtimeSupervisorAuditTable.id }),
+    ]));
+    return { incidents: incidents.length, events: events.length };
   }
 }
 

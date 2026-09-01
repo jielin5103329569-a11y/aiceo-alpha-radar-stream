@@ -8,6 +8,7 @@ import typescript from "typescript";
 
 const outputDirectory = mkdtempSync(join(tmpdir(), "diagnostics-center-test-"));
 const outputPath = join(outputDirectory, "diagnosticsCenter.cjs");
+const sanitizationOutputPath = join(outputDirectory, "diagnosticSanitization.js");
 const now = new Date("2026-08-21T18:00:00.000Z");
 
 class DiagnosticStoreStub {
@@ -89,6 +90,15 @@ function inputs(lifelineOverrides = {}, supervisorOverrides = {}, governanceOver
 
 try {
   const source = readFileSync(resolve("artifacts/api-server/src/lib/diagnosticsCenter.ts"), "utf8");
+  const persistenceSource = readFileSync(resolve("artifacts/api-server/src/lib/runtimeIncidentStore.ts"), "utf8");
+  const sanitizationSource = readFileSync(resolve("artifacts/api-server/src/lib/diagnosticSanitization.ts"), "utf8");
+  writeFileSync(sanitizationOutputPath, typescript.transpileModule(sanitizationSource, {
+    compilerOptions: {
+      module: typescript.ModuleKind.CommonJS,
+      target: typescript.ScriptTarget.ES2022,
+      esModuleInterop: true,
+    },
+  }).outputText);
   writeFileSync(join(outputDirectory, "logger.js"), "module.exports = { logger: { info() {}, warn() {} } };");
   writeFileSync(
     join(outputDirectory, "runtimeIncidentStore.js"),
@@ -103,6 +113,62 @@ try {
   }).outputText);
 
   const { DiagnosticsCenter, DIAGNOSTICS_EVENT_LIMIT } = createRequire(import.meta.url)(outputPath);
+  const {
+    DIAGNOSTIC_REDACTION,
+    sanitizeDiagnosticPayload,
+    sanitizeDiagnosticText,
+    sanitizeDiagnosticValue,
+  } = createRequire(import.meta.url)(sanitizationOutputPath);
+  const synthetic = {
+    bearer: "Bearer fixture-token-value-that-is-not-real",
+    basic: "Authorization: Basic Zml4dHVyZTpub3QtcmVhbA==",
+    cookie: "Cookie: session=fixture-cookie-not-real; theme=dark",
+    multiCookie: "Cookie: theme=light; session=fixture-multi-cookie-not-real",
+    headerKey: "x-api-key: fixture-header-key-not-real",
+    clientSecret: "client_secret=fixture-client-secret-not-real",
+    credential: "credential=fixture-credential-not-real",
+    privateKey: "private_key=fixture-private-key-not-real",
+    accessKey: "fixture-structured-access-key-not-real",
+    jwt: "eyJmaXh0dXJlIjoidGVzdCJ9.Zml4dHVyZS1wYXlsb2Fk.Zml4dHVyZS1zaWduYXR1cmU",
+    apiKey: "sk_fixture_value_that_is_not_real",
+    password: "fixture-password-not-real",
+  };
+  const sensitiveFixture = {
+    authorization: synthetic.bearer,
+    nested: {
+      apiKey: synthetic.apiKey,
+      access_key: synthetic.accessKey,
+      url: `https://fixture-user:${synthetic.password}@example.invalid/check?token=${synthetic.apiKey}`,
+      jwtText: `Failure included ${synthetic.jwt} ${synthetic.basic} ${synthetic.cookie} ${synthetic.multiCookie} ${synthetic.headerKey} ${synthetic.clientSecret} ${synthetic.credential} ${synthetic.privateKey}`,
+    },
+    list: [{ privateKey: "fixture-private-key-not-real" }],
+  };
+  const sanitizedFixture = sanitizeDiagnosticValue(sensitiveFixture);
+  const sanitizedFixtureText = JSON.stringify(sanitizedFixture);
+  for (const value of Object.values(synthetic)) {
+    assert.equal(sanitizedFixtureText.includes(value), false, "synthetic sensitive value must be removed");
+  }
+  assert.equal(sanitizedFixture.authorization, DIAGNOSTIC_REDACTION);
+  assert.equal(sanitizedFixture.nested.apiKey, DIAGNOSTIC_REDACTION);
+  assert.equal(sanitizedFixture.nested.access_key, DIAGNOSTIC_REDACTION);
+  assert.match(sanitizedFixture.nested.url, /example\.invalid\/check\?token=\[redacted\]/);
+  assert.equal(sanitizeDiagnosticText(`Observed ${synthetic.bearer}`).includes(synthetic.bearer), false);
+  for (const key of [
+    "authorization",
+    "cookie",
+    "credential",
+    "password",
+    "secret",
+    "session",
+    "signature",
+    "token",
+    "apiKey",
+    "access_key",
+    "private_key",
+  ]) {
+    assert.equal(sanitizeDiagnosticValue({ [key]: "fixture-sensitive-field-value" })[key], DIAGNOSTIC_REDACTION);
+  }
+
   const store = new DiagnosticStoreStub();
   const center = new DiagnosticsCenter(store);
 
@@ -131,6 +197,22 @@ try {
   assert.equal(store.records[0].payload.report.moduleId, "provider_configuration");
   assert.equal(store.records[0].payload.event.kind, "detected");
   assert.equal(store.records[1].payload.event.kind, "observed");
+  const directlySanitizedPayload = sanitizeDiagnosticPayload({
+    ...store.records[0].payload,
+    report: {
+      ...store.records[0].payload.report,
+      symptom: synthetic.bearer,
+      evidence: [{
+        ...store.records[0].payload.report.evidence[0],
+        summary: synthetic.jwt,
+        facts: { authorization: synthetic.apiKey },
+      }],
+    },
+  });
+  const directlySanitizedText = JSON.stringify(directlySanitizedPayload);
+  for (const value of Object.values(synthetic)) {
+    assert.equal(directlySanitizedText.includes(value), false, "persisted payload sanitizer must remove synthetic sensitive value");
+  }
 
   const restartStore = new DiagnosticStoreStub();
   restartStore.restored = {
@@ -146,6 +228,22 @@ try {
   assert.equal(restored.persistence.restoredReports[0].origin, "restored");
   assert.equal(restored.persistence.restoredEvents[0].origin, "restored");
   assert.equal(restored.knownIssues.length, 0, "historical active reports are not reactivated without current evidence");
+
+  const sensitiveRestorePayload = structuredClone(store.records[0].payload);
+  sensitiveRestorePayload.report.symptom = synthetic.bearer;
+  sensitiveRestorePayload.report.evidence[0].summary = synthetic.jwt;
+  sensitiveRestorePayload.report.evidence[0].facts = { credential: synthetic.apiKey };
+  const sensitiveRestoreStore = new DiagnosticStoreStub();
+  sensitiveRestoreStore.restored = {
+    incidents: [{ diagnosticPayload: sensitiveRestorePayload }],
+    events: [{ diagnosticPayload: sensitiveRestorePayload }],
+  };
+  const sensitiveRestore = new DiagnosticsCenter(sensitiveRestoreStore);
+  await sensitiveRestore.restore();
+  const sensitiveRestoreText = JSON.stringify(sensitiveRestore.getSnapshot(inputs()).persistence);
+  for (const value of Object.values(synthetic)) {
+    assert.equal(sensitiveRestoreText.includes(value), false, "restored output must remove synthetic sensitive value");
+  }
 
   const corruptedStore = new DiagnosticStoreStub();
   const nestedFactsPayload = structuredClone(store.records[0].payload);
@@ -202,6 +300,11 @@ try {
   );
   assert.match(source, /listRecentDiagnostics/);
   assert.match(source, /restore\(\)/);
+  assert.match(persistenceSource, /sanitizeDiagnosticPayload\(input\.payload\)/);
+  assert.doesNotMatch(persistenceSource, /diagnosticPayload:\s*input\.payload/);
+  assert.match(persistenceSource, /cleanupExpiredDiagnostics\(retentionCutoff\)/);
+  assert.match(persistenceSource, /source,\s*"diagnostics"/);
+  assert.doesNotMatch(persistenceSource, /alertRecordsTable|alert_delivery|alertService/);
   assert.equal(store.records.length <= DIAGNOSTICS_EVENT_LIMIT, true);
 
   console.log("Diagnostics Center tests passed: durable write, planned-restart restore, restored/live isolation, corrupt and unavailable persistence handling, empty recovery, and production-path isolation.");
