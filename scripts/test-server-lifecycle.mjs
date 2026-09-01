@@ -24,6 +24,7 @@ try {
   let closeCalled = false;
   let idleClosed = false;
   let lifecycleState = null;
+  const shutdownOrder = [];
   const shutdown = createGracefulShutdown({
     owner: {
       markStopping() {},
@@ -45,8 +46,12 @@ try {
       closeAllConnections() {},
     }),
     activeSockets: new Set(),
-    closeEventStreams: () => 0,
+    closeEventStreams: () => {
+      shutdownOrder.push("sse");
+      return 0;
+    },
     stopServices: () => new Promise((resolve) => {
+      shutdownOrder.push("services");
       resolveSlowStop = resolve;
     }),
     logger: { info() {}, warn() {}, error() {} },
@@ -57,6 +62,7 @@ try {
   assert.equal(idleClosed, true, "listener drain begins immediately");
   assert.equal(closeCalled, true, "listener close must not wait for service persistence");
   assert.equal(lifecycleState, "stopped");
+  assert.deepEqual(shutdownOrder, ["services", "sse"], "service shutdown must begin before event streams close");
   resolveSlowStop();
   await new Promise((resolve) => setImmediate(resolve));
   console.log("Server lifecycle test passed: slow service shutdown cannot delay bounded listener closure.");

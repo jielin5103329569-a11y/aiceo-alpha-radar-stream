@@ -41,10 +41,8 @@ function spawnFixture(port, reportPath) {
   const child = fork(fixturePath, [String(port), reportPath], {
     stdio: ["ignore", "ignore", "ignore", "ipc"],
     env: {
-      ...process.env,
       NODE_ENV: "test",
       ALPHA_RADAR_RESTART_FIXTURE: "1",
-      DATABENTO_API_KEY: "",
       SSE_REGISTRY_PATH: registryPath,
       SERVER_LIFECYCLE_PATH: lifecyclePath,
     },
@@ -60,8 +58,17 @@ function spawnFixture(port, reportPath) {
   return { child, ready };
 }
 
-function waitForExit(child) {
-  return new Promise((resolve) => child.once("exit", (code, signal) => resolve({ code, signal })));
+function waitForExit(child, timeoutMs = 5_000) {
+  return new Promise((resolvePromise, reject) => {
+    const timeout = setTimeout(() => {
+      child.kill("SIGKILL");
+      reject(new Error("Fixture process did not exit within the bounded timeout."));
+    }, timeoutMs);
+    child.once("exit", (code, signal) => {
+      clearTimeout(timeout);
+      resolvePromise({ code, signal });
+    });
+  });
 }
 
 function openSse(port) {
@@ -98,7 +105,7 @@ function openSse(port) {
     const req = request({
       host: "127.0.0.1",
       port,
-      path: "/events",
+      path: "/api/radar/events",
       method: "GET",
       headers: { Accept: "text/event-stream" },
       agent: false,
@@ -178,7 +185,7 @@ function writeStatus(response) {
   response.write("event: status\\ndata: " + JSON.stringify(status()) + "\\n\\n");
 }
 const server = createServer((req, res) => {
-  if (req.method === "GET" && req.url === "/events") {
+  if (req.method === "GET" && req.url === "/api/radar/events") {
     res.writeHead(200, {
       "Cache-Control": "no-cache, no-transform",
       Connection: "keep-alive",
@@ -277,8 +284,8 @@ try {
   const firstShutdown = JSON.parse(readFileSync(firstReport, "utf8"));
   assert.deepEqual(
     firstShutdown.shutdownOrder,
-    ["sse", "alert", "internal_tasks", "databento", "market_universe"],
-    "SSE must close before dependent production services stop",
+    ["alert", "internal_tasks", "databento", "market_universe", "sse"],
+    "Alert and market services must stop before the held dashboard stream closes",
   );
   assert.equal(firstShutdown.remainingStreams, 0, "shutdown must not leave zombie SSE streams");
   assert.equal(firstShutdown.ownerState, "stopped", "production graceful lifecycle must mark the replacement-safe stopped state");

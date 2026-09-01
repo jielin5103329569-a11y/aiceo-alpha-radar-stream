@@ -45,18 +45,18 @@ const shutdown = createGracefulShutdown({
   activeSockets,
   closeEventStreams: (reason) => radarSseConnections.closeAll(reason),
   logger,
-  // The order prevents a stopped market feed from being evaluated by a still
-  // subscribed AlertService. Market windows and scanner state are intentionally
-  // discarded by DatabentoLiveService.stop() and rebuild after the next start.
+  // Stop Alert evaluation before market services, then close dashboard streams.
+  // Market windows and scanner state are intentionally discarded by
+  // DatabentoLiveService.stop() and rebuild after the next start.
   stopServices: async () => {
-    await diagnosticsCenter.stop();
     runtimeSupervisor.stop();
-    await autonomousOperationsCoordinator.stop();
     alertService.stop();
     internalTaskRegistry.stop();
     databentoLive.stop();
     marketUniverse.stop();
     aiIndustryStockPool.stop();
+    await diagnosticsCenter.stop();
+    await autonomousOperationsCoordinator.stop();
   },
   onComplete: (state) => {
     if (state === "failed") process.exitCode = 1;

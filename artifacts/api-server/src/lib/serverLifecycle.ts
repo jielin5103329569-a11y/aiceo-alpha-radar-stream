@@ -26,8 +26,8 @@ export type GracefulShutdownOptions = {
 
 /**
  * The sole graceful-stop coordinator used by the production API process.
- * It closes observational SSE streams before stopping service dependencies,
- * then bounds residual TCP connections. It has no market-data authority.
+ * It begins stopping service dependencies before closing observational SSE
+ * streams, then bounds residual TCP connections. It has no market-data authority.
  */
 export function createGracefulShutdown(options: GracefulShutdownOptions): (signal: string) => void {
   let shutdownStarted = false;
@@ -38,10 +38,14 @@ export function createGracefulShutdown(options: GracefulShutdownOptions): (signa
     shutdownStarted = true;
     options.owner.markStopping();
     options.logger.info({ signal }, "Stopping server-owned Alpha Radar lifeline");
-    const closedSseConnections = options.closeEventStreams("server_stopping");
-    void Promise.resolve(options.stopServices()).catch((error) => {
+    try {
+      void Promise.resolve(options.stopServices()).catch((error) => {
+        options.logger.error({ error }, "Error while stopping service dependencies");
+      });
+    } catch (error) {
       options.logger.error({ error }, "Error while stopping service dependencies");
-    });
+    }
+    const closedSseConnections = options.closeEventStreams("server_stopping");
 
     const server = options.getServer();
     if (!server) {
