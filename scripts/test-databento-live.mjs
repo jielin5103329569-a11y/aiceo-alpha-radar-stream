@@ -85,6 +85,7 @@ try {
   transpile("artifacts/api-server/src/lib/catalystRadar.ts", "catalystRadar.js");
   transpile("artifacts/api-server/src/lib/sectorPriority.ts", "sectorPriority.js");
   transpile("artifacts/api-server/src/lib/openingReadiness.ts", "openingReadiness.js");
+  transpile("artifacts/api-server/src/lib/alertMonitor.ts", "alertMonitor.js");
   writeFileSync(
     join(outputDirectory, "aiIndustryTaxonomy.js"),
     '"use strict"; Object.defineProperty(exports, "__esModule", { value: true }); exports.AI_INDUSTRY_TAXONOMY = [{ symbol: "AMAT", categories: ["semiconductor_equipment"] }, { symbol: "NVDA", categories: ["ai_chips"] }];',
@@ -140,17 +141,21 @@ try {
     DatabentoLiveService,
     DatabentoUniverseService,
     AiIndustryLeaderProbeCoordinator,
+    FocusedScanCoordinator,
     MONITORED_SYMBOLS,
+    createSignedMarketLeaderEnvelope,
     scanProfileAt,
     updateAlphaRadarRanking,
   } = require(join(outputDirectory, "databentoLive.js"));
   const {
     MarketUniverseRegistry,
     MarketUniverseService,
+    marketUniverse,
     normalizeLifecycle,
     normalizeReferenceSymbol,
     normalizeSecurityType,
   } = require(join(outputDirectory, "marketUniverse.js"));
+  const { AlertMonitor, observeRadarStatus } = require(join(outputDirectory, "alertMonitor.js"));
   const { aiIndustryStockPool: poolSidecar } = require(join(outputDirectory, "aiIndustryStockPool.js"));
   const childProcess = require(join(outputDirectory, "child-process.js"));
   const previousDatabentoKey = process.env.DATABENTO_API_KEY;
@@ -461,40 +466,191 @@ try {
     [],
     "protected five-symbol status reads must not be forwarded into the AI pool sidecar",
   );
+  const protectedDecisionSnapshot = (status) => ({
+    symbolRadars: status.symbolRadars.map((symbolStatus) => ({
+      symbol: symbolStatus.symbol,
+      marketFeedState: symbolStatus.marketFeedState,
+      score: symbolStatus.alphaRadar.score,
+      scoreState: symbolStatus.alphaRadar.scoreState,
+      dataQuality: symbolStatus.alphaRadar.dataQuality,
+      preBreakoutState: symbolStatus.alphaRadar.preBreakout.state,
+      confirmationStatus: symbolStatus.alphaRadar.preBreakout.confirmation.status,
+      dataFresh: symbolStatus.alphaRadar.preBreakout.dataFresh,
+    })),
+    alphaRanking: status.alphaRanking.entries.map((entry) => ({
+      symbol: entry.symbol,
+      eligibility: entry.eligibility,
+      rankingScore: entry.rankingScore,
+      reason: entry.reason,
+    })),
+  });
+  const alertDecisionSnapshot = (status) => observeRadarStatus(new AlertMonitor(), status).map((observation) => ({
+    symbol: observation.symbol,
+    ok: observation.result.ok,
+    failedGate: observation.result.ok ? null : observation.result.failedGate,
+    isNewCandidate: observation.isNewCandidate,
+  }));
+  const protectedBeforeFocusedCoverage = protectedDecisionSnapshot(universeStatus);
+  const alertObservationsBeforeFocusedCoverage = alertDecisionSnapshot(universeStatus);
+  const integrationNow = new Date();
+  marketUniverse.registry.replace(
+    [{
+      providerSymbol: "AMAT",
+      instrumentId: "focused-integration-fixture",
+      providerSecurityType: "CS",
+      listingStatus: "A",
+      listingExchange: "XNAS",
+      primaryExchange: "XNAS",
+      sector: "Information Technology",
+      industryGroup: "Semiconductors",
+      industry: "Semiconductor Equipment",
+      classificationSource: "Deterministic focused integration fixture",
+      classificationAuthorized: true,
+      classificationUpdatedAt: integrationNow.toISOString(),
+      referenceUpdatedAt: integrationNow.toISOString(),
+      primaryListing: true,
+    }],
+    {
+      dataset: "Fixture",
+      source: "Deterministic focused integration fixture",
+      sourceKind: "security_master",
+      sourceTimestamp: integrationNow,
+      maxAgeMs: 60_000,
+      reason: "Deterministic fixture.",
+      authorizationState: "verified",
+      authorizationReason: "Fixture authorization verified.",
+    },
+    integrationNow,
+  );
+  marketUniverse.refreshState = "ready";
+  marketUniverse.lastAttemptAt = integrationNow;
+
   const focusedService = new DatabentoLiveService("AMAT");
-  const focusedCandidate = focusedService.getStatus();
-  focusedCandidate.connectionState = "streaming";
-  focusedCandidate.marketFeedState = "streaming";
-  focusedCandidate.configured = true;
-  focusedCandidate.lastUpdatedAt = new Date();
-  focusedCandidate.market = {
-    ...focusedCandidate.market,
-    latestPrice: 100,
-    bidPrice: 99.99,
-    askPrice: 100.01,
-    sessionVolume: 1_000,
+  seedCompleteLegacyWindow(focusedService, integrationNow);
+  let focusedStatus = focusedService.getStatus();
+  focusedStatus.scanHealth = {
+    ...focusedStatus.scanHealth,
+    schedulerState: "scheduled",
+    marketDataState: "fresh",
+    marketDataGateReady: true,
   };
-  focusedCandidate.alphaRadar = {
-    ...focusedCandidate.alphaRadar,
+  focusedStatus.liveIngestion = {
+    ...focusedStatus.liveIngestion,
+    conditions: {
+      ...focusedStatus.liveIngestion.conditions,
+      subscriptionVerified: true,
+      realMarketEventReceived: true,
+      enteredScoringWindow: true,
+      scoringEligible: true,
+    },
+  };
+  focusedStatus.alphaRadar = {
+    ...focusedStatus.alphaRadar,
+    confidence: 100,
+    alphaVelocity: {
+      ...focusedStatus.alphaRadar.alphaVelocity,
+      delta30s: 4,
+      delta60s: 6,
+      rate30s: 4,
+      rate60s: 3,
+    },
+    changeIndicators: {
+      ...focusedStatus.alphaRadar.changeIndicators,
+      momentumAcceleration: 4,
+      volumeAcceleration: 3,
+      orderFlowShift: 2,
+      spreadTightening: 1,
+    },
     preBreakout: {
-      ...focusedCandidate.alphaRadar.preBreakout,
+      ...focusedStatus.alphaRadar.preBreakout,
       dataFresh: true,
       state: "confirmed",
       confirmation: {
-        ...focusedCandidate.alphaRadar.preBreakout.confirmation,
+        ...focusedStatus.alphaRadar.preBreakout.confirmation,
         status: "confirmed",
       },
     },
   };
-  universe.focusedScans.getSectorSymbols = () => [focusedCandidate];
-  // Global snapshots coalesce collaborator events asynchronously so a status
-  // listener cannot recursively rebuild the universe in the same stack.
-  universe.focusedScans.emit("status");
-  await new Promise((resolve) => setImmediate(resolve));
-  const refreshedUniverseStatus = universe.getStatus();
+  assert.equal(focusedStatus.connectionState, "streaming");
+  assert.equal(focusedStatus.marketFeedState, "streaming");
+  assert.equal(focusedStatus.alphaRadar.scoreState, "available");
+  assert.equal(focusedStatus.alphaRadar.dataQuality, "good");
+  assert.equal(focusedStatus.alphaRadar.preBreakout.dataFresh, true);
+  const focusedFixtureService = {
+    getStatus: () => focusedStatus,
+    start: () => focusedStatus,
+    stop: () => focusedStatus,
+    on: () => focusedFixtureService,
+  };
+  const fixtureSigningSecret = "fixed-fixture-signing-key-for-focused-integration";
+  const focusedCoordinator = new FocusedScanCoordinator({
+    referenceUniverse: marketUniverse,
+    apiKeyAvailable: () => true,
+    signingSecret: () => fixtureSigningSecret,
+    createService: () => focusedFixtureService,
+  });
+  const protectedStreamingFixture = [{
+    connectionState: "streaming",
+    marketFeedState: "streaming",
+    liveIngestion: { conditions: { subscriptionVerified: true } },
+    lastUpdatedAt: integrationNow,
+    startedAt: integrationNow,
+  }];
+  const admittedFocused = focusedCoordinator.routeVerifiedMarketLeader(
+    createSignedMarketLeaderEnvelope({
+      symbol: "AMAT",
+      observedAt: integrationNow,
+      source: "databento_live",
+      schema: "mbp-1",
+      subscriptionVerified: true,
+      completeMarketFields: true,
+      fresh: true,
+      minimumLiquiditySatisfied: true,
+      independentEvidenceCount: 2,
+    }, {
+      secret: fixtureSigningSecret,
+      issuedAt: integrationNow,
+      nonce: "focused-integration-fixture-nonce",
+    }),
+    protectedStreamingFixture,
+    integrationNow,
+  );
+  assert.equal(admittedFocused.state, "admitted", "the complete verified fixture must enter the focused pool");
+  universe.focusedScans = focusedCoordinator;
+  const refreshedUniverseStatus = universe.buildSnapshot();
   assert.ok(
     refreshedUniverseStatus.statusRevision > universeStatus.statusRevision,
     "a rebuilt global status snapshot must advance its revision independently of market-event time",
+  );
+  assert.deepEqual(
+    refreshedUniverseStatus.sectorPriority.coverage.eligibleLivePopulation,
+    ["AMAT"],
+    "an admitted focused symbol may broaden only the verified sector-priority coverage population",
+  );
+  assert.equal(
+    refreshedUniverseStatus.symbolRadars.some((status) => status.symbol === "AMAT"),
+    false,
+    "the focused symbol must never enter the protected symbol radar population",
+  );
+  assert.equal(
+    refreshedUniverseStatus.alphaRanking.entries.some((entry) => entry.symbol === "AMAT"),
+    false,
+    "the focused symbol must never enter protected Alpha ranking",
+  );
+  assert.deepEqual(
+    protectedDecisionSnapshot(refreshedUniverseStatus),
+    protectedBeforeFocusedCoverage,
+    "focused sector coverage must not change protected symbol radars or Alpha ranking decisions",
+  );
+  assert.deepEqual(
+    alertDecisionSnapshot(refreshedUniverseStatus),
+    alertObservationsBeforeFocusedCoverage,
+    "AlertMonitor must observe exactly the unchanged protected symbol population",
+  );
+  assert.equal(
+    alertDecisionSnapshot(refreshedUniverseStatus).some((observation) => observation.symbol === "AMAT"),
+    false,
+    "AlertMonitor must never observe a focused-only sector symbol",
   );
   assert.deepEqual(
     poolSidecar.lastCandidates,
@@ -506,6 +662,43 @@ try {
     }],
     "a non-protected taxonomy member with focused-scan live confirmation must reach the isolated pool sidecar",
   );
+  const completeFocusedStatus = focusedStatus;
+  for (const [label, mutate] of [
+    ["stale", (status) => {
+      status.marketFeedState = "stale";
+      status.scanHealth.marketDataState = "stale";
+      status.scanHealth.marketDataGateReady = false;
+      status.alphaRadar.preBreakout.dataFresh = false;
+    }],
+    ["unscheduled", (status) => {
+      status.scanHealth.schedulerState = "stopped";
+    }],
+    ["incomplete", (status) => {
+      status.liveIngestion.conditions.realMarketEventReceived = false;
+      status.liveIngestion.conditions.enteredScoringWindow = false;
+      status.liveIngestion.conditions.scoringEligible = false;
+    }],
+  ]) {
+    focusedStatus = structuredClone(completeFocusedStatus);
+    mutate(focusedStatus);
+    const excludedStatus = universe.buildSnapshot();
+    assert.equal(
+      excludedStatus.sectorPriority.coverage.eligibleLivePopulation.includes("AMAT"),
+      false,
+      `${label} focused live evidence must be excluded even with a trusted reference classification`,
+    );
+    assert.deepEqual(
+      protectedDecisionSnapshot(excludedStatus),
+      protectedBeforeFocusedCoverage,
+      `${label} focused evidence must not change protected radar or ranking decisions`,
+    );
+    assert.equal(
+      alertDecisionSnapshot(excludedStatus).some((observation) => observation.symbol === "AMAT"),
+      false,
+      `${label} focused evidence must never reach AlertMonitor`,
+    );
+  }
+  focusedStatus = completeFocusedStatus;
   const restartedUniverse = new DatabentoUniverseService();
   const restartedUniverseStatus = restartedUniverse.getStatus();
   assert.notEqual(
@@ -519,9 +712,9 @@ try {
     "a new epoch may restart its local revision sequence",
   );
   const probeService = new (require("node:events").EventEmitter)();
-  probeService.getStatus = () => focusedCandidate;
-  probeService.start = () => focusedCandidate;
-  probeService.stop = () => focusedCandidate;
+  probeService.getStatus = () => completeFocusedStatus;
+  probeService.start = () => completeFocusedStatus;
+  probeService.stop = () => completeFocusedStatus;
   const runtimeUniverse = new DatabentoUniverseService();
   const runtimeProbe = new AiIndustryLeaderProbeCoordinator({
     symbols: ["NVDA", "AMAT"],
