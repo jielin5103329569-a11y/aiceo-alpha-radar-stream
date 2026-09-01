@@ -23,6 +23,7 @@ import {
   Activity,
   ArrowLeftRight,
   BarChart3,
+  Bell,
   CircleAlert,
   Database,
   Gauge,
@@ -94,6 +95,15 @@ export default function Dashboard() {
             </div>
             
             <div className="flex items-center gap-2 sm:gap-4">
+              <a
+                href="#alert-center"
+                className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-widest text-muted-foreground transition-colors hover:text-foreground"
+                aria-label="Go to Alert Center"
+                data-testid="link-alert-center"
+              >
+                <Bell className="h-3 w-3" />
+                <span className="hidden sm:inline">Alerts</span>
+              </a>
               <Link href="/diagnostics" className="text-xs font-medium uppercase tracking-widest text-muted-foreground hover:text-foreground hidden sm:flex items-center gap-1.5 transition-colors">
                 <Activity className="h-3 w-3" />
                 Diagnostics
@@ -265,7 +275,9 @@ export default function Dashboard() {
 
           <SignalValidationPanel />
           <ShadowLearningStatusPanel />
-          <AccountAlerts />
+          <section id="alert-center" className="scroll-mt-24" aria-label="Alert Center">
+            <AccountAlerts />
+          </section>
 
           <SectorPriorityHierarchy snapshot={status?.sectorPriority} />
 
