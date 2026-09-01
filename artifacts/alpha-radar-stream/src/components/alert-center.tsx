@@ -141,6 +141,8 @@ export interface AlertCenterMutations {
 }
 
 export interface AlertCenterProps {
+  /** Optional in-page destination owned by the rendered Alert Center card */
+  id?: string;
   /** Alert history records from the server */
   alerts: AlertRecord[];
   /** Current notification settings */
@@ -682,6 +684,7 @@ function NotificationPanel({ browserPushEnabled, pushReadiness, settings, mutati
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export function AlertCenter({
+  id,
   alerts,
   settings,
   isLoading,
@@ -701,7 +704,7 @@ export function AlertCenter({
   // ── Loading skeleton ──────────────────────────────────────────────────────
   if (isLoading && !hasAlerts) {
     return (
-      <Card className={cn('w-full', className)} data-testid="alert-center-loading">
+      <Card id={id} className={cn('w-full', className)} data-testid="alert-center-loading">
         <CardHeader className="pb-4">
           <CardTitle className="flex items-center gap-2 text-sm font-medium uppercase tracking-widest text-muted-foreground">
             <BellRing className="h-4 w-4 text-primary animate-pulse" />
@@ -721,7 +724,7 @@ export function AlertCenter({
   // ── Error state ───────────────────────────────────────────────────────────
   if (isError) {
     return (
-      <Card className={cn('w-full border-destructive/30', className)} data-testid="alert-center-error">
+      <Card id={id} className={cn('w-full border-destructive/30', className)} data-testid="alert-center-error">
         <CardHeader className="pb-4">
           <CardTitle className="flex items-center gap-2 text-sm font-medium uppercase tracking-widest text-destructive">
             <TriangleAlert className="h-4 w-4" />
@@ -742,7 +745,7 @@ export function AlertCenter({
   }
 
   return (
-    <Card className={cn('w-full', className)} data-testid="alert-center">
+    <Card id={id} className={cn('w-full', className)} data-testid="alert-center">
       {/* ── Header ─────────────────────────────────────────────────────────── */}
       <CardHeader className="pb-4">
         <div className="flex flex-wrap items-start justify-between gap-3">

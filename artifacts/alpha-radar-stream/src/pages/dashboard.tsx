@@ -275,9 +275,7 @@ export default function Dashboard() {
 
           <SignalValidationPanel />
           <ShadowLearningStatusPanel />
-          <section id="alert-center" className="scroll-mt-24" aria-label="Alert Center">
-            <AccountAlerts />
-          </section>
+          <AccountAlerts id="alert-center" />
 
           <SectorPriorityHierarchy snapshot={status?.sectorPriority} />
 

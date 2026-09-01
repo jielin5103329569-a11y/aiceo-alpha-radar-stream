@@ -102,7 +102,7 @@ function base64UrlToArrayBuffer(value: string): ArrayBuffer {
   return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
 }
 
-export function AccountAlerts() {
+export function AccountAlerts({ id }: { id?: string }) {
   const { isSignedIn } = useAuth();
   const [, setLocation] = useLocation();
   const client = useQueryClient();
@@ -237,7 +237,7 @@ export function AccountAlerts() {
 
   if (!isSignedIn) {
     return (
-      <Card className="border-dashed">
+      <Card id={id} className="scroll-mt-24 border-dashed">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-sm"><Bell className="h-4 w-4" />Verified Alpha Alerts</CardTitle>
           <CardDescription>Sign in to keep account-scoped read state and notification preferences.</CardDescription>
@@ -255,6 +255,8 @@ export function AccountAlerts() {
   const canDeliverPush = pushStatus.data?.state === "active" && browserSubscriptionActive;
   return (
     <AlertCenter
+      id={id}
+      className="scroll-mt-24"
       alerts={(alerts.data?.alerts ?? []).map(mapAlert)}
       settings={currentSettings}
       isLoading={alerts.isLoading || settings.isLoading || pushStatus.isLoading}
