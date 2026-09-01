@@ -115,8 +115,12 @@ try {
   writeFileSync(join(outputDirectory, "package.json"), '{"type":"commonjs"}');
 
   const require = createRequire(import.meta.url);
-  const { FocusedScanCoordinator } = require(join(outputDirectory, "databentoLive.js"));
+  const {
+    FocusedScanCoordinator,
+    createSignedMarketLeaderEnvelope,
+  } = require(join(outputDirectory, "databentoLive.js"));
   const now = new Date("2026-08-19T14:30:00.000Z");
+  const signingSecret = "fixed-test-key-for-market-leader-intake-only";
   const eligibleSymbols = new Set(["ACME", "BETA", "GAMMA", "DELTA"]);
   const referenceSummary = {
     refreshState: "ready",
@@ -156,10 +160,23 @@ try {
     independentEvidenceCount: 2,
     ...overrides,
   });
+  let nonceOrdinal = 0;
+  const signedLeader = (symbol, observedAt = now, overrides = {}, envelopeOverrides = {}) => {
+    nonceOrdinal += 1;
+    return {
+      ...createSignedMarketLeaderEnvelope(leader(symbol, observedAt, overrides), {
+        secret: signingSecret,
+        issuedAt: now,
+        nonce: `test-nonce-${String(nonceOrdinal).padStart(8, "0")}`,
+      }),
+      ...envelopeOverrides,
+    };
+  };
 
   const noCredentialCoordinator = new FocusedScanCoordinator({
     referenceUniverse,
     apiKeyAvailable: () => false,
+    signingSecret: () => signingSecret,
   });
   assert.equal(
     noCredentialCoordinator.getStatus(protectedStreaming, now).state,
@@ -179,6 +196,7 @@ try {
   const blockedCoordinator = new FocusedScanCoordinator({
     referenceUniverse,
     apiKeyAvailable: () => true,
+    signingSecret: () => signingSecret,
   });
   assert.equal(
     blockedCoordinator.getStatus(erroredProtected, now).authorization.state,
@@ -190,6 +208,7 @@ try {
   const coordinator = new FocusedScanCoordinator({
     referenceUniverse,
     apiKeyAvailable: () => true,
+    signingSecret: () => signingSecret,
     maximumScans: 2,
     createService: (symbol) => {
       const service = new FakeFocusedService(symbol);
@@ -208,13 +227,13 @@ try {
     "without a real market-leader source, focused routing must remain explicitly unavailable rather than claim readiness",
   );
   assert.equal(
-    coordinator.routeVerifiedMarketLeader(leader("NVDA"), protectedStreaming, now).state,
+    coordinator.routeVerifiedMarketLeader(signedLeader("NVDA"), protectedStreaming, now).state,
     "rejected",
     "protected symbols must never enter the focused routing pool",
   );
   assert.equal(
     coordinator.routeVerifiedMarketLeader(
-      leader("ACME", now, { independentEvidenceCount: 1 }),
+      signedLeader("ACME", now, { independentEvidenceCount: 1 }),
       protectedStreaming,
       now,
     ).state,
@@ -232,23 +251,23 @@ try {
     ["future leader observation", { observedAt: new Date(now.getTime() + 1) }],
   ]) {
     assert.equal(
-      coordinator.routeVerifiedMarketLeader(leader("ACME", now, overrides), protectedStreaming, now).state,
+      coordinator.routeVerifiedMarketLeader(signedLeader("ACME", now, overrides), protectedStreaming, now).state,
       "rejected",
       `${label} must fail closed before creating a focused scan`,
     );
   }
 
   assert.equal(
-    coordinator.routeVerifiedMarketLeader(leader("ACME"), protectedStreaming, now).state,
+    coordinator.routeVerifiedMarketLeader(signedLeader("ACME"), protectedStreaming, now).state,
     "admitted",
     "a fully gated verified leader may enter the bounded focused pool",
   );
   assert.equal(
-    coordinator.routeVerifiedMarketLeader(leader("BETA"), protectedStreaming, now).state,
+    coordinator.routeVerifiedMarketLeader(signedLeader("BETA"), protectedStreaming, now).state,
     "admitted",
   );
   assert.equal(
-    coordinator.routeVerifiedMarketLeader(leader("GAMMA"), protectedStreaming, now).state,
+    coordinator.routeVerifiedMarketLeader(signedLeader("GAMMA"), protectedStreaming, now).state,
     "rejected",
     "fresh active focused scans must not be evicted merely to make room",
   );
@@ -259,14 +278,26 @@ try {
   createdServices[0].feedState = "offline";
   const afterCooldown = new Date(now.getTime() + 5 * 60_000 + 1);
   assert.equal(
-    coordinator.routeVerifiedMarketLeader(leader("DELTA", afterCooldown), protectedStreaming, afterCooldown).state,
+    coordinator.routeVerifiedMarketLeader(
+      createSignedMarketLeaderEnvelope(leader("DELTA", afterCooldown), {
+        secret: signingSecret,
+        issuedAt: afterCooldown,
+        nonce: "test-nonce-after-cooldown",
+      }),
+      protectedStreaming,
+      afterCooldown,
+    ).state,
     "admitted",
     "only an inactive focused scan after its minimum tenure may be safely evicted",
   );
   assert.equal(createdServices[0].stopped, 1, "eviction must stop the isolated bridge");
   assert.equal(
     coordinator.routeVerifiedMarketLeader(
-      leader("ACME", new Date(afterCooldown.getTime() + 1)),
+      createSignedMarketLeaderEnvelope(leader("ACME", new Date(afterCooldown.getTime() + 1)), {
+        secret: signingSecret,
+        issuedAt: new Date(afterCooldown.getTime() + 1),
+        nonce: "test-nonce-after-eviction",
+      }),
       protectedStreaming,
       new Date(afterCooldown.getTime() + 1),
     ).state,
@@ -278,6 +309,7 @@ try {
   const hardCapCoordinator = new FocusedScanCoordinator({
     referenceUniverse,
     apiKeyAvailable: () => true,
+    signingSecret: () => signingSecret,
     maximumScans: 9,
     createService: (symbol) => {
       const service = new FakeFocusedService(symbol);
@@ -290,17 +322,131 @@ try {
     3,
     "the focused bridge budget is hard-capped at three even when a caller requests more",
   );
-  assert.equal(hardCapCoordinator.routeVerifiedMarketLeader(leader("ACME"), protectedStreaming, now).state, "admitted");
-  assert.equal(hardCapCoordinator.routeVerifiedMarketLeader(leader("BETA"), protectedStreaming, now).state, "admitted");
-  assert.equal(hardCapCoordinator.routeVerifiedMarketLeader(leader("GAMMA"), protectedStreaming, now).state, "admitted");
+  assert.equal(hardCapCoordinator.routeVerifiedMarketLeader(signedLeader("ACME"), protectedStreaming, now).state, "admitted");
+  assert.equal(hardCapCoordinator.routeVerifiedMarketLeader(signedLeader("BETA"), protectedStreaming, now).state, "admitted");
+  assert.equal(hardCapCoordinator.routeVerifiedMarketLeader(signedLeader("GAMMA"), protectedStreaming, now).state, "admitted");
   assert.equal(
-    hardCapCoordinator.routeVerifiedMarketLeader(leader("DELTA"), protectedStreaming, now).state,
+    hardCapCoordinator.routeVerifiedMarketLeader(signedLeader("DELTA"), protectedStreaming, now).state,
     "rejected",
     "a fourth fresh candidate must be rejected rather than exceed the three-bridge production budget",
   );
   assert.equal(hardCapServices.length, 3);
 
-  console.log("Focused scan routing gates, capacity, cooldown, and protected-pool isolation checks passed.");
+  const missingSecretCoordinator = new FocusedScanCoordinator({
+    referenceUniverse,
+    apiKeyAvailable: () => true,
+    signingSecret: () => undefined,
+  });
+  assert.equal(
+    missingSecretCoordinator.routeVerifiedMarketLeader(signedLeader("ACME"), protectedStreaming, now).state,
+    "rejected",
+    "a missing signing secret must fail closed without unsigned fallback",
+  );
+  assert.equal(
+    coordinator.routeVerifiedMarketLeader(leader("ACME"), protectedStreaming, now).state,
+    "rejected",
+    "an unsigned leader payload must be rejected",
+  );
+  const validForTampering = signedLeader("DELTA");
+  assert.equal(
+    coordinator.routeVerifiedMarketLeader({
+      ...validForTampering,
+      payload: { ...validForTampering.payload, symbol: "ACME" },
+    }, protectedStreaming, now).state,
+    "rejected",
+    "a payload modified after signing must be rejected",
+  );
+  assert.equal(
+    coordinator.routeVerifiedMarketLeader(
+      createSignedMarketLeaderEnvelope(leader("DELTA"), {
+        secret: "different-fixed-test-key-for-intake-only",
+        issuedAt: now,
+        nonce: "test-nonce-wrong-secret",
+      }),
+      protectedStreaming,
+      now,
+    ).state,
+    "rejected",
+    "a signature produced with a different secret must be rejected",
+  );
+  const replayed = signedLeader("DELTA");
+  assert.equal(
+    coordinator.routeVerifiedMarketLeader(replayed, protectedStreaming, now).state,
+    "admitted",
+    "a valid signed envelope must be accepted on its first use",
+  );
+  assert.equal(
+    coordinator.routeVerifiedMarketLeader(replayed, protectedStreaming, now).state,
+    "rejected",
+    "an already processed signed envelope must be rejected as a replay",
+  );
+  assert.equal(
+    coordinator.routeVerifiedMarketLeader(
+      createSignedMarketLeaderEnvelope(leader("DELTA", new Date(now.getTime() - 15_001)), {
+        secret: signingSecret,
+        issuedAt: new Date(now.getTime() - 15_001),
+        nonce: "test-nonce-expired-envelope",
+      }),
+      protectedStreaming,
+      now,
+    ).state,
+    "rejected",
+    "an expired signed envelope must be rejected",
+  );
+  assert.equal(
+    coordinator.routeVerifiedMarketLeader(
+      createSignedMarketLeaderEnvelope(leader("DELTA", new Date(now.getTime() + 1)), {
+        secret: signingSecret,
+        issuedAt: new Date(now.getTime() + 1),
+        nonce: "test-nonce-future-envelope",
+      }),
+      protectedStreaming,
+      now,
+    ).state,
+    "rejected",
+    "a future signed envelope must be rejected",
+  );
+  assert.equal(
+    coordinator.routeVerifiedMarketLeader({
+      ...signedLeader("DELTA"),
+      signature: "malformed",
+    }, protectedStreaming, now).state,
+    "rejected",
+    "a malformed signature must be rejected",
+  );
+  const missingSignature = signedLeader("DELTA");
+  delete missingSignature.signature;
+  assert.equal(
+    coordinator.routeVerifiedMarketLeader(missingSignature, protectedStreaming, now).state,
+    "rejected",
+    "a missing signature must be rejected",
+  );
+  assert.equal(
+    coordinator.routeVerifiedMarketLeader({
+      ...signedLeader("DELTA"),
+      producerId: "unauthorized-producer",
+    }, protectedStreaming, now).state,
+    "rejected",
+    "an unauthorized producer identity must be rejected",
+  );
+  assert.equal(
+    coordinator.routeVerifiedMarketLeader({
+      ...signedLeader("DELTA"),
+      version: "market-leader-intake.v2",
+    }, protectedStreaming, now).state,
+    "rejected",
+    "an unknown signed-envelope version must be rejected",
+  );
+  assert.equal(
+    coordinator.routeVerifiedMarketLeader({
+      ...signedLeader("DELTA"),
+      nonce: "",
+    }, protectedStreaming, now).state,
+    "rejected",
+    "a missing nonce must be rejected",
+  );
+
+  console.log("Focused scan signing, rejection, capacity, cooldown, and protected-pool isolation checks passed.");
 } finally {
   rmSync(outputDirectory, { recursive: true, force: true });
 }

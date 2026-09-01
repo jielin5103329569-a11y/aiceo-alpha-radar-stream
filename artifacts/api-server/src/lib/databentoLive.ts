@@ -1,6 +1,6 @@
 import { EventEmitter } from "node:events";
 import { spawn, type ChildProcess } from "node:child_process";
-import { randomUUID } from "node:crypto";
+import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -377,6 +377,25 @@ export type VerifiedMarketLeader = {
   fresh: boolean;
   minimumLiquiditySatisfied: boolean;
   independentEvidenceCount: number;
+};
+
+export type SignedMarketLeaderEnvelope = {
+  version: "market-leader-intake.v1";
+  producerId: "ai-industry-leader-probe";
+  issuedAt: string;
+  nonce: string;
+  payload: {
+    symbol: string;
+    observedAt: string;
+    source: "databento_live";
+    schema: "mbp-1" | "ohlcv-1s";
+    subscriptionVerified: boolean;
+    completeMarketFields: boolean;
+    fresh: boolean;
+    minimumLiquiditySatisfied: boolean;
+    independentEvidenceCount: number;
+  };
+  signature: string;
 };
 
 export type FocusedScanCandidate = {
@@ -3655,6 +3674,7 @@ export type FocusedScanCoordinatorOptions = {
   referenceUniverse?: Pick<typeof marketUniverse, "query">;
   createService?: (symbol: string) => FocusedScanLiveService;
   apiKeyAvailable?: () => boolean;
+  signingSecret?: () => string | undefined;
   maximumScans?: number;
 };
 
@@ -3662,6 +3682,105 @@ const FOCUSED_SCAN_DEFAULT_CAPACITY = 3;
 const FOCUSED_SCAN_CANDIDATE_HISTORY_LIMIT = 12;
 const FOCUSED_SCAN_COOLDOWN_MS = 5 * 60_000;
 const FOCUSED_SCAN_LEADER_MAX_AGE_MS = 15_000;
+const MARKET_LEADER_ENVELOPE_VERSION = "market-leader-intake.v1";
+const MARKET_LEADER_PRODUCER_ID = "ai-industry-leader-probe";
+const MARKET_LEADER_NONCE_PATTERN = /^[A-Za-z0-9_-]{16,128}$/;
+const MARKET_LEADER_SIGNATURE_PATTERN = /^[A-Za-z0-9_-]{43}$/;
+const MARKET_LEADER_REPLAY_LIMIT = 4_096;
+const MARKET_LEADER_SIGNING_DOMAIN = "alpha-radar:market-leader-intake:v1";
+
+function marketLeaderSigningSecret(): string | undefined {
+  return process.env.MARKET_LEADER_INTAKE_SIGNING_SECRET;
+}
+
+function usableMarketLeaderSigningSecret(secret: string | undefined): secret is string {
+  return typeof secret === "string" && Buffer.byteLength(secret, "utf8") >= 32;
+}
+
+function canonicalMarketLeaderPayload(
+  envelope: Omit<SignedMarketLeaderEnvelope, "signature">,
+): string {
+  const { payload } = envelope;
+  return [
+    MARKET_LEADER_SIGNING_DOMAIN,
+    envelope.version,
+    envelope.producerId,
+    envelope.issuedAt,
+    envelope.nonce,
+    payload.symbol,
+    payload.observedAt,
+    payload.source,
+    payload.schema,
+    payload.subscriptionVerified ? "1" : "0",
+    payload.completeMarketFields ? "1" : "0",
+    payload.fresh ? "1" : "0",
+    payload.minimumLiquiditySatisfied ? "1" : "0",
+    String(payload.independentEvidenceCount),
+  ].join("\n");
+}
+
+export function createSignedMarketLeaderEnvelope(
+  leader: VerifiedMarketLeader,
+  input: {
+    secret: string;
+    issuedAt?: Date;
+    nonce?: string;
+  },
+): SignedMarketLeaderEnvelope {
+  if (!usableMarketLeaderSigningSecret(input.secret)) {
+    throw new Error("Market-leader signing is unavailable.");
+  }
+  const unsigned: Omit<SignedMarketLeaderEnvelope, "signature"> = {
+    version: MARKET_LEADER_ENVELOPE_VERSION,
+    producerId: MARKET_LEADER_PRODUCER_ID,
+    issuedAt: (input.issuedAt ?? new Date()).toISOString(),
+    nonce: input.nonce ?? randomUUID(),
+    payload: {
+      symbol: leader.symbol,
+      observedAt: leader.observedAt.toISOString(),
+      source: leader.source,
+      schema: leader.schema,
+      subscriptionVerified: leader.subscriptionVerified,
+      completeMarketFields: leader.completeMarketFields,
+      fresh: leader.fresh,
+      minimumLiquiditySatisfied: leader.minimumLiquiditySatisfied,
+      independentEvidenceCount: leader.independentEvidenceCount,
+    },
+  };
+  if (!MARKET_LEADER_NONCE_PATTERN.test(unsigned.nonce)) {
+    throw new Error("Market-leader signing nonce is invalid.");
+  }
+  return {
+    ...unsigned,
+    signature: createHmac("sha256", input.secret)
+      .update(canonicalMarketLeaderPayload(unsigned), "utf8")
+      .digest("base64url"),
+  };
+}
+
+function signedMarketLeaderCandidateFacts(
+  envelope: unknown,
+  now: Date,
+): Pick<FocusedScanCandidate, "symbol" | "observedAt" | "independentEvidenceCount" | "updatedAt"> {
+  const candidate = envelope && typeof envelope === "object"
+    ? envelope as { payload?: Record<string, unknown> }
+    : null;
+  const payload = candidate?.payload;
+  const rawSymbol = payload?.symbol;
+  const rawObservedAt = payload?.observedAt;
+  const observedAt = typeof rawObservedAt === "string" ? new Date(rawObservedAt) : null;
+  return {
+    symbol: typeof rawSymbol === "string" && rawSymbol.trim()
+      ? rawSymbol.trim().toUpperCase().slice(0, 20)
+      : "UNKNOWN",
+    observedAt: observedAt && !Number.isNaN(observedAt.getTime()) ? observedAt : null,
+    independentEvidenceCount: typeof payload?.independentEvidenceCount === "number"
+      && Number.isFinite(payload.independentEvidenceCount)
+      ? payload.independentEvidenceCount
+      : 0,
+    updatedAt: now,
+  };
+}
 
 /**
  * Keeps optional dynamic bridges separate from the protected five-symbol radar.
@@ -3672,16 +3791,19 @@ export class FocusedScanCoordinator extends EventEmitter {
   private readonly referenceUniverse: Pick<typeof marketUniverse, "query">;
   private readonly createService: (symbol: string) => FocusedScanLiveService;
   private readonly apiKeyAvailable: () => boolean;
+  private readonly signingSecret: () => string | undefined;
   private readonly maximumScans: number;
   private readonly active = new Map<string, ActiveFocusedScan>();
   private readonly candidateHistory = new Map<string, FocusedScanCandidate>();
   private readonly cooldowns = new Map<string, Date>();
+  private readonly verifiedNonces = new Map<string, number>();
 
   constructor(options: FocusedScanCoordinatorOptions = {}) {
     super();
     this.referenceUniverse = options.referenceUniverse ?? marketUniverse;
     this.createService = options.createService ?? ((symbol) => new DatabentoLiveService(symbol));
     this.apiKeyAvailable = options.apiKeyAvailable ?? (() => Boolean(process.env.DATABENTO_API_KEY));
+    this.signingSecret = options.signingSecret ?? marketLeaderSigningSecret;
     this.maximumScans = Math.max(
       1,
       Math.min(FOCUSED_SCAN_DEFAULT_CAPACITY, options.maximumScans ?? FOCUSED_SCAN_DEFAULT_CAPACITY),
@@ -3767,10 +3889,19 @@ export class FocusedScanCoordinator extends EventEmitter {
   }
 
   routeVerifiedMarketLeader(
-    leader: VerifiedMarketLeader,
+    envelope: SignedMarketLeaderEnvelope | unknown,
     protectedStatuses: RadarStatus[],
     now = new Date(),
   ): FocusedScanCandidate {
+    const verification = this.verifySignedLeader(envelope, now);
+    if (!verification.accepted || !verification.leader) {
+      return this.recordCandidate({
+        ...signedMarketLeaderCandidateFacts(envelope, now),
+        state: "rejected",
+        reason: verification.reason,
+      });
+    }
+    const leader = verification.leader;
     const symbol = normalizeReferenceSymbol(leader.symbol);
     if (!symbol) {
       return this.recordCandidate({
@@ -3966,6 +4097,118 @@ export class FocusedScanCoordinator extends EventEmitter {
       && now.getTime() - leader.observedAt.getTime() <= FOCUSED_SCAN_LEADER_MAX_AGE_MS;
   }
 
+  private verifySignedLeader(
+    value: unknown,
+    now: Date,
+  ): { accepted: boolean; leader: VerifiedMarketLeader | null; reason: string } {
+    const secret = this.signingSecret();
+    if (!usableMarketLeaderSigningSecret(secret)) {
+      return {
+        accepted: false,
+        leader: null,
+        reason: "Market-leader intake authentication is unavailable; unsigned fallback is prohibited.",
+      };
+    }
+    if (!value || typeof value !== "object") {
+      return { accepted: false, leader: null, reason: "Market-leader payload is unsigned or malformed." };
+    }
+    const envelope = value as Partial<SignedMarketLeaderEnvelope>;
+    const payload = envelope.payload as Partial<SignedMarketLeaderEnvelope["payload"]> | undefined;
+    if (
+      envelope.version !== MARKET_LEADER_ENVELOPE_VERSION
+      || envelope.producerId !== MARKET_LEADER_PRODUCER_ID
+      || typeof envelope.issuedAt !== "string"
+      || typeof envelope.nonce !== "string"
+      || !MARKET_LEADER_NONCE_PATTERN.test(envelope.nonce)
+      || typeof envelope.signature !== "string"
+      || !MARKET_LEADER_SIGNATURE_PATTERN.test(envelope.signature)
+      || !payload
+      || typeof payload.symbol !== "string"
+      || typeof payload.observedAt !== "string"
+      || payload.source !== "databento_live"
+      || !["mbp-1", "ohlcv-1s"].includes(String(payload.schema))
+      || typeof payload.subscriptionVerified !== "boolean"
+      || typeof payload.completeMarketFields !== "boolean"
+      || typeof payload.fresh !== "boolean"
+      || typeof payload.minimumLiquiditySatisfied !== "boolean"
+      || typeof payload.independentEvidenceCount !== "number"
+      || !Number.isSafeInteger(payload.independentEvidenceCount)
+      || payload.independentEvidenceCount < 0
+    ) {
+      return { accepted: false, leader: null, reason: "Market-leader signed envelope is malformed." };
+    }
+    const issuedAt = new Date(envelope.issuedAt);
+    const observedAt = new Date(payload.observedAt);
+    if (Number.isNaN(issuedAt.getTime()) || Number.isNaN(observedAt.getTime())) {
+      return { accepted: false, leader: null, reason: "Market-leader signed envelope contains an invalid timestamp." };
+    }
+    const issuedAgeMs = now.getTime() - issuedAt.getTime();
+    const observedAgeMs = now.getTime() - observedAt.getTime();
+    if (
+      issuedAgeMs < 0
+      || issuedAgeMs > FOCUSED_SCAN_LEADER_MAX_AGE_MS
+      || observedAgeMs < 0
+      || observedAgeMs > FOCUSED_SCAN_LEADER_MAX_AGE_MS
+      || Math.abs(issuedAt.getTime() - observedAt.getTime()) > FOCUSED_SCAN_LEADER_MAX_AGE_MS
+    ) {
+      return { accepted: false, leader: null, reason: "Market-leader signed envelope is expired or from the future." };
+    }
+    const unsigned: Omit<SignedMarketLeaderEnvelope, "signature"> = {
+      version: MARKET_LEADER_ENVELOPE_VERSION,
+      producerId: MARKET_LEADER_PRODUCER_ID,
+      issuedAt: envelope.issuedAt,
+      nonce: envelope.nonce,
+      payload: {
+        symbol: payload.symbol,
+        observedAt: payload.observedAt,
+        source: payload.source,
+        schema: payload.schema as VerifiedMarketLeader["schema"],
+        subscriptionVerified: payload.subscriptionVerified,
+        completeMarketFields: payload.completeMarketFields,
+        fresh: payload.fresh,
+        minimumLiquiditySatisfied: payload.minimumLiquiditySatisfied,
+        independentEvidenceCount: payload.independentEvidenceCount,
+      },
+    };
+    const expected = createHmac("sha256", secret)
+      .update(canonicalMarketLeaderPayload(unsigned), "utf8")
+      .digest();
+    const supplied = Buffer.from(envelope.signature, "base64url");
+    if (supplied.length !== expected.length || !timingSafeEqual(supplied, expected)) {
+      return { accepted: false, leader: null, reason: "Market-leader signature verification failed." };
+    }
+    this.pruneVerifiedNonces(now);
+    const replayKey = `${envelope.producerId}:${envelope.nonce}`;
+    if (this.verifiedNonces.has(replayKey)) {
+      return { accepted: false, leader: null, reason: "Market-leader signed envelope was already processed." };
+    }
+    if (this.verifiedNonces.size >= MARKET_LEADER_REPLAY_LIMIT) {
+      return { accepted: false, leader: null, reason: "Market-leader replay protection is at capacity." };
+    }
+    this.verifiedNonces.set(replayKey, issuedAt.getTime() + FOCUSED_SCAN_LEADER_MAX_AGE_MS);
+    return {
+      accepted: true,
+      leader: {
+        symbol: payload.symbol,
+        observedAt,
+        source: payload.source,
+        schema: payload.schema as VerifiedMarketLeader["schema"],
+        subscriptionVerified: payload.subscriptionVerified,
+        completeMarketFields: payload.completeMarketFields,
+        fresh: payload.fresh,
+        minimumLiquiditySatisfied: payload.minimumLiquiditySatisfied,
+        independentEvidenceCount: payload.independentEvidenceCount,
+      },
+      reason: "Market-leader producer identity, signature, freshness, and nonce are verified.",
+    };
+  }
+
+  private pruneVerifiedNonces(now: Date): void {
+    for (const [key, expiresAt] of this.verifiedNonces) {
+      if (expiresAt < now.getTime()) this.verifiedNonces.delete(key);
+    }
+  }
+
   private evictInactiveScan(now: Date): boolean {
     const inactive = [...this.active.values()]
       .map((scan) => ({ scan, status: scan.service.getStatus() }))
@@ -4013,6 +4256,7 @@ export type AiIndustryLeaderProbeCoordinatorOptions = {
   symbols?: readonly string[];
   createService?: (symbol: string) => AiIndustryLeaderProbeLiveService;
   apiKeyAvailable?: () => boolean;
+  signingSecret?: () => string | undefined;
   probeDwellMs?: number;
   symbolSupported?: (symbol: string) => boolean;
 };
@@ -4030,6 +4274,7 @@ export class AiIndustryLeaderProbeCoordinator extends EventEmitter {
   private readonly symbols: string[];
   private readonly createService: (symbol: string) => AiIndustryLeaderProbeLiveService;
   private readonly apiKeyAvailable: () => boolean;
+  private readonly signingSecret: () => string | undefined;
   private readonly probeDwellMs: number;
   private readonly symbolSupported: (symbol: string) => boolean;
   private active: { symbol: string; service: AiIndustryLeaderProbeLiveService; startedAt: Date } | null = null;
@@ -4047,6 +4292,7 @@ export class AiIndustryLeaderProbeCoordinator extends EventEmitter {
       .sort();
     this.createService = options.createService ?? ((symbol) => new DatabentoLiveService(symbol));
     this.apiKeyAvailable = options.apiKeyAvailable ?? (() => Boolean(process.env.DATABENTO_API_KEY));
+    this.signingSecret = options.signingSecret ?? marketLeaderSigningSecret;
     this.probeDwellMs = Math.max(30_000, options.probeDwellMs ?? AI_INDUSTRY_LEADER_PROBE_DWELL_MS);
   }
 
@@ -4062,7 +4308,7 @@ export class AiIndustryLeaderProbeCoordinator extends EventEmitter {
 
   observe(
     protectedStatuses: RadarStatus[],
-    admitLeader: (leader: VerifiedMarketLeader, protectedStatuses: RadarStatus[]) => FocusedScanCandidate,
+    admitLeader: (leader: SignedMarketLeaderEnvelope, protectedStatuses: RadarStatus[]) => FocusedScanCandidate,
     now = new Date(),
   ): void {
     if (!this.started || !this.apiKeyAvailable() || this.symbols.length === 0) return;
@@ -4086,8 +4332,12 @@ export class AiIndustryLeaderProbeCoordinator extends EventEmitter {
       && status.market.bidPrice !== null
       && status.market.askPrice !== null
       && status.market.sessionVolume !== null;
-    this.routedAt.set(active.symbol, now);
-    admitLeader({
+    const secret = this.signingSecret();
+    if (!usableMarketLeaderSigningSecret(secret)) {
+      this.rotate();
+      return;
+    }
+    const leader: VerifiedMarketLeader = {
       symbol: active.symbol,
       observedAt: status.lastUpdatedAt ?? now,
       source: "databento_live",
@@ -4097,7 +4347,13 @@ export class AiIndustryLeaderProbeCoordinator extends EventEmitter {
       fresh: true,
       minimumLiquiditySatisfied: (status.market.sessionVolume ?? 0) > 0,
       independentEvidenceCount: 2,
-    }, protectedStatuses);
+    };
+    const signedLeader = createSignedMarketLeaderEnvelope(leader, {
+      secret,
+      issuedAt: now,
+    });
+    this.routedAt.set(active.symbol, now);
+    admitLeader(signedLeader, protectedStatuses);
     this.rotate();
   }
 

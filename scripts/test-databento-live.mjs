@@ -527,13 +527,24 @@ try {
     symbols: ["NVDA", "AMAT"],
     createService: () => probeService,
     apiKeyAvailable: () => true,
+    signingSecret: () => "fixed-test-key-for-market-leader-intake-only",
     symbolSupported: (symbol) => symbol === "AMAT",
   });
   runtimeUniverse.aiIndustryLeaderProbe = runtimeProbe;
   const admittedLeaders = [];
-  runtimeUniverse.focusedScans.routeVerifiedMarketLeader = (leader, protectedStatuses) => {
-    admittedLeaders.push({ leader, protectedSymbols: protectedStatuses.map((status) => status.symbol) });
-    return { symbol: leader.symbol, state: "admitted", reason: "test", observedAt: leader.observedAt, independentEvidenceCount: 2, updatedAt: new Date() };
+  runtimeUniverse.focusedScans.routeVerifiedMarketLeader = (envelope, protectedStatuses) => {
+    admittedLeaders.push({
+      leader: envelope.payload,
+      protectedSymbols: protectedStatuses.map((status) => status.symbol),
+    });
+    return {
+      symbol: envelope.payload.symbol,
+      state: "admitted",
+      reason: "test",
+      observedAt: new Date(envelope.payload.observedAt),
+      independentEvidenceCount: 2,
+      updatedAt: new Date(),
+    };
   };
   runtimeProbe.start();
   runtimeUniverse.getStatus();
@@ -548,6 +559,32 @@ try {
     "leader admission may inspect protected authorization only; protected symbols never become probe candidates",
   );
   runtimeProbe.stop();
+  const missingSigningSecretProbe = new AiIndustryLeaderProbeCoordinator({
+    symbols: ["AMAT"],
+    createService: () => probeService,
+    apiKeyAvailable: () => true,
+    signingSecret: () => undefined,
+    symbolSupported: (symbol) => symbol === "AMAT",
+  });
+  let unsignedFallbackRoutes = 0;
+  missingSigningSecretProbe.start();
+  missingSigningSecretProbe.observe([], () => {
+    unsignedFallbackRoutes += 1;
+    return {
+      symbol: "AMAT",
+      state: "admitted",
+      reason: "test",
+      observedAt: new Date(),
+      independentEvidenceCount: 2,
+      updatedAt: new Date(),
+    };
+  });
+  assert.equal(
+    unsignedFallbackRoutes,
+    0,
+    "a producer without the signing secret must fail closed and never route an unsigned fallback",
+  );
+  missingSigningSecretProbe.stop();
   assert.deepEqual(
     universeStatus.symbolRadars.map((radar) => radar.symbol),
     [...MONITORED_SYMBOLS],
