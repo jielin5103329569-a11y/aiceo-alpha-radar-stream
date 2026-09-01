@@ -1,5 +1,36 @@
 import type { Server } from "node:http";
 import type { Socket } from "node:net";
+import { spawnSync } from "node:child_process";
+
+export type ListeningPortOccupant = {
+  readonly pid: number | null;
+  readonly command: string | null;
+  readonly raw: string;
+};
+
+/**
+ * Best-effort diagnostics for an incumbent listener. This never attempts to
+ * stop the incumbent or retry the bind; it only provides context before the
+ * duplicate process exits.
+ */
+export function inspectListeningPort(port: number): ListeningPortOccupant {
+  const result = spawnSync(
+    "lsof",
+    ["-nP", `-iTCP:${port}`, "-sTCP:LISTEN", "-Fpct"],
+    { encoding: "utf8" },
+  );
+  const raw = `${result.stdout ?? ""}${result.stderr ?? ""}`.trim();
+  const lines = raw.split(/\r?\n/);
+  const pidLine = lines.find((line) => line.startsWith("p"));
+  const commandLine = lines.find((line) => line.startsWith("c"));
+  const parsedPid = pidLine ? Number(pidLine.slice(1)) : Number.NaN;
+
+  return {
+    pid: Number.isInteger(parsedPid) && parsedPid > 0 ? parsedPid : null,
+    command: commandLine?.slice(1) || null,
+    raw,
+  };
+}
 
 type LifecycleOwner = {
   markStopping(): void;

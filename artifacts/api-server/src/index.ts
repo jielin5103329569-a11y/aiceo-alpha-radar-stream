@@ -1,4 +1,4 @@
-import type { Server } from "node:http";
+import { createServer, type Server } from "node:http";
 import type { Socket } from "node:net";
 
 import app from "./app";
@@ -15,7 +15,7 @@ import { autonomousOperationsCoordinator } from "./lib/autonomousOperationsRunti
 import { aiIndustryStockPool } from "./lib/aiIndustryStockPool";
 import type { AutonomousWorkDefinition } from "./lib/autonomousOperationsCoordinator";
 import { buildEngineeringGovernanceSnapshot } from "./lib/engineeringGovernance";
-import { createGracefulShutdown } from "./lib/serverLifecycle";
+import { createGracefulShutdown, inspectListeningPort } from "./lib/serverLifecycle";
 
 const rawPort = process.env["PORT"];
 
@@ -29,11 +29,6 @@ const port = Number(rawPort);
 
 if (!Number.isInteger(port) || port <= 0 || port > 65_535) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
-}
-
-const ownership = backendLifeline.owner.claim(port);
-if (!ownership.accepted) {
-  throw new Error(ownership.reason);
 }
 
 let server: Server | null = null;
@@ -63,7 +58,21 @@ const shutdown = createGracefulShutdown({
   },
 });
 
-server = app.listen(port);
+server = createServer((request, response) => {
+  const pathname = new URL(request.url ?? "/", "http://localhost").pathname;
+  if (request.method === "GET" && pathname === "/api/healthz") {
+    response.statusCode = 200;
+    response.setHeader("Content-Type", "application/json; charset=utf-8");
+    response.end(JSON.stringify({
+      status: "ok",
+      ownerPid: process.pid,
+      port,
+      singleton: true,
+    }));
+    return;
+  }
+  app(request, response);
+});
 server.on("connection", (socket) => {
   activeSockets.add(socket);
   socket.once("close", () => activeSockets.delete(socket));
@@ -71,20 +80,35 @@ server.on("connection", (socket) => {
 
 server.once("error", (error: NodeJS.ErrnoException) => {
   backendLifeline.owner.markFailed(error);
+  const incumbent = error.code === "EADDRINUSE"
+    ? inspectListeningPort(port)
+    : null;
   logger.error(
     {
       code: error.code,
       port,
+      incumbentPid: incumbent?.pid ?? null,
+      incumbentCommand: incumbent?.command ?? null,
+      incumbentListener: incumbent?.raw ?? null,
       error: error.message,
     },
     error.code === "EADDRINUSE"
       ? "Backend lifeline could not claim its managed listener port; refusing a duplicate instance"
       : "Backend lifeline listener failed",
   );
-  process.exitCode = 1;
+  process.exit(1);
 });
 
 server.once("listening", () => {
+  const ownership = backendLifeline.owner.claim(port);
+  if (!ownership.accepted) {
+    logger.error(
+      { port, ownerPid: process.pid, reason: ownership.reason },
+      "Bound API listener could not claim backend ownership",
+    );
+    server?.close(() => process.exit(1));
+    return;
+  }
   backendLifeline.owner.markListening();
   logger.info({ port, ownerId: ownership.ownerId }, "Server-owned Alpha Radar lifeline is listening");
   marketUniverse.start();
@@ -194,6 +218,8 @@ server.once("listening", () => {
     };
   });
 });
+
+server.listen(port);
 
 process.once("SIGTERM", () => shutdown("SIGTERM"));
 process.once("SIGINT", () => shutdown("SIGINT"));
