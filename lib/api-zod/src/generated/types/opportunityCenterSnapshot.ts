@@ -8,6 +8,8 @@
 import type { Opportunity } from './opportunity';
 
 export interface OpportunityCenterSnapshot {
+  /** @nullable */
+  scanId: string | null;
   generatedAt: Date;
   opportunities: Opportunity[];
   reason: string;

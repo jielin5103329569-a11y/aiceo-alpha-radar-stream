@@ -14,6 +14,8 @@ import type { OpportunityState } from './opportunityState';
 import type { SectorConfirmation } from './sectorConfirmation';
 
 export interface Opportunity {
+  /** @nullable */
+  scanId: string | null;
   symbol: string;
   /** @nullable */
   eventTime: Date | null;

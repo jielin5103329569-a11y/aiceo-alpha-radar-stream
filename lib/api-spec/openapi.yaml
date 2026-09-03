@@ -1337,6 +1337,7 @@ components:
     Opportunity:
       type: object
       properties:
+        scanId: { type: [string, "null"] }
         symbol: { type: string }
         eventTime: { type: [string, "null"], format: date-time }
         triggerAt:
@@ -1373,7 +1374,7 @@ components:
         alertReadyReason:
           type: string
         reason: { type: string }
-      required: [symbol, eventTime, triggerAt, freshness, direction, alphaVelocity30s, acceleration, catalystStatus, evidenceCount, evidenceChain, state, marketState, sectorConfirmation, missingConfirmationItems, alertReady, alertReadyReason, reason]
+      required: [scanId, symbol, eventTime, triggerAt, freshness, direction, alphaVelocity30s, acceleration, catalystStatus, evidenceCount, evidenceChain, state, marketState, sectorConfirmation, missingConfirmationItems, alertReady, alertReadyReason, reason]
     CatalystRadarSnapshot:
       type: object
       properties:
@@ -1392,12 +1393,13 @@ components:
     OpportunityCenterSnapshot:
       type: object
       properties:
+        scanId: { type: [string, "null"] }
         generatedAt: { type: string, format: date-time }
         opportunities:
           type: array
           items: { $ref: "#/components/schemas/Opportunity" }
         reason: { type: string }
-      required: [generatedAt, opportunities, reason]
+      required: [scanId, generatedAt, opportunities, reason]
     RadarSignalFreshness:
       type: string
       enum: [fresh, delayed, stale, missing]
@@ -1918,6 +1920,24 @@ components:
         - marketDataGateReady
         - degradation
         - reason
+    ProtectedMarketWindowSegment:
+      type: string
+      enum: [quote, trade, volume, heartbeat]
+    ProtectedMarketWindowSettlement:
+      type: object
+      description: Atomic per-symbol settlement under the universe-owned scan cycle.
+      properties:
+        scanId: { type: [string, "null"] }
+        settledAt: { type: [string, "null"], format: date-time }
+        quote: { type: boolean }
+        trade: { type: boolean }
+        volume: { type: boolean }
+        heartbeat: { type: boolean }
+        complete: { type: boolean }
+        missingSegments:
+          type: array
+          items: { $ref: "#/components/schemas/ProtectedMarketWindowSegment" }
+      required: [scanId, settledAt, quote, trade, volume, heartbeat, complete, missingSegments]
     EngineeringModuleId:
       type: string
       enum:
@@ -2758,6 +2778,8 @@ components:
     RadarSymbolStatus:
       type: object
       properties:
+        scanId:
+          type: [string, "null"]
         symbol:
           type: string
         connectionState:
@@ -2779,11 +2801,14 @@ components:
           $ref: "#/components/schemas/LiveIngestionDiagnostics"
         scanHealth:
           $ref: "#/components/schemas/ProtectedScanHealth"
+        marketWindowSettlement:
+          $ref: "#/components/schemas/ProtectedMarketWindowSettlement"
         governance:
           $ref: "#/components/schemas/DataGovernanceSnapshot"
         error:
           type: [string, "null"]
       required:
+        - scanId
         - symbol
         - connectionState
         - marketFeedState
@@ -2793,6 +2818,7 @@ components:
         - market
         - liveIngestion
         - scanHealth
+        - marketWindowSettlement
         - governance
         - error
     AlphaRankingEligibility:
@@ -4280,6 +4306,11 @@ components:
     RadarStatus:
       type: object
       properties:
+        scanId:
+          type: [string, "null"]
+          description: Universe-owned identifier shared by all five protected-symbol settlements.
+        marketWindowSettlement:
+          $ref: "#/components/schemas/ProtectedMarketWindowSettlement"
         statusEpoch:
           type: string
           minLength: 1
@@ -4374,6 +4405,8 @@ components:
               type: [number, "null"]
           required: [symbol, state, confirmationStatus, alphaVelocity]
       required:
+        - scanId
+        - marketWindowSettlement
         - statusEpoch
         - statusRevision
         - configured

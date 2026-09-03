@@ -48,7 +48,9 @@ function freshAlphaRadar({ state = "breakout_critical", confirmation = "confirme
 }
 
 function freshInput(symbol = "NVDA") {
+  const scanId = "shared-scan-2026-08-20T14:30:00.000Z";
   return {
+    scanId,
     symbol,
     alphaRadar: freshAlphaRadar(),
     marketFeedState: "streaming",
@@ -56,6 +58,15 @@ function freshInput(symbol = "NVDA") {
       schedulerState: "scheduled",
       marketDataState: "fresh",
       marketDataGateReady: true,
+    },
+    marketWindowSettlement: {
+      scanId,
+      quote: true,
+      trade: true,
+      volume: true,
+      heartbeat: true,
+      complete: true,
+      missingSegments: [],
     },
     reference: null,
   };
@@ -163,6 +174,12 @@ try {
       marketDataState: "stale",
       marketDataGateReady: false,
     },
+    marketWindowSettlement: {
+      ...freshInput().marketWindowSettlement,
+      quote: false,
+      complete: false,
+      missingSegments: ["quote"],
+    },
   };
   const unavailableSector = calculateSectorConfirmation(null, []);
   assert.equal(
@@ -176,6 +193,10 @@ try {
   assert.ok(
     staleCenter.opportunityCenter.opportunities[0].missingConfirmationItems.includes("Fresh complete protected market window"),
     "stale market data must invalidate the opportunity handoff",
+  );
+  assert.ok(
+    staleCenter.opportunityCenter.opportunities[0].missingConfirmationItems.includes("Fresh protected quote segment"),
+    "the opportunity handoff must name the exact missing protected-market segment",
   );
 
   const reference = {

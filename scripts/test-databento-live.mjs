@@ -365,6 +365,7 @@ try {
     "an old taxonomy timestamp must remain unavailable even while the reference snapshot is fresh",
   );
   const staleClassificationNow = new Date(referenceAt.getTime() + 10_000);
+  const staleClassificationScanId = "shared-classification-guard-scan";
   const staleClassificationReferences = staleClassificationRegistry.query(
     { eligibility: "eligible", limit: 10 },
     staleClassificationNow,
@@ -380,6 +381,7 @@ try {
     "classification freshness must fail independently for every otherwise-fresh reference record",
   );
   const freshClassificationGuardStatus = (symbol) => ({
+    scanId: staleClassificationScanId,
     symbol,
     connectionState: "streaming",
     marketFeedState: "streaming",
@@ -387,6 +389,15 @@ try {
       schedulerState: "scheduled",
       marketDataState: "fresh",
       marketDataGateReady: true,
+    },
+    marketWindowSettlement: {
+      scanId: staleClassificationScanId,
+      quote: true,
+      trade: true,
+      volume: true,
+      heartbeat: true,
+      complete: true,
+      missingSegments: [],
     },
     liveIngestion: {
       conditions: {
@@ -966,6 +977,37 @@ try {
     [...MONITORED_SYMBOLS],
     "the scan universe must expose independent NVDA, MU, VRT, CRDO, and AMD radar windows",
   );
+  assert.ok(universeStatus.scanId, "every universe snapshot must expose a universe-owned scanId");
+  assert.ok(
+    universeStatus.symbolRadars.every((radar) => radar.scanId === universeStatus.scanId),
+    "all five protected symbols must settle under the exact same scanId",
+  );
+  assert.ok(
+    universeStatus.symbolRadars.every(
+      (radar) =>
+        radar.marketWindowSettlement.scanId === universeStatus.scanId
+        && radar.marketWindowSettlement.complete === false
+        && radar.marketWindowSettlement.missingSegments.join(",") === "quote,trade,volume,heartbeat",
+    ),
+    "offline universe settlement must explicitly list every missing quote, trade, volume, and heartbeat segment",
+  );
+  assert.equal(
+    universeStatus.opportunityCenter?.scanId,
+    universeStatus.scanId,
+    "the opportunity center must consume the same settled universe cycle",
+  );
+  assert.ok(
+    universeStatus.opportunityCenter?.opportunities.every(
+      (opportunity) => opportunity.scanId === universeStatus.scanId,
+    ),
+    "every opportunity row must retain the shared universe scanId",
+  );
+  assert.ok(
+    universeStatus.symbolRadars.every(
+      (radar) => radar.alphaRadar.changeIndicators.volumeAcceleration === null,
+    ),
+    "missing protected volume must never surface as zero acceleration",
+  );
   assert.equal(
     universeStatus.marketUniverse?.deliveryMode,
     "reference_only",
@@ -1033,18 +1075,48 @@ try {
   });
   const startupUniverse = new DatabentoUniverseService();
   const startupCalls = [];
-  startupUniverse.services.forEach((service) => {
+  const startupHeartbeatAt = new Date();
+  startupUniverse.services.forEach((service, index) => {
+    service.status = {
+      ...service.getStatus(),
+      configured: true,
+      connectionState: index === 1 ? "error" : "streaming",
+      lastHeartbeatAt: startupHeartbeatAt,
+    };
     service.start = () => {
       startupCalls.push(service.getStatus().symbol);
       return service.getStatus();
     };
   });
-  startupUniverse.start();
+  const startupPublications = [];
+  startupUniverse.on("status", (status) => startupPublications.push(status));
+  const startupStatus = startupUniverse.start();
   assert.deepEqual(
     startupCalls,
     [...MONITORED_SYMBOLS],
     "universe startup must arm every protected live bridge without waiting for a manual dashboard action",
   );
+  assert.equal(
+    startupPublications.length,
+    1,
+    "one shared scan must publish exactly once after all five child settlements complete",
+  );
+  assert.ok(
+    startupStatus.symbolRadars.every(
+      (radar) => radar.scanId === startupStatus.scanId && radar.marketFeedState === "offline",
+    ),
+    "one failed protected connection must project all five symbols offline under the same scanId",
+  );
+  assert.equal(
+    startupUniverse.services[0].status.connectionState,
+    "streaming",
+    "the universe-wide offline projection must not overwrite a healthy child's underlying transport state",
+  );
+  assert.ok(
+    startupUniverse.services.every((service) => service.scanTimer === null),
+    "protected child services must not own independent scan timers inside the universe",
+  );
+  startupUniverse.stop();
   startupUniverse.aiIndustryLeaderProbe.stop();
   const exhaustionRecoveryService = new DatabentoLiveService("NVDA");
   exhaustionRecoveryService.status = {

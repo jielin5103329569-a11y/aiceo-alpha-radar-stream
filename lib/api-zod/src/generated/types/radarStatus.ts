@@ -16,6 +16,7 @@ import type { MarketFeedState } from './marketFeedState';
 import type { MarketUniverseSummary } from './marketUniverseSummary';
 import type { OpeningReadinessSnapshot } from './openingReadinessSnapshot';
 import type { OpportunityCenterSnapshot } from './opportunityCenterSnapshot';
+import type { ProtectedMarketWindowSettlement } from './protectedMarketWindowSettlement';
 import type { ProtectedScanHealth } from './protectedScanHealth';
 import type { RadarConnectionState } from './radarConnectionState';
 import type { RadarMarketSnapshot } from './radarMarketSnapshot';
@@ -28,6 +29,12 @@ import type { RadarTrade } from './radarTrade';
 import type { SectorPrioritySnapshot } from './sectorPrioritySnapshot';
 
 export interface RadarStatus {
+  /**
+     * Universe-owned identifier shared by all five protected-symbol settlements.
+     * @nullable
+     */
+  scanId: string | null;
+  marketWindowSettlement: ProtectedMarketWindowSettlement;
   /**
      * Unique server-process identifier for ordering status snapshots across restarts.
      * @minLength 1

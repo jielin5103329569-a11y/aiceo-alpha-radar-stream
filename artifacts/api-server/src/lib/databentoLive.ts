@@ -162,6 +162,17 @@ export type ProtectedScanHealth = {
   degradation: ProtectedScanDegradation;
   reason: string;
 };
+export type ProtectedMarketWindowSegment = "quote" | "trade" | "volume" | "heartbeat";
+export type ProtectedMarketWindowSettlement = {
+  scanId: string | null;
+  settledAt: Date | null;
+  quote: boolean;
+  trade: boolean;
+  volume: boolean;
+  heartbeat: boolean;
+  complete: boolean;
+  missingSegments: ProtectedMarketWindowSegment[];
+};
 export type RadarSignal = {
   score: number | null;
   dataTimestamp: Date | null;
@@ -281,6 +292,10 @@ export type LiveIngestionDiagnostics = {
 };
 
 export type RadarStatus = {
+  /** One universe-owned identifier shared by all five protected-symbol settlements. */
+  scanId: string | null;
+  /** Explicit quote/trade/volume/heartbeat settlement for this universe scan. */
+  marketWindowSettlement: ProtectedMarketWindowSettlement;
   /** Unique server-process identifier for ordering status snapshots across restarts. */
   statusEpoch: string;
   /** Strictly monotonic snapshot revision within statusEpoch; distinct from market-event time. */
@@ -347,6 +362,7 @@ export type RadarStatus = {
 };
 
 export type RadarSymbolStatus = {
+  scanId: string | null;
   symbol: string;
   connectionState: RadarConnectionState;
   marketFeedState: MarketFeedState;
@@ -357,6 +373,7 @@ export type RadarSymbolStatus = {
   liveIngestion: LiveIngestionDiagnostics;
   network: LiveNetworkHealth;
   scanHealth: ProtectedScanHealth;
+  marketWindowSettlement: ProtectedMarketWindowSettlement;
   governance: DataGovernanceSnapshot;
   /** Per-symbol stream states — required for fail-closed stream-receiving gate. */
   streams: RadarStatus["streams"];
@@ -693,6 +710,17 @@ function blankStatus(symbol = "NVDA"): RadarStatus {
     reason: "Scanner is inactive. No scheduled scan, transport state, or cached value is treated as live market evidence.",
   };
   return {
+    scanId: null,
+    marketWindowSettlement: {
+      scanId: null,
+      settledAt: null,
+      quote: false,
+      trade: false,
+      volume: false,
+      heartbeat: false,
+      complete: false,
+      missingSegments: ["quote", "trade", "volume", "heartbeat"],
+    },
     statusEpoch: "uninitialized",
     statusRevision: 0,
     configured,
@@ -991,9 +1019,22 @@ function quoteDepthPressure(quote: QuoteObservation): number | null {
   return total > 0 ? ((quote.bidSize - quote.askSize) / total) * 100 : null;
 }
 
+type DatabentoLiveServiceOptions = {
+  universeScheduled?: boolean;
+  requestUniverseScan?: (reason: string, eventTriggered: boolean) => void;
+};
+
 export class DatabentoLiveService extends EventEmitter {
-  constructor(private readonly configuredSymbol = "NVDA") {
+  private readonly universeScheduled: boolean;
+  private readonly universeScanRequest: ((reason: string, eventTriggered: boolean) => void) | null;
+
+  constructor(
+    private readonly configuredSymbol = "NVDA",
+    options: DatabentoLiveServiceOptions = {},
+  ) {
     super();
+    this.universeScheduled = options.universeScheduled ?? false;
+    this.universeScanRequest = options.requestUniverseScan ?? null;
     this.status = blankStatus(configuredSymbol);
   }
 
@@ -1120,6 +1161,143 @@ export class DatabentoLiveService extends EventEmitter {
       network,
       scanHealth,
       governance,
+    };
+  }
+
+  setUniverseScanSchedule(active: boolean, nextScanAt: Date | null): void {
+    if (!this.universeScheduled) return;
+    this.scanSchedulerActive = active;
+    this.nextScheduledScanAt = nextScanAt;
+  }
+
+  settleUniverseScan(
+    scanId: string,
+    triggerReason: string,
+    eventTriggered: boolean,
+    forceUniverseOffline: boolean,
+    settledAt: Date,
+  ): RadarStatus {
+    this.status = { ...this.status, scanId };
+    if (!forceUniverseOffline) {
+      this.runAlphaScan(triggerReason, eventTriggered, scanId, false, settledAt);
+    }
+
+    const current = { ...this.getStatus(), scanId };
+    const quote = current.liveIngestion.conditions.quoteFresh;
+    const trade = current.liveIngestion.conditions.tradeFresh;
+    const volume = current.liveIngestion.conditions.volumeFresh;
+    const heartbeat =
+      !forceUniverseOffline
+      && current.network.heartbeatFresh
+      && (current.connectionState === "connected" || current.connectionState === "streaming");
+    const missingSegments = ([
+      ["quote", quote],
+      ["trade", trade],
+      ["volume", volume],
+      ["heartbeat", heartbeat],
+    ] as const)
+      .filter(([, ready]) => !ready)
+      .map(([segment]) => segment);
+    const marketWindowSettlement: ProtectedMarketWindowSettlement = {
+      scanId,
+      settledAt,
+      quote,
+      trade,
+      volume,
+      heartbeat,
+      complete: missingSegments.length === 0,
+      missingSegments,
+    };
+
+    if (!forceUniverseOffline) {
+      return {
+        ...current,
+        marketWindowSettlement,
+      };
+    }
+
+    const unavailableAlpha = createEmptyAlphaRadar(settledAt, this.configuredSymbol);
+    const alphaRadar: AlphaRadarSnapshot = {
+      ...unavailableAlpha,
+      scan: {
+        ...unavailableAlpha.scan,
+        lastScannedAt: null,
+        triggerReason: "universe_transport_gate",
+        eventTriggered: false,
+      },
+      changeIndicators: {
+        ...unavailableAlpha.changeIndicators,
+        volumeAcceleration: null,
+      },
+    };
+    const liveIngestion: LiveIngestionDiagnostics = {
+      ...current.liveIngestion,
+      acceptanceState: "offline",
+      conditions: {
+        ...current.liveIngestion.conditions,
+        scoringEligible: false,
+        triggerEvidenceAvailable: false,
+      },
+      triggerEvidence: {
+        ...current.liveIngestion.triggerEvidence,
+        eventTriggered: false,
+        triggerReason: "universe_transport_gate",
+        scanAt: null,
+        missingEvidence: marketWindowSettlement.missingSegments.map(
+          (segment) => `Missing fresh ${segment} segment for shared scan ${scanId}.`,
+        ),
+      },
+      scoringStatus: {
+        scoreState: alphaRadar.scoreState,
+        status: alphaRadar.status,
+        score: null,
+        freshness: alphaRadar.momentum.freshness,
+        dataQuality: alphaRadar.dataQuality,
+        gateReason: "universe_transport_offline",
+      },
+      reason: "A connection or transport-heartbeat failure in the protected universe forces all five symbols offline for this shared scan.",
+    };
+    const network: LiveNetworkHealth = {
+      ...current.network,
+      marketEventPathHealthy: false,
+      alertReady: false,
+      reason: "The shared protected-universe transport gate is offline; no symbol may retain alert readiness.",
+    };
+    const scanHealth: ProtectedScanHealth = {
+      ...current.scanHealth,
+      marketDataState: "offline",
+      marketDataGateReady: false,
+      degradation: "offline",
+      reason: "A connection or transport-heartbeat failure forces the complete protected universe offline for this scan.",
+    };
+    return {
+      ...current,
+      scanId,
+      marketFeedState: "offline",
+      alphaRadar,
+      signalHistory: [],
+      radar: blankRadarSnapshot(),
+      liveIngestion,
+      network,
+      scanHealth,
+      marketWindowSettlement,
+      governance: buildDataGovernanceSnapshot({
+        now: settledAt,
+        connectionState: "stopped",
+        marketFeedState: "offline",
+        latestMarketEventAt: null,
+        subscriptionVerified: current.liveIngestion.conditions.subscriptionVerified,
+        realMarketEventReceived: false,
+        enteredScoringWindow: false,
+        marketDataGateReady: false,
+        reference: {
+          state: "unavailable",
+          source: null,
+          observedAt: null,
+          reason: "Reference classification is not market evidence.",
+        },
+        alphaRadar,
+      }),
     };
   }
 
@@ -1604,7 +1782,9 @@ export class DatabentoLiveService extends EventEmitter {
           error: null,
         };
     this.startHeartbeat();
-    this.startScanScheduler();
+    if (!this.universeScheduled) {
+      this.startScanScheduler();
+    }
     this.publish();
 
     const child = spawn("python3", ["-u", bridgePath], {
@@ -2165,7 +2345,9 @@ export class DatabentoLiveService extends EventEmitter {
   }
 
   private fail(message: string, shouldReconnect = false): void {
-    this.stopScanScheduler();
+    if (!this.universeScheduled) {
+      this.stopScanScheduler();
+    }
     this.analysisWindowNeedsReset = true;
     const discardedCount = this.retireActiveBridge();
     if (discardedCount > 0) {
@@ -2342,6 +2524,12 @@ export class DatabentoLiveService extends EventEmitter {
   }
 
   private requestAlphaScan(reason: string, eventTriggered: boolean): void {
+    if (this.universeScheduled) {
+      if (eventTriggered) {
+        this.universeScanRequest?.(reason, true);
+      }
+      return;
+    }
     if (!this.scanSchedulerActive) {
       if (this.status.connectionState === "streaming") {
         this.runAlphaScan(reason, eventTriggered);
@@ -2366,7 +2554,13 @@ export class DatabentoLiveService extends EventEmitter {
     this.scheduleNextScan(Math.max(1, EVENT_SCAN_MIN_GAP_MS - elapsedMs));
   }
 
-  private runAlphaScan(triggerReason: string, eventTriggered: boolean): void {
+  private runAlphaScan(
+    triggerReason: string,
+    eventTriggered: boolean,
+    scanId: string | null = this.status.scanId,
+    publishStatus = true,
+    scanAt = new Date(),
+  ): void {
     // A scheduler tick is activity, not market evidence. Do not record a
     // completed scan while the bridge is still connecting, reconnecting, or
     // otherwise not streaming. The next armed tick will retry after a real
@@ -2374,7 +2568,7 @@ export class DatabentoLiveService extends EventEmitter {
     if (this.scanInProgress || this.status.connectionState !== "streaming") return;
     this.scanInProgress = true;
     try {
-    const now = new Date();
+    const now = scanAt;
     const profile = scanProfileAt(now);
     const calculated = calculateAlphaRadar({
       now,
@@ -2383,13 +2577,23 @@ export class DatabentoLiveService extends EventEmitter {
       trades: this.trades,
       bars: this.bars,
     });
-    const dynamicSnapshot = addAlphaRadarDynamics(calculated, this.alphaHistory, {
+    const calculatedDynamics = addAlphaRadarDynamics(calculated, this.alphaHistory, {
       lastScannedAt: now,
       scanIntervalMs: profile.scanIntervalMs,
       scanMode: profile.scanMode,
       triggerReason,
       eventTriggered,
     });
+    const dynamicSnapshot: AlphaRadarSnapshot =
+      calculated.diagnostics.fresh_volume > 0
+        ? calculatedDynamics
+        : {
+            ...calculatedDynamics,
+            changeIndicators: {
+              ...calculatedDynamics.changeIndicators,
+              volumeAcceleration: null,
+            },
+          };
     const detection = updatePreBreakoutDetection(
       dynamicSnapshot,
       this.preBreakoutMachine,
@@ -2461,6 +2665,7 @@ export class DatabentoLiveService extends EventEmitter {
     this.lastAlphaScanAt = now;
     this.status = {
       ...this.status,
+      scanId,
       alphaRadar,
       signalHistory: [...this.signalHistory],
       radar,
@@ -2501,7 +2706,9 @@ export class DatabentoLiveService extends EventEmitter {
       });
       this.capturePostBreakoutShadowStages(alphaRadar);
     }
-    this.publish();
+    if (publishStatus) {
+      this.publish();
+    }
     } finally {
       this.scanInProgress = false;
     }
@@ -3311,6 +3518,7 @@ export const MONITORED_SYMBOLS = ["NVDA", "MU", "VRT", "CRDO", "AMD"] as const;
 
 function toSymbolStatus(status: RadarStatus): RadarSymbolStatus {
   return {
+    scanId: status.scanId,
     symbol: status.symbol,
     connectionState: status.connectionState,
     marketFeedState: status.marketFeedState,
@@ -3321,6 +3529,7 @@ function toSymbolStatus(status: RadarStatus): RadarSymbolStatus {
     liveIngestion: status.liveIngestion,
     network: status.network,
     scanHealth: status.scanHealth,
+    marketWindowSettlement: status.marketWindowSettlement,
     governance: status.governance,
     streams: status.streams,
     error: status.error,
@@ -4380,13 +4589,22 @@ export class AiIndustryLeaderProbeCoordinator extends EventEmitter {
 }
 
 export class DatabentoUniverseService extends EventEmitter {
-  private readonly services = MONITORED_SYMBOLS.map((symbol) => new DatabentoLiveService(symbol));
+  private readonly services: DatabentoLiveService[];
   private readonly focusedScans = new FocusedScanCoordinator();
   private readonly aiIndustryLeaderProbe = new AiIndustryLeaderProbeCoordinator();
   private snapshot: RadarStatus | null = null;
   private snapshotDirty = true;
   private snapshotBuildQueued = false;
   private snapshotBuildInProgress = false;
+  private universeScanTimer: NodeJS.Timeout | null = null;
+  private universeScanScheduleGeneration = 0;
+  private universeScanSchedulerActive = false;
+  private universeScanInProgress = false;
+  private lastUniverseScanAt: Date | null = null;
+  private pendingUniverseScanReason = "scheduled_scan";
+  private pendingUniverseScanEventTriggered = false;
+  private currentScanId = randomUUID();
+  private settledStatuses: RadarStatus[];
   private readonly statusEpoch = randomUUID();
   private statusRevision = 0;
   private rankingMachine: AlphaRadarRankingMachine = {
@@ -4404,12 +4622,135 @@ export class DatabentoUniverseService extends EventEmitter {
 
   constructor() {
     super();
+    this.services = MONITORED_SYMBOLS.map((symbol) => new DatabentoLiveService(symbol, {
+      universeScheduled: true,
+      requestUniverseScan: (reason, eventTriggered) => {
+        this.requestUniverseScan(reason, eventTriggered);
+      },
+    }));
+    const initialSettlementAt = new Date();
+    this.settledStatuses = this.services.map((service) => service.settleUniverseScan(
+      this.currentScanId,
+      "initial_universe_settlement",
+      false,
+      true,
+      initialSettlementAt,
+    ));
     this.services.forEach((service) => {
-      service.on("status", () => this.markSnapshotDirty());
+      service.on("status", (status: RadarStatus) => this.handleServiceStatus(status));
     });
     this.focusedScans.on("status", () => this.markSnapshotDirty());
     this.aiIndustryLeaderProbe.on("status", () => this.markSnapshotDirty());
     marketUniverse.on("status", () => this.markSnapshotDirty());
+  }
+
+  private handleServiceStatus(status: RadarStatus): void {
+    if (!this.universeScanSchedulerActive) return;
+    const transportFailed =
+      status.connectionState === "error"
+      || status.connectionState === "stopped"
+      || status.connectionState === "not_configured"
+      || (
+        status.lastHeartbeatAt !== null
+        && !status.network.heartbeatFresh
+      );
+    if (transportFailed) {
+      this.requestUniverseScan("universe_transport_failure", false, true);
+    }
+  }
+
+  private clearUniverseScanTimer(): void {
+    this.universeScanScheduleGeneration += 1;
+    if (this.universeScanTimer) {
+      clearTimeout(this.universeScanTimer);
+      this.universeScanTimer = null;
+    }
+    this.services.forEach((service) => service.setUniverseScanSchedule(
+      this.universeScanSchedulerActive,
+      null,
+    ));
+  }
+
+  private scheduleNextUniverseScan(delayMs?: number): void {
+    if (!this.universeScanSchedulerActive) return;
+    this.clearUniverseScanTimer();
+    const delay = delayMs ?? scanProfileAt(new Date()).scanIntervalMs;
+    const generation = this.universeScanScheduleGeneration;
+    const nextScanAt = new Date(Date.now() + delay);
+    this.services.forEach((service) => service.setUniverseScanSchedule(true, nextScanAt));
+    this.universeScanTimer = setTimeout(() => {
+      if (
+        !this.universeScanSchedulerActive
+        || generation !== this.universeScanScheduleGeneration
+      ) {
+        return;
+      }
+      this.universeScanTimer = null;
+      const reason = this.pendingUniverseScanReason;
+      const eventTriggered = this.pendingUniverseScanEventTriggered;
+      this.pendingUniverseScanReason = "scheduled_scan";
+      this.pendingUniverseScanEventTriggered = false;
+      this.runUniverseScan(reason, eventTriggered);
+    }, delay);
+  }
+
+  private requestUniverseScan(
+    reason: string,
+    eventTriggered: boolean,
+    immediate = false,
+  ): void {
+    if (!this.universeScanSchedulerActive) return;
+    this.pendingUniverseScanReason = reason;
+    this.pendingUniverseScanEventTriggered ||= eventTriggered;
+    const elapsedMs = this.lastUniverseScanAt
+      ? Date.now() - this.lastUniverseScanAt.getTime()
+      : EVENT_SCAN_MIN_GAP_MS;
+    if (immediate || elapsedMs >= EVENT_SCAN_MIN_GAP_MS) {
+      this.runUniverseScan(
+        this.pendingUniverseScanReason,
+        this.pendingUniverseScanEventTriggered,
+      );
+      this.pendingUniverseScanReason = "scheduled_scan";
+      this.pendingUniverseScanEventTriggered = false;
+      return;
+    }
+    this.scheduleNextUniverseScan(Math.max(1, EVENT_SCAN_MIN_GAP_MS - elapsedMs));
+  }
+
+  private runUniverseScan(triggerReason: string, eventTriggered: boolean): RadarStatus {
+    if (this.universeScanInProgress) {
+      return this.snapshot ?? this.buildSnapshot();
+    }
+    this.universeScanInProgress = true;
+    try {
+      const settledAt = new Date();
+      const transportStatuses = this.services.map((service) => service.getStatus());
+      const forceUniverseOffline = transportStatuses.some((status) => (
+        !status.configured
+        || (
+          status.connectionState !== "connected"
+          && status.connectionState !== "streaming"
+        )
+        || !status.network.heartbeatFresh
+      ));
+      const scanId = randomUUID();
+      this.currentScanId = scanId;
+      this.lastUniverseScanAt = settledAt;
+      this.scheduleNextUniverseScan();
+      this.settledStatuses = this.services.map((service) => service.settleUniverseScan(
+        scanId,
+        triggerReason,
+        eventTriggered,
+        forceUniverseOffline,
+        settledAt,
+      ));
+      this.snapshotDirty = true;
+      const snapshot = this.buildSnapshot();
+      this.emit("status", snapshot);
+      return snapshot;
+    } finally {
+      this.universeScanInProgress = false;
+    }
   }
 
   getStatus(): RadarStatus {
@@ -4445,7 +4786,7 @@ export class DatabentoUniverseService extends EventEmitter {
     this.snapshotBuildInProgress = true;
     this.snapshotDirty = false;
     try {
-    const statuses = this.services.map((service) => service.getStatus());
+    const statuses = this.settledStatuses;
     const primary = statuses.find((status) => status.symbol === "NVDA") ?? statuses[0];
     const symbolRadars = statuses.map(toSymbolStatus);
     const now = new Date();
@@ -4483,10 +4824,12 @@ export class DatabentoUniverseService extends EventEmitter {
     const marketUniverseSnapshot = marketUniverse.getSummary(now);
     const opportunityData = buildOpportunityCenter(
       statuses.map((status) => ({
+        scanId: status.scanId,
         symbol: status.symbol,
         alphaRadar: status.alphaRadar,
         marketFeedState: status.marketFeedState,
         scanHealth: status.scanHealth,
+        marketWindowSettlement: status.marketWindowSettlement,
         reference: marketUniverse.getSecurity(status.symbol, now),
       })),
       statuses.map((status) => ({
@@ -4560,19 +4903,35 @@ export class DatabentoUniverseService extends EventEmitter {
 
   start(): RadarStatus {
     this.aiIndustryLeaderProbe.start();
+    this.universeScanSchedulerActive = true;
+    this.services.forEach((service) => service.setUniverseScanSchedule(true, null));
     this.services.forEach((service) => service.start());
-    return this.getStatus();
+    return this.runUniverseScan("stream_started", false);
   }
 
   stop(): RadarStatus {
+    this.universeScanSchedulerActive = false;
+    this.clearUniverseScanTimer();
     this.aiIndustryLeaderProbe.stop();
     this.focusedScans.stop();
     this.services.forEach((service) => service.stop());
-    return this.getStatus();
+    const settledAt = new Date();
+    this.currentScanId = randomUUID();
+    this.settledStatuses = this.services.map((service) => service.settleUniverseScan(
+      this.currentScanId,
+      "stream_stopped",
+      false,
+      true,
+      settledAt,
+    ));
+    this.snapshotDirty = true;
+    const snapshot = this.buildSnapshot();
+    this.emit("status", snapshot);
+    return snapshot;
   }
 
   getFocusedScanStatus(): FocusedScanSnapshot {
-    return this.focusedScans.getStatus(this.services.map((service) => service.getStatus()));
+    return this.focusedScans.getStatus(this.settledStatuses);
   }
 
   getCatalystRadar(): CatalystRadarSnapshot {

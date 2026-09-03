@@ -1018,6 +1018,8 @@ export const OpportunityMarketState = {
 } as const;
 
 export interface Opportunity {
+  /** @nullable */
+  scanId: string | null;
   symbol: string;
   /** @nullable */
   eventTime: string | null;
@@ -1066,6 +1068,8 @@ export interface CatalystRadarSnapshot {
 }
 
 export interface OpportunityCenterSnapshot {
+  /** @nullable */
+  scanId: string | null;
   generatedAt: string;
   opportunities: Opportunity[];
   reason: string;
@@ -1590,6 +1594,32 @@ export interface ProtectedScanHealth {
   marketDataGateReady: boolean;
   degradation: ProtectedScanDegradation;
   reason: string;
+}
+
+export type ProtectedMarketWindowSegment = typeof ProtectedMarketWindowSegment[keyof typeof ProtectedMarketWindowSegment];
+
+
+export const ProtectedMarketWindowSegment = {
+  quote: 'quote',
+  trade: 'trade',
+  volume: 'volume',
+  heartbeat: 'heartbeat',
+} as const;
+
+/**
+ * Atomic per-symbol settlement under the universe-owned scan cycle.
+ */
+export interface ProtectedMarketWindowSettlement {
+  /** @nullable */
+  scanId: string | null;
+  /** @nullable */
+  settledAt: string | null;
+  quote: boolean;
+  trade: boolean;
+  volume: boolean;
+  heartbeat: boolean;
+  complete: boolean;
+  missingSegments: ProtectedMarketWindowSegment[];
 }
 
 export type EngineeringModuleId = typeof EngineeringModuleId[keyof typeof EngineeringModuleId];
@@ -2827,6 +2857,8 @@ export interface LiveIngestionDiagnostics {
 }
 
 export interface RadarSymbolStatus {
+  /** @nullable */
+  scanId: string | null;
   symbol: string;
   connectionState: RadarConnectionState;
   marketFeedState: MarketFeedState;
@@ -2837,6 +2869,7 @@ export interface RadarSymbolStatus {
   market: RadarMarketSnapshot;
   liveIngestion: LiveIngestionDiagnostics;
   scanHealth: ProtectedScanHealth;
+  marketWindowSettlement: ProtectedMarketWindowSettlement;
   governance: DataGovernanceSnapshot;
   /** @nullable */
   error: string | null;
@@ -3972,6 +4005,12 @@ export type RadarStatusPreBreakoutLeader = {
 } | null;
 
 export interface RadarStatus {
+  /**
+     * Universe-owned identifier shared by all five protected-symbol settlements.
+     * @nullable
+     */
+  scanId: string | null;
+  marketWindowSettlement: ProtectedMarketWindowSettlement;
   /**
      * Unique server-process identifier for ordering status snapshots across restarts.
      * @minLength 1

@@ -218,6 +218,8 @@ export * from './preBreakoutConfirmationEvidenceKey';
 export * from './preBreakoutConfirmationStatus';
 export * from './preBreakoutDetection';
 export * from './preBreakoutDetectionState';
+export * from './protectedMarketWindowSegment';
+export * from './protectedMarketWindowSettlement';
 export * from './protectedScanDegradation';
 export * from './protectedScanHealth';
 export * from './protectedScanHealthScanMode';

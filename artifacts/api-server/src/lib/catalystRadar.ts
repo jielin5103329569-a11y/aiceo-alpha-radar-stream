@@ -89,6 +89,7 @@ export type CatalystRadarSnapshot = {
 };
 
 export type Opportunity = {
+  scanId: string | null;
   symbol: string;
   eventTime: Date | null;
   triggerAt: Date | null;
@@ -109,12 +110,14 @@ export type Opportunity = {
 };
 
 export type OpportunityCenterSnapshot = {
+  scanId: string | null;
   generatedAt: Date;
   opportunities: Opportunity[];
   reason: string;
 };
 
 export type CatalystRadarInput = {
+  scanId: string | null;
   symbol: string;
   alphaRadar: AlphaRadarSnapshot;
   marketFeedState: MarketFeedState;
@@ -122,6 +125,15 @@ export type CatalystRadarInput = {
     schedulerState: "inactive" | "scheduled" | "delayed";
     marketDataState: "fresh" | "stale" | "offline" | "insufficient";
     marketDataGateReady: boolean;
+  };
+  marketWindowSettlement: {
+    scanId: string | null;
+    quote: boolean;
+    trade: boolean;
+    volume: boolean;
+    heartbeat: boolean;
+    complete: boolean;
+    missingSegments: Array<"quote" | "trade" | "volume" | "heartbeat">;
   };
   reference: SecurityReference | null;
 };
@@ -169,7 +181,10 @@ function sourceStatuses(): CatalystSourceStatus[] {
 }
 
 function marketFresh(input: CatalystRadarInput): boolean {
-  return input.marketFeedState === "streaming"
+  return input.scanId !== null
+    && input.marketWindowSettlement.scanId === input.scanId
+    && input.marketWindowSettlement.complete
+    && input.marketFeedState === "streaming"
     && input.scanHealth.schedulerState === "scheduled"
     && input.scanHealth.marketDataState === "fresh"
     && input.scanHealth.marketDataGateReady
@@ -201,7 +216,7 @@ function opportunityDirection(input: CatalystRadarInput, liveMarket: boolean): O
 }
 
 function averageAcceleration(input: CatalystRadarInput, liveMarket: boolean): number | null {
-  if (!liveMarket) return null;
+  if (!liveMarket || !input.marketWindowSettlement.volume) return null;
   const values = [
     input.alphaRadar.changeIndicators.momentumAcceleration,
     input.alphaRadar.changeIndicators.volumeAcceleration,
@@ -391,11 +406,18 @@ export function fuseOpportunity(
   const missingConfirmationItems = [
     ...(catalystSatisfied ? [] : ["Fresh authorized catalyst event"]),
     ...(!liveMarket ? ["Fresh complete protected market window"] : []),
+    ...input.marketWindowSettlement.missingSegments.map((segment) => ({
+      quote: "Fresh protected quote segment",
+      trade: "Fresh protected trade segment",
+      volume: "Fresh protected volume segment",
+      heartbeat: "Fresh protected heartbeat segment",
+    })[segment]),
     ...(!confirmationSatisfied ? preBreakout.confirmation.missingEvidence : []),
     ...sectorConfirmation.missing,
   ].filter((item, index, all) => all.indexOf(item) === index);
 
   return {
+    scanId: input.scanId,
     symbol: input.symbol,
     eventTime: catalystEvent?.observedAt ?? null,
     triggerAt: input.alphaRadar.scan.lastScannedAt,
@@ -444,8 +466,26 @@ export function buildOpportunityCenter(
   now = new Date(),
 ): { catalystRadar: CatalystRadarSnapshot; opportunityCenter: OpportunityCenterSnapshot } {
   const catalystRadar = createCatalystRadar(now);
-  const opportunities = inputs.map((input) => {
-    const peers = inputs
+  const scanIds = [...new Set(inputs.map((input) => input.scanId).filter(
+    (scanId): scanId is string => scanId !== null,
+  ))];
+  const sharedScanId = scanIds.length === 1 && inputs.every(
+    (input) => input.scanId === scanIds[0] && input.marketWindowSettlement.scanId === scanIds[0],
+  )
+    ? scanIds[0]
+    : null;
+  const settledInputs = sharedScanId === null
+    ? inputs.map((input) => ({
+        ...input,
+        scanId: null,
+        marketWindowSettlement: {
+          ...input.marketWindowSettlement,
+          complete: false,
+        },
+      }))
+    : inputs;
+  const opportunities = settledInputs.map((input) => {
+    const peers = settledInputs
       .filter((peer) => peer.symbol !== input.symbol)
       .map((peer) => ({
         symbol: peer.symbol,
@@ -460,6 +500,7 @@ export function buildOpportunityCenter(
   return {
     catalystRadar,
     opportunityCenter: {
+      scanId: sharedScanId,
       generatedAt: now,
       opportunities,
       reason: "Opportunity state is fail-closed: catalyst events cannot create confirmation without fresh independent market and confirmation evidence.",

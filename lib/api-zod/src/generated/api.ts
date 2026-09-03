@@ -356,6 +356,17 @@ export const getRadarStatusResponseSectorPriorityWithheldCandidatesItemBreakoutC
 
 
 export const GetRadarStatusResponse = zod.object({
+  "scanId": zod.string().nullable().describe('Universe-owned identifier shared by all five protected-symbol settlements.'),
+  "marketWindowSettlement": zod.object({
+  "scanId": zod.string().nullable(),
+  "settledAt": zod.coerce.date().nullable(),
+  "quote": zod.boolean(),
+  "trade": zod.boolean(),
+  "volume": zod.boolean(),
+  "heartbeat": zod.boolean(),
+  "complete": zod.boolean(),
+  "missingSegments": zod.array(zod.enum(['quote', 'trade', 'volume', 'heartbeat']))
+}).describe('Atomic per-symbol settlement under the universe-owned scan cycle.'),
   "statusEpoch": zod.string().min(1).describe('Unique server-process identifier for ordering status snapshots across restarts.'),
   "statusRevision": zod.number().min(getRadarStatusResponseStatusRevisionMin).multipleOf(getRadarStatusResponseStatusRevisionMultipleOf).describe('Strictly monotonic snapshot revision within statusEpoch, independent of market-event timestamps.'),
   "configured": zod.boolean(),
@@ -895,8 +906,10 @@ export const GetRadarStatusResponse = zod.object({
   "reason": zod.string()
 }),
   "opportunityCenter": zod.object({
+  "scanId": zod.string().nullable(),
   "generatedAt": zod.coerce.date(),
   "opportunities": zod.array(zod.object({
+  "scanId": zod.string().nullable(),
   "symbol": zod.string(),
   "eventTime": zod.coerce.date().nullable(),
   "triggerAt": zod.coerce.date().nullable().describe('Time of the fresh Alpha scan that produced this opportunity state; never a trade signal.'),
@@ -945,6 +958,7 @@ export const GetRadarStatusResponse = zod.object({
   "reason": zod.string()
 }),
   "symbolRadars": zod.array(zod.object({
+  "scanId": zod.string().nullable(),
   "symbol": zod.string(),
   "connectionState": zod.enum(['not_configured', 'connecting', 'connected', 'streaming', 'error', 'stopped']),
   "marketFeedState": zod.enum(['streaming', 'stale', 'offline']),
@@ -1277,6 +1291,16 @@ export const GetRadarStatusResponse = zod.object({
   "degradation": zod.enum(['ready', 'offline', 'stale_market_data', 'scheduler_inactive', 'scheduler_delayed', 'awaiting_live_event', 'insufficient_data']),
   "reason": zod.string()
 }).describe('Per-symbol scheduler and market-data health. Scheduler timestamps and heartbeats are never evidence of a fresh verified market event.\n'),
+  "marketWindowSettlement": zod.object({
+  "scanId": zod.string().nullable(),
+  "settledAt": zod.coerce.date().nullable(),
+  "quote": zod.boolean(),
+  "trade": zod.boolean(),
+  "volume": zod.boolean(),
+  "heartbeat": zod.boolean(),
+  "complete": zod.boolean(),
+  "missingSegments": zod.array(zod.enum(['quote', 'trade', 'volume', 'heartbeat']))
+}).describe('Atomic per-symbol settlement under the universe-owned scan cycle.'),
   "governance": zod.object({
   "schemaVersion": zod.literal(1),
   "generatedAt": zod.coerce.date(),
@@ -2539,8 +2563,10 @@ export const getOpportunityCenterResponseOpportunitiesItemSectorConfirmationFres
 
 
 export const GetOpportunityCenterResponse = zod.object({
+  "scanId": zod.string().nullable(),
   "generatedAt": zod.coerce.date(),
   "opportunities": zod.array(zod.object({
+  "scanId": zod.string().nullable(),
   "symbol": zod.string(),
   "eventTime": zod.coerce.date().nullable(),
   "triggerAt": zod.coerce.date().nullable().describe('Time of the fresh Alpha scan that produced this opportunity state; never a trade signal.'),

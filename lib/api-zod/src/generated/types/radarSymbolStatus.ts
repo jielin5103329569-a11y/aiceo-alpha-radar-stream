@@ -10,11 +10,14 @@ import type { AlphaRadarSnapshot } from './alphaRadarSnapshot';
 import type { DataGovernanceSnapshot } from './dataGovernanceSnapshot';
 import type { LiveIngestionDiagnostics } from './liveIngestionDiagnostics';
 import type { MarketFeedState } from './marketFeedState';
+import type { ProtectedMarketWindowSettlement } from './protectedMarketWindowSettlement';
 import type { ProtectedScanHealth } from './protectedScanHealth';
 import type { RadarConnectionState } from './radarConnectionState';
 import type { RadarMarketSnapshot } from './radarMarketSnapshot';
 
 export interface RadarSymbolStatus {
+  /** @nullable */
+  scanId: string | null;
   symbol: string;
   connectionState: RadarConnectionState;
   marketFeedState: MarketFeedState;
@@ -25,6 +28,7 @@ export interface RadarSymbolStatus {
   market: RadarMarketSnapshot;
   liveIngestion: LiveIngestionDiagnostics;
   scanHealth: ProtectedScanHealth;
+  marketWindowSettlement: ProtectedMarketWindowSettlement;
   governance: DataGovernanceSnapshot;
   /** @nullable */
   error: string | null;
