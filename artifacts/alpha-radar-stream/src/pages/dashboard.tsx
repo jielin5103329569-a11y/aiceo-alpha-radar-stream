@@ -685,6 +685,9 @@ function RadarUniverseCard({
             const confirmationStatus = entry?.confirmationStatus ?? symbol?.alphaRadar.preBreakout.confirmation.status ?? 'unavailable';
             const recentHistory = symbol?.signalHistory.slice(-3) ?? [];
             const missingEvidence = symbol?.alphaRadar.preBreakout.confirmation.missingEvidence ?? [];
+            const settlement = symbol?.marketWindowSettlement;
+            const scanId = symbol?.scanId ?? settlement?.scanId ?? null;
+            const missingSegments = settlement?.missingSegments ?? null;
             return (
               <div
                 key={sym}
@@ -734,6 +737,60 @@ function RadarUniverseCard({
                       {entry?.alphaScore !== null && entry?.alphaScore !== undefined ? formatNumber(entry.alphaScore, 1) : '-'}
                       <span className="text-[8px] uppercase font-sans font-normal">Alpha</span>
                     </div>
+                  </div>
+                </div>
+
+                <div
+                  className="rounded-md border border-border/60 bg-background/50 p-2.5"
+                  data-testid={`scan-window-${sym}`}
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="text-[9px] uppercase tracking-wide text-muted-foreground">
+                      Shared scan window
+                    </span>
+                    <Badge
+                      variant="outline"
+                      className={cn(
+                        'border font-mono text-[9px] uppercase',
+                        settlement?.complete
+                          ? 'border-primary/35 bg-primary/10 text-primary'
+                          : 'border-amber-500/35 bg-amber-500/10 text-amber-700 dark:text-amber-300',
+                      )}
+                    >
+                      {settlement?.complete ? 'Complete' : 'Incomplete'}
+                    </Badge>
+                  </div>
+                  <p className="mt-2 text-[8px] uppercase tracking-wide text-muted-foreground">
+                    Scan ID
+                  </p>
+                  <p
+                    className="mt-1 break-all font-mono text-[10px] leading-relaxed text-foreground"
+                    data-testid={`scan-id-${sym}`}
+                  >
+                    {scanId ?? 'Not supplied by server'}
+                  </p>
+                  <p className="mt-2 text-[8px] uppercase tracking-wide text-muted-foreground">
+                    Missing segments
+                  </p>
+                  <div
+                    className="mt-1.5 flex flex-wrap gap-1.5"
+                    data-testid={`missing-segments-${sym}`}
+                  >
+                    {missingSegments === null ? (
+                      <span className="text-[10px] text-muted-foreground">Not supplied by server</span>
+                    ) : missingSegments.length > 0 ? (
+                      missingSegments.map((segment) => (
+                        <Badge
+                          key={segment}
+                          variant="outline"
+                          className="border-amber-500/35 bg-amber-500/10 font-mono text-[9px] lowercase text-amber-700 dark:text-amber-300"
+                        >
+                          {segment}
+                        </Badge>
+                      ))
+                    ) : (
+                      <span className="font-mono text-[10px] text-primary">none</span>
+                    )}
                   </div>
                 </div>
 
