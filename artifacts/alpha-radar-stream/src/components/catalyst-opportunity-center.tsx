@@ -197,6 +197,9 @@ export function CatalystOpportunityCenter({
 
 function OpportunityRow({ opportunity }: { opportunity: Opportunity }) {
   const sector = opportunity.sectorConfirmation;
+  const classification = sector.trustedClassification
+    ? `${sector.sector ?? '无可信板块'} · ${sector.industry ?? '无可信行业'}`
+    : '无可信分类';
   return (
     <article
       className="rounded-lg border border-border/70 bg-card p-4 transition-colors hover:border-primary/30"
@@ -281,8 +284,8 @@ function OpportunityRow({ opportunity }: { opportunity: Opportunity }) {
             <p className={cn('mt-1 font-mono text-xs uppercase', sectorTone(sector.status))} data-testid={`sector-confirmation-${opportunity.symbol}`}>
               {sector.status}
             </p>
-            <p className="mt-1 text-[11px] text-muted-foreground">
-              {sector.sector ?? 'Unclassified'} · {sector.industry ?? 'Unclassified'} · {formatNumber(sector.freshEligiblePeerCount, 0)} fresh peers
+            <p className="mt-1 text-[11px] text-muted-foreground" data-testid={`sector-classification-${opportunity.symbol}`}>
+              {classification} · {formatNumber(sector.freshEligiblePeerCount, 0)} fresh peers
             </p>
             <p className="mt-2 text-[10px] leading-relaxed text-muted-foreground">{sector.reason}</p>
           </div>
