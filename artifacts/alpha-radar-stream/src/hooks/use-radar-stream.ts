@@ -72,6 +72,34 @@ export function createRadarRecoveryProjection(status: RadarStatus): RadarStatus 
     'volume',
     'heartbeat',
   ];
+  type StatusNetwork = {
+    heartbeatFresh?: boolean;
+    marketEventFresh?: boolean;
+    marketEventPathHealthy?: boolean;
+    alertReady?: boolean;
+    recovery?: {
+      state?: string;
+      windowResetRequired?: boolean;
+      reason?: string;
+      [key: string]: unknown;
+    };
+    reason?: string;
+    [key: string]: unknown;
+  };
+  const gateNetwork = (network: StatusNetwork): StatusNetwork => ({
+    ...network,
+    heartbeatFresh: false,
+    marketEventFresh: false,
+    marketEventPathHealthy: false,
+    alertReady: false,
+    recovery: {
+      ...network.recovery,
+      state: 'rebuilding_window',
+      windowResetRequired: true,
+      reason: 'REST must confirm the current server epoch before live alert readiness can resume.',
+    },
+    reason: 'Cached transport and market-event health are not live alert evidence.',
+  });
   const gateAlphaRadar = (alphaRadar: RadarStatus['alphaRadar']): RadarStatus['alphaRadar'] => ({
     ...alphaRadar,
     score: null,
@@ -112,30 +140,39 @@ export function createRadarRecoveryProjection(status: RadarStatus): RadarStatus 
   });
   const gateIngestion = (
     ingestion: RadarStatus['liveIngestion'],
-  ): RadarStatus['liveIngestion'] => ({
-    ...ingestion,
-    acceptanceState: 'stale',
-    conditions: {
-      ...ingestion.conditions,
-      quoteFresh: false,
-      tradeFresh: false,
-      priceFresh: false,
-      volumeFresh: false,
-      scoringEligible: false,
-      triggerEvidenceAvailable: false,
-    },
-    scoringStatus: {
-      ...ingestion.scoringStatus,
-      scoreState: 'stale',
-      score: null,
-      freshness: 'stale',
-      dataQuality: 'stale',
-      gateReason: 'rest_epoch_confirmation_pending',
-    },
-    reason: 'Showing cached evidence while REST confirms the current server epoch.',
-  });
+  ): RadarStatus['liveIngestion'] => {
+    const runtimeNetwork = (
+      ingestion as RadarStatus['liveIngestion'] & { network?: StatusNetwork }
+    ).network;
+    return {
+      ...ingestion,
+      ...(runtimeNetwork ? { network: gateNetwork(runtimeNetwork) } : {}),
+      acceptanceState: 'stale',
+      conditions: {
+        ...ingestion.conditions,
+        quoteFresh: false,
+        tradeFresh: false,
+        priceFresh: false,
+        volumeFresh: false,
+        scoringEligible: false,
+        triggerEvidenceAvailable: false,
+      },
+      scoringStatus: {
+        ...ingestion.scoringStatus,
+        scoreState: 'stale',
+        score: null,
+        freshness: 'stale',
+        dataQuality: 'stale',
+        gateReason: 'rest_epoch_confirmation_pending',
+      },
+      reason: 'Showing cached evidence while REST confirms the current server epoch.',
+    };
+  };
   const symbolRadars = status.symbolRadars.map((symbol) => ({
     ...symbol,
+    ...((symbol as typeof symbol & { network?: StatusNetwork }).network
+      ? { network: gateNetwork((symbol as typeof symbol & { network: StatusNetwork }).network) }
+      : {}),
     marketFeedState: 'stale' as const,
     alphaRadar: gateAlphaRadar(symbol.alphaRadar),
     scanHealth: gateScanHealth(symbol.scanHealth),
@@ -144,6 +181,9 @@ export function createRadarRecoveryProjection(status: RadarStatus): RadarStatus 
   }));
   return {
     ...status,
+    ...((status as RadarStatus & { network?: StatusNetwork }).network
+      ? { network: gateNetwork((status as RadarStatus & { network: StatusNetwork }).network) }
+      : {}),
     marketFeedState: 'stale',
     alphaRadar: gateAlphaRadar(status.alphaRadar),
     scanHealth: gateScanHealth(status.scanHealth),

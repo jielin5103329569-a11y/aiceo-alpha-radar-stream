@@ -1147,9 +1147,44 @@ export class DatabentoLiveService extends EventEmitter {
       );
       this.status = { ...this.status, alphaRadar };
     }
-    const network = this.currentNetworkHealth(now);
-    const liveIngestion = this.currentLiveIngestionDiagnostics(alphaRadar, marketFeedState, network, now);
-    const scanHealth = this.currentScanHealth(alphaRadar, marketFeedState, liveIngestion, network, now);
+    const eventPathNetwork = this.currentNetworkHealth(now);
+    const observedLiveIngestion = this.currentLiveIngestionDiagnostics(
+      alphaRadar,
+      marketFeedState,
+      eventPathNetwork,
+      now,
+    );
+    const scanHealth = this.currentScanHealth(
+      alphaRadar,
+      marketFeedState,
+      observedLiveIngestion,
+      eventPathNetwork,
+      now,
+    );
+    const completeScoringWindow =
+      observedLiveIngestion.conditions.subscriptionVerified
+      && observedLiveIngestion.conditions.realMarketEventReceived
+      && observedLiveIngestion.conditions.enteredScoringWindow
+      && observedLiveIngestion.conditions.quoteFresh
+      && observedLiveIngestion.conditions.tradeFresh
+      && observedLiveIngestion.conditions.volumeFresh
+      && observedLiveIngestion.conditions.scoringEligible
+      && observedLiveIngestion.conditions.triggerEvidenceAvailable;
+    const statusAlertReady =
+      eventPathNetwork.alertReady
+      && scanHealth.marketDataGateReady
+      && completeScoringWindow;
+    const network = statusAlertReady === eventPathNetwork.alertReady
+      ? eventPathNetwork
+      : {
+          ...eventPathNetwork,
+          alertReady: false,
+          reason: `The live event path is healthy, but the protected scoring-window gate is closed: ${scanHealth.reason}`,
+        };
+    const liveIngestion = {
+      ...observedLiveIngestion,
+      network,
+    };
     const governance = this.currentGovernance(alphaRadar, marketFeedState, liveIngestion, scanHealth, now);
     return {
       ...this.status,
@@ -1230,8 +1265,15 @@ export class DatabentoLiveService extends EventEmitter {
         volumeAcceleration: null,
       },
     };
+    const network: LiveNetworkHealth = {
+      ...current.network,
+      marketEventPathHealthy: false,
+      alertReady: false,
+      reason: "The shared protected-universe transport gate is offline; no symbol may retain alert readiness.",
+    };
     const liveIngestion: LiveIngestionDiagnostics = {
       ...current.liveIngestion,
+      network,
       acceptanceState: "offline",
       conditions: {
         ...current.liveIngestion.conditions,
@@ -1256,12 +1298,6 @@ export class DatabentoLiveService extends EventEmitter {
         gateReason: "universe_transport_offline",
       },
       reason: "A connection or transport-heartbeat failure in the protected universe forces all five symbols offline for this shared scan.",
-    };
-    const network: LiveNetworkHealth = {
-      ...current.network,
-      marketEventPathHealthy: false,
-      alertReady: false,
-      reason: "The shared protected-universe transport gate is offline; no symbol may retain alert readiness.",
     };
     const scanHealth: ProtectedScanHealth = {
       ...current.scanHealth,

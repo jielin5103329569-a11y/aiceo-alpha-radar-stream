@@ -1008,6 +1008,10 @@ try {
     ),
     "missing protected volume must never surface as zero acceleration",
   );
+  assert.ok(
+    universeStatus.symbolRadars.every((radar) => radar.network.alertReady === false),
+    "a protected window with missing volume must never expose alertReady",
+  );
   assert.equal(
     universeStatus.marketUniverse?.deliveryMode,
     "reference_only",
@@ -1042,6 +1046,14 @@ try {
         && radar.scanHealth.degradation === "offline",
     ),
     "offline protected scanners must expose no fabricated completed scan or verified market-data gate",
+  );
+  assert.ok(
+    universeStatus.symbolRadars.every(
+      (radar) =>
+        radar.network.alertReady === false
+        && radar.liveIngestion.network.alertReady === false,
+    ),
+    "forced universe-offline settlement must close both root and nested alertReady projections",
   );
   const originalGetStatus = new Map();
   universe.services.forEach((service) => {
@@ -1256,6 +1268,43 @@ try {
     freshAlphaStatus.scanHealth.degradation,
     "scheduler_inactive",
     "scheduler state must remain visible independently from fresh market data",
+  );
+  assert.equal(
+    freshAlphaStatus.network.alertReady,
+    false,
+    "a complete event path without an armed protected scanner must not expose alertReady",
+  );
+  freshAlphaService.scanSchedulerActive = true;
+  freshAlphaService.nextScheduledScanAt = new Date(Date.now() + 5_000);
+  freshAlphaService.status = {
+    ...freshAlphaService.status,
+    lastHeartbeatAt: new Date(),
+  };
+  assert.equal(
+    freshAlphaService.getStatus().network.alertReady,
+    true,
+    "alertReady may be exposed only when event-path, scheduler, and complete scoring-window gates all pass",
+  );
+  freshAlphaService.status = {
+    ...freshAlphaService.status,
+    alphaRadar: {
+      ...freshAlphaService.status.alphaRadar,
+      volumeIntensity: {
+        ...freshAlphaService.status.alphaRadar.volumeIntensity,
+        scoreEligible: false,
+      },
+      diagnostics: {
+        ...freshAlphaService.status.alphaRadar.diagnostics,
+        fresh_volume: 0,
+      },
+    },
+  };
+  const missingVolumeStatus = freshAlphaService.getStatus();
+  assert.equal(missingVolumeStatus.liveIngestion.conditions.volumeFresh, false);
+  assert.equal(
+    missingVolumeStatus.network.alertReady,
+    false,
+    "missing volume must close the canonical status alertReady gate even when the event path and heartbeat remain healthy",
   );
 
   const staleHealthService = new DatabentoLiveService("NVDA");

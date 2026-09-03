@@ -90,7 +90,20 @@ try {
     degradation: "ready",
     reason: "Fresh complete fixture.",
   };
+  const network = {
+    heartbeatFresh: true,
+    marketEventFresh: true,
+    marketEventPathHealthy: true,
+    alertReady: true,
+    recovery: {
+      state: "running",
+      windowResetRequired: false,
+      reason: "Fresh complete fixture.",
+    },
+    reason: "Fresh complete fixture.",
+  };
   const liveIngestion = {
+    network,
     acceptanceState: "scoring_eligible",
     conditions: {
       quoteFresh: true,
@@ -114,6 +127,7 @@ try {
     statusEpoch: "server-a",
     statusRevision: 44,
     marketFeedState: "streaming",
+    network,
     marketWindowSettlement,
     alphaRadar,
     scanHealth,
@@ -122,6 +136,7 @@ try {
       scanId,
       symbol,
       marketFeedState: "streaming",
+      network,
       marketWindowSettlement,
       alphaRadar,
       scanHealth,
@@ -152,6 +167,8 @@ try {
   assert.equal(recoveryProjection.marketWindowSettlement.complete, false);
   assert.equal(recoveryProjection.alphaRadar.score, null);
   assert.equal(recoveryProjection.alphaRadar.changeIndicators.volumeAcceleration, null);
+  assert.equal(recoveryProjection.network.alertReady, false);
+  assert.equal(recoveryProjection.liveIngestion.network.alertReady, false);
   assert.ok(
     recoveryProjection.symbolRadars.every(
       (symbol) =>
