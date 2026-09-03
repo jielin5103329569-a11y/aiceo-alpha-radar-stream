@@ -33,7 +33,10 @@ try {
 
   const require = createRequire(import.meta.url);
   const {
+    createRadarRecoveryProjection,
+    hasCoherentRadarScan,
     isBackendUnavailable,
+    shouldOpenRadarSse,
     shouldPollRestStatus,
     selectLatestRadarStatus,
   } = require(join(outputDirectory, "use-radar-stream.js"));
@@ -51,6 +54,139 @@ try {
     lastUpdatedAt: null,
     connectionState: "error",
   };
+  const scanId = "shared-scan-a";
+  const marketWindowSettlement = {
+    scanId,
+    settledAt: "2026-08-21T08:00:02.000Z",
+    quote: true,
+    trade: true,
+    volume: true,
+    heartbeat: true,
+    complete: true,
+    missingSegments: [],
+  };
+  const alphaRadar = {
+    score: 82,
+    scoreState: "available",
+    dataQuality: "good",
+    changeIndicators: {
+      momentumAcceleration: 4,
+      volumeAcceleration: 3,
+      orderFlowShift: 2,
+      spreadTightening: 1,
+    },
+    preBreakoutWatch: true,
+    preBreakout: {
+      dataFresh: true,
+      confirmation: {
+        status: "confirmed",
+        reason: "Fresh confirmed fixture.",
+      },
+    },
+  };
+  const scanHealth = {
+    marketDataState: "fresh",
+    marketDataGateReady: true,
+    degradation: "ready",
+    reason: "Fresh complete fixture.",
+  };
+  const liveIngestion = {
+    acceptanceState: "scoring_eligible",
+    conditions: {
+      quoteFresh: true,
+      tradeFresh: true,
+      priceFresh: true,
+      volumeFresh: true,
+      scoringEligible: true,
+      triggerEvidenceAvailable: true,
+    },
+    scoringStatus: {
+      scoreState: "available",
+      score: 82,
+      freshness: "fresh",
+      dataQuality: "good",
+      gateReason: "eligible",
+    },
+    reason: "Fresh complete fixture.",
+  };
+  const coherentStatus = {
+    scanId,
+    statusEpoch: "server-a",
+    statusRevision: 44,
+    marketFeedState: "streaming",
+    marketWindowSettlement,
+    alphaRadar,
+    scanHealth,
+    liveIngestion,
+    symbolRadars: ["NVDA", "MU", "VRT", "CRDO", "AMD"].map((symbol) => ({
+      scanId,
+      symbol,
+      marketFeedState: "streaming",
+      marketWindowSettlement,
+      alphaRadar,
+      scanHealth,
+      liveIngestion,
+    })),
+    opportunityCenter: {
+      scanId,
+      opportunities: [{
+        scanId,
+        freshness: "fresh",
+        direction: "upside",
+        alphaVelocity30s: 5,
+        acceleration: 3,
+        state: "CONFIRMED",
+        marketState: "fresh",
+        alertReady: true,
+        alertReadyReason: "Fresh confirmed fixture.",
+        missingConfirmationItems: [],
+      }],
+      reason: "Fresh fixture.",
+    },
+  };
+
+  assert.equal(hasCoherentRadarScan(coherentStatus), true);
+  const recoveryProjection = createRadarRecoveryProjection(coherentStatus);
+  assert.equal(recoveryProjection.marketFeedState, "stale");
+  assert.equal(recoveryProjection.scanHealth.marketDataGateReady, false);
+  assert.equal(recoveryProjection.marketWindowSettlement.complete, false);
+  assert.equal(recoveryProjection.alphaRadar.score, null);
+  assert.equal(recoveryProjection.alphaRadar.changeIndicators.volumeAcceleration, null);
+  assert.ok(
+    recoveryProjection.symbolRadars.every(
+      (symbol) =>
+        symbol.marketFeedState === "stale"
+        && symbol.scanHealth.marketDataGateReady === false
+        && symbol.marketWindowSettlement.complete === false,
+    ),
+    "cached recovery must render one coherent stale/gated state across all five symbols",
+  );
+  assert.equal(
+    recoveryProjection.opportunityCenter.opportunities[0].alertReady,
+    false,
+    "cached recovery must gate opportunity alerts until REST confirms the active epoch",
+  );
+  const mixedFeedStatus = structuredClone(coherentStatus);
+  mixedFeedStatus.symbolRadars[0].marketFeedState = "offline";
+  assert.equal(
+    hasCoherentRadarScan(mixedFeedStatus),
+    false,
+    "a STREAMING/OFFLINE mixed snapshot must be rejected before presentation",
+  );
+  const mixedScanStatus = structuredClone(coherentStatus);
+  mixedScanStatus.symbolRadars[0].scanId = "other-scan";
+  assert.equal(
+    hasCoherentRadarScan(mixedScanStatus),
+    false,
+    "a mixed scanId snapshot must be rejected before presentation",
+  );
+  assert.equal(shouldOpenRadarSse(true, null), false);
+  assert.equal(shouldOpenRadarSse(true, "server-a"), false);
+  assert.equal(
+    shouldOpenRadarSse(false, "server-a"),
+    true,
+    "SSE may open only after REST establishes the active server epoch",
+  );
 
   let selection = selectLatestRadarStatus(null, olderSnapshot, "sse", new Set());
   selection = selectLatestRadarStatus(selection.status, newerSnapshot, "rest", selection.retiredEpochs);
