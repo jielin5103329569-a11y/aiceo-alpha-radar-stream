@@ -11,4 +11,4 @@ Treat each protected five-name scan as one atomic universe cycle with one UUID a
 
 Single-symbol market events must coalesce into the already-scheduled Universe snapshot rather than minting new identities. An urgent transport failure may publish fail-closed state immediately, but it retains the current UUID and cycle timestamp; only the next scheduled Universe settlement advances both.
 
-During a downward dashboard review, bind the Opportunity Center and Universe cards to one immutable accepted snapshot. Queue newer safe snapshots and replace the whole group at the top; if live evidence degrades, keep the held identity but project it stale/gated rather than carrying forward actionable evidence.
+During a downward dashboard review, bind the Opportunity Center and Universe cards to one immutable accepted snapshot. Queue newer non-actionable snapshots and replace the whole group at the top; any actionable state bypasses the hold so alert readiness cannot be retained.

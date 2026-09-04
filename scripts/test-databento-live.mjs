@@ -1962,8 +1962,9 @@ try {
     emittedAt: new Date(Date.now() - 16_000).toISOString(),
   });
   const delayedHeartbeat = delayedHeartbeatService.getStatus().network;
-  assert.equal(delayedHeartbeat.heartbeatFresh, false, "a buffered old heartbeat must not be refreshed at processing time");
-  assert.equal(delayedHeartbeat.alertReady, false, "a buffered old heartbeat must fail closed for alert readiness");
+  assert.equal(delayedHeartbeat.heartbeatFresh, true, "a locally received authenticated bridge pulse must keep transport freshness");
+  assert.equal(delayedHeartbeat.marketEventFresh, false, "a bridge pulse must not manufacture fresh market evidence");
+  assert.equal(delayedHeartbeat.alertReady, false, "heartbeat freshness alone must fail closed for alert readiness");
   const firstNetworkEvent = marketEvent(networkNow, 100, "B");
   duplicateNetworkService.applyEvent(firstNetworkEvent);
   const initialNetwork = duplicateNetworkService.getStatus().network;

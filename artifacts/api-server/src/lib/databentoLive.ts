@@ -2181,9 +2181,10 @@ export class DatabentoLiveService extends EventEmitter {
       if (event.source !== "databento_live" || !emittedAt) return;
       this.status = {
         ...this.status,
-        // Heartbeat freshness is evidence of the bridge's emission time, not
-        // the later moment a buffered line happens to reach this process.
-        lastHeartbeatAt: emittedAt,
+        // The authenticated local bridge pulse is fresh when this process
+        // receives it. Market-event freshness remains an independent gate, so
+        // a heartbeat can never refresh prices or restore alert readiness.
+        lastHeartbeatAt: now,
       };
       this.publish();
       return;
