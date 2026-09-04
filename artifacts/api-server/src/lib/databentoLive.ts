@@ -4736,30 +4736,30 @@ export class DatabentoUniverseService extends EventEmitter {
     immediate = false,
   ): void {
     if (!this.universeScanSchedulerActive) return;
-    this.pendingUniverseScanReason = reason;
-    this.pendingUniverseScanEventTriggered ||= eventTriggered;
-    const elapsedMs = this.lastUniverseScanAt
-      ? Date.now() - this.lastUniverseScanAt.getTime()
-      : EVENT_SCAN_MIN_GAP_MS;
-    if (immediate || elapsedMs >= EVENT_SCAN_MIN_GAP_MS) {
-      this.runUniverseScan(
-        this.pendingUniverseScanReason,
-        this.pendingUniverseScanEventTriggered,
-      );
-      this.pendingUniverseScanReason = "scheduled_scan";
-      this.pendingUniverseScanEventTriggered = false;
+    if (immediate) {
+      this.runUniverseScan(reason, eventTriggered, false);
       return;
     }
-    this.scheduleNextUniverseScan(Math.max(1, EVENT_SCAN_MIN_GAP_MS - elapsedMs));
+    this.pendingUniverseScanReason = reason;
+    this.pendingUniverseScanEventTriggered ||= eventTriggered;
+    if (!this.universeScanTimer) {
+      this.scheduleNextUniverseScan();
+    }
   }
 
-  private runUniverseScan(triggerReason: string, eventTriggered: boolean): RadarStatus {
+  private runUniverseScan(
+    triggerReason: string,
+    eventTriggered: boolean,
+    mintSnapshot = true,
+  ): RadarStatus {
     if (this.universeScanInProgress) {
       return this.snapshot ?? this.buildSnapshot();
     }
     this.universeScanInProgress = true;
     try {
-      const settledAt = new Date();
+      const settledAt = mintSnapshot
+        ? new Date()
+        : this.lastUniverseScanAt ?? new Date();
       const transportStatuses = this.services.map((service) => service.getStatus());
       const forceUniverseOffline = transportStatuses.some((status) => (
         !status.configured
@@ -4769,10 +4769,12 @@ export class DatabentoUniverseService extends EventEmitter {
         )
         || !status.network.heartbeatFresh
       ));
-      const scanId = randomUUID();
-      this.currentScanId = scanId;
-      this.lastUniverseScanAt = settledAt;
-      this.scheduleNextUniverseScan();
+      const scanId = mintSnapshot ? randomUUID() : this.currentScanId;
+      if (mintSnapshot) {
+        this.currentScanId = scanId;
+        this.lastUniverseScanAt = settledAt;
+        this.scheduleNextUniverseScan();
+      }
       this.settledStatuses = this.services.map((service) => service.settleUniverseScan(
         scanId,
         triggerReason,

@@ -1111,6 +1111,8 @@ try {
   const startupPublications = [];
   startupUniverse.on("status", (status) => startupPublications.push(status));
   const startupStatus = startupUniverse.start();
+  const startupScanId = startupStatus.scanId;
+  const startupCycleTimestamp = startupStatus.marketWindowSettlement.settledAt?.toISOString();
   assert.deepEqual(
     startupCalls,
     [...MONITORED_SYMBOLS],
@@ -1135,6 +1137,65 @@ try {
   assert.ok(
     startupUniverse.services.every((service) => service.scanTimer === null),
     "protected child services must not own independent scan timers inside the universe",
+  );
+  startupUniverse.requestUniverseScan("price_change", true);
+  assert.equal(
+    startupUniverse.getStatus().scanId,
+    startupScanId,
+    "a single-symbol market event must not mint a new universe snapshot before the scheduled cycle",
+  );
+  assert.equal(
+    startupUniverse.getStatus().marketWindowSettlement.settledAt?.toISOString(),
+    startupCycleTimestamp,
+    "a single-symbol market event must preserve the current universe cycle timestamp",
+  );
+  const publicationCountBeforeFailure = startupPublications.length;
+  const failureStatus = startupUniverse.requestUniverseScan(
+    "universe_transport_failure",
+    false,
+    true,
+  );
+  assert.equal(
+    startupUniverse.getStatus().scanId,
+    startupScanId,
+    "an urgent fail-closed transport update must retain the current universe snapshot identity",
+  );
+  assert.equal(
+    startupUniverse.getStatus().marketWindowSettlement.settledAt?.toISOString(),
+    startupCycleTimestamp,
+    "an urgent fail-closed transport update must retain the current universe cycle timestamp",
+  );
+  assert.ok(
+    startupUniverse.getStatus().symbolRadars.every(
+      (radar) => radar.network.alertReady === false,
+    ),
+    "same-cycle transport failure publication must remain fail-closed",
+  );
+  assert.equal(
+    startupPublications.length,
+    publicationCountBeforeFailure + 1,
+    "an urgent transport failure must still publish its same-cycle gated status immediately",
+  );
+  assert.equal(
+    failureStatus,
+    undefined,
+    "transport failure requests publish through the universe status event rather than returning a competing snapshot",
+  );
+  const nextScheduledStatus = startupUniverse.runUniverseScan("scheduled_scan", false);
+  assert.notEqual(
+    nextScheduledStatus.scanId,
+    startupScanId,
+    "the next scheduled universe snapshot must mint exactly one new scanId",
+  );
+  assert.ok(
+    nextScheduledStatus.symbolRadars.every(
+      (radar) =>
+        radar.scanId === nextScheduledStatus.scanId
+        && radar.marketWindowSettlement.scanId === nextScheduledStatus.scanId
+        && radar.marketWindowSettlement.settledAt?.toISOString()
+          === nextScheduledStatus.marketWindowSettlement.settledAt?.toISOString(),
+    ),
+    "the next scheduled universe snapshot must stamp one UUID and cycle time across all five symbols",
   );
   startupUniverse.stop();
   startupUniverse.aiIndustryLeaderProbe.stop();

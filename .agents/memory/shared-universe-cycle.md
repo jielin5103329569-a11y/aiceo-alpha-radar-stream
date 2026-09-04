@@ -8,3 +8,5 @@ Treat each protected five-name scan as one atomic universe cycle with one UUID a
 **Why:** Per-symbol trigger times can stagger by seconds and make one status snapshot look like several independent scans, even when all rows share a scan ID. Null or later trigger times on incomplete rows also obscure which market window was actually evaluated.
 
 **How to apply:** Use the universe settlement timestamp as the opportunity cycle/trigger timestamp. Render every card's identity from the root snapshot metadata, reject payloads whose symbol/opportunity UUID or timestamp differs, and derive the header feed state from the same five-symbol snapshot. Keep per-symbol completeness independent without loosening fail-closed alert gates.
+
+Single-symbol market events must coalesce into the already-scheduled Universe snapshot rather than minting new identities. An urgent transport failure may publish fail-closed state immediately, but it retains the current UUID and cycle timestamp; only the next scheduled Universe settlement advances both.
