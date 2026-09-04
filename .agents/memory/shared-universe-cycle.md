@@ -1,0 +1,10 @@
+---
+name: Shared universe cycle
+description: Invariants for one atomic five-symbol scan across status, opportunities, and dashboard cards.
+---
+
+Treat each protected five-name scan as one atomic universe cycle with one UUID and one settlement timestamp. Every symbol settlement and Opportunity Center row belongs to that exact cycle; an incomplete symbol remains attached to it rather than receiving a later private scan.
+
+**Why:** Per-symbol trigger times can stagger by seconds and make one status snapshot look like several independent scans, even when all rows share a scan ID. Null or later trigger times on incomplete rows also obscure which market window was actually evaluated.
+
+**How to apply:** Use the universe settlement timestamp as the opportunity cycle/trigger timestamp, display the server-owned scan ID and settlement segments directly, and keep per-symbol completeness independent without loosening fail-closed alert gates.

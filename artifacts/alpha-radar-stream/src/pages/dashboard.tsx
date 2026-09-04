@@ -262,6 +262,8 @@ export default function Dashboard() {
           <CatalystOpportunityCenter
             catalystRadar={status?.catalystRadar}
             opportunityCenter={status?.opportunityCenter}
+            marketWindowSettlement={status?.marketWindowSettlement}
+            symbolRadars={status?.symbolRadars ?? []}
           />
 
           <RadarSignalPanel alphaRadar={status?.alphaRadar} scanHealth={status?.scanHealth} />
@@ -768,6 +770,12 @@ function RadarUniverseCard({
                     data-testid={`scan-id-${sym}`}
                   >
                     {scanId ?? 'Not supplied by server'}
+                  </p>
+                  <p className="mt-2 text-[8px] uppercase tracking-wide text-muted-foreground">
+                    Cycle timestamp
+                  </p>
+                  <p className="mt-1 font-mono text-[10px] text-foreground" data-testid={`scan-cycle-${sym}`}>
+                    {settlement?.settledAt ? formatTime(settlement.settledAt) : 'Not supplied by server'}
                   </p>
                   <p className="mt-2 text-[8px] uppercase tracking-wide text-muted-foreground">
                     Missing segments

@@ -20,11 +20,15 @@ import type {
   CatalystSourceStatus,
   Opportunity,
   OpportunityCenterSnapshot,
+  ProtectedMarketWindowSettlement,
+  RadarSymbolStatus,
 } from '@workspace/api-client-react';
 
 type CatalystOpportunityCenterProps = {
   catalystRadar: CatalystRadarSnapshot | null | undefined;
   opportunityCenter: OpportunityCenterSnapshot | null | undefined;
+  marketWindowSettlement: ProtectedMarketWindowSettlement | null | undefined;
+  symbolRadars: RadarSymbolStatus[];
 };
 
 const sourceIcon = {
@@ -67,9 +71,14 @@ function sectorTone(status: Opportunity['sectorConfirmation']['status']): string
 export function CatalystOpportunityCenter({
   catalystRadar,
   opportunityCenter,
+  marketWindowSettlement,
+  symbolRadars,
 }: CatalystOpportunityCenterProps) {
   const statuses = catalystRadar?.sourceStatuses ?? [];
   const opportunities = opportunityCenter?.opportunities ?? [];
+  const settlementBySymbol = new Map(
+    symbolRadars.map((symbol) => [symbol.symbol, symbol.marketWindowSettlement]),
+  );
 
   return (
     <section className="space-y-6" aria-label="Catalyst Radar and Opportunity Center">
@@ -165,20 +174,32 @@ export function CatalystOpportunityCenter({
                 A state advances only when fresh independent evidence converges. Catalyst context cannot confirm an opportunity by itself.
               </CardDescription>
             </div>
-            <Badge
-              variant="outline"
-              className="border border-border bg-muted/40 font-mono text-[10px] uppercase text-muted-foreground"
-              data-testid="opportunity-count"
-            >
-              {formatNumber(opportunities.length, 0)} monitored
-            </Badge>
+            <div className="flex flex-col items-start gap-1.5 sm:items-end">
+              <Badge
+                variant="outline"
+                className="border border-border bg-muted/40 font-mono text-[10px] uppercase text-muted-foreground"
+                data-testid="opportunity-count"
+              >
+                {formatNumber(opportunities.length, 0)} monitored
+              </Badge>
+              <p className="max-w-full break-all font-mono text-[9px] text-muted-foreground" data-testid="opportunity-center-scan-id">
+                Scan ID · {opportunityCenter?.scanId ?? 'Not supplied by server'}
+              </p>
+              <p className="font-mono text-[9px] text-muted-foreground" data-testid="opportunity-center-cycle-time">
+                Cycle · {marketWindowSettlement?.settledAt ? formatTime(marketWindowSettlement.settledAt) : 'Not supplied by server'}
+              </p>
+            </div>
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
           {opportunities.length > 0 ? (
             <div className="space-y-3">
               {opportunities.map((opportunity) => (
-                <OpportunityRow key={opportunity.symbol} opportunity={opportunity} />
+                <OpportunityRow
+                  key={opportunity.symbol}
+                  opportunity={opportunity}
+                  settlement={settlementBySymbol.get(opportunity.symbol)}
+                />
               ))}
             </div>
           ) : (
@@ -195,7 +216,13 @@ export function CatalystOpportunityCenter({
   );
 }
 
-function OpportunityRow({ opportunity }: { opportunity: Opportunity }) {
+function OpportunityRow({
+  opportunity,
+  settlement,
+}: {
+  opportunity: Opportunity;
+  settlement: ProtectedMarketWindowSettlement | undefined;
+}) {
   const sector = opportunity.sectorConfirmation;
   const classification = sector.trustedClassification
     ? `${sector.sector ?? '无可信板块'} · ${sector.industry ?? '无可信行业'}`
@@ -246,6 +273,32 @@ function OpportunityRow({ opportunity }: { opportunity: Opportunity }) {
           >
             {opportunity.alertReady ? 'in-app alert ready' : 'alert gated'}
           </Badge>
+        </div>
+      </div>
+      <div className="mt-3 rounded-md border border-border/60 bg-background/50 p-2.5">
+        <p className="break-all font-mono text-[9px] text-muted-foreground" data-testid={`opportunity-scan-id-${opportunity.symbol}`}>
+          Scan ID · {opportunity.scanId ?? 'Not supplied by server'}
+        </p>
+        <p className="mt-1 font-mono text-[9px] text-muted-foreground" data-testid={`opportunity-cycle-time-${opportunity.symbol}`}>
+          Cycle · {settlement?.settledAt ? formatTime(settlement.settledAt) : 'Not supplied by server'}
+        </p>
+        <div className="mt-2 flex flex-wrap items-center gap-1.5" data-testid={`opportunity-missing-segments-${opportunity.symbol}`}>
+          <span className="text-[8px] uppercase tracking-wide text-muted-foreground">Missing segments</span>
+          {settlement === undefined ? (
+            <span className="text-[9px] text-muted-foreground">Not supplied by server</span>
+          ) : settlement.missingSegments.length > 0 ? (
+            settlement.missingSegments.map((segment) => (
+              <Badge
+                key={segment}
+                variant="outline"
+                className="border-amber-500/35 bg-amber-500/10 font-mono text-[9px] lowercase text-amber-700 dark:text-amber-300"
+              >
+                {segment}
+              </Badge>
+            ))
+          ) : (
+            <span className="font-mono text-[9px] text-primary">none</span>
+          )}
         </div>
       </div>
       <div className="mt-3 grid grid-cols-2 gap-2 rounded-md border border-border/60 bg-muted/10 p-3 font-mono text-[10px] sm:grid-cols-4">

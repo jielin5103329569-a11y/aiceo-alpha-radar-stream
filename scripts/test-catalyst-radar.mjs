@@ -61,6 +61,7 @@ function freshInput(symbol = "NVDA") {
     },
     marketWindowSettlement: {
       scanId,
+      settledAt: new Date("2026-08-20T14:30:00.000Z"),
       quote: true,
       trade: true,
       volume: true,
@@ -126,8 +127,8 @@ try {
   );
   assert.equal(
     marketOnly.opportunityCenter.opportunities[0].triggerAt?.toISOString(),
-    now.toISOString(),
-    "market-only opportunities must retain their original fresh scan trigger time",
+    freshInput().marketWindowSettlement.settledAt.toISOString(),
+    "market-only opportunities must retain the shared protected-universe settlement time",
   );
   assert.equal(
     marketOnly.opportunityCenter.opportunities[0].alertReady,
@@ -190,6 +191,11 @@ try {
 
   const staleCenter = buildOpportunityCenter([staleInput], [{ symbol: "NVDA", reference: null }], now);
   assert.equal(staleCenter.opportunityCenter.opportunities[0].freshness, "stale");
+  assert.equal(
+    staleCenter.opportunityCenter.opportunities[0].triggerAt?.toISOString(),
+    staleInput.marketWindowSettlement.settledAt.toISOString(),
+    "an incomplete opportunity must retain the shared cycle timestamp while remaining gated",
+  );
   assert.ok(
     staleCenter.opportunityCenter.opportunities[0].missingConfirmationItems.includes("Fresh complete protected market window"),
     "stale market data must invalidate the opportunity handoff",

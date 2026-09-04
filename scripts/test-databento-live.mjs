@@ -1003,6 +1003,14 @@ try {
     "every opportunity row must retain the shared universe scanId",
   );
   assert.ok(
+    universeStatus.opportunityCenter?.opportunities.every(
+      (opportunity) =>
+        opportunity.triggerAt?.toISOString()
+        === universeStatus.marketWindowSettlement.settledAt?.toISOString(),
+    ),
+    "every opportunity row, including incomplete rows, must retain the shared universe cycle timestamp",
+  );
+  assert.ok(
     universeStatus.symbolRadars.every(
       (radar) => radar.alphaRadar.changeIndicators.volumeAcceleration === null,
     ),

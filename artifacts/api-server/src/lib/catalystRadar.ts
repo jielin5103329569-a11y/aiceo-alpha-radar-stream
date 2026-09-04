@@ -128,6 +128,7 @@ export type CatalystRadarInput = {
   };
   marketWindowSettlement: {
     scanId: string | null;
+    settledAt: Date | null;
     quote: boolean;
     trade: boolean;
     volume: boolean;
@@ -420,7 +421,7 @@ export function fuseOpportunity(
     scanId: input.scanId,
     symbol: input.symbol,
     eventTime: catalystEvent?.observedAt ?? null,
-    triggerAt: input.alphaRadar.scan.lastScannedAt,
+    triggerAt: input.marketWindowSettlement.settledAt,
     freshness: opportunityFreshness(freshness),
     direction,
     alphaVelocity30s: liveMarket ? input.alphaRadar.alphaVelocity.rate30s : null,
