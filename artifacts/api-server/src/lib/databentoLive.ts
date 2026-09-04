@@ -4825,6 +4825,13 @@ export class DatabentoUniverseService extends EventEmitter {
     const statuses = this.settledStatuses;
     const primary = statuses.find((status) => status.symbol === "NVDA") ?? statuses[0];
     const symbolRadars = statuses.map(toSymbolStatus);
+    const universeMarketFeedState: MarketFeedState = statuses.some(
+      (status) => status.marketFeedState === "streaming",
+    )
+      ? "streaming"
+      : statuses.some((status) => status.marketFeedState === "stale")
+        ? "stale"
+        : "offline";
     const now = new Date();
     this.aiIndustryLeaderProbe.observe(
       statuses,
@@ -4897,6 +4904,7 @@ export class DatabentoUniverseService extends EventEmitter {
 
     const snapshot: RadarStatus = {
       ...primary,
+      marketFeedState: universeMarketFeedState,
       statusEpoch: this.statusEpoch,
       statusRevision: this.nextStatusRevision(),
       symbolRadars,

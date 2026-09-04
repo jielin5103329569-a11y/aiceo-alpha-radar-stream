@@ -48,6 +48,8 @@ export default function Dashboard() {
   } = useRadarStream();
   const isStopped = status?.connectionState === 'stopped';
   const isNotConfigured = status?.connectionState === 'not_configured';
+  const snapshotScanId = status?.scanId ?? null;
+  const snapshotCycleTimestamp = status?.marketWindowSettlement.settledAt ?? null;
 
   if (!hasReceivedStatus && isLoading && !status) {
     return (
@@ -262,7 +264,8 @@ export default function Dashboard() {
           <CatalystOpportunityCenter
             catalystRadar={status?.catalystRadar}
             opportunityCenter={status?.opportunityCenter}
-            marketWindowSettlement={status?.marketWindowSettlement}
+            snapshotScanId={snapshotScanId}
+            snapshotCycleTimestamp={snapshotCycleTimestamp}
             symbolRadars={status?.symbolRadars ?? []}
           />
 
@@ -284,6 +287,8 @@ export default function Dashboard() {
           <RadarUniverseCard
             symbols={status?.symbolRadars ?? []}
             ranking={status?.alphaRanking ?? null}
+            snapshotScanId={snapshotScanId}
+            snapshotCycleTimestamp={snapshotCycleTimestamp}
           />
 
           <MarketUniverseFoundationCard
@@ -638,9 +643,13 @@ function UniverseMetric({
 function RadarUniverseCard({
   symbols,
   ranking,
+  snapshotScanId,
+  snapshotCycleTimestamp,
 }: {
   symbols: RadarSymbolStatus[];
   ranking: AlphaRadarRankingSnapshot | null;
+  snapshotScanId: string | null;
+  snapshotCycleTimestamp: string | null;
 }) {
   const entries = ranking?.entries ?? [];
   const displayItems = entries.length > 0
@@ -688,7 +697,6 @@ function RadarUniverseCard({
             const recentHistory = symbol?.signalHistory.slice(-3) ?? [];
             const missingEvidence = symbol?.alphaRadar.preBreakout.confirmation.missingEvidence ?? [];
             const settlement = symbol?.marketWindowSettlement;
-            const scanId = symbol?.scanId ?? settlement?.scanId ?? null;
             const missingSegments = settlement?.missingSegments ?? null;
             return (
               <div
@@ -769,13 +777,13 @@ function RadarUniverseCard({
                     className="mt-1 break-all font-mono text-[10px] leading-relaxed text-foreground"
                     data-testid={`scan-id-${sym}`}
                   >
-                    {scanId ?? 'Not supplied by server'}
+                    {snapshotScanId ?? 'Not supplied by server'}
                   </p>
                   <p className="mt-2 text-[8px] uppercase tracking-wide text-muted-foreground">
                     Cycle timestamp
                   </p>
                   <p className="mt-1 font-mono text-[10px] text-foreground" data-testid={`scan-cycle-${sym}`}>
-                    {settlement?.settledAt ? formatTime(settlement.settledAt) : 'Not supplied by server'}
+                    {snapshotCycleTimestamp ? formatTime(snapshotCycleTimestamp) : 'Not supplied by server'}
                   </p>
                   <p className="mt-2 text-[8px] uppercase tracking-wide text-muted-foreground">
                     Missing segments

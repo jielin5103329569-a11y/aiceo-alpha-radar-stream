@@ -27,22 +27,42 @@ export type RadarStatusSelection = {
 };
 
 const RADAR_STATUS_STORAGE_KEY = 'alpha-radar:last-accepted-status:v1';
+const PROTECTED_RADAR_SYMBOLS = ['AMD', 'CRDO', 'MU', 'NVDA', 'VRT'] as const;
 
 export function hasCoherentRadarScan(status: RadarStatus | null | undefined): status is RadarStatus {
+  const settledAt = status?.marketWindowSettlement.settledAt;
   if (
     !status
     || typeof status.scanId !== 'string'
     || status.scanId.length === 0
+    || typeof settledAt !== 'string'
+    || settledAt.length === 0
     || status.marketWindowSettlement.scanId !== status.scanId
     || status.symbolRadars.length !== 5
+    || status.opportunityCenter.opportunities.length !== 5
+    || [...status.symbolRadars.map((symbol) => symbol.symbol)].sort().some(
+      (symbol, index) => symbol !== PROTECTED_RADAR_SYMBOLS[index],
+    )
+    || [...status.opportunityCenter.opportunities.map((opportunity) => opportunity.symbol)].sort().some(
+      (symbol, index) => symbol !== PROTECTED_RADAR_SYMBOLS[index],
+    )
     || status.symbolRadars.some(
       (symbol) =>
         symbol.scanId !== status.scanId
-        || symbol.marketWindowSettlement.scanId !== status.scanId,
+        || symbol.marketWindowSettlement.scanId !== status.scanId
+        || symbol.marketWindowSettlement.settledAt !== settledAt,
     )
   ) {
     return false;
   }
+  const expectedFeedState: RadarStatus['marketFeedState'] = status.symbolRadars.some(
+    (symbol) => symbol.marketFeedState === 'streaming',
+  )
+    ? 'streaming'
+    : status.symbolRadars.some((symbol) => symbol.marketFeedState === 'stale')
+      ? 'stale'
+      : 'offline';
+  if (status.marketFeedState !== expectedFeedState) return false;
   const symbolFeedStates = status.symbolRadars.map((symbol) => symbol.marketFeedState);
   const anyOffline = status.marketFeedState === 'offline'
     || symbolFeedStates.some((state) => state === 'offline');
@@ -57,7 +77,9 @@ export function hasCoherentRadarScan(status: RadarStatus | null | undefined): st
   }
   return status.opportunityCenter.scanId === status.scanId
     && status.opportunityCenter.opportunities.every(
-      (opportunity) => opportunity.scanId === status.scanId,
+      (opportunity) =>
+        opportunity.scanId === status.scanId
+        && opportunity.triggerAt === settledAt,
     );
 }
 

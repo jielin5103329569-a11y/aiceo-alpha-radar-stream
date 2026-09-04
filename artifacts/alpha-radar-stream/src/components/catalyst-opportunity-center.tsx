@@ -27,7 +27,8 @@ import type {
 type CatalystOpportunityCenterProps = {
   catalystRadar: CatalystRadarSnapshot | null | undefined;
   opportunityCenter: OpportunityCenterSnapshot | null | undefined;
-  marketWindowSettlement: ProtectedMarketWindowSettlement | null | undefined;
+  snapshotScanId: string | null | undefined;
+  snapshotCycleTimestamp: string | null | undefined;
   symbolRadars: RadarSymbolStatus[];
 };
 
@@ -71,7 +72,8 @@ function sectorTone(status: Opportunity['sectorConfirmation']['status']): string
 export function CatalystOpportunityCenter({
   catalystRadar,
   opportunityCenter,
-  marketWindowSettlement,
+  snapshotScanId,
+  snapshotCycleTimestamp,
   symbolRadars,
 }: CatalystOpportunityCenterProps) {
   const statuses = catalystRadar?.sourceStatuses ?? [];
@@ -183,10 +185,10 @@ export function CatalystOpportunityCenter({
                 {formatNumber(opportunities.length, 0)} monitored
               </Badge>
               <p className="max-w-full break-all font-mono text-[9px] text-muted-foreground" data-testid="opportunity-center-scan-id">
-                Scan ID · {opportunityCenter?.scanId ?? 'Not supplied by server'}
+                Scan ID · {snapshotScanId ?? 'Not supplied by server'}
               </p>
               <p className="font-mono text-[9px] text-muted-foreground" data-testid="opportunity-center-cycle-time">
-                Cycle · {marketWindowSettlement?.settledAt ? formatTime(marketWindowSettlement.settledAt) : 'Not supplied by server'}
+                Cycle · {snapshotCycleTimestamp ? formatTime(snapshotCycleTimestamp) : 'Not supplied by server'}
               </p>
             </div>
           </div>
@@ -199,6 +201,8 @@ export function CatalystOpportunityCenter({
                   key={opportunity.symbol}
                   opportunity={opportunity}
                   settlement={settlementBySymbol.get(opportunity.symbol)}
+                  snapshotScanId={snapshotScanId}
+                  snapshotCycleTimestamp={snapshotCycleTimestamp}
                 />
               ))}
             </div>
@@ -219,9 +223,13 @@ export function CatalystOpportunityCenter({
 function OpportunityRow({
   opportunity,
   settlement,
+  snapshotScanId,
+  snapshotCycleTimestamp,
 }: {
   opportunity: Opportunity;
   settlement: ProtectedMarketWindowSettlement | undefined;
+  snapshotScanId: string | null | undefined;
+  snapshotCycleTimestamp: string | null | undefined;
 }) {
   const sector = opportunity.sectorConfirmation;
   const classification = sector.trustedClassification
@@ -277,10 +285,10 @@ function OpportunityRow({
       </div>
       <div className="mt-3 rounded-md border border-border/60 bg-background/50 p-2.5">
         <p className="break-all font-mono text-[9px] text-muted-foreground" data-testid={`opportunity-scan-id-${opportunity.symbol}`}>
-          Scan ID · {opportunity.scanId ?? 'Not supplied by server'}
+          Scan ID · {snapshotScanId ?? 'Not supplied by server'}
         </p>
         <p className="mt-1 font-mono text-[9px] text-muted-foreground" data-testid={`opportunity-cycle-time-${opportunity.symbol}`}>
-          Cycle · {settlement?.settledAt ? formatTime(settlement.settledAt) : 'Not supplied by server'}
+          Cycle · {snapshotCycleTimestamp ? formatTime(snapshotCycleTimestamp) : 'Not supplied by server'}
         </p>
         <div className="mt-2 flex flex-wrap items-center gap-1.5" data-testid={`opportunity-missing-segments-${opportunity.symbol}`}>
           <span className="text-[8px] uppercase tracking-wide text-muted-foreground">Missing segments</span>

@@ -144,8 +144,10 @@ try {
     })),
     opportunityCenter: {
       scanId,
-      opportunities: [{
+      opportunities: ["NVDA", "MU", "VRT", "CRDO", "AMD"].map((symbol) => ({
         scanId,
+        symbol,
+        triggerAt: marketWindowSettlement.settledAt,
         freshness: "fresh",
         direction: "upside",
         alphaVelocity30s: 5,
@@ -155,7 +157,7 @@ try {
         alertReady: true,
         alertReadyReason: "Fresh confirmed fixture.",
         missingConfirmationItems: [],
-      }],
+      })),
       reason: "Fresh fixture.",
     },
   };
@@ -196,6 +198,21 @@ try {
     hasCoherentRadarScan(mixedScanStatus),
     false,
     "a mixed scanId snapshot must be rejected before presentation",
+  );
+  const mixedCycleStatus = structuredClone(coherentStatus);
+  mixedCycleStatus.symbolRadars[0].marketWindowSettlement.settledAt = "2026-08-21T08:00:03.000Z";
+  assert.equal(
+    hasCoherentRadarScan(mixedCycleStatus),
+    false,
+    "a mixed cycle timestamp must be rejected before presentation",
+  );
+  const mixedOpportunityCycleStatus = structuredClone(coherentStatus);
+  mixedOpportunityCycleStatus.opportunityCenter.opportunities[0].triggerAt =
+    "2026-08-21T08:00:03.000Z";
+  assert.equal(
+    hasCoherentRadarScan(mixedOpportunityCycleStatus),
+    false,
+    "an opportunity from another cycle must be rejected before presentation",
   );
   assert.equal(shouldOpenRadarSse(true, null), false);
   assert.equal(shouldOpenRadarSse(true, "server-a"), false);
