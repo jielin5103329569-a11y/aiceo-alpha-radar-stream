@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'wouter';
 import { useRadarStream } from '@/hooks/use-radar-stream';
+import { useUniverseSnapshotPresentation } from '@/hooks/use-universe-snapshot-presentation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { RadarSignalPanel } from '@/components/radar-signal-panel';
@@ -46,10 +47,11 @@ export default function Dashboard() {
     hasReceivedStatus,
     backendUnavailable,
   } = useRadarStream();
+  const universeStatus = useUniverseSnapshotPresentation(status);
   const isStopped = status?.connectionState === 'stopped';
   const isNotConfigured = status?.connectionState === 'not_configured';
-  const snapshotScanId = status?.scanId ?? null;
-  const snapshotCycleTimestamp = status?.marketWindowSettlement.settledAt ?? null;
+  const snapshotScanId = universeStatus?.scanId ?? null;
+  const snapshotCycleTimestamp = universeStatus?.marketWindowSettlement.settledAt ?? null;
 
   if (!hasReceivedStatus && isLoading && !status) {
     return (
@@ -111,9 +113,9 @@ export default function Dashboard() {
                 Diagnostics
               </Link>
               <MarketFeedStatusBadge
-                state={status?.marketFeedState}
+                state={universeStatus?.marketFeedState}
                 error={isError}
-                acceptanceState={status?.liveIngestion.acceptanceState}
+                acceptanceState={universeStatus?.liveIngestion.acceptanceState}
               />
               <AccountControls />
             </div>
@@ -262,11 +264,11 @@ export default function Dashboard() {
         {/* Right Column - Streams & Tape */}
         <div className="lg:col-span-8 flex flex-col gap-6">
           <CatalystOpportunityCenter
-            catalystRadar={status?.catalystRadar}
-            opportunityCenter={status?.opportunityCenter}
+            catalystRadar={universeStatus?.catalystRadar}
+            opportunityCenter={universeStatus?.opportunityCenter}
             snapshotScanId={snapshotScanId}
             snapshotCycleTimestamp={snapshotCycleTimestamp}
-            symbolRadars={status?.symbolRadars ?? []}
+            symbolRadars={universeStatus?.symbolRadars ?? []}
           />
 
           <RadarSignalPanel alphaRadar={status?.alphaRadar} scanHealth={status?.scanHealth} />
@@ -285,8 +287,8 @@ export default function Dashboard() {
           <SectorPriorityHierarchy snapshot={status?.sectorPriority} />
 
           <RadarUniverseCard
-            symbols={status?.symbolRadars ?? []}
-            ranking={status?.alphaRanking ?? null}
+            symbols={universeStatus?.symbolRadars ?? []}
+            ranking={universeStatus?.alphaRanking ?? null}
             snapshotScanId={snapshotScanId}
             snapshotCycleTimestamp={snapshotCycleTimestamp}
           />
