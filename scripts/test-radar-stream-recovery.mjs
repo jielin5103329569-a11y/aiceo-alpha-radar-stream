@@ -33,11 +33,13 @@ try {
 
   const require = createRequire(import.meta.url);
   const {
+    createRadarBrowserRecoveryProjection,
     createRadarRecoveryProjection,
     hasCoherentRadarScan,
     isBackendUnavailable,
     shouldOpenRadarSse,
     shouldPollRestStatus,
+    shouldStartRadarForegroundRecovery,
     selectLatestRadarStatus,
   } = require(join(outputDirectory, "use-radar-stream.js"));
   const olderSnapshot = {
@@ -221,6 +223,21 @@ try {
     true,
     "SSE may open only after REST establishes the active server epoch",
   );
+  assert.equal(
+    shouldStartRadarForegroundRecovery(10_000, 11_500, false),
+    false,
+    "focus and pageshow signals from one app return must not restart recovery",
+  );
+  assert.equal(
+    shouldStartRadarForegroundRecovery(10_000, 13_000, false),
+    true,
+    "a later foreground return may start a new recovery attempt",
+  );
+  assert.equal(
+    shouldStartRadarForegroundRecovery(0, 10_000, true),
+    false,
+    "an in-flight foreground REST confirmation must not be duplicated",
+  );
 
   let selection = selectLatestRadarStatus(null, olderSnapshot, "sse", new Set());
   selection = selectLatestRadarStatus(selection.status, newerSnapshot, "rest", selection.retiredEpochs);
@@ -308,14 +325,39 @@ try {
     "an invalid revision must not replace a verified snapshot",
   );
   assert.equal(
-    isBackendUnavailable(true, "reconnecting", true),
+    isBackendUnavailable(true, "reconnecting", false),
     false,
-    "a working REST fallback must suppress the reconnecting unavailable banner",
+    "a reconnecting browser link must not imply backend failure before REST fails",
   );
   assert.equal(
-    isBackendUnavailable(true, "reconnecting", false),
+    isBackendUnavailable(true, "reconnecting", true),
     true,
-    "the unavailable banner requires both SSE and REST to be unavailable",
+    "the unavailable banner requires an explicit REST failure while SSE is unavailable",
+  );
+  const browserRecoveryProjection = createRadarBrowserRecoveryProjection(coherentStatus);
+  assert.equal(
+    browserRecoveryProjection.marketFeedState,
+    "streaming",
+    "browser-link recovery must not rewrite server-verified market transport as stale or offline",
+  );
+  assert.deepEqual(
+    browserRecoveryProjection.marketWindowSettlement,
+    coherentStatus.marketWindowSettlement,
+    "browser-link recovery must preserve the last server-verified market evidence window",
+  );
+  assert.equal(
+    browserRecoveryProjection.opportunityCenter.opportunities.every(
+      (opportunity) => opportunity.alertReady === false,
+    ),
+    true,
+    "browser-link recovery must keep every opportunity fail-closed",
+  );
+  assert.equal(
+    browserRecoveryProjection.symbolRadars.every(
+      (symbol) => symbol.scanId === coherentStatus.scanId,
+    ),
+    true,
+    "browser-link recovery must preserve the atomic Universe identity",
   );
 
   console.log("Radar stream recovery tests passed: monotonic cross-transport status selection and dual-path availability.");

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useGetRadarStatus, getGetRadarStatusQueryKey } from '@workspace/api-client-react';
 import type { RadarStatus } from '@workspace/api-client-react';
 
@@ -28,6 +28,21 @@ export type RadarStatusSelection = {
 
 const RADAR_STATUS_STORAGE_KEY = 'alpha-radar:last-accepted-status:v1';
 const PROTECTED_RADAR_SYMBOLS = ['AMD', 'CRDO', 'MU', 'NVDA', 'VRT'] as const;
+const FOREGROUND_RECOVERY_COALESCE_MS = 3_000;
+type StatusNetwork = {
+  heartbeatFresh?: boolean;
+  marketEventFresh?: boolean;
+  marketEventPathHealthy?: boolean;
+  alertReady?: boolean;
+  recovery?: {
+    state?: string;
+    windowResetRequired?: boolean;
+    reason?: string;
+    [key: string]: unknown;
+  };
+  reason?: string;
+  [key: string]: unknown;
+};
 
 export function hasCoherentRadarScan(status: RadarStatus | null | undefined): status is RadarStatus {
   const settledAt = status?.marketWindowSettlement.settledAt;
@@ -94,20 +109,6 @@ export function createRadarRecoveryProjection(status: RadarStatus): RadarStatus 
     'volume',
     'heartbeat',
   ];
-  type StatusNetwork = {
-    heartbeatFresh?: boolean;
-    marketEventFresh?: boolean;
-    marketEventPathHealthy?: boolean;
-    alertReady?: boolean;
-    recovery?: {
-      state?: string;
-      windowResetRequired?: boolean;
-      reason?: string;
-      [key: string]: unknown;
-    };
-    reason?: string;
-    [key: string]: unknown;
-  };
   const gateNetwork = (network: StatusNetwork): StatusNetwork => ({
     ...network,
     heartbeatFresh: false,
@@ -236,6 +237,61 @@ export function createRadarRecoveryProjection(status: RadarStatus): RadarStatus 
   };
 }
 
+/**
+ * Browser-link recovery is not a market-data outage. Preserve the most recent
+ * server-verified feed state and evidence window while explicitly withholding
+ * alert handoff until REST confirms the active epoch and SSE reconnects.
+ */
+export function createRadarBrowserRecoveryProjection(status: RadarStatus): RadarStatus {
+  const gateNetwork = (network: StatusNetwork): StatusNetwork => ({
+    ...network,
+    alertReady: false,
+    reason: 'Browser live-link confirmation is pending; market transport health remains server-owned.',
+  });
+  const gateIngestion = (
+    ingestion: RadarStatus['liveIngestion'],
+  ): RadarStatus['liveIngestion'] => {
+    const runtimeNetwork = (
+      ingestion as RadarStatus['liveIngestion'] & { network?: StatusNetwork }
+    ).network;
+    return {
+      ...ingestion,
+      ...(runtimeNetwork ? { network: gateNetwork(runtimeNetwork) } : {}),
+      conditions: {
+        ...ingestion.conditions,
+        scoringEligible: false,
+        triggerEvidenceAvailable: false,
+      },
+      reason: 'Displaying the last server-verified market state while the browser live link reconnects.',
+    };
+  };
+  return {
+    ...status,
+    ...((status as RadarStatus & { network?: StatusNetwork }).network
+      ? { network: gateNetwork((status as RadarStatus & { network: StatusNetwork }).network) }
+      : {}),
+    liveIngestion: gateIngestion(status.liveIngestion),
+    symbolRadars: status.symbolRadars.map((symbol) => ({
+      ...symbol,
+      ...((symbol as typeof symbol & { network?: StatusNetwork }).network
+        ? { network: gateNetwork((symbol as typeof symbol & { network: StatusNetwork }).network) }
+        : {}),
+      liveIngestion: gateIngestion(symbol.liveIngestion),
+    })),
+    opportunityCenter: {
+      ...status.opportunityCenter,
+      opportunities: status.opportunityCenter.opportunities.map((opportunity) => ({
+        ...opportunity,
+        alertReady: false,
+        alertReadyReason:
+          'Alert handoff is gated while the browser confirms the current REST/SSE connection.',
+      })),
+      reason:
+        'Displaying the last server-verified snapshot while the browser live link reconnects.',
+    },
+  };
+}
+
 function loadAcceptedRadarStatus(): RadarStatus | null {
   if (typeof window === 'undefined') return null;
   try {
@@ -301,9 +357,9 @@ export function selectLatestRadarStatus(
 export function isBackendUnavailable(
   hasReceivedStatus: boolean,
   transportState: 'connecting' | 'connected' | 'reconnecting',
-  restFallbackAvailable: boolean,
+  restFallbackKnownUnavailable: boolean,
 ): boolean {
-  return hasReceivedStatus && transportState !== 'connected' && !restFallbackAvailable;
+  return hasReceivedStatus && transportState !== 'connected' && restFallbackKnownUnavailable;
 }
 
 export function shouldPollRestStatus(
@@ -320,6 +376,14 @@ export function shouldOpenRadarSse(
   return !needsRestEpochConfirmation && confirmedRestEpoch !== null;
 }
 
+export function shouldStartRadarForegroundRecovery(
+  lastStartedAt: number,
+  now: number,
+  recoveryInFlight: boolean,
+): boolean {
+  return !recoveryInFlight && now - lastStartedAt >= FOREGROUND_RECOVERY_COALESCE_MS;
+}
+
 export function useRadarStream() {
   const restoredStatusRef = useRef<RadarStatus | null | undefined>(undefined);
   if (restoredStatusRef.current === undefined) {
@@ -331,12 +395,14 @@ export function useRadarStream() {
   );
   const [hasReceivedStatus, setHasReceivedStatus] = useState(Boolean(restoredStatus));
   const [transportState, setTransportState] = useState<'connecting' | 'connected' | 'reconnecting'>('connecting');
-  const [restFallbackAvailable, setRestFallbackAvailable] = useState(false);
+  const [restFallbackKnownUnavailable, setRestFallbackKnownUnavailable] = useState(false);
   const [needsRestEpochConfirmation, setNeedsRestEpochConfirmation] = useState(true);
   const acceptedStatusRef = useRef<RadarStatus | null>(restoredStatus);
   const retiredEpochsRef = useRef<ReadonlySet<string>>(new Set());
   const eventSourceRef = useRef<EventSource | null>(null);
   const confirmedRestEpochRef = useRef<string | null>(null);
+  const foregroundRecoveryInFlightRef = useRef(false);
+  const lastForegroundRecoveryStartedAtRef = useRef(0);
 
   // We use the generated hook for the initial load and fallback state.
   // If SSE is failing, we fall back to polling as a recovery path.
@@ -346,6 +412,7 @@ export function useRadarStream() {
     isFetchedAfterMount,
     isLoading,
     error: queryError,
+    refetch,
   } = useGetRadarStatus({
     query: {
       queryKey: getGetRadarStatusQueryKey(),
@@ -358,7 +425,10 @@ export function useRadarStream() {
     }
   });
 
-  const acceptStatus = (incomingStatus: RadarStatus, transport: RadarStatusTransport): boolean => {
+  const acceptStatus = useCallback((
+    incomingStatus: RadarStatus,
+    transport: RadarStatusTransport,
+  ): boolean => {
     if (!hasCoherentRadarScan(incomingStatus)) return false;
     if (
       transport === 'sse'
@@ -392,18 +462,18 @@ export function useRadarStream() {
     setHasReceivedStatus(true);
     if (selected.status) persistAcceptedRadarStatus(selected.status);
     return true;
-  };
+  }, []);
 
   useEffect(() => {
     if (!isFetchedAfterMount || !initialStatus) return;
-    setRestFallbackAvailable(!queryError);
     if (queryError) return;
 
+    setRestFallbackKnownUnavailable(false);
     acceptStatus(initialStatus, 'rest');
-  }, [initialStatus, dataUpdatedAt, isFetchedAfterMount, queryError]);
+  }, [initialStatus, dataUpdatedAt, isFetchedAfterMount, queryError, acceptStatus]);
 
   useEffect(() => {
-    if (queryError) setRestFallbackAvailable(false);
+    if (queryError) setRestFallbackKnownUnavailable(true);
   }, [queryError]);
 
   useEffect(() => {
@@ -425,15 +495,13 @@ export function useRadarStream() {
 
     es.addEventListener('status', handleStatusEvent);
     es.onmessage = handleStatusEvent;
-    es.onopen = () => {
-      setTransportState('connected');
-    };
     es.onerror = () => {
+      if (eventSourceRef.current !== es) return;
       es.close();
       eventSourceRef.current = null;
       confirmedRestEpochRef.current = null;
       if (acceptedStatusRef.current) {
-        setLastSuccessfulStatus(createRadarRecoveryProjection(acceptedStatusRef.current));
+        setLastSuccessfulStatus(createRadarBrowserRecoveryProjection(acceptedStatusRef.current));
       }
       setTransportState('reconnecting');
       setNeedsRestEpochConfirmation(true);
@@ -444,7 +512,69 @@ export function useRadarStream() {
       es.close();
       eventSourceRef.current = null;
     };
-  }, [needsRestEpochConfirmation]);
+  }, [needsRestEpochConfirmation, acceptStatus]);
+
+  useEffect(() => {
+    const recoverForegroundConnection = () => {
+      const now = Date.now();
+      if (
+        !hasReceivedStatus
+        || document.visibilityState === 'hidden'
+        || !shouldStartRadarForegroundRecovery(
+          lastForegroundRecoveryStartedAtRef.current,
+          now,
+          foregroundRecoveryInFlightRef.current,
+        )
+      ) {
+        return;
+      }
+      lastForegroundRecoveryStartedAtRef.current = now;
+      foregroundRecoveryInFlightRef.current = true;
+      const existingEventSource = eventSourceRef.current;
+      if (existingEventSource) {
+        existingEventSource.close();
+        eventSourceRef.current = null;
+      }
+      confirmedRestEpochRef.current = null;
+      if (acceptedStatusRef.current) {
+        setLastSuccessfulStatus(createRadarBrowserRecoveryProjection(acceptedStatusRef.current));
+      }
+      setRestFallbackKnownUnavailable(false);
+      setTransportState('reconnecting');
+      setNeedsRestEpochConfirmation(true);
+      void fetch('/api/radar/status', {
+        cache: 'no-store',
+        headers: { Accept: 'application/json' },
+      })
+        .then(async (response) => {
+          if (!response.ok) {
+            throw new Error(`Radar status recovery failed with HTTP ${response.status}.`);
+          }
+          const incomingStatus = await response.json() as RadarStatus;
+          if (!acceptStatus(incomingStatus, 'rest')) {
+            throw new Error('Radar status recovery returned an incoherent snapshot.');
+          }
+          setRestFallbackKnownUnavailable(false);
+        })
+        .catch(() => {
+          setRestFallbackKnownUnavailable(true);
+        })
+        .finally(() => {
+          foregroundRecoveryInFlightRef.current = false;
+        });
+    };
+
+    document.addEventListener('visibilitychange', recoverForegroundConnection);
+    window.addEventListener('focus', recoverForegroundConnection);
+    window.addEventListener('pageshow', recoverForegroundConnection);
+    window.addEventListener('online', recoverForegroundConnection);
+    return () => {
+      document.removeEventListener('visibilitychange', recoverForegroundConnection);
+      window.removeEventListener('focus', recoverForegroundConnection);
+      window.removeEventListener('pageshow', recoverForegroundConnection);
+      window.removeEventListener('online', recoverForegroundConnection);
+    };
+  }, [hasReceivedStatus, acceptStatus]);
 
   // Keep the last valid state visible while REST/SSE reconnects. A transport
   // failure is not a reason to erase already verified UI state.
@@ -453,9 +583,9 @@ export function useRadarStream() {
   const backendUnavailable = isBackendUnavailable(
     hasReceivedStatus,
     transportState,
-    restFallbackAvailable,
+    restFallbackKnownUnavailable,
   );
-  const isError = Boolean(status?.connectionState === 'error' || backendUnavailable);
+  const isError = Boolean(status?.connectionState === 'error');
 
   return { status, isLoading, isError, transportState, hasReceivedStatus, backendUnavailable };
 }
