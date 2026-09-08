@@ -16,4 +16,7 @@ while unlimited retries can cause noisy flapping when a provider is unavailable.
 **How to apply:** Reuse this distinction for every future market-data source.
 Any later analysis layer should consider the last market-event time, not merely
 the service heartbeat, when deciding whether input data is fresh enough. A
-fresh heartbeat alone must never restore scores or alert readiness.
+fresh heartbeat alone must never restore scores or alert readiness. A delayed
+server watchdog callback must recognize event-loop delay and allow one bounded
+interval for queued authenticated heartbeats to drain; if no pulse arrives,
+normal timeout and fail-closed recovery resume on the next check.

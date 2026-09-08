@@ -569,6 +569,7 @@ const currentDir = path.dirname(fileURLToPath(import.meta.url));
 const bridgePath = path.join(currentDir, "databento_live_bridge.py");
 const HEARTBEAT_INTERVAL_MS = 5_000;
 const HEARTBEAT_TIMEOUT_MS = HEARTBEAT_INTERVAL_MS * 3;
+const HEARTBEAT_WATCHDOG_DELAY_MS = HEARTBEAT_INTERVAL_MS * 2;
 const MAX_RECONNECT_ATTEMPTS = 5;
 const MAX_RECONNECT_DELAY_MS = 30_000;
 const EXHAUSTION_REARM_DELAY_MS = 5 * 60 * 1_000;
@@ -922,6 +923,27 @@ function freshnessFor(timestamp: Date | null, now: Date, hasEnoughData: boolean)
   return "fresh";
 }
 
+export function heartbeatWatchdogWasDelayed(
+  previousCheckAt: number | null,
+  now: number,
+): boolean {
+  return previousCheckAt !== null
+    && now - previousCheckAt > HEARTBEAT_WATCHDOG_DELAY_MS;
+}
+
+export function heartbeatIsFreshWithWatchdogGrace(
+  heartbeatAt: Date | null,
+  now: Date,
+  previousCheckAt: number | null,
+  graceUntil: number | null,
+): boolean {
+  if (!heartbeatAt) return false;
+  const nowMs = now.getTime();
+  return nowMs - heartbeatAt.getTime() <= HEARTBEAT_TIMEOUT_MS
+    || heartbeatWatchdogWasDelayed(previousCheckAt, nowMs)
+    || (graceUntil !== null && nowMs < graceUntil);
+}
+
 function observedAt(value: string, now: Date): Date | null {
   const timestamp = new Date(value);
   const milliseconds = timestamp.getTime();
@@ -1049,6 +1071,8 @@ export class DatabentoLiveService extends EventEmitter {
   private readonly endToEndLatencySamples: number[] = [];
   private stopping = false;
   private heartbeatTimer: NodeJS.Timeout | null = null;
+  private heartbeatWatchdogLastCheckedAt: number | null = null;
+  private heartbeatWatchdogGraceUntil: number | null = null;
   private reconnectTimer: NodeJS.Timeout | null = null;
   private exhaustionRearmTimer: NodeJS.Timeout | null = null;
   private scanTimer: NodeJS.Timeout | null = null;
@@ -1560,7 +1584,12 @@ export class DatabentoLiveService extends EventEmitter {
       this.status.connectionState === "not_configured" || this.status.connectionState === "stopped"
         ? "offline"
         : this.status.connectionState;
-    const heartbeatFresh = heartbeatAgeMs !== null && heartbeatAgeMs <= HEARTBEAT_TIMEOUT_MS;
+    const heartbeatFresh = heartbeatIsFreshWithWatchdogGrace(
+      heartbeatAt,
+      now,
+      this.heartbeatWatchdogLastCheckedAt,
+      this.heartbeatWatchdogGraceUntil,
+    );
     const marketEventFresh = marketEventAgeMs !== null && marketEventAgeMs <= STALE_AFTER_MS;
     const queueState: LiveBackpressureState =
       stored.queue.state === "blocked"
@@ -2447,15 +2476,30 @@ export class DatabentoLiveService extends EventEmitter {
     if (this.heartbeatTimer) {
       return;
     }
+    this.heartbeatWatchdogLastCheckedAt = Date.now();
     this.heartbeatTimer = setInterval(() => {
       if (this.status.connectionState === "stopped" || this.status.connectionState === "not_configured") {
         return;
+      }
+      const now = Date.now();
+      const watchdogWasDelayed = heartbeatWatchdogWasDelayed(
+        this.heartbeatWatchdogLastCheckedAt,
+        now,
+      );
+      this.heartbeatWatchdogLastCheckedAt = now;
+      if (watchdogWasDelayed) {
+        this.heartbeatWatchdogGraceUntil = now + HEARTBEAT_INTERVAL_MS;
       }
       const heartbeatReference = this.status.lastHeartbeatAt ?? this.bridgeTransportStartedAt;
       if (
         this.child
         && heartbeatReference
-        && Date.now() - heartbeatReference.getTime() > HEARTBEAT_TIMEOUT_MS
+        && now - heartbeatReference.getTime() > HEARTBEAT_TIMEOUT_MS
+        && !watchdogWasDelayed
+        && (
+          this.heartbeatWatchdogGraceUntil === null
+          || now >= this.heartbeatWatchdogGraceUntil
+        )
       ) {
         this.fail("Databento bridge transport heartbeat timed out.", true);
         return;
@@ -2473,6 +2517,8 @@ export class DatabentoLiveService extends EventEmitter {
       clearInterval(this.heartbeatTimer);
       this.heartbeatTimer = null;
     }
+    this.heartbeatWatchdogLastCheckedAt = null;
+    this.heartbeatWatchdogGraceUntil = null;
   }
 
   private clearReconnectTimer(): void {

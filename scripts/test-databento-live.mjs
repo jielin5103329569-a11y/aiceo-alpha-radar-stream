@@ -144,6 +144,8 @@ try {
     FocusedScanCoordinator,
     MONITORED_SYMBOLS,
     createSignedMarketLeaderEnvelope,
+    heartbeatIsFreshWithWatchdogGrace,
+    heartbeatWatchdogWasDelayed,
     scanProfileAt,
     updateAlphaRadarRanking,
   } = require(join(outputDirectory, "databentoLive.js"));
@@ -1965,6 +1967,33 @@ try {
   assert.equal(delayedHeartbeat.heartbeatFresh, true, "a locally received authenticated bridge pulse must keep transport freshness");
   assert.equal(delayedHeartbeat.marketEventFresh, false, "a bridge pulse must not manufacture fresh market evidence");
   assert.equal(delayedHeartbeat.alertReady, false, "heartbeat freshness alone must fail closed for alert readiness");
+  const watchdogNow = Date.now();
+  const heartbeatBeforePause = new Date(watchdogNow - 16_000);
+  assert.equal(
+    heartbeatWatchdogWasDelayed(watchdogNow - 16_000, watchdogNow),
+    true,
+    "a watchdog callback delayed by the event loop must be distinguished from a missing bridge pulse",
+  );
+  assert.equal(
+    heartbeatIsFreshWithWatchdogGrace(
+      heartbeatBeforePause,
+      new Date(watchdogNow),
+      watchdogNow - 16_000,
+      null,
+    ),
+    true,
+    "one delayed watchdog callback must give queued authenticated heartbeats a bounded drain interval",
+  );
+  assert.equal(
+    heartbeatIsFreshWithWatchdogGrace(
+      heartbeatBeforePause,
+      new Date(watchdogNow + 5_001),
+      watchdogNow,
+      watchdogNow + 5_000,
+    ),
+    false,
+    "watchdog grace must expire after one normal heartbeat interval when no pulse arrives",
+  );
   const firstNetworkEvent = marketEvent(networkNow, 100, "B");
   duplicateNetworkService.applyEvent(firstNetworkEvent);
   const initialNetwork = duplicateNetworkService.getStatus().network;

@@ -350,6 +350,23 @@ try {
     true,
     "the unavailable banner requires an explicit REST failure while SSE is unavailable",
   );
+  let pausedRestUnavailable = true;
+  assert.equal(
+    isBackendUnavailable(true, "reconnecting", pausedRestUnavailable),
+    true,
+    "a brief API pause may expose recovery while both browser transports are unavailable",
+  );
+  pausedRestUnavailable = false;
+  assert.equal(
+    isBackendUnavailable(true, "reconnecting", pausedRestUnavailable),
+    false,
+    "the first successful REST status after a pause must immediately clear the sticky backend banner",
+  );
+  assert.equal(
+    shouldMarkRadarSseConnected(1, "server-a"),
+    true,
+    "the reopened SSE stream must close browser recovery after the pause",
+  );
   const browserRecoveryProjection = createRadarBrowserRecoveryProjection(coherentStatus);
   assert.equal(
     browserRecoveryProjection.marketFeedState,
