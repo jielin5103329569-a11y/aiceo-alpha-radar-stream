@@ -38,6 +38,7 @@ try {
     hasCoherentRadarScan,
     isBackendUnavailable,
     shouldOpenRadarSse,
+    shouldMarkRadarSseConnected,
     shouldPollRestStatus,
     shouldStartRadarForegroundRecovery,
     selectLatestRadarStatus,
@@ -222,6 +223,21 @@ try {
     shouldOpenRadarSse(false, "server-a"),
     true,
     "SSE may open only after REST establishes the active server epoch",
+  );
+  assert.equal(
+    shouldMarkRadarSseConnected(1, "server-a"),
+    true,
+    "an open EventSource on a REST-confirmed epoch must clear browser recovery immediately",
+  );
+  assert.equal(
+    shouldMarkRadarSseConnected(0, "server-a"),
+    false,
+    "an EventSource that is not open must not clear browser recovery",
+  );
+  assert.equal(
+    shouldMarkRadarSseConnected(1, null),
+    false,
+    "an open EventSource without a REST-confirmed epoch must remain fail-closed",
   );
   assert.equal(
     shouldStartRadarForegroundRecovery(10_000, 11_500, false),

@@ -376,6 +376,13 @@ export function shouldOpenRadarSse(
   return !needsRestEpochConfirmation && confirmedRestEpoch !== null;
 }
 
+export function shouldMarkRadarSseConnected(
+  readyState: number,
+  confirmedRestEpoch: string | null,
+): boolean {
+  return readyState === 1 && confirmedRestEpoch !== null;
+}
+
 export function shouldStartRadarForegroundRecovery(
   lastStartedAt: number,
   now: number,
@@ -449,6 +456,16 @@ export function useRadarStream() {
     ) {
       confirmedRestEpochRef.current = radarStatusEpoch(incomingStatus);
       setNeedsRestEpochConfirmation(false);
+      const currentEventSource = eventSourceRef.current;
+      if (
+        currentEventSource
+        && shouldMarkRadarSseConnected(
+          currentEventSource.readyState,
+          confirmedRestEpochRef.current,
+        )
+      ) {
+        setTransportState('connected');
+      }
     }
     if (selected.status === acceptedStatusRef.current) {
       if (transport === 'rest' && selected.status) {
@@ -476,11 +493,23 @@ export function useRadarStream() {
     if (queryError) setRestFallbackKnownUnavailable(true);
   }, [queryError]);
 
-  useEffect(() => {
-    if (!shouldOpenRadarSse(needsRestEpochConfirmation, confirmedRestEpochRef.current)) return;
+  const openRadarSse = useCallback(() => {
+    const existingEventSource = eventSourceRef.current;
+    if (existingEventSource) {
+      existingEventSource.close();
+    }
     const url = '/api/radar/events';
     const es = new EventSource(url);
     eventSourceRef.current = es;
+
+    es.onopen = () => {
+      if (
+        eventSourceRef.current === es
+        && shouldMarkRadarSseConnected(es.readyState, confirmedRestEpochRef.current)
+      ) {
+        setTransportState('connected');
+      }
+    };
 
     const handleStatusEvent = (event: MessageEvent<string>) => {
       try {
@@ -507,12 +536,27 @@ export function useRadarStream() {
       setNeedsRestEpochConfirmation(true);
     };
 
+    return es;
+  }, [acceptStatus]);
+
+  useEffect(() => {
+    if (
+      !shouldOpenRadarSse(needsRestEpochConfirmation, confirmedRestEpochRef.current)
+      || eventSourceRef.current
+    ) {
+      return;
+    }
+    openRadarSse();
+  }, [needsRestEpochConfirmation, openRadarSse]);
+
+  useEffect(() => {
     return () => {
-      es.removeEventListener('status', handleStatusEvent);
+      const es = eventSourceRef.current;
+      if (!es) return;
       es.close();
       eventSourceRef.current = null;
     };
-  }, [needsRestEpochConfirmation, acceptStatus]);
+  }, []);
 
   useEffect(() => {
     const recoverForegroundConnection = () => {
@@ -535,13 +579,13 @@ export function useRadarStream() {
         existingEventSource.close();
         eventSourceRef.current = null;
       }
-      confirmedRestEpochRef.current = null;
       if (acceptedStatusRef.current) {
         setLastSuccessfulStatus(createRadarBrowserRecoveryProjection(acceptedStatusRef.current));
       }
       setRestFallbackKnownUnavailable(false);
       setTransportState('reconnecting');
-      setNeedsRestEpochConfirmation(true);
+      setNeedsRestEpochConfirmation(confirmedRestEpochRef.current === null);
+      openRadarSse();
       void fetch('/api/radar/status', {
         cache: 'no-store',
         headers: { Accept: 'application/json' },
@@ -574,7 +618,7 @@ export function useRadarStream() {
       window.removeEventListener('pageshow', recoverForegroundConnection);
       window.removeEventListener('online', recoverForegroundConnection);
     };
-  }, [hasReceivedStatus, acceptStatus]);
+  }, [hasReceivedStatus, acceptStatus, openRadarSse]);
 
   // Keep the last valid state visible while REST/SSE reconnects. A transport
   // failure is not a reason to erase already verified UI state.
