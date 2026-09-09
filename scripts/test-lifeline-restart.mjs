@@ -324,6 +324,7 @@ try {
   assert.match(indexSource, /closeEventStreams: \(reason\) => radarSseConnections\.closeAll\(reason\)/);
   assert.match(radarRouteSource, /backpressured/);
   assert.match(radarRouteSource, /res\.once\("drain"/);
+  assert.match(radarRouteSource, /databentoLive\.settleSseRecoveryWindow\(\)/);
   assert.match(streamHookSource, /EventSource/);
   assert.match(streamHookSource, /reconnecting/);
   assert.doesNotMatch(fixtureSource, /Databento|@workspace\/db|DATABENTO_API_KEY/);

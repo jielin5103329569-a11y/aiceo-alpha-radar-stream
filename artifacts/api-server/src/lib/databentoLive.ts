@@ -4840,6 +4840,23 @@ export class DatabentoUniverseService extends EventEmitter {
     }
   }
 
+  settleSseRecoveryWindow(now = new Date()): RadarStatus {
+    const liveStatuses = this.services.map((service) => service.getStatus());
+    const completeStreamingWindow = liveStatuses.every((status) => (
+      status.marketFeedState === "streaming"
+      && (status.connectionState === "connected" || status.connectionState === "streaming")
+      && status.network.heartbeatFresh
+      && status.liveIngestion.conditions.quoteFresh
+      && status.liveIngestion.conditions.tradeFresh
+      && status.liveIngestion.conditions.volumeFresh
+    ));
+    if (!completeStreamingWindow) {
+      this.requestUniverseScan("sse_recovery", false);
+      return this.getStatus();
+    }
+    return this.runUniverseScan("sse_recovery", false, true);
+  }
+
   getStatus(): RadarStatus {
     if (!this.snapshot) return this.buildSnapshot();
     if (this.snapshotDirty) this.queueSnapshotBuild();

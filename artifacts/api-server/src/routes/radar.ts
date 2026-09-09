@@ -227,6 +227,7 @@ router.get("/radar/events", (req: Request, res: Response): void => {
       });
     }
   };
+  databentoLive.settleSseRecoveryWindow();
   writeStatus();
 
   const heartbeat = setInterval(() => {

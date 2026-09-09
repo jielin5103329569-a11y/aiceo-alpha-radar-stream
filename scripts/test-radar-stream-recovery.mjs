@@ -30,6 +30,19 @@ try {
     },
   }).outputText;
   writeFileSync(join(outputDirectory, "use-radar-stream.js"), output);
+  const presentationSource = readFileSync(
+    resolve("artifacts/alpha-radar-stream/src/hooks/use-universe-snapshot-presentation.ts"),
+    "utf8",
+  )
+    .replace(/^import .*;\n/gm, "");
+  const presentationOutput = typescript.transpileModule(presentationSource, {
+    compilerOptions: {
+      module: typescript.ModuleKind.CommonJS,
+      target: typescript.ScriptTarget.ES2022,
+      esModuleInterop: true,
+    },
+  }).outputText;
+  writeFileSync(join(outputDirectory, "use-universe-snapshot-presentation.js"), presentationOutput);
 
   const require = createRequire(import.meta.url);
   const {
@@ -43,6 +56,19 @@ try {
     shouldStartRadarForegroundRecovery,
     selectLatestRadarStatus,
   } = require(join(outputDirectory, "use-radar-stream.js"));
+  const {
+    shouldBypassSnapshotReviewHold,
+  } = require(join(outputDirectory, "use-universe-snapshot-presentation.js"));
+  assert.equal(
+    shouldBypassSnapshotReviewHold(15_000, 10_000),
+    true,
+    "a status arriving during the five-second foreground recovery window must bypass the review hold",
+  );
+  assert.equal(
+    shouldBypassSnapshotReviewHold(15_000, 15_001),
+    false,
+    "the normal coherent-snapshot review hold must resume after foreground recovery",
+  );
   const olderSnapshot = {
     symbol: "NVDA",
     statusEpoch: "server-a",
