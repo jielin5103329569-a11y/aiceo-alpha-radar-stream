@@ -17,6 +17,7 @@ import type { AutonomousWorkDefinition } from "./lib/autonomousOperationsCoordin
 import { buildEngineeringGovernanceSnapshot } from "./lib/engineeringGovernance";
 import { createGracefulShutdown, inspectListeningPort } from "./lib/serverLifecycle";
 import { secEdgarCatalyst } from "./lib/secEdgarCatalyst";
+import { scanRecorder } from "./lib/scanRecorder";
 
 const rawPort = process.env["PORT"];
 
@@ -48,6 +49,7 @@ const shutdown = createGracefulShutdown({
     runtimeSupervisor.stop();
     alertService.stop();
     internalTaskRegistry.stop();
+    scanRecorder.stop(databentoLive);
     databentoLive.stop();
     secEdgarCatalyst.stop();
     marketUniverse.stop();
@@ -116,6 +118,7 @@ server.once("listening", () => {
   marketUniverse.start();
   aiIndustryStockPool.start();
   secEdgarCatalyst.start();
+  scanRecorder.start(databentoLive);
   const liveStatus = databentoLive.start();
   logger.info(
     {
