@@ -74,6 +74,18 @@ function freshInput(symbol = "NVDA") {
 }
 
 try {
+  writeFileSync(
+    join(outputDirectory, "logger.js"),
+    '"use strict"; Object.defineProperty(exports, "__esModule", { value: true }); exports.logger = { warn() {} };',
+  );
+  const secSource = readFileSync(resolve("artifacts/api-server/src/lib/secEdgarCatalyst.ts"), "utf8");
+  writeFileSync(join(outputDirectory, "secEdgarCatalyst.js"), typescript.transpileModule(secSource, {
+    compilerOptions: {
+      module: typescript.ModuleKind.CommonJS,
+      target: typescript.ScriptTarget.ES2022,
+      esModuleInterop: true,
+    },
+  }).outputText);
   const source = readFileSync(resolve("artifacts/api-server/src/lib/catalystRadar.ts"), "utf8");
   const output = typescript.transpileModule(source, {
     compilerOptions: {
@@ -91,17 +103,64 @@ try {
     createCatalystRadar,
     fuseOpportunity,
   } = require(outputPath);
+  const {
+    parseSecEdgarEvents,
+    secEdgarCatalyst,
+    SEC_EDGAR_COMPANIES,
+  } = require(join(outputDirectory, "secEdgarCatalyst.js"));
   const now = new Date("2026-08-20T14:30:00.000Z");
 
   const unavailable = createCatalystRadar(now);
   assert.equal(unavailable.eventState, "unavailable");
   assert.equal(unavailable.events.length, 0, "unavailable sources must never synthesize events");
   assert.equal(unavailable.sourceStatuses.length, 5);
-  for (const sourceStatus of unavailable.sourceStatuses) {
-    assert.equal(sourceStatus.availability, "unavailable");
+  for (const sourceStatus of unavailable.sourceStatuses.filter((sourceStatus) => sourceStatus.category !== "sec_filing")) {
+    assert.equal(sourceStatus.readiness, "unconfigured");
     assert.equal(sourceStatus.lastEventAt, null, "unavailable sources must not invent event timestamps");
     assert.equal(sourceStatus.authorized, false);
   }
+  assert.equal(unavailable.sourceStatuses.find((sourceStatus) => sourceStatus.category === "sec_filing").authorized, true);
+  assert.deepEqual(
+    Object.fromEntries(SEC_EDGAR_COMPANIES.map((company) => [company.symbol, company.cik])),
+    {
+      NVDA: "0001045810",
+      MU: "0000723125",
+      VRT: "0001674101",
+      CRDO: "0001807794",
+      AMD: "0000002488",
+    },
+  );
+  await secEdgarCatalyst.poll(async () => new Response(JSON.stringify({
+    name: "No filing fixture",
+    filings: { recent: { accessionNumber: [], filingDate: [], acceptanceDateTime: [], form: [], primaryDocument: [] } },
+  }), { status: 200, headers: { "Content-Type": "application/json" } }), now);
+  const noEvent = createCatalystRadar(now);
+  assert.equal(noEvent.eventState, "unavailable", "configuration and a successful empty poll must not create an event");
+  assert.equal(noEvent.events.length, 0);
+  assert.equal(noEvent.sourceStatuses.find((sourceStatus) => sourceStatus.category === "sec_filing").readiness, "ready");
+
+  const parsed8K = parseSecEdgarEvents(SEC_EDGAR_COMPANIES[0], {
+    name: "NVIDIA CORP",
+    filings: { recent: {
+      accessionNumber: ["0001045810-26-000001", "0001045810-26-000002"],
+      filingDate: ["2026-08-20", "2026-08-20"],
+      acceptanceDateTime: ["20260820142500Z", "20260820100000Z"],
+      form: ["8-K", "10-Q"],
+      primaryDocument: ["nvda-8k.htm", "nvda-10q.htm"],
+    } },
+  }, now);
+  assert.equal(parsed8K[0].formType, "8-K");
+  assert.equal(parsed8K[0].freshness, "fresh");
+  assert.equal(parsed8K[0].source, "SEC EDGAR");
+  assert.equal(parsed8K[0].filedAt.toISOString(), "2026-08-20T14:25:00.000Z");
+  assert.equal(parsed8K[0].receivedAt.toISOString(), now.toISOString());
+  assert.equal(parsed8K[0].lagged, false);
+  assert.equal(
+    parsed8K[0].filingUrl,
+    "https://www.sec.gov/Archives/edgar/data/1045810/000104581026000001/nvda-8k.htm",
+  );
+  assert.equal(parsed8K[1].formType, "10-Q");
+  assert.equal(parsed8K[1].freshness, "insufficient", "10-Q metadata is a filing record, not a catalyst trade signal");
 
   const marketOnly = buildOpportunityCenter([freshInput()], [{ symbol: "NVDA", reference: null }], now);
   assert.equal(marketOnly.opportunityCenter.opportunities[0].state, "PRE-BREAKOUT");

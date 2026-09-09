@@ -901,7 +901,14 @@ export const GetRadarStatusResponse = zod.object({
   "freshness": zod.enum(['fresh', 'delayed', 'stale', 'insufficient', 'missing']),
   "source": zod.string(),
   "summary": zod.string(),
-  "dataQuality": zod.enum(['good', 'degraded', 'unavailable'])
+  "dataQuality": zod.enum(['good', 'degraded', 'unavailable']),
+  "formType": zod.enum(['8-K', '10-Q', '10-K']).optional(),
+  "accession": zod.string().optional(),
+  "filingUrl": zod.string().optional(),
+  "company": zod.string().optional(),
+  "filedAt": zod.coerce.date().optional(),
+  "receivedAt": zod.coerce.date().optional(),
+  "lagged": zod.boolean().optional()
 })),
   "reason": zod.string()
 }),
@@ -2547,7 +2554,14 @@ export const GetCatalystRadarResponse = zod.object({
   "freshness": zod.enum(['fresh', 'delayed', 'stale', 'insufficient', 'missing']),
   "source": zod.string(),
   "summary": zod.string(),
-  "dataQuality": zod.enum(['good', 'degraded', 'unavailable'])
+  "dataQuality": zod.enum(['good', 'degraded', 'unavailable']),
+  "formType": zod.enum(['8-K', '10-Q', '10-K']).optional(),
+  "accession": zod.string().optional(),
+  "filingUrl": zod.string().optional(),
+  "company": zod.string().optional(),
+  "filedAt": zod.coerce.date().optional(),
+  "receivedAt": zod.coerce.date().optional(),
+  "lagged": zod.boolean().optional()
 })),
   "reason": zod.string()
 })

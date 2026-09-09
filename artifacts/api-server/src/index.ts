@@ -16,6 +16,7 @@ import { aiIndustryStockPool } from "./lib/aiIndustryStockPool";
 import type { AutonomousWorkDefinition } from "./lib/autonomousOperationsCoordinator";
 import { buildEngineeringGovernanceSnapshot } from "./lib/engineeringGovernance";
 import { createGracefulShutdown, inspectListeningPort } from "./lib/serverLifecycle";
+import { secEdgarCatalyst } from "./lib/secEdgarCatalyst";
 
 const rawPort = process.env["PORT"];
 
@@ -48,6 +49,7 @@ const shutdown = createGracefulShutdown({
     alertService.stop();
     internalTaskRegistry.stop();
     databentoLive.stop();
+    secEdgarCatalyst.stop();
     marketUniverse.stop();
     aiIndustryStockPool.stop();
     await diagnosticsCenter.stop();
@@ -112,7 +114,8 @@ server.once("listening", () => {
   backendLifeline.owner.markListening();
   logger.info({ port, ownerId: ownership.ownerId }, "Server-owned Alpha Radar lifeline is listening");
   marketUniverse.start();
-    aiIndustryStockPool.start();
+  aiIndustryStockPool.start();
+  secEdgarCatalyst.start();
   const liveStatus = databentoLive.start();
   logger.info(
     {

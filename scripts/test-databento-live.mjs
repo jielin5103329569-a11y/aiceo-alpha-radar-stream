@@ -82,6 +82,7 @@ try {
       )
       .replace('from "node:child_process"', 'from "./child-process"'),
   );
+  transpile("artifacts/api-server/src/lib/secEdgarCatalyst.ts", "secEdgarCatalyst.js");
   transpile("artifacts/api-server/src/lib/catalystRadar.ts", "catalystRadar.js");
   transpile("artifacts/api-server/src/lib/sectorPriority.ts", "sectorPriority.js");
   transpile("artifacts/api-server/src/lib/openingReadiness.ts", "openingReadiness.js");

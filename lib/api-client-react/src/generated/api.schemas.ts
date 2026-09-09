@@ -949,6 +949,15 @@ export interface CatalystSourceStatus {
   nextAction: string;
 }
 
+export type CatalystEventFormType = typeof CatalystEventFormType[keyof typeof CatalystEventFormType];
+
+
+export const CatalystEventFormType = {
+  '8-K': '8-K',
+  '10-Q': '10-Q',
+  '10-K': '10-K',
+} as const;
+
 export interface CatalystEvent {
   id: string;
   symbol: string;
@@ -958,6 +967,13 @@ export interface CatalystEvent {
   source: string;
   summary: string;
   dataQuality: CatalystDataQuality;
+  formType?: CatalystEventFormType;
+  accession?: string;
+  filingUrl?: string;
+  company?: string;
+  filedAt?: string;
+  receivedAt?: string;
+  lagged?: boolean;
 }
 
 export type CatalystEvidenceCategory = typeof CatalystEvidenceCategory[keyof typeof CatalystEvidenceCategory];

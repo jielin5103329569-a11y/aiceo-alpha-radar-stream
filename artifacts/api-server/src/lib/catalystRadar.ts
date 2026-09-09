@@ -4,6 +4,7 @@ import type {
 } from "./alphaRadar";
 import type { MarketFeedState } from "./marketFeed";
 import type { SecurityReference } from "./marketUniverse";
+import { secEdgarCatalyst } from "./secEdgarCatalyst";
 
 export type CatalystCategory =
   | "company_news"
@@ -54,6 +55,13 @@ export type CatalystEvent = {
   source: string;
   summary: string;
   dataQuality: CatalystDataQuality;
+  formType?: "8-K" | "10-Q" | "10-K";
+  accession?: string;
+  filingUrl?: string;
+  company?: string;
+  filedAt?: Date;
+  receivedAt?: Date;
+  lagged?: boolean;
 };
 
 export type CatalystEvidence = {
@@ -446,16 +454,7 @@ export function fuseOpportunity(
 }
 
 export function createCatalystRadar(now = new Date()): CatalystRadarSnapshot {
-  const statuses = sourceStatuses();
-  return {
-    generatedAt: now,
-    eventState: "unavailable",
-    sourceCount: statuses.length,
-    availableSourceCount: 0,
-    sourceStatuses: statuses,
-    events: [],
-    reason: "Catalyst Radar is source-availability aware. No external catalyst events are shown until a real authorized source is connected.",
-  };
+  return secEdgarCatalyst.getSnapshot(now);
 }
 
 export function buildOpportunityCenter(

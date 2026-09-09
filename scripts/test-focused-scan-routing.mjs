@@ -70,6 +70,7 @@ try {
       'const currentDir = ".";',
     ),
   );
+  transpile("artifacts/api-server/src/lib/secEdgarCatalyst.ts", "secEdgarCatalyst.js");
   transpile("artifacts/api-server/src/lib/catalystRadar.ts", "catalystRadar.js");
   transpile("artifacts/api-server/src/lib/sectorPriority.ts", "sectorPriority.js");
   transpile(

@@ -38,6 +38,7 @@ import {
   type CatalystRadarSnapshot,
   type OpportunityCenterSnapshot,
 } from "./catalystRadar";
+import { secEdgarCatalyst } from "./secEdgarCatalyst";
 import {
   buildSectorPriority,
   type SectorPrioritySnapshot,
@@ -4727,6 +4728,7 @@ export class DatabentoUniverseService extends EventEmitter {
     this.focusedScans.on("status", () => this.markSnapshotDirty());
     this.aiIndustryLeaderProbe.on("status", () => this.markSnapshotDirty());
     marketUniverse.on("status", () => this.markSnapshotDirty());
+    secEdgarCatalyst.on("status", () => this.markSnapshotDirty());
   }
 
   private handleServiceStatus(status: RadarStatus): void {

@@ -1303,6 +1303,13 @@ components:
         source: { type: string }
         summary: { type: string }
         dataQuality: { $ref: "#/components/schemas/CatalystDataQuality" }
+        formType: { type: string, enum: [8-K, 10-Q, 10-K] }
+        accession: { type: string }
+        filingUrl: { type: string }
+        company: { type: string }
+        filedAt: { type: string, format: date-time }
+        receivedAt: { type: string, format: date-time }
+        lagged: { type: boolean }
       required: [id, symbol, category, observedAt, freshness, source, summary, dataQuality]
     CatalystEvidence:
       type: object

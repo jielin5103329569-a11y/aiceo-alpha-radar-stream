@@ -7,6 +7,7 @@
  */
 import type { CatalystCategory } from './catalystCategory';
 import type { CatalystDataQuality } from './catalystDataQuality';
+import type { CatalystEventFormType } from './catalystEventFormType';
 import type { CatalystFreshness } from './catalystFreshness';
 
 export interface CatalystEvent {
@@ -18,4 +19,11 @@ export interface CatalystEvent {
   source: string;
   summary: string;
   dataQuality: CatalystDataQuality;
+  formType?: CatalystEventFormType;
+  accession?: string;
+  filingUrl?: string;
+  company?: string;
+  filedAt?: Date;
+  receivedAt?: Date;
+  lagged?: boolean;
 }

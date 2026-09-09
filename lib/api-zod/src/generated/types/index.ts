@@ -79,6 +79,7 @@ export * from './backendLifelineSnapshotTransportState';
 export * from './catalystCategory';
 export * from './catalystDataQuality';
 export * from './catalystEvent';
+export * from './catalystEventFormType';
 export * from './catalystEventState';
 export * from './catalystEvidence';
 export * from './catalystEvidenceCategory';
