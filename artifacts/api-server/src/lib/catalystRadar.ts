@@ -5,6 +5,7 @@ import type {
 import type { MarketFeedState } from "./marketFeed";
 import type { SecurityReference } from "./marketUniverse";
 import { secEdgarCatalyst } from "./secEdgarCatalyst";
+import { isTimelySec8K } from "./sec8kTimeliness";
 
 export type CatalystCategory =
   | "company_news"
@@ -347,6 +348,13 @@ function authorizedFreshCatalystEvent(
   }
   const observedAt = event.observedAt.getTime();
   const ageMs = now.getTime() - observedAt;
+  if (
+    event.category === "sec_filing"
+    && event.formType === "8-K"
+    && event.filedAt
+  ) {
+    return isTimelySec8K(event.filedAt, now) ? event : null;
+  }
   return Number.isFinite(observedAt) && ageMs >= 0 && ageMs <= CATALYST_EVENT_MAX_AGE_MS
     ? event
     : null;

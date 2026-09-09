@@ -78,6 +78,21 @@ try {
     join(outputDirectory, "logger.js"),
     '"use strict"; Object.defineProperty(exports, "__esModule", { value: true }); exports.logger = { warn() {} };',
   );
+  for (const [input, outputName] of [
+    ["artifacts/api-server/src/lib/signalValidationCore.ts", "signalValidationCore.js"],
+    ["artifacts/api-server/src/lib/sec8kTimeliness.ts", "sec8kTimeliness.js"],
+  ]) {
+    writeFileSync(join(outputDirectory, outputName), typescript.transpileModule(
+      readFileSync(resolve(input), "utf8"),
+      {
+        compilerOptions: {
+          module: typescript.ModuleKind.CommonJS,
+          target: typescript.ScriptTarget.ES2022,
+          esModuleInterop: true,
+        },
+      },
+    ).outputText);
+  }
   const secSource = readFileSync(resolve("artifacts/api-server/src/lib/secEdgarCatalyst.ts"), "utf8");
   writeFileSync(join(outputDirectory, "secEdgarCatalyst.js"), typescript.transpileModule(secSource, {
     compilerOptions: {
@@ -108,6 +123,10 @@ try {
     secEdgarCatalyst,
     SEC_EDGAR_COMPANIES,
   } = require(join(outputDirectory, "secEdgarCatalyst.js"));
+  const {
+    isTimelySec8K,
+    SEC_8K_TIMELINESS_RULE_VERSION,
+  } = require(join(outputDirectory, "sec8kTimeliness.js"));
   const now = new Date("2026-08-20T14:30:00.000Z");
 
   const unavailable = createCatalystRadar(now);
@@ -144,7 +163,7 @@ try {
     filings: { recent: {
       accessionNumber: ["0001045810-26-000001", "0001045810-26-000002"],
       filingDate: ["2026-08-20", "2026-08-20"],
-      acceptanceDateTime: ["20260820142500Z", "20260820100000Z"],
+      acceptanceDateTime: ["20260820132500Z", "20260820100000Z"],
       form: ["8-K", "10-Q"],
       primaryDocument: ["nvda-8k.htm", "nvda-10q.htm"],
     } },
@@ -152,15 +171,40 @@ try {
   assert.equal(parsed8K[0].formType, "8-K");
   assert.equal(parsed8K[0].freshness, "fresh");
   assert.equal(parsed8K[0].source, "SEC EDGAR");
-  assert.equal(parsed8K[0].filedAt.toISOString(), "2026-08-20T14:25:00.000Z");
+  assert.equal(parsed8K[0].filedAt.toISOString(), "2026-08-20T13:25:00.000Z");
   assert.equal(parsed8K[0].receivedAt.toISOString(), now.toISOString());
-  assert.equal(parsed8K[0].lagged, false);
+  assert.equal(parsed8K[0].lagged, true);
   assert.equal(
     parsed8K[0].filingUrl,
     "https://www.sec.gov/Archives/edgar/data/1045810/000104581026000001/nvda-8k.htm",
   );
   assert.equal(parsed8K[1].formType, "10-Q");
   assert.equal(parsed8K[1].freshness, "insufficient", "10-Q metadata is a filing record, not a catalyst trade signal");
+  assert.equal(SEC_8K_TIMELINESS_RULE_VERSION, "sec-8k-rth-v1");
+  assert.equal(
+    isTimelySec8K(
+      new Date("2026-09-03T12:03:56.000Z"),
+      new Date("2026-09-09T23:30:00.000Z"),
+    ),
+    false,
+    "the September 3 NVDA 8-K must not be timely on September 9, including after RTH close",
+  );
+  assert.equal(
+    isTimelySec8K(
+      new Date("2026-09-04T21:00:00.000Z"),
+      new Date("2026-09-07T14:00:00.000Z"),
+    ),
+    false,
+    "a filing must not become timely on a market holiday with no current RTH",
+  );
+  assert.equal(
+    isTimelySec8K(
+      new Date("2026-09-04T21:00:00.000Z"),
+      new Date("2026-09-08T14:00:00.000Z"),
+    ),
+    true,
+    "the first full RTH after a Friday post-close filing must be timely after a Monday holiday",
+  );
 
   const marketOnly = buildOpportunityCenter([freshInput()], [{ symbol: "NVDA", reference: null }], now);
   assert.equal(marketOnly.opportunityCenter.opportunities[0].state, "PRE-BREAKOUT");

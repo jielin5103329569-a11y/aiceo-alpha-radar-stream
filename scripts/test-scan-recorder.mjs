@@ -12,6 +12,21 @@ try {
     join(outputDirectory, "logger.js"),
     '"use strict"; Object.defineProperty(exports, "__esModule", { value: true }); exports.logger = { warn() {} };',
   );
+  for (const [input, outputName] of [
+    ["artifacts/api-server/src/lib/signalValidationCore.ts", "signalValidationCore.js"],
+    ["artifacts/api-server/src/lib/sec8kTimeliness.ts", "sec8kTimeliness.js"],
+  ]) {
+    writeFileSync(join(outputDirectory, outputName), typescript.transpileModule(
+      readFileSync(input, "utf8"),
+      {
+        compilerOptions: {
+          module: typescript.ModuleKind.CommonJS,
+          target: typescript.ScriptTarget.ES2022,
+          esModuleInterop: true,
+        },
+      },
+    ).outputText);
+  }
   const source = readFileSync("artifacts/api-server/src/lib/scanRecorder.ts", "utf8");
   writeFileSync(join(outputDirectory, "scanRecorder.js"), typescript.transpileModule(source, {
     compilerOptions: {
@@ -76,6 +91,7 @@ try {
   assert.equal(record.alertState, "ALERT GATED");
   assert.equal(record.catalystSourceState, "ready");
   assert.equal(record.timely8K, false);
+  assert.equal(record.timely8KRuleVersion, "sec-8k-rth-v1");
   assert.deepEqual(record.latestSecFiling, {
     form: "8-K",
     filedAt: "2026-09-03T12:03:56.000Z",

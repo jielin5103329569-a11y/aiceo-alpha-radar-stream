@@ -3,6 +3,7 @@ import { join, resolve } from "node:path";
 
 import type { RadarStatus } from "./databentoLive";
 import { logger } from "./logger";
+import { isTimelySec8K, SEC_8K_TIMELINESS_RULE_VERSION } from "./sec8kTimeliness";
 
 const PACIFIC_TIME_ZONE = "America/Los_Angeles";
 
@@ -43,9 +44,9 @@ export function buildScanRecord(snapshot: RadarStatus, time = new Date()) {
     ))[0];
   const timely8K = catalystEvents.some((event) => (
     event.formType === "8-K"
-    && event.freshness === "fresh"
     && event.dataQuality === "good"
-    && event.lagged !== true
+    && event.filedAt
+    && isTimelySec8K(event.filedAt, time)
   ));
   const missingSegments = [...new Set(symbols.flatMap(
     (symbol) => symbol.marketWindowSettlement.missingSegments,
@@ -68,6 +69,7 @@ export function buildScanRecord(snapshot: RadarStatus, time = new Date()) {
     alertState: alertReady ? "ALERT READY" : "ALERT GATED",
     catalystSourceState: secStatus?.readiness ?? "unavailable",
     timely8K,
+    timely8KRuleVersion: SEC_8K_TIMELINESS_RULE_VERSION,
     latestSecFiling: latestSecEvent
       ? {
           form: latestSecEvent.formType,

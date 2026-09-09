@@ -2,6 +2,7 @@ import { EventEmitter } from "node:events";
 
 import type { CatalystEvent, CatalystRadarSnapshot, CatalystSourceStatus } from "./catalystRadar";
 import { logger } from "./logger";
+import { isTimelySec8K } from "./sec8kTimeliness";
 
 export const SEC_EDGAR_COMPANIES = [
   { symbol: "NVDA", cik: "0001045810", company: "NVIDIA CORP" },
@@ -14,7 +15,6 @@ export const SEC_EDGAR_COMPANIES = [
 const SOURCE = "SEC EDGAR";
 const POLL_INTERVAL_MS = 5 * 60_000;
 const EVENT_LOOKBACK_MS = 30 * 24 * 60 * 60_000;
-const FRESH_EVENT_MS = 15 * 60_000;
 const LAGGED_AFTER_MS = 15 * 60_000;
 const INCLUDED_FORMS = new Set(["8-K", "10-Q", "10-K"]);
 
@@ -79,7 +79,7 @@ export function parseSecEdgarEvents(
     if (ageMs < 0 || ageMs > EVENT_LOOKBACK_MS) continue;
     const lagged = ageMs > LAGGED_AFTER_MS;
     const isSignalEligibleForm = form === "8-K";
-    const freshness = isSignalEligibleForm && ageMs <= FRESH_EVENT_MS && !lagged
+    const freshness = isSignalEligibleForm && isTimelySec8K(filedAt, receivedAt)
       ? "fresh"
       : isSignalEligibleForm
         ? "delayed"
