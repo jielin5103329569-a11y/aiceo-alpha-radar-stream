@@ -368,6 +368,16 @@ export function fuseOpportunity(
     && ["latent", "breakout_critical", "confirmed"].includes(preBreakout.state);
   const catalystEvent = authorizedFreshCatalystEvent(catalyst, input.symbol, now);
   const catalystSatisfied = catalystEvent !== null;
+  const secSourceReady = catalyst.sourceStatuses.some((source) => (
+    source.category === "sec_filing"
+    && source.authorized
+    && source.availability === "available"
+    && source.readiness === "ready"
+    && source.source === "SEC EDGAR"
+  ));
+  const failedCatalystDetail = secSourceReady
+    ? "SEC EDGAR is connected, but no timely 8-K is available for this symbol."
+    : "Company news, earnings, regulatory, partnership/order/M&A, and SEC filing sources are unavailable.";
   const confirmationSatisfied = preBreakout.confirmation.status === "confirmed";
   const independentlyConfirmed = catalystSatisfied
     && hasMarketSetup
@@ -393,9 +403,9 @@ export function fuseOpportunity(
       satisfied: Boolean(catalystSatisfied),
       independent: true,
       freshness: catalystEvent?.freshness ?? "missing",
-      source: catalystEvent?.source ?? "No authorized catalyst source",
+      source: catalystEvent?.source ?? (secSourceReady ? "SEC EDGAR" : "No authorized catalyst source"),
       detail: catalystEvent?.summary
-        ?? "Company news, earnings, regulatory, partnership/order/M&A, and SEC filing sources are unavailable.",
+        ?? failedCatalystDetail,
     },
     ...marketEvidenceItems,
     {

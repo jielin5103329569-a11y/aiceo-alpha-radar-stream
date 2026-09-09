@@ -174,6 +174,16 @@ try {
     "upside",
     "a fresh positive market window should expose an observational direction",
   );
+  const failedCatalystEvidence = marketOnly.opportunityCenter.opportunities[0].evidenceChain.find(
+    (item) => item.key === "authorized_catalyst",
+  );
+  assert.equal(failedCatalystEvidence.satisfied, false);
+  assert.equal(failedCatalystEvidence.source, "SEC EDGAR");
+  assert.equal(
+    failedCatalystEvidence.detail,
+    "SEC EDGAR is connected, but no timely 8-K is available for this symbol.",
+  );
+  assert.equal(marketOnly.opportunityCenter.opportunities[0].alertReady, false);
   assert.equal(
     marketOnly.opportunityCenter.opportunities[0].alphaVelocity30s,
     12,
