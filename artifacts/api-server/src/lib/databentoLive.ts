@@ -2608,9 +2608,11 @@ export class DatabentoLiveService extends EventEmitter {
 
   private requestAlphaScan(reason: string, eventTriggered: boolean): void {
     if (this.universeScheduled) {
-      if (eventTriggered) {
-        this.universeScanRequest?.(reason, true);
-      }
+      // Every accepted live event keeps the universe-owned cycle scheduler
+      // armed. Ordinary quote/trade/bar flow remains coalesced behind the
+      // existing timer; only its reason/evidence flag is updated. This also
+      // repairs a missing timer without minting a per-symbol scan identity.
+      this.universeScanRequest?.(reason, eventTriggered);
       return;
     }
     if (!this.scanSchedulerActive) {

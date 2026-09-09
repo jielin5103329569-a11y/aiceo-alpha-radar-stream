@@ -1140,6 +1140,22 @@ try {
     startupUniverse.services.every((service) => service.scanTimer === null),
     "protected child services must not own independent scan timers inside the universe",
   );
+  startupUniverse.clearUniverseScanTimer();
+  assert.equal(
+    startupUniverse.universeScanTimer,
+    null,
+    "the recovery fixture must begin with no universe cycle timer",
+  );
+  startupUniverse.services[0].requestAlphaScan("market_event", false);
+  assert.ok(
+    startupUniverse.universeScanTimer,
+    "an ordinary accepted market event must re-arm a missing universe cycle timer",
+  );
+  assert.equal(
+    startupUniverse.getStatus().scanId,
+    startupScanId,
+    "re-arming from an ordinary event must not mint a private or immediate scan identity",
+  );
   startupUniverse.requestUniverseScan("price_change", true);
   assert.equal(
     startupUniverse.getStatus().scanId,
