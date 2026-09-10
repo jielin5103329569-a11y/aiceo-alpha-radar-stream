@@ -216,7 +216,10 @@ try {
   assert.match(indexSource, /createGracefulShutdown/);
   assert.match(indexSource, /closeEventStreams: \(reason\) => radarSseConnections\.closeAll\(reason\)/);
   assert.match(lifecycleSource, /closeAllConnections/);
-  assert.match(indexSource, /alertService\.stop\(\);\s*internalTaskRegistry\.stop\(\);\s*databentoLive\.stop\(\);\s*marketUniverse\.stop\(\)/s);
+  assert.match(
+    indexSource,
+    /alertService\.stop\(\);\s*internalTaskRegistry\.stop\(\);\s*scanRecorder\.stop\(databentoLive\);\s*databentoLive\.stop\(\);\s*secEdgarCatalyst\.stop\(\);\s*marketUniverse\.stop\(\)/s,
+  );
   const radarRouteSource = readFileSync(resolve("artifacts/api-server/src/routes/radar.ts"), "utf8");
   assert.doesNotMatch(radarRouteSource, /\/radar\/connect|\/radar\/disconnect/);
 
