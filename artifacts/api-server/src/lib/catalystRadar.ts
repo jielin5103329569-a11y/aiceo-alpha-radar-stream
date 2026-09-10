@@ -32,6 +32,7 @@ export type OpportunityState = "WATCH" | "PRE-BREAKOUT" | "CONFIRMED";
 export type OpportunityFreshness = "fresh" | "stale" | "insufficient" | "missing";
 export type SectorConfirmationStatus = "confirmed" | "insufficient" | "unavailable";
 export type OpportunityDirection = "upside" | "downside" | "neutral" | "unavailable";
+export type TapeBias = "主动偏买" | "偏卖" | "不明";
 
 export type CatalystSourceStatus = {
   category: CatalystCategory;
@@ -106,6 +107,8 @@ export type Opportunity = {
   direction: OpportunityDirection;
   alphaVelocity30s: number | null;
   acceleration: number | null;
+  volume_vs_avg: number | null;
+  tape_bias: TapeBias;
   catalystStatus: CatalystSourceAvailability;
   evidenceCount: number;
   evidenceChain: CatalystEvidence[];
@@ -398,6 +401,27 @@ export function fuseOpportunity(
       : "WATCH";
   const direction = opportunityDirection(input, liveMarket);
   const acceleration = averageAcceleration(input, liveMarket);
+  const volumeVsAvg = liveMarket
+    && input.alphaRadar.volumeIntensity.available
+    && input.alphaRadar.volumeIntensity.freshness === "fresh"
+    && input.alphaRadar.volumeIntensity.value !== null
+    && Number.isFinite(input.alphaRadar.volumeIntensity.value)
+    ? input.alphaRadar.volumeIntensity.value
+    : null;
+  const tapePressure = liveMarket
+    && input.alphaRadar.orderFlowPressure.available
+    && input.alphaRadar.orderFlowPressure.freshness === "fresh"
+    && input.alphaRadar.orderFlowPressure.value !== null
+    && Number.isFinite(input.alphaRadar.orderFlowPressure.value)
+    ? input.alphaRadar.orderFlowPressure.value
+    : null;
+  const tapeBias: TapeBias = tapePressure === null
+    ? "不明"
+    : tapePressure > 0
+      ? "主动偏买"
+      : tapePressure < 0
+        ? "偏卖"
+        : "不明";
   const alertReady = independentlyConfirmed;
   const alertReadyReason = alertReady
     ? "Fresh independent catalyst, market, Alpha, and sector evidence are complete for in-app alert handoff."
@@ -452,6 +476,8 @@ export function fuseOpportunity(
     direction,
     alphaVelocity30s: liveMarket ? input.alphaRadar.alphaVelocity.rate30s : null,
     acceleration,
+    volume_vs_avg: volumeVsAvg,
+    tape_bias: tapeBias,
     catalystStatus: catalystEvent?.freshness === "fresh"
       ? "available"
       : "unavailable",

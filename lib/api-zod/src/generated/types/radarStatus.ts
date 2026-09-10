@@ -54,6 +54,10 @@ export interface RadarStatus {
   researchUniverseCount: number;
   /** Research universe cannot affect alert readiness. */
   researchDoesNotAffectAlertReady: boolean;
+  /** Read-only T-flow presentation is available from existing L1 evidence. */
+  tFlowReady: boolean;
+  /** T-flow presentation cannot affect alert readiness. */
+  tFlowDoesNotAffectAlertReady: boolean;
   configured: boolean;
   connectionState: RadarConnectionState;
   marketFeedState: MarketFeedState;

@@ -1023,6 +1023,18 @@ export const OpportunityDirection = {
   unavailable: 'unavailable',
 } as const;
 
+/**
+ * Read-only bias from existing L1 quote/trade evidence; never affects score or alerts.
+ */
+export type OpportunityTapeBias = typeof OpportunityTapeBias[keyof typeof OpportunityTapeBias];
+
+
+export const OpportunityTapeBias = {
+  主动偏买: '主动偏买',
+  偏卖: '偏卖',
+  不明: '不明',
+} as const;
+
 export type OpportunityMarketState = typeof OpportunityMarketState[keyof typeof OpportunityMarketState];
 
 
@@ -1057,6 +1069,13 @@ export interface Opportunity {
      * @nullable
      */
   acceleration: number | null;
+  /**
+     * Read-only current L1 volume window divided by its existing recent baseline; never affects score or alerts.
+     * @nullable
+     */
+  volume_vs_avg: number | null;
+  /** Read-only bias from existing L1 quote/trade evidence; never affects score or alerts. */
+  tape_bias: OpportunityTapeBias;
   catalystStatus: CatalystSourceAvailability;
   /** @minimum 0 */
   evidenceCount: number;
@@ -4046,6 +4065,10 @@ export interface RadarStatus {
   researchUniverseCount: number;
   /** Research universe cannot affect alert readiness. */
   researchDoesNotAffectAlertReady: boolean;
+  /** Read-only T-flow presentation is available from existing L1 evidence. */
+  tFlowReady: boolean;
+  /** T-flow presentation cannot affect alert readiness. */
+  tFlowDoesNotAffectAlertReady: boolean;
   configured: boolean;
   connectionState: RadarConnectionState;
   marketFeedState: MarketFeedState;

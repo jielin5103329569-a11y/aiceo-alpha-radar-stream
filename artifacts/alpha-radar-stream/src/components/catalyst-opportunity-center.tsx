@@ -370,6 +370,11 @@ function OpportunityRow({
       <p className="mt-2 text-[10px] leading-relaxed text-muted-foreground" data-testid={`opportunity-structure-principle-${opportunity.symbol}`}>
         结构原理 · 研究宇宙 SIVE / SOI.PA / AXTI · 不开门
       </p>
+      <p className="mt-2 text-[10px] leading-relaxed text-muted-foreground" data-testid={`opportunity-t-flow-${opportunity.symbol}`}>
+        {opportunity.volume_vs_avg === null
+          ? '盘面 T-flow · 量能不足 · 不开门'
+          : `盘面 T-flow · 量相对均量 ${opportunity.volume_vs_avg.toFixed(2)} · ${opportunity.tape_bias} · 不开门`}
+      </p>
     </article>
   );
 }

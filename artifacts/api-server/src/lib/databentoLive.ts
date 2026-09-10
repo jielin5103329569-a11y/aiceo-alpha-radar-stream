@@ -304,6 +304,8 @@ export type RadarStatus = {
   structureSelectReady: boolean;
   researchUniverseCount: number;
   researchDoesNotAffectAlertReady: boolean;
+  tFlowReady: boolean;
+  tFlowDoesNotAffectAlertReady: boolean;
   configured: boolean;
   connectionState: RadarConnectionState;
   marketFeedState: MarketFeedState;
@@ -731,6 +733,8 @@ function blankStatus(symbol = "NVDA"): RadarStatus {
     structureSelectReady: true,
     researchUniverseCount: 4,
     researchDoesNotAffectAlertReady: true,
+    tFlowReady: true,
+    tFlowDoesNotAffectAlertReady: true,
     configured,
     connectionState: configured ? "stopped" : "not_configured",
     marketFeedState: "offline",
@@ -5001,6 +5005,8 @@ export class DatabentoUniverseService extends EventEmitter {
       structureSelectReady: PRINCIPLES.structureSelect,
       researchUniverseCount: RESEARCH_UNIVERSE.length,
       researchDoesNotAffectAlertReady: true,
+      tFlowReady: true,
+      tFlowDoesNotAffectAlertReady: true,
       symbolRadars,
       alphaRanking: rankingResult.snapshot,
       marketUniverse: marketUniverseSnapshot,

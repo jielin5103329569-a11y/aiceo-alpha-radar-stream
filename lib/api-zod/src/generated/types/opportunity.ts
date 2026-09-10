@@ -11,6 +11,7 @@ import type { OpportunityDirection } from './opportunityDirection';
 import type { OpportunityFreshness } from './opportunityFreshness';
 import type { OpportunityMarketState } from './opportunityMarketState';
 import type { OpportunityState } from './opportunityState';
+import type { OpportunityTapeBias } from './opportunityTapeBias';
 import type { SectorConfirmation } from './sectorConfirmation';
 
 export interface Opportunity {
@@ -37,6 +38,13 @@ export interface Opportunity {
      * @nullable
      */
   acceleration: number | null;
+  /**
+     * Read-only current L1 volume window divided by its existing recent baseline; never affects score or alerts.
+     * @nullable
+     */
+  volume_vs_avg: number | null;
+  /** Read-only bias from existing L1 quote/trade evidence; never affects score or alerts. */
+  tape_bias: OpportunityTapeBias;
   catalystStatus: CatalystSourceAvailability;
   /** @minimum 0 */
   evidenceCount: number;

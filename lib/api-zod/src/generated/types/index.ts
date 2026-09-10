@@ -209,6 +209,7 @@ export * from './opportunityDirection';
 export * from './opportunityFreshness';
 export * from './opportunityMarketState';
 export * from './opportunityState';
+export * from './opportunityTapeBias';
 export * from './persistedSignalValidationRecord';
 export * from './persistedSignalValidationRecordCatalystStatus';
 export * from './postBreakoutMonitoring';

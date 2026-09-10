@@ -375,6 +375,8 @@ export const GetRadarStatusResponse = zod.object({
   "structureSelectReady": zod.boolean().describe('Read-only structure-selection principle is available.'),
   "researchUniverseCount": zod.number().min(getRadarStatusResponseResearchUniverseCountMin).multipleOf(getRadarStatusResponseResearchUniverseCountMultipleOf).describe('Research-only symbols excluded from live market and Alert paths.'),
   "researchDoesNotAffectAlertReady": zod.boolean().describe('Research universe cannot affect alert readiness.'),
+  "tFlowReady": zod.boolean().describe('Read-only T-flow presentation is available from existing L1 evidence.'),
+  "tFlowDoesNotAffectAlertReady": zod.boolean().describe('T-flow presentation cannot affect alert readiness.'),
   "configured": zod.boolean(),
   "connectionState": zod.enum(['not_configured', 'connecting', 'connected', 'streaming', 'error', 'stopped']),
   "marketFeedState": zod.enum(['streaming', 'stale', 'offline']),
@@ -930,6 +932,8 @@ export const GetRadarStatusResponse = zod.object({
   "direction": zod.enum(['upside', 'downside', 'neutral', 'unavailable']).describe('Market-window direction only; not a recommendation.'),
   "alphaVelocity30s": zod.number().nullable().describe('Fresh Alpha score-point speed per minute over the latest 30-second comparison.'),
   "acceleration": zod.number().nullable().describe('Average fresh component acceleration in score points per minute.'),
+  "volume_vs_avg": zod.number().nullable().describe('Read-only current L1 volume window divided by its existing recent baseline; never affects score or alerts.'),
+  "tape_bias": zod.enum(['主动偏买', '偏卖', '不明']).describe('Read-only bias from existing L1 quote\/trade evidence; never affects score or alerts.'),
   "catalystStatus": zod.enum(['unavailable', 'available', 'stale', 'blocked']),
   "evidenceCount": zod.number().min(getRadarStatusResponseOpportunityCenterOpportunitiesItemEvidenceCountMin),
   "evidenceChain": zod.array(zod.object({
@@ -2594,6 +2598,8 @@ export const GetOpportunityCenterResponse = zod.object({
   "direction": zod.enum(['upside', 'downside', 'neutral', 'unavailable']).describe('Market-window direction only; not a recommendation.'),
   "alphaVelocity30s": zod.number().nullable().describe('Fresh Alpha score-point speed per minute over the latest 30-second comparison.'),
   "acceleration": zod.number().nullable().describe('Average fresh component acceleration in score points per minute.'),
+  "volume_vs_avg": zod.number().nullable().describe('Read-only current L1 volume window divided by its existing recent baseline; never affects score or alerts.'),
+  "tape_bias": zod.enum(['主动偏买', '偏卖', '不明']).describe('Read-only bias from existing L1 quote\/trade evidence; never affects score or alerts.'),
   "catalystStatus": zod.enum(['unavailable', 'available', 'stale', 'blocked']),
   "evidenceCount": zod.number().min(getOpportunityCenterResponseOpportunitiesItemEvidenceCountMin),
   "evidenceChain": zod.array(zod.object({

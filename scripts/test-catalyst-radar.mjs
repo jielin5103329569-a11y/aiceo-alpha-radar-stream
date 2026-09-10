@@ -25,6 +25,16 @@ function freshAlphaRadar({ state = "breakout_critical", confirmation = "confirme
     momentum: {
       value: 1.2,
     },
+    volumeIntensity: {
+      value: 1.25,
+      available: true,
+      freshness: "fresh",
+    },
+    orderFlowPressure: {
+      value: 18,
+      available: true,
+      freshness: "fresh",
+    },
     alphaVelocity: {
       rate30s: 12,
     },
@@ -228,6 +238,25 @@ try {
     "SEC EDGAR is connected, but no timely 8-K is available for this symbol.",
   );
   assert.equal(marketOnly.opportunityCenter.opportunities[0].alertReady, false);
+  assert.equal(marketOnly.opportunityCenter.opportunities[0].volume_vs_avg, 1.25);
+  assert.equal(marketOnly.opportunityCenter.opportunities[0].tape_bias, "主动偏买");
+  const insufficientTFlow = fuseOpportunity(
+    {
+      ...freshInput(),
+      marketFeedState: "stale",
+      scanHealth: {
+        schedulerState: "scheduled",
+        marketDataState: "stale",
+        marketDataGateReady: false,
+      },
+    },
+    noEvent,
+    calculateSectorConfirmation(freshInput(), [{ symbol: "NVDA", reference: null }], now),
+    now,
+  );
+  assert.equal(insufficientTFlow.volume_vs_avg, null);
+  assert.equal(insufficientTFlow.tape_bias, "不明");
+  assert.equal(insufficientTFlow.alertReady, false);
   assert.equal(
     marketOnly.opportunityCenter.opportunities[0].alphaVelocity30s,
     12,
