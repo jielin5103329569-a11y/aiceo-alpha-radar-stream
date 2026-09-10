@@ -1299,6 +1299,11 @@ try {
   );
   assert.equal(incompleteVrt.marketWindowSettlement.complete, false);
   assert.notEqual(
+    missingTradeAndVolume.marketFeedState,
+    "streaming",
+    "the universe header must fail closed when any streaming child settlement is missing a segment",
+  );
+  assert.notEqual(
     missingTradeAndVolume.opportunityCenter.opportunities.find(
       (opportunity) => opportunity.symbol === "VRT",
     ).marketState,
@@ -1327,11 +1332,24 @@ try {
   );
   assert.equal(completeVrt.marketWindowSettlement.complete, true);
   assert.equal(
+    completeSegments.marketFeedState,
+    "streaming",
+    "the universe header may present STREAMING only when all five settlements are complete",
+  );
+  assert.equal(
     completeSegments.opportunityCenter.opportunities.find(
       (opportunity) => opportunity.symbol === "VRT",
     ).marketState,
     "fresh",
     "complete direct VRT quote, trade, volume, and heartbeat evidence must present a fresh market window",
+  );
+  vrtService.resetObservations();
+  const preservedSettlement = segmentUniverse.runUniverseScan("scheduled_scan", false);
+  assert.deepEqual(
+    preservedSettlement.symbolRadars.find((radar) => radar.symbol === "VRT")
+      .marketWindowSettlement.missingSegments,
+    [],
+    "an Alpha analysis-window reset must not erase verified same-generation market segment evidence",
   );
   segmentUniverse.stop();
   segmentUniverse.aiIndustryLeaderProbe.stop();

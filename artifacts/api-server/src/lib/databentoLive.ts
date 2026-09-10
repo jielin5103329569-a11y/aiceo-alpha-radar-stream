@@ -584,6 +584,7 @@ const RECENT_WINDOW_MS = 60 * 1_000;
 const MAX_QUOTE_OBSERVATIONS = 2;
 const MAX_TRADE_BUCKETS = Math.ceil(ROLLING_WINDOW_MS / 1_000) + 1;
 const STALE_AFTER_MS = 15_000;
+const MARKET_SETTLEMENT_WINDOW_MS = ROLLING_WINDOW_MS;
 const QUIET_AFTER_MS = 60_000;
 const MAX_EVENT_FUTURE_DRIFT_MS = 5_000;
 const MIN_MOMENTUM_COVERAGE_MS = 5_000;
@@ -1091,6 +1092,11 @@ export class DatabentoLiveService extends EventEmitter {
   private quotes: QuoteObservation[] = [];
   private trades: TradeObservation[] = [];
   private bars: BarObservation[] = [];
+  private marketSegmentObservedAt: Record<"quote" | "trade" | "volume", Date | null> = {
+    quote: null,
+    trade: null,
+    volume: null,
+  };
   private quoteWindow: QuoteObservation[] = [];
   private tradeBuckets = new Map<number, TradeBucket>();
   private analysisWindowNeedsReset = false;
@@ -1253,27 +1259,10 @@ export class DatabentoLiveService extends EventEmitter {
     }
 
     const current = { ...this.getStatus(), scanId };
-    const segmentCutoff = settledAt.getTime() - STALE_AFTER_MS;
-    const quote = this.quotes.some((observation) =>
-      observation.timestamp.getTime() >= segmentCutoff
-      && (
-        (observation.bidPrice !== null && Number.isFinite(observation.bidPrice))
-        || (observation.askPrice !== null && Number.isFinite(observation.askPrice))
-      )
-    );
-    const trade = this.trades.some((observation) =>
-      observation.timestamp.getTime() >= segmentCutoff
-      && Number.isFinite(observation.price)
-      && observation.price > 0
-      && Number.isFinite(observation.size)
-      && observation.size > 0
-    );
-    const volume = this.bars.some((observation) =>
-      observation.timestamp.getTime() >= segmentCutoff
-      && observation.volume !== null
-      && Number.isFinite(observation.volume)
-      && observation.volume > 0
-    );
+    const segmentCutoff = settledAt.getTime() - MARKET_SETTLEMENT_WINDOW_MS;
+    const quote = (this.marketSegmentObservedAt.quote?.getTime() ?? 0) >= segmentCutoff;
+    const trade = (this.marketSegmentObservedAt.trade?.getTime() ?? 0) >= segmentCutoff;
+    const volume = (this.marketSegmentObservedAt.volume?.getTime() ?? 0) >= segmentCutoff;
     const heartbeat =
       !forceUniverseOffline
       && current.network.heartbeatFresh
@@ -1824,6 +1813,7 @@ export class DatabentoLiveService extends EventEmitter {
     this.activeBridgeGeneration += 1;
     this.outputBuffer = "";
     this.bridgeEventQueue = [];
+    this.resetMarketSegmentEvidence();
     const child = this.child;
     this.child = null;
     if (child && !child.killed) {
@@ -1848,6 +1838,7 @@ export class DatabentoLiveService extends EventEmitter {
     this.stopping = false;
     this.clearReconnectTimer();
     this.clearExhaustionRearmTimer();
+    this.resetMarketSegmentEvidence();
     const now = new Date();
     this.bridgeTransportStartedAt = now;
     if (!isReconnect) {
@@ -2888,6 +2879,12 @@ export class DatabentoLiveService extends EventEmitter {
 
   private recordQuote(quote: QuoteObservation): void {
     this.quotes = retainObservations([...this.quotes, quote]);
+    if (
+      (quote.bidPrice !== null && Number.isFinite(quote.bidPrice))
+      || (quote.askPrice !== null && Number.isFinite(quote.askPrice))
+    ) {
+      this.marketSegmentObservedAt.quote = quote.timestamp;
+    }
     this.quoteWindow = [...this.quoteWindow, quote]
       .sort((left, right) => right.timestamp.getTime() - left.timestamp.getTime())
       .slice(0, MAX_QUOTE_OBSERVATIONS);
@@ -2895,6 +2892,14 @@ export class DatabentoLiveService extends EventEmitter {
 
   private recordTrade(trade: TradeObservation): void {
     this.trades = retainObservations([...this.trades, trade]);
+    if (
+      Number.isFinite(trade.price)
+      && trade.price > 0
+      && Number.isFinite(trade.size)
+      && trade.size > 0
+    ) {
+      this.marketSegmentObservedAt.trade = trade.timestamp;
+    }
     const bucketKey = Math.floor(trade.timestamp.getTime() / 1_000) * 1_000;
     const current = this.tradeBuckets.get(bucketKey);
     if (!current) {
@@ -2946,6 +2951,17 @@ export class DatabentoLiveService extends EventEmitter {
 
   private recordBar(bar: BarObservation): void {
     this.bars = retainObservations([...this.bars, bar]);
+    if (bar.volume !== null && Number.isFinite(bar.volume) && bar.volume > 0) {
+      this.marketSegmentObservedAt.volume = bar.timestamp;
+    }
+  }
+
+  private resetMarketSegmentEvidence(): void {
+    this.marketSegmentObservedAt = {
+      quote: null,
+      trade: null,
+      volume: null,
+    };
   }
 
   private resetObservations(): void {
@@ -4937,14 +4953,24 @@ export class DatabentoUniverseService extends EventEmitter {
     try {
     const statuses = this.settledStatuses;
     const primary = statuses.find((status) => status.symbol === "NVDA") ?? statuses[0];
-    const symbolRadars = statuses.map(toSymbolStatus);
-    const universeMarketFeedState: MarketFeedState = statuses.some(
-      (status) => status.marketFeedState === "streaming",
+    const presentationMarketState = (status: RadarStatus): MarketFeedState =>
+      status.marketFeedState === "offline"
+        ? "offline"
+        : status.marketWindowSettlement.complete
+          && status.marketWindowSettlement.missingSegments.length === 0
+          ? "streaming"
+          : "stale";
+    const symbolRadars = statuses.map((status) => ({
+      ...toSymbolStatus(status),
+      marketFeedState: presentationMarketState(status),
+    }));
+    const universeMarketFeedState: MarketFeedState = statuses.every(
+      (status) => presentationMarketState(status) === "streaming",
     )
       ? "streaming"
-      : statuses.some((status) => status.marketFeedState === "stale")
-        ? "stale"
-        : "offline";
+      : statuses.every((status) => presentationMarketState(status) === "offline")
+        ? "offline"
+        : "stale";
     const now = new Date();
     this.aiIndustryLeaderProbe.observe(
       statuses,
@@ -4983,7 +5009,7 @@ export class DatabentoUniverseService extends EventEmitter {
         scanId: status.scanId,
         symbol: status.symbol,
         alphaRadar: status.alphaRadar,
-        marketFeedState: status.marketFeedState,
+        marketFeedState: presentationMarketState(status),
         scanHealth: status.scanHealth,
         marketWindowSettlement: status.marketWindowSettlement,
         reference: marketUniverse.getSecurity(status.symbol, now),

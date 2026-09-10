@@ -297,6 +297,19 @@ try {
     }),
     "an insufficient market window must identify at least one missing protected segment",
   );
+  assert.ok(
+    coherentCycle.opportunityCenter.opportunities.every((opportunity) => {
+      const settlement = splitCycleInputs.find((input) => input.symbol === opportunity.symbol)
+        ?.marketWindowSettlement;
+      return opportunity.marketState !== "fresh"
+        || (
+          settlement?.complete === true
+          && settlement.missingSegments.length === 0
+          && settlement.volume === true
+        );
+    }),
+    "fresh market-window presentation must fail when volume or any other segment is missing",
+  );
   const insufficientTFlow = fuseOpportunity(
     {
       ...freshInput(),

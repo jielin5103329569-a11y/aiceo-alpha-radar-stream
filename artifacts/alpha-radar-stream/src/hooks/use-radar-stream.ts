@@ -70,13 +70,16 @@ export function hasCoherentRadarScan(status: RadarStatus | null | undefined): st
   ) {
     return false;
   }
-  const expectedFeedState: RadarStatus['marketFeedState'] = status.symbolRadars.some(
-    (symbol) => symbol.marketFeedState === 'streaming',
+  const expectedFeedState: RadarStatus['marketFeedState'] = status.symbolRadars.every(
+    (symbol) =>
+      symbol.marketFeedState === 'streaming'
+      && symbol.marketWindowSettlement.complete
+      && symbol.marketWindowSettlement.missingSegments.length === 0,
   )
     ? 'streaming'
-    : status.symbolRadars.some((symbol) => symbol.marketFeedState === 'stale')
-      ? 'stale'
-      : 'offline';
+    : status.symbolRadars.every((symbol) => symbol.marketFeedState === 'offline')
+      ? 'offline'
+      : 'stale';
   if (status.marketFeedState !== expectedFeedState) return false;
   const symbolFeedStates = status.symbolRadars.map((symbol) => symbol.marketFeedState);
   const anyOffline = status.marketFeedState === 'offline'
@@ -480,6 +483,31 @@ export function useRadarStream() {
     if (selected.status) persistAcceptedRadarStatus(selected.status);
     return true;
   }, []);
+
+  useEffect(() => {
+    if (hasReceivedStatus) return;
+    const controller = new AbortController();
+    void fetch('/api/radar/status', {
+      cache: 'no-store',
+      headers: { Accept: 'application/json' },
+      signal: controller.signal,
+    })
+      .then(async (response) => {
+        if (!response.ok) {
+          throw new Error(`Initial radar status failed with HTTP ${response.status}.`);
+        }
+        const incomingStatus = await response.json() as RadarStatus;
+        if (!acceptStatus(incomingStatus, 'rest')) {
+          throw new Error('Initial radar status returned an incoherent snapshot.');
+        }
+        setRestFallbackKnownUnavailable(false);
+      })
+      .catch((error: unknown) => {
+        if (error instanceof DOMException && error.name === 'AbortError') return;
+        setRestFallbackKnownUnavailable(true);
+      });
+    return () => controller.abort();
+  }, [hasReceivedStatus, acceptStatus]);
 
   useEffect(() => {
     if (!isFetchedAfterMount || !initialStatus) return;
