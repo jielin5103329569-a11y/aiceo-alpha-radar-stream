@@ -1253,9 +1253,27 @@ export class DatabentoLiveService extends EventEmitter {
     }
 
     const current = { ...this.getStatus(), scanId };
-    const quote = current.liveIngestion.conditions.quoteFresh;
-    const trade = current.liveIngestion.conditions.tradeFresh;
-    const volume = current.liveIngestion.conditions.volumeFresh;
+    const segmentCutoff = settledAt.getTime() - STALE_AFTER_MS;
+    const quote = this.quotes.some((observation) =>
+      observation.timestamp.getTime() >= segmentCutoff
+      && (
+        (observation.bidPrice !== null && Number.isFinite(observation.bidPrice))
+        || (observation.askPrice !== null && Number.isFinite(observation.askPrice))
+      )
+    );
+    const trade = this.trades.some((observation) =>
+      observation.timestamp.getTime() >= segmentCutoff
+      && Number.isFinite(observation.price)
+      && observation.price > 0
+      && Number.isFinite(observation.size)
+      && observation.size > 0
+    );
+    const volume = this.bars.some((observation) =>
+      observation.timestamp.getTime() >= segmentCutoff
+      && observation.volume !== null
+      && Number.isFinite(observation.volume)
+      && observation.volume > 0
+    );
     const heartbeat =
       !forceUniverseOffline
       && current.network.heartbeatFresh

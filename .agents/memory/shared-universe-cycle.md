@@ -9,7 +9,7 @@ Treat each protected five-name scan as one atomic universe cycle with one UUID a
 
 **How to apply:** Use the universe settlement timestamp as the opportunity cycle/trigger timestamp. Render every card's identity from the root snapshot metadata, reject payloads whose symbol/opportunity UUID or timestamp differs, and derive the header feed state from the same five-symbol snapshot. Keep per-symbol completeness independent without loosening fail-closed alert gates.
 
-Opportunity market-window freshness comes from the same-cycle quote/trade/volume/heartbeat settlement, not from Alpha direction, score readiness, or sector classification. `missingSegments: []` and `insufficient market window` are mutually exclusive; Alpha and sector deficiencies remain separate confirmation gates.
+Opportunity market-window freshness comes from same-cycle direct quote, MBP trade, positive-volume OHLCV, and heartbeat evidence—not Alpha scoring counters, direction, or sector state. Missing segments and fresh are mutually exclusive.
 
 Single-symbol market events must coalesce into the already-scheduled Universe snapshot rather than minting new identities. Every accepted event must also keep that shared scheduler armed, so live flow repairs a missing cycle timer instead of leaving settled cards frozen. An urgent transport failure may publish fail-closed state immediately, but it retains the current UUID and cycle timestamp; only the next scheduled Universe settlement advances both.
 

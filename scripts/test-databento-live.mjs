@@ -41,6 +41,26 @@ function marketEvent(timestamp, price, side = "B") {
   };
 }
 
+function quoteEvent(timestamp, price) {
+  return {
+    ...marketEvent(timestamp, price),
+    trade: null,
+  };
+}
+
+function volumeEvent(timestamp, price, volume = 100) {
+  return {
+    type: "ohlcv",
+    source: "databento_live",
+    schema: "ohlcv-1s",
+    timestamp: timestamp.toISOString(),
+    receivedAt: timestamp.toISOString(),
+    ingestedAt: new Date().toISOString(),
+    close: price,
+    volume,
+  };
+}
+
 function seedIncompleteFreshWindow(service, now) {
   service.applyEvent({ type: "ready" });
   service.applyEvent(marketEvent(new Date(now.getTime() - 7_000), 100, "A"));
@@ -1241,6 +1261,81 @@ try {
   );
   startupUniverse.stop();
   startupUniverse.aiIndustryLeaderProbe.stop();
+
+  const segmentUniverse = new DatabentoUniverseService();
+  segmentUniverse.universeScanSchedulerActive = true;
+  const segmentNow = new Date();
+  segmentUniverse.services.forEach((service, index) => {
+    const eventAt = new Date(segmentNow.getTime() - 2_000 + index);
+    service.applyEvent({ type: "ready" });
+    service.applyEvent({
+      type: "heartbeat",
+      source: "databento_live",
+      emittedAt: eventAt.toISOString(),
+    });
+    if (service.configuredSymbol === "VRT") {
+      service.applyEvent(quoteEvent(eventAt, 100 + index));
+      return;
+    }
+    service.applyEvent(marketEvent(eventAt, 100 + index, "B"));
+    service.applyEvent(volumeEvent(eventAt, 100 + index, 100 + index));
+  });
+  const missingTradeAndVolume = segmentUniverse.runUniverseScan("scheduled_scan", false);
+  const incompleteVrt = missingTradeAndVolume.symbolRadars.find((radar) => radar.symbol === "VRT");
+  assert.ok(
+    missingTradeAndVolume.symbolRadars.every(
+      (radar) =>
+        radar.scanId === missingTradeAndVolume.scanId
+        && radar.marketWindowSettlement.scanId === missingTradeAndVolume.scanId
+        && radar.marketWindowSettlement.settledAt?.toISOString()
+          === missingTradeAndVolume.marketWindowSettlement.settledAt?.toISOString(),
+    ),
+    "all five market-window settlements must retain one universe-owned scan and cycle timestamp",
+  );
+  assert.deepEqual(
+    incompleteVrt.marketWindowSettlement.missingSegments,
+    ["trade", "volume"],
+    "a quote-only VRT window must explicitly retain missing trade and volume segments",
+  );
+  assert.equal(incompleteVrt.marketWindowSettlement.complete, false);
+  assert.notEqual(
+    missingTradeAndVolume.opportunityCenter.opportunities.find(
+      (opportunity) => opportunity.symbol === "VRT",
+    ).marketState,
+    "fresh",
+    "a VRT window missing trade or volume must never be presented as fresh",
+  );
+
+  const vrtService = segmentUniverse.services.find((service) => service.configuredSymbol === "VRT");
+  const vrtTradeAt = new Date();
+  vrtService.applyEvent(marketEvent(vrtTradeAt, 105, "B"));
+  const missingVolume = segmentUniverse.runUniverseScan("scheduled_scan", false);
+  assert.deepEqual(
+    missingVolume.symbolRadars.find((radar) => radar.symbol === "VRT")
+      .marketWindowSettlement.missingSegments,
+    ["volume"],
+    "an MBP trade without a positive OHLCV segment must remain explicitly incomplete",
+  );
+
+  vrtService.applyEvent(volumeEvent(new Date(), 105, 250));
+  const completeSegments = segmentUniverse.runUniverseScan("scheduled_scan", false);
+  const completeVrt = completeSegments.symbolRadars.find((radar) => radar.symbol === "VRT");
+  assert.deepEqual(
+    completeVrt.marketWindowSettlement.missingSegments,
+    [],
+    "fresh VRT MBP trade and positive OHLCV evidence must complete the shared market window",
+  );
+  assert.equal(completeVrt.marketWindowSettlement.complete, true);
+  assert.equal(
+    completeSegments.opportunityCenter.opportunities.find(
+      (opportunity) => opportunity.symbol === "VRT",
+    ).marketState,
+    "fresh",
+    "complete direct VRT quote, trade, volume, and heartbeat evidence must present a fresh market window",
+  );
+  segmentUniverse.stop();
+  segmentUniverse.aiIndustryLeaderProbe.stop();
+
   const exhaustionRecoveryService = new DatabentoLiveService("NVDA");
   exhaustionRecoveryService.status = {
     ...exhaustionRecoveryService.getStatus(),
