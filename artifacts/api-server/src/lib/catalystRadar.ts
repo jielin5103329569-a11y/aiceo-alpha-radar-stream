@@ -197,11 +197,13 @@ function marketFresh(input: CatalystRadarInput): boolean {
   return input.scanId !== null
     && input.marketWindowSettlement.scanId === input.scanId
     && input.marketWindowSettlement.complete
-    && input.marketFeedState === "streaming"
-    && input.scanHealth.schedulerState === "scheduled"
-    && input.scanHealth.marketDataState === "fresh"
-    && input.scanHealth.marketDataGateReady
-    && input.alphaRadar.scoreState === "available"
+    && input.marketWindowSettlement.missingSegments.length === 0
+    && input.marketWindowSettlement.settledAt !== null
+    && input.marketFeedState === "streaming";
+}
+
+function alphaFresh(input: CatalystRadarInput): boolean {
+  return input.alphaRadar.scoreState === "available"
     && input.alphaRadar.dataQuality === "good"
     && input.alphaRadar.score !== null
     && input.alphaRadar.preBreakout.dataFresh;
@@ -375,6 +377,7 @@ export function fuseOpportunity(
   const satisfiedMarketEvidence = marketEvidenceItems.filter((item) => item.satisfied);
   const preBreakout = input.alphaRadar.preBreakout;
   const hasMarketSetup = liveMarket
+    && alphaFresh(input)
     && satisfiedMarketEvidence.length >= 2
     && ["latent", "breakout_critical", "confirmed"].includes(preBreakout.state);
   const catalystEvent = authorizedFreshCatalystEvent(catalyst, input.symbol, now);
@@ -484,7 +487,7 @@ export function fuseOpportunity(
     evidenceCount: evidenceChain.filter((item) => item.satisfied && item.independent).length,
     evidenceChain,
     state,
-    marketState: input.scanHealth.marketDataState,
+    marketState: liveMarket ? "fresh" : input.scanHealth.marketDataState,
     sectorConfirmation,
     missingConfirmationItems,
     alertReady,

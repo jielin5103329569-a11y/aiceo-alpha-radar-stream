@@ -240,6 +240,63 @@ try {
   assert.equal(marketOnly.opportunityCenter.opportunities[0].alertReady, false);
   assert.equal(marketOnly.opportunityCenter.opportunities[0].volume_vs_avg, 1.25);
   assert.equal(marketOnly.opportunityCenter.opportunities[0].tape_bias, "主动偏买");
+
+  const protectedSymbols = ["NVDA", "MU", "VRT", "CRDO", "AMD"];
+  const splitCycleInputs = protectedSymbols.map((symbol) => freshInput(symbol));
+  splitCycleInputs[2] = {
+    ...splitCycleInputs[2],
+    alphaRadar: {
+      ...splitCycleInputs[2].alphaRadar,
+      score: null,
+      scoreState: "insufficient",
+      dataQuality: "insufficient",
+      momentum: {
+        ...splitCycleInputs[2].alphaRadar.momentum,
+        value: null,
+      },
+      preBreakout: {
+        ...splitCycleInputs[2].alphaRadar.preBreakout,
+        dataFresh: false,
+        confirmation: {
+          ...splitCycleInputs[2].alphaRadar.preBreakout.confirmation,
+          status: "pending",
+          reason: "Alpha direction is unavailable.",
+        },
+      },
+    },
+  };
+  const coherentCycle = buildOpportunityCenter(
+    splitCycleInputs,
+    protectedSymbols.map((symbol) => ({ symbol, reference: null })),
+    now,
+  );
+  assert.equal(coherentCycle.opportunityCenter.scanId, splitCycleInputs[0].scanId);
+  assert.ok(
+    coherentCycle.opportunityCenter.opportunities.every(
+      (opportunity) => opportunity.scanId === splitCycleInputs[0].scanId,
+    ),
+    "all five protected opportunities must retain one shared scanId",
+  );
+  const vrtOpportunity = coherentCycle.opportunityCenter.opportunities.find(
+    (opportunity) => opportunity.symbol === "VRT",
+  );
+  assert.equal(
+    vrtOpportunity?.freshness,
+    "fresh",
+    "a complete VRT market settlement cannot become insufficient because Alpha direction is unavailable",
+  );
+  assert.equal(vrtOpportunity?.marketState, "fresh");
+  assert.equal(vrtOpportunity?.direction, "unavailable");
+  assert.equal(vrtOpportunity?.alertReady, false);
+  assert.ok(
+    coherentCycle.opportunityCenter.opportunities.every((opportunity) => {
+      const settlement = splitCycleInputs.find((input) => input.symbol === opportunity.symbol)
+        ?.marketWindowSettlement;
+      return opportunity.marketState === "fresh"
+        || (settlement?.missingSegments.length ?? 0) > 0;
+    }),
+    "an insufficient market window must identify at least one missing protected segment",
+  );
   const insufficientTFlow = fuseOpportunity(
     {
       ...freshInput(),
