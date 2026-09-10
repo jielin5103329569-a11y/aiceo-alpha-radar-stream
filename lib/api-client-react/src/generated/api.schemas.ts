@@ -4037,6 +4037,15 @@ export interface RadarStatus {
      * @minimum 0
      */
   statusRevision: number;
+  /** Read-only structure-selection principle is available. */
+  structureSelectReady: boolean;
+  /**
+     * Research-only symbols excluded from live market and Alert paths.
+     * @minimum 0
+     */
+  researchUniverseCount: number;
+  /** Research universe cannot affect alert readiness. */
+  researchDoesNotAffectAlertReady: boolean;
   configured: boolean;
   connectionState: RadarConnectionState;
   marketFeedState: MarketFeedState;

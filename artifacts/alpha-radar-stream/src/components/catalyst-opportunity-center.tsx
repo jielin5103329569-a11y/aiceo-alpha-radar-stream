@@ -367,6 +367,9 @@ function OpportunityRow({
       <p className="mt-2 text-[10px] leading-relaxed text-muted-foreground" data-testid={`opportunity-alert-reason-${opportunity.symbol}`}>
         {opportunity.alertReadyReason}
       </p>
+      <p className="mt-2 text-[10px] leading-relaxed text-muted-foreground" data-testid={`opportunity-structure-principle-${opportunity.symbol}`}>
+        结构原理 · 研究宇宙 SIVE / SOI.PA / AXTI · 不开门
+      </p>
     </article>
   );
 }

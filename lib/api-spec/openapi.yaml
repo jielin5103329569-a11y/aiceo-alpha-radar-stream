@@ -4327,6 +4327,17 @@ components:
           minimum: 0
           multipleOf: 1
           description: Strictly monotonic snapshot revision within statusEpoch, independent of market-event timestamps.
+        structureSelectReady:
+          type: boolean
+          description: Read-only structure-selection principle is available.
+        researchUniverseCount:
+          type: number
+          minimum: 0
+          multipleOf: 1
+          description: Research-only symbols excluded from live market and Alert paths.
+        researchDoesNotAffectAlertReady:
+          type: boolean
+          description: Research universe cannot affect alert readiness.
         configured:
           type: boolean
         connectionState:
@@ -4416,6 +4427,9 @@ components:
         - marketWindowSettlement
         - statusEpoch
         - statusRevision
+        - structureSelectReady
+        - researchUniverseCount
+        - researchDoesNotAffectAlertReady
         - configured
         - connectionState
         - marketFeedState

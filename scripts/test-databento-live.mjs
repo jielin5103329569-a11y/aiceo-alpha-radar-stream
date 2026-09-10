@@ -146,12 +146,28 @@ try {
     AiIndustryLeaderProbeCoordinator,
     FocusedScanCoordinator,
     MONITORED_SYMBOLS,
+    LIVE_UNIVERSE,
+    PRINCIPLES,
+    RESEARCH_UNIVERSE,
     createSignedMarketLeaderEnvelope,
     heartbeatIsFreshWithWatchdogGrace,
     heartbeatWatchdogWasDelayed,
     scanProfileAt,
     updateAlphaRadarRanking,
   } = require(join(outputDirectory, "databentoLive.js"));
+  assert.deepEqual([...LIVE_UNIVERSE], ["NVDA", "MU", "AMD", "VRT", "CRDO"]);
+  assert.deepEqual([...RESEARCH_UNIVERSE], ["SIVE", "SIVEF", "SOI.PA", "AXTI"]);
+  assert.deepEqual(PRINCIPLES, { marketTruth: true, structureSelect: true });
+  assert.equal(
+    RESEARCH_UNIVERSE.some((symbol) => MONITORED_SYMBOLS.includes(symbol)),
+    false,
+    "research symbols must never enter the live Databento universe",
+  );
+  assert.ok(
+    readFileSync(resolve("artifacts/alpha-radar-stream/src/components/catalyst-opportunity-center.tsx"), "utf8")
+      .includes("结构原理 · 研究宇宙 SIVE / SOI.PA / AXTI · 不开门"),
+    "every Opportunity Center card must expose the read-only structure principle copy",
+  );
   const {
     MarketUniverseRegistry,
     MarketUniverseService,

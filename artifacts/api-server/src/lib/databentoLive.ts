@@ -301,6 +301,9 @@ export type RadarStatus = {
   statusEpoch: string;
   /** Strictly monotonic snapshot revision within statusEpoch; distinct from market-event time. */
   statusRevision: number;
+  structureSelectReady: boolean;
+  researchUniverseCount: number;
+  researchDoesNotAffectAlertReady: boolean;
   configured: boolean;
   connectionState: RadarConnectionState;
   marketFeedState: MarketFeedState;
@@ -725,6 +728,9 @@ function blankStatus(symbol = "NVDA"): RadarStatus {
     },
     statusEpoch: "uninitialized",
     statusRevision: 0,
+    structureSelectReady: true,
+    researchUniverseCount: 4,
+    researchDoesNotAffectAlertReady: true,
     configured,
     connectionState: configured ? "stopped" : "not_configured",
     marketFeedState: "offline",
@@ -3600,6 +3606,21 @@ export class DatabentoLiveService extends EventEmitter {
   }
 }
 
+export const PRINCIPLES = {
+  marketTruth: true,
+  structureSelect: true,
+} as const;
+
+export const LIVE_UNIVERSE = ["NVDA", "MU", "AMD", "VRT", "CRDO"] as const;
+export const RESEARCH_UNIVERSE = ["SIVE", "SIVEF", "SOI.PA", "AXTI"] as const;
+
+/**
+ * Structure-selection research questions are read-only and never enter live
+ * subscription, scan, score, ranking, or alert paths:
+ * U1 demand unit / U2 must-flow-through / U3 scarcity /
+ * U4 consensus lag / U5 clean capital.
+ * Research display rule: exclude when U2=0 or U5=0; otherwise show 0-10 only.
+ */
 export const MONITORED_SYMBOLS = ["NVDA", "MU", "VRT", "CRDO", "AMD"] as const;
 
 function toSymbolStatus(status: RadarStatus): RadarSymbolStatus {
@@ -4977,6 +4998,9 @@ export class DatabentoUniverseService extends EventEmitter {
       marketFeedState: universeMarketFeedState,
       statusEpoch: this.statusEpoch,
       statusRevision: this.nextStatusRevision(),
+      structureSelectReady: PRINCIPLES.structureSelect,
+      researchUniverseCount: RESEARCH_UNIVERSE.length,
+      researchDoesNotAffectAlertReady: true,
       symbolRadars,
       alphaRanking: rankingResult.snapshot,
       marketUniverse: marketUniverseSnapshot,
