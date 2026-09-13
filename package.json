@@ -30,7 +30,8 @@
     "test:alert-monitor": "node scripts/test-alert-monitor.mjs",
     "test:alert-service": "node scripts/test-alert-service.mjs",
     "test:sector-priority": "node scripts/test-sector-priority.mjs",
-    "test:ai-industry-stock-pool": "node scripts/test-ai-industry-stock-pool.mjs"
+    "test:ai-industry-stock-pool": "node scripts/test-ai-industry-stock-pool.mjs",
+    "test:research-sidecar": "node scripts/test-research-sidecar.mjs"
   },
   "private": true,
   "dependencies": {

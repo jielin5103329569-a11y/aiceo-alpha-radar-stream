@@ -4108,6 +4108,183 @@ export interface RadarStatus {
   preBreakoutLeader: RadarStatusPreBreakoutLeader;
 }
 
+export interface ResearchTickerIdentity {
+  exchange: string;
+  lifecycleStatus: string;
+  securityType: string;
+  identitySourceReference: string;
+  verificationAccessDate: string;
+}
+
+export interface ResearchTickerIdentityInput {
+  exchange: string;
+  lifecycleStatus: string;
+  securityType: string;
+  identitySourceReference: string;
+  verificationAccessDate: string;
+}
+
+export type ResearchSidecarLane = typeof ResearchSidecarLane[keyof typeof ResearchSidecarLane];
+
+
+export const ResearchSidecarLane = {
+  alex_moonvest: 'alex_moonvest',
+  serenity: 'serenity',
+} as const;
+
+export interface ResearchObservationInput {
+  sourceLane: ResearchSidecarLane;
+  /** @minLength 1 */
+  source: string;
+  /** @minLength 1 */
+  sourceReference: string;
+  /** @minLength 1 */
+  observedDate: string;
+  /** @nullable */
+  ticker?: string | null;
+  tickerIdentity: ResearchTickerIdentityInput;
+  /** @minLength 1 */
+  viewpoint: string;
+  /** @minLength 1 */
+  thesis: string;
+  valuationReversalBasis?: string;
+  financials?: string;
+  buybacks?: string;
+  cashBalanceSheet?: string;
+  catalysts?: string;
+  risks?: string;
+  outcomes?: string;
+  industryChainTags?: string[];
+  canonicalIndustryChainKey?: string;
+  confidence?: string;
+}
+
+export type ResearchObservationEventTickerIdentityState = typeof ResearchObservationEventTickerIdentityState[keyof typeof ResearchObservationEventTickerIdentityState];
+
+
+export const ResearchObservationEventTickerIdentityState = {
+  overseas_reference: 'overseas_reference',
+  us_watch: 'us_watch',
+} as const;
+
+export type ResearchObservationEventUsTickerAdmission = typeof ResearchObservationEventUsTickerAdmission[keyof typeof ResearchObservationEventUsTickerAdmission];
+
+
+export const ResearchObservationEventUsTickerAdmission = {
+  admitted: 'admitted',
+  not_admitted: 'not_admitted',
+  unavailable: 'unavailable',
+} as const;
+
+export type ResearchObservationEventEvidence = {[key: string]: string | string[] | boolean | number | null};
+
+export interface ResearchObservationEvent {
+  id: string;
+  eventKey: string;
+  /** @minimum 1 */
+  recordVersion: number;
+  recordHash: string;
+  sourceLane: ResearchSidecarLane;
+  source: string;
+  researchOnlyLabel: string;
+  /** @nullable */
+  ticker: string | null;
+  tickerIdentity: ResearchTickerIdentity;
+  tickerIdentityState: ResearchObservationEventTickerIdentityState;
+  usTickerAdmission: ResearchObservationEventUsTickerAdmission;
+  usTickerIdentityEvidence: string;
+  viewpoint: string;
+  thesis: string;
+  valuationReversalBasis: string;
+  financials: string;
+  buybacks: string;
+  cashBalanceSheet: string;
+  catalysts: string;
+  risks: string;
+  outcomes: string;
+  industryChainTags: string[];
+  canonicalIndustryChainKey: string;
+  observedDate: string;
+  confidence: string;
+  sourceReference: string;
+  evidence: ResearchObservationEventEvidence;
+  createdAt: string;
+}
+
+export type ResearchResonanceResonanceBasis = typeof ResearchResonanceResonanceBasis[keyof typeof ResearchResonanceResonanceBasis];
+
+
+export const ResearchResonanceResonanceBasis = {
+  us_ticker: 'us_ticker',
+  industry_chain: 'industry_chain',
+} as const;
+
+export interface ResearchResonance {
+  id: string;
+  resonanceKey: string;
+  /** @minimum 1 */
+  recordVersion: number;
+  recordHash: string;
+  leftObservationId: string;
+  rightObservationId: string;
+  /**
+     * @minItems 2
+     * @maxItems 2
+     */
+  sourceLanes: ResearchSidecarLane[];
+  resonanceBasis: ResearchResonanceResonanceBasis;
+  /** @nullable */
+  admittedUsTicker: string | null;
+  /** @nullable */
+  canonicalIndustryChainKey: string | null;
+  derivedAt: string;
+  createdAt: string;
+}
+
+export interface ResearchObservationAppendResponse {
+  observation: ResearchObservationEvent;
+  resonances: ResearchResonance[];
+  idempotent: boolean;
+}
+
+export interface ResearchSidecarUnavailable {
+  status: 'degraded';
+  reason: string;
+}
+
+export type ResearchSidecarStatus = typeof ResearchSidecarStatus[keyof typeof ResearchSidecarStatus];
+
+
+export const ResearchSidecarStatus = {
+  ready: 'ready',
+  degraded: 'degraded',
+} as const;
+
+export interface ResearchSidecarSnapshot {
+  status: ResearchSidecarStatus;
+  generatedAt: string;
+  lanes: ResearchSidecarLane[];
+  observations: ResearchObservationEvent[];
+  resonances: ResearchResonance[];
+  reason: string;
+}
+
+export interface ResearchSidecarHistory {
+  status: ResearchSidecarStatus;
+  lanes: ResearchSidecarLane[];
+  events: ResearchObservationEvent[];
+  resonances: ResearchResonance[];
+  reason: string;
+}
+
+export type GetResearchSidecarHistoryParams = {
+/**
+ * @minimum 1
+ * @maximum 100
+ */
+limit?: number;
+};
+
 export type GetRuntimeSupervisorIncidentsParams = {
 /**
  * @minimum 1

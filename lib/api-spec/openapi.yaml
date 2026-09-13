@@ -14,6 +14,8 @@ tags:
     description: Safe market data connection and stream status
   - name: alerts
     description: Account-scoped verified Alpha alerts and notification settings
+  - name: research-sidecar
+    description: Read-only Alex/Moonvest and Serenity research observations; never production decision data
 paths:
   /healthz:
     get:
@@ -40,6 +42,113 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/RadarStatus"
+  /research-sidecar:
+    get:
+      operationId: getResearchSidecar
+      tags: [research-sidecar]
+      summary: Read the isolated research sidecar snapshot
+      description: >
+        Read-only research observations from the Alex/Moonvest and Serenity
+        source lanes. This sidecar has no Alpha Radar, ranking, alert, or
+        production scanner authority.
+      responses:
+        "200":
+          description: Research sidecar snapshot
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResearchSidecarSnapshot"
+        "503":
+          description: Research sidecar storage is unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResearchSidecarSnapshot"
+  /research-sidecar/snapshot:
+    get:
+      operationId: getResearchSidecarSnapshot
+      tags: [research-sidecar]
+      summary: Read the isolated research sidecar snapshot
+      responses:
+        "200":
+          description: Research sidecar snapshot
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResearchSidecarSnapshot"
+        "503":
+          description: Research sidecar storage is unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResearchSidecarSnapshot"
+  /research-sidecar/history:
+    get:
+      operationId: getResearchSidecarHistory
+      tags: [research-sidecar]
+      summary: Read append-only research sidecar history
+      parameters:
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+      responses:
+        "200":
+          description: Append-only observation and resonance history
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResearchSidecarHistory"
+        "503":
+          description: Research sidecar storage is unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResearchSidecarHistory"
+  /research-sidecar/observations:
+    post:
+      operationId: appendResearchObservation
+      tags: [research-sidecar]
+      summary: Append one authenticated research-only observation
+      description: >
+        Appends an immutable observation to exactly one source lane. Event
+        identity, record hash, version, id, and created time are server-owned.
+        US watch admission is research-only and is granted only from the
+        supplied identity metadata.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ResearchObservationInput"
+      responses:
+        "201":
+          description: Observation appended and any opposite-lane resonances persisted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResearchObservationAppendResponse"
+        "200":
+          description: Identical observation was already present (idempotent)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResearchObservationAppendResponse"
+        "400":
+          description: Invalid research observation
+        "401":
+          description: Authentication required
+        "409":
+          description: Event identity already exists with conflicting content
+        "503":
+          description: Research sidecar storage is unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResearchSidecarUnavailable"
   /radar/engineering-governance:
     get:
       operationId: getEngineeringGovernance
@@ -4476,3 +4585,205 @@ components:
         - sectorPriority
         - openingReadiness
         - preBreakoutLeader
+    ResearchTickerIdentity:
+      type: object
+      properties:
+        exchange: { type: string }
+        lifecycleStatus: { type: string }
+        securityType: { type: string }
+        identitySourceReference: { type: string }
+        verificationAccessDate: { type: string }
+      required: [exchange, lifecycleStatus, securityType, identitySourceReference, verificationAccessDate]
+    ResearchTickerIdentityInput:
+      type: object
+      properties:
+        exchange: { type: string }
+        lifecycleStatus: { type: string }
+        securityType: { type: string }
+        identitySourceReference: { type: string }
+        verificationAccessDate: { type: string }
+      required: [exchange, lifecycleStatus, securityType, identitySourceReference, verificationAccessDate]
+    ResearchObservationInput:
+      type: object
+      properties:
+        sourceLane: { $ref: "#/components/schemas/ResearchSidecarLane" }
+        source: { type: string, minLength: 1 }
+        sourceReference: { type: string, minLength: 1 }
+        observedDate: { type: string, minLength: 1 }
+        ticker: { type: [string, "null"] }
+        tickerIdentity: { $ref: "#/components/schemas/ResearchTickerIdentityInput" }
+        viewpoint: { type: string, minLength: 1 }
+        thesis: { type: string, minLength: 1 }
+        valuationReversalBasis: { type: string }
+        financials: { type: string }
+        buybacks: { type: string }
+        cashBalanceSheet: { type: string }
+        catalysts: { type: string }
+        risks: { type: string }
+        outcomes: { type: string }
+        industryChainTags:
+          type: array
+          items: { type: string }
+        canonicalIndustryChainKey: { type: string }
+        confidence: { type: string }
+      required: [sourceLane, source, sourceReference, observedDate, tickerIdentity, viewpoint, thesis]
+    ResearchObservationAppendResponse:
+      type: object
+      properties:
+        observation: { $ref: "#/components/schemas/ResearchObservationEvent" }
+        resonances:
+          type: array
+          items: { $ref: "#/components/schemas/ResearchResonance" }
+        idempotent: { type: boolean }
+      required: [observation, resonances, idempotent]
+    ResearchSidecarUnavailable:
+      type: object
+      properties:
+        status: { const: degraded }
+        reason: { type: string }
+      required: [status, reason]
+    ResearchSidecarLane:
+      type: string
+      enum: [alex_moonvest, serenity]
+    ResearchSidecarStatus:
+      type: string
+      enum: [ready, degraded]
+    ResearchObservationEvent:
+      type: object
+      properties:
+        id: { type: string }
+        eventKey: { type: string }
+        recordVersion: { type: number, minimum: 1 }
+        recordHash: { type: string }
+        sourceLane: { $ref: "#/components/schemas/ResearchSidecarLane" }
+        source: { type: string }
+        researchOnlyLabel: { type: string }
+        ticker: { type: [string, "null"] }
+        tickerIdentity: { $ref: "#/components/schemas/ResearchTickerIdentity" }
+        tickerIdentityState:
+          type: string
+          enum: [overseas_reference, us_watch]
+        usTickerAdmission:
+          type: string
+          enum: [admitted, not_admitted, unavailable]
+        usTickerIdentityEvidence: { type: string }
+        viewpoint: { type: string }
+        thesis: { type: string }
+        valuationReversalBasis: { type: string }
+        financials: { type: string }
+        buybacks: { type: string }
+        cashBalanceSheet: { type: string }
+        catalysts: { type: string }
+        risks: { type: string }
+        outcomes: { type: string }
+        industryChainTags:
+          type: array
+          items: { type: string }
+        canonicalIndustryChainKey: { type: string }
+        observedDate: { type: string }
+        confidence: { type: string }
+        sourceReference: { type: string }
+        evidence:
+          type: object
+          additionalProperties:
+            anyOf:
+              - { type: string }
+              - { type: array, items: { type: string } }
+              - { type: boolean }
+              - { type: number }
+              - { type: "null" }
+        createdAt: { type: string, format: date-time }
+      required:
+        - id
+        - eventKey
+        - recordVersion
+        - recordHash
+        - sourceLane
+        - source
+        - researchOnlyLabel
+        - ticker
+        - tickerIdentity
+        - tickerIdentityState
+        - usTickerAdmission
+        - usTickerIdentityEvidence
+        - viewpoint
+        - thesis
+        - valuationReversalBasis
+        - financials
+        - buybacks
+        - cashBalanceSheet
+        - catalysts
+        - risks
+        - outcomes
+        - industryChainTags
+        - canonicalIndustryChainKey
+        - observedDate
+        - confidence
+        - sourceReference
+        - evidence
+        - createdAt
+    ResearchResonance:
+      type: object
+      properties:
+        id: { type: string }
+        resonanceKey: { type: string }
+        recordVersion: { type: number, minimum: 1 }
+        recordHash: { type: string }
+        leftObservationId: { type: string }
+        rightObservationId: { type: string }
+        sourceLanes:
+          type: array
+          minItems: 2
+          maxItems: 2
+          items: { $ref: "#/components/schemas/ResearchSidecarLane" }
+        resonanceBasis:
+          type: string
+          enum: [us_ticker, industry_chain]
+        admittedUsTicker: { type: [string, "null"] }
+        canonicalIndustryChainKey: { type: [string, "null"] }
+        derivedAt: { type: string, format: date-time }
+        createdAt: { type: string, format: date-time }
+      required:
+        - id
+        - resonanceKey
+        - recordVersion
+        - recordHash
+        - leftObservationId
+        - rightObservationId
+        - sourceLanes
+        - resonanceBasis
+        - admittedUsTicker
+        - canonicalIndustryChainKey
+        - derivedAt
+        - createdAt
+    ResearchSidecarSnapshot:
+      type: object
+      properties:
+        status: { $ref: "#/components/schemas/ResearchSidecarStatus" }
+        generatedAt: { type: string, format: date-time }
+        lanes:
+          type: array
+          items: { $ref: "#/components/schemas/ResearchSidecarLane" }
+        observations:
+          type: array
+          items: { $ref: "#/components/schemas/ResearchObservationEvent" }
+        resonances:
+          type: array
+          items: { $ref: "#/components/schemas/ResearchResonance" }
+        reason: { type: string }
+      required: [status, generatedAt, lanes, observations, resonances, reason]
+    ResearchSidecarHistory:
+      type: object
+      properties:
+        status: { $ref: "#/components/schemas/ResearchSidecarStatus" }
+        lanes:
+          type: array
+          items: { $ref: "#/components/schemas/ResearchSidecarLane" }
+        events:
+          type: array
+          items: { $ref: "#/components/schemas/ResearchObservationEvent" }
+        resonances:
+          type: array
+          items: { $ref: "#/components/schemas/ResearchResonance" }
+        reason: { type: string }
+      required: [status, lanes, events, resonances, reason]

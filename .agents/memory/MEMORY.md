@@ -24,3 +24,4 @@
 - [Live network event-path integrity](live-network-event-path-integrity.md) — Only bridge-emitted heartbeat and generation-bound market events can re-establish alert readiness after a failure.
 - [Radar status contract propagation](radar-status-contract-propagation.md) — Declare new status evidence in OpenAPI; REST strips undeclared fields even when SSE preserves them.
 - [Shared universe cycle](shared-universe-cycle.md) — Five-name settlements and Opportunity Center share one scanId and cycle timestamp, including incomplete rows.
+- [Research sidecar authority](research-sidecar-authority.md) — Alex/Moonvest and Serenity remain independent research lanes with no production decision authority.

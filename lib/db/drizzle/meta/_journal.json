@@ -85,6 +85,13 @@
       "when": 1787418000000,
       "tag": "0011_diagnostic_persistence",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1787421600000,
+      "tag": "0012_research_sidecar",
+      "breakpoints": true
     }
   ]
 }

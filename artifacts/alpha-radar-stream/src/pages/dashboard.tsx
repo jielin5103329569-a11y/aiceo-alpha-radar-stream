@@ -18,6 +18,7 @@ import { CatalystOpportunityCenter } from '@/components/catalyst-opportunity-cen
 import { SectorPriorityHierarchy } from '@/components/sector-priority-hierarchy';
 import { LiveSectorReadinessPanel } from '@/components/live-sector-readiness-panel';
 import { AiIndustryPoolCard } from '@/components/ai-industry-pool-card';
+import { ResearchSidecarPanel } from '@/components/research-sidecar-panel';
 import { formatAge, formatNumber, formatPercent, formatTime, cn } from '@/lib/utils';
 import {
   AlertCircle,
@@ -300,6 +301,7 @@ export default function Dashboard() {
 
           <FocusedScanRoutingCard status={status?.focusedScans ?? null} />
           <AiIndustryPoolCard />
+          <ResearchSidecarPanel />
 
           <RadarScoreCard radar={status?.radar ?? null} />
 

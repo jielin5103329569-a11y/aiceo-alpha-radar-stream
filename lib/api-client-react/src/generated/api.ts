@@ -31,6 +31,7 @@ import type {
   FocusedScanSnapshot,
   GetAlertsParams,
   GetMarketUniverseParams,
+  GetResearchSidecarHistoryParams,
   GetRuntimeSupervisorIncidentsParams,
   GetShadowLearningValidationParams,
   GetSignalValidationParams,
@@ -42,6 +43,11 @@ import type {
   PushSubscriptionRequest,
   PushSubscriptionStatus,
   RadarStatus,
+  ResearchObservationAppendResponse,
+  ResearchObservationInput,
+  ResearchSidecarHistory,
+  ResearchSidecarSnapshot,
+  ResearchSidecarUnavailable,
   RuntimeSupervisorError,
   RuntimeSupervisorIncidentRecord,
   RuntimeSupervisorSnapshot,
@@ -233,6 +239,317 @@ export function useGetRadarStatus<TData = Awaited<ReturnType<typeof getRadarStat
 
 
 
+
+export const getGetResearchSidecarUrl = () => {
+
+
+
+
+  return `/api/research-sidecar`
+}
+
+/**
+ * Read-only research observations from the Alex/Moonvest and Serenity source lanes. This sidecar has no Alpha Radar, ranking, alert, or production scanner authority.
+ * @summary Read the isolated research sidecar snapshot
+ */
+export const getResearchSidecar = async ( options?: Parameters<typeof customFetch>[1]): Promise<ResearchSidecarSnapshot> => {
+
+  return customFetch<ResearchSidecarSnapshot>(getGetResearchSidecarUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetResearchSidecarQueryKey = () => {
+    return [
+    `/api/research-sidecar`
+    ] as const;
+    }
+
+
+export const getGetResearchSidecarQueryOptions = <TData = Awaited<ReturnType<typeof getResearchSidecar>>, TError = ErrorType<ResearchSidecarSnapshot>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getResearchSidecar>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetResearchSidecarQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getResearchSidecar>>> = ({ signal }) => getResearchSidecar({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getResearchSidecar>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetResearchSidecarQueryResult = NonNullable<Awaited<ReturnType<typeof getResearchSidecar>>>
+export type GetResearchSidecarQueryError = ErrorType<ResearchSidecarSnapshot>
+
+
+/**
+ * @summary Read the isolated research sidecar snapshot
+ */
+
+export function useGetResearchSidecar<TData = Awaited<ReturnType<typeof getResearchSidecar>>, TError = ErrorType<ResearchSidecarSnapshot>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getResearchSidecar>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetResearchSidecarQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetResearchSidecarSnapshotUrl = () => {
+
+
+
+
+  return `/api/research-sidecar/snapshot`
+}
+
+/**
+ * @summary Read the isolated research sidecar snapshot
+ */
+export const getResearchSidecarSnapshot = async ( options?: Parameters<typeof customFetch>[1]): Promise<ResearchSidecarSnapshot> => {
+
+  return customFetch<ResearchSidecarSnapshot>(getGetResearchSidecarSnapshotUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetResearchSidecarSnapshotQueryKey = () => {
+    return [
+    `/api/research-sidecar/snapshot`
+    ] as const;
+    }
+
+
+export const getGetResearchSidecarSnapshotQueryOptions = <TData = Awaited<ReturnType<typeof getResearchSidecarSnapshot>>, TError = ErrorType<ResearchSidecarSnapshot>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getResearchSidecarSnapshot>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetResearchSidecarSnapshotQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getResearchSidecarSnapshot>>> = ({ signal }) => getResearchSidecarSnapshot({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getResearchSidecarSnapshot>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetResearchSidecarSnapshotQueryResult = NonNullable<Awaited<ReturnType<typeof getResearchSidecarSnapshot>>>
+export type GetResearchSidecarSnapshotQueryError = ErrorType<ResearchSidecarSnapshot>
+
+
+/**
+ * @summary Read the isolated research sidecar snapshot
+ */
+
+export function useGetResearchSidecarSnapshot<TData = Awaited<ReturnType<typeof getResearchSidecarSnapshot>>, TError = ErrorType<ResearchSidecarSnapshot>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getResearchSidecarSnapshot>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetResearchSidecarSnapshotQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetResearchSidecarHistoryUrl = (params?: GetResearchSidecarHistoryParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/research-sidecar/history?${stringifiedParams}` : `/api/research-sidecar/history`
+}
+
+/**
+ * @summary Read append-only research sidecar history
+ */
+export const getResearchSidecarHistory = async (params?: GetResearchSidecarHistoryParams, options?: Parameters<typeof customFetch>[1]): Promise<ResearchSidecarHistory> => {
+
+  return customFetch<ResearchSidecarHistory>(getGetResearchSidecarHistoryUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetResearchSidecarHistoryQueryKey = (params?: GetResearchSidecarHistoryParams,) => {
+    return [
+    `/api/research-sidecar/history`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetResearchSidecarHistoryQueryOptions = <TData = Awaited<ReturnType<typeof getResearchSidecarHistory>>, TError = ErrorType<ResearchSidecarHistory>>(params?: GetResearchSidecarHistoryParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getResearchSidecarHistory>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetResearchSidecarHistoryQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getResearchSidecarHistory>>> = ({ signal }) => getResearchSidecarHistory(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getResearchSidecarHistory>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetResearchSidecarHistoryQueryResult = NonNullable<Awaited<ReturnType<typeof getResearchSidecarHistory>>>
+export type GetResearchSidecarHistoryQueryError = ErrorType<ResearchSidecarHistory>
+
+
+/**
+ * @summary Read append-only research sidecar history
+ */
+
+export function useGetResearchSidecarHistory<TData = Awaited<ReturnType<typeof getResearchSidecarHistory>>, TError = ErrorType<ResearchSidecarHistory>>(
+ params?: GetResearchSidecarHistoryParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getResearchSidecarHistory>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetResearchSidecarHistoryQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getAppendResearchObservationUrl = () => {
+
+
+
+
+  return `/api/research-sidecar/observations`
+}
+
+/**
+ * Appends an immutable observation to exactly one source lane. Event identity, record hash, version, id, and created time are server-owned. US watch admission is research-only and is granted only from the supplied identity metadata.
+ * @summary Append one authenticated research-only observation
+ */
+export const appendResearchObservation = async (researchObservationInput: ResearchObservationInput, options?: Parameters<typeof customFetch>[1]): Promise<ResearchObservationAppendResponse> => {
+
+  return customFetch<ResearchObservationAppendResponse>(getAppendResearchObservationUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(researchObservationInput)
+  }
+);}
+
+
+
+
+
+export const getAppendResearchObservationMutationOptions = <TError = ErrorType<void | ResearchSidecarUnavailable>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof appendResearchObservation>>, TError,{data: BodyType<ResearchObservationInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof appendResearchObservation>>, TError,{data: BodyType<ResearchObservationInput>}, TContext> => {
+
+const mutationKey = ['appendResearchObservation'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof appendResearchObservation>>, {data: BodyType<ResearchObservationInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  appendResearchObservation(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AppendResearchObservationMutationResult = NonNullable<Awaited<ReturnType<typeof appendResearchObservation>>>
+    export type AppendResearchObservationMutationBody = BodyType<ResearchObservationInput>
+    export type AppendResearchObservationMutationError = ErrorType<void | ResearchSidecarUnavailable>
+
+    /**
+ * @summary Append one authenticated research-only observation
+ */
+export const useAppendResearchObservation = <TError = ErrorType<void | ResearchSidecarUnavailable>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof appendResearchObservation>>, TError,{data: BodyType<ResearchObservationInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof appendResearchObservation>>,
+        TError,
+        {data: BodyType<ResearchObservationInput>},
+        TContext
+      > => {
+      return useMutation(getAppendResearchObservationMutationOptions(options));
+    }
 
 export const getGetEngineeringGovernanceUrl = () => {
 

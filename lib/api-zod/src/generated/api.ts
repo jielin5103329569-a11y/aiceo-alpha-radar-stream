@@ -1556,6 +1556,319 @@ export const GetRadarStatusResponse = zod.object({
 
 
 /**
+ * Read-only research observations from the Alex/Moonvest and Serenity source lanes. This sidecar has no Alpha Radar, ranking, alert, or production scanner authority.
+ * @summary Read the isolated research sidecar snapshot
+ */
+
+
+export const getResearchSidecarResponseResonancesItemSourceLanesMin = 2;
+export const getResearchSidecarResponseResonancesItemSourceLanesMax = 2;
+
+
+
+export const GetResearchSidecarResponse = zod.object({
+  "status": zod.enum(['ready', 'degraded']),
+  "generatedAt": zod.coerce.date(),
+  "lanes": zod.array(zod.enum(['alex_moonvest', 'serenity'])),
+  "observations": zod.array(zod.object({
+  "id": zod.string(),
+  "eventKey": zod.string(),
+  "recordVersion": zod.number().min(1),
+  "recordHash": zod.string(),
+  "sourceLane": zod.enum(['alex_moonvest', 'serenity']),
+  "source": zod.string(),
+  "researchOnlyLabel": zod.string(),
+  "ticker": zod.string().nullable(),
+  "tickerIdentity": zod.object({
+  "exchange": zod.string(),
+  "lifecycleStatus": zod.string(),
+  "securityType": zod.string(),
+  "identitySourceReference": zod.string(),
+  "verificationAccessDate": zod.string()
+}),
+  "tickerIdentityState": zod.enum(['overseas_reference', 'us_watch']),
+  "usTickerAdmission": zod.enum(['admitted', 'not_admitted', 'unavailable']),
+  "usTickerIdentityEvidence": zod.string(),
+  "viewpoint": zod.string(),
+  "thesis": zod.string(),
+  "valuationReversalBasis": zod.string(),
+  "financials": zod.string(),
+  "buybacks": zod.string(),
+  "cashBalanceSheet": zod.string(),
+  "catalysts": zod.string(),
+  "risks": zod.string(),
+  "outcomes": zod.string(),
+  "industryChainTags": zod.array(zod.string()),
+  "canonicalIndustryChainKey": zod.string(),
+  "observedDate": zod.string(),
+  "confidence": zod.string(),
+  "sourceReference": zod.string(),
+  "evidence": zod.record(zod.string(), zod.union([zod.string(),zod.array(zod.string()),zod.boolean(),zod.number(),zod.null()])),
+  "createdAt": zod.coerce.date()
+})),
+  "resonances": zod.array(zod.object({
+  "id": zod.string(),
+  "resonanceKey": zod.string(),
+  "recordVersion": zod.number().min(1),
+  "recordHash": zod.string(),
+  "leftObservationId": zod.string(),
+  "rightObservationId": zod.string(),
+  "sourceLanes": zod.array(zod.enum(['alex_moonvest', 'serenity'])).min(getResearchSidecarResponseResonancesItemSourceLanesMin).max(getResearchSidecarResponseResonancesItemSourceLanesMax),
+  "resonanceBasis": zod.enum(['us_ticker', 'industry_chain']),
+  "admittedUsTicker": zod.string().nullable(),
+  "canonicalIndustryChainKey": zod.string().nullable(),
+  "derivedAt": zod.coerce.date(),
+  "createdAt": zod.coerce.date()
+})),
+  "reason": zod.string()
+})
+
+
+/**
+ * @summary Read the isolated research sidecar snapshot
+ */
+
+
+export const getResearchSidecarSnapshotResponseResonancesItemSourceLanesMin = 2;
+export const getResearchSidecarSnapshotResponseResonancesItemSourceLanesMax = 2;
+
+
+
+export const GetResearchSidecarSnapshotResponse = zod.object({
+  "status": zod.enum(['ready', 'degraded']),
+  "generatedAt": zod.coerce.date(),
+  "lanes": zod.array(zod.enum(['alex_moonvest', 'serenity'])),
+  "observations": zod.array(zod.object({
+  "id": zod.string(),
+  "eventKey": zod.string(),
+  "recordVersion": zod.number().min(1),
+  "recordHash": zod.string(),
+  "sourceLane": zod.enum(['alex_moonvest', 'serenity']),
+  "source": zod.string(),
+  "researchOnlyLabel": zod.string(),
+  "ticker": zod.string().nullable(),
+  "tickerIdentity": zod.object({
+  "exchange": zod.string(),
+  "lifecycleStatus": zod.string(),
+  "securityType": zod.string(),
+  "identitySourceReference": zod.string(),
+  "verificationAccessDate": zod.string()
+}),
+  "tickerIdentityState": zod.enum(['overseas_reference', 'us_watch']),
+  "usTickerAdmission": zod.enum(['admitted', 'not_admitted', 'unavailable']),
+  "usTickerIdentityEvidence": zod.string(),
+  "viewpoint": zod.string(),
+  "thesis": zod.string(),
+  "valuationReversalBasis": zod.string(),
+  "financials": zod.string(),
+  "buybacks": zod.string(),
+  "cashBalanceSheet": zod.string(),
+  "catalysts": zod.string(),
+  "risks": zod.string(),
+  "outcomes": zod.string(),
+  "industryChainTags": zod.array(zod.string()),
+  "canonicalIndustryChainKey": zod.string(),
+  "observedDate": zod.string(),
+  "confidence": zod.string(),
+  "sourceReference": zod.string(),
+  "evidence": zod.record(zod.string(), zod.union([zod.string(),zod.array(zod.string()),zod.boolean(),zod.number(),zod.null()])),
+  "createdAt": zod.coerce.date()
+})),
+  "resonances": zod.array(zod.object({
+  "id": zod.string(),
+  "resonanceKey": zod.string(),
+  "recordVersion": zod.number().min(1),
+  "recordHash": zod.string(),
+  "leftObservationId": zod.string(),
+  "rightObservationId": zod.string(),
+  "sourceLanes": zod.array(zod.enum(['alex_moonvest', 'serenity'])).min(getResearchSidecarSnapshotResponseResonancesItemSourceLanesMin).max(getResearchSidecarSnapshotResponseResonancesItemSourceLanesMax),
+  "resonanceBasis": zod.enum(['us_ticker', 'industry_chain']),
+  "admittedUsTicker": zod.string().nullable(),
+  "canonicalIndustryChainKey": zod.string().nullable(),
+  "derivedAt": zod.coerce.date(),
+  "createdAt": zod.coerce.date()
+})),
+  "reason": zod.string()
+})
+
+
+/**
+ * @summary Read append-only research sidecar history
+ */
+export const getResearchSidecarHistoryQueryLimitDefault = 50;
+export const getResearchSidecarHistoryQueryLimitMax = 100;
+
+
+
+export const GetResearchSidecarHistoryQueryParams = zod.object({
+  "limit": zod.coerce.number().int().min(1).max(getResearchSidecarHistoryQueryLimitMax).default(getResearchSidecarHistoryQueryLimitDefault)
+})
+
+
+
+export const getResearchSidecarHistoryResponseResonancesItemSourceLanesMin = 2;
+export const getResearchSidecarHistoryResponseResonancesItemSourceLanesMax = 2;
+
+
+
+export const GetResearchSidecarHistoryResponse = zod.object({
+  "status": zod.enum(['ready', 'degraded']),
+  "lanes": zod.array(zod.enum(['alex_moonvest', 'serenity'])),
+  "events": zod.array(zod.object({
+  "id": zod.string(),
+  "eventKey": zod.string(),
+  "recordVersion": zod.number().min(1),
+  "recordHash": zod.string(),
+  "sourceLane": zod.enum(['alex_moonvest', 'serenity']),
+  "source": zod.string(),
+  "researchOnlyLabel": zod.string(),
+  "ticker": zod.string().nullable(),
+  "tickerIdentity": zod.object({
+  "exchange": zod.string(),
+  "lifecycleStatus": zod.string(),
+  "securityType": zod.string(),
+  "identitySourceReference": zod.string(),
+  "verificationAccessDate": zod.string()
+}),
+  "tickerIdentityState": zod.enum(['overseas_reference', 'us_watch']),
+  "usTickerAdmission": zod.enum(['admitted', 'not_admitted', 'unavailable']),
+  "usTickerIdentityEvidence": zod.string(),
+  "viewpoint": zod.string(),
+  "thesis": zod.string(),
+  "valuationReversalBasis": zod.string(),
+  "financials": zod.string(),
+  "buybacks": zod.string(),
+  "cashBalanceSheet": zod.string(),
+  "catalysts": zod.string(),
+  "risks": zod.string(),
+  "outcomes": zod.string(),
+  "industryChainTags": zod.array(zod.string()),
+  "canonicalIndustryChainKey": zod.string(),
+  "observedDate": zod.string(),
+  "confidence": zod.string(),
+  "sourceReference": zod.string(),
+  "evidence": zod.record(zod.string(), zod.union([zod.string(),zod.array(zod.string()),zod.boolean(),zod.number(),zod.null()])),
+  "createdAt": zod.coerce.date()
+})),
+  "resonances": zod.array(zod.object({
+  "id": zod.string(),
+  "resonanceKey": zod.string(),
+  "recordVersion": zod.number().min(1),
+  "recordHash": zod.string(),
+  "leftObservationId": zod.string(),
+  "rightObservationId": zod.string(),
+  "sourceLanes": zod.array(zod.enum(['alex_moonvest', 'serenity'])).min(getResearchSidecarHistoryResponseResonancesItemSourceLanesMin).max(getResearchSidecarHistoryResponseResonancesItemSourceLanesMax),
+  "resonanceBasis": zod.enum(['us_ticker', 'industry_chain']),
+  "admittedUsTicker": zod.string().nullable(),
+  "canonicalIndustryChainKey": zod.string().nullable(),
+  "derivedAt": zod.coerce.date(),
+  "createdAt": zod.coerce.date()
+})),
+  "reason": zod.string()
+})
+
+
+/**
+ * Appends an immutable observation to exactly one source lane. Event identity, record hash, version, id, and created time are server-owned. US watch admission is research-only and is granted only from the supplied identity metadata.
+ * @summary Append one authenticated research-only observation
+ */
+
+
+
+
+
+
+
+export const AppendResearchObservationBody = zod.object({
+  "sourceLane": zod.enum(['alex_moonvest', 'serenity']),
+  "source": zod.string().min(1),
+  "sourceReference": zod.string().min(1),
+  "observedDate": zod.string().min(1),
+  "ticker": zod.string().nullish(),
+  "tickerIdentity": zod.object({
+  "exchange": zod.string(),
+  "lifecycleStatus": zod.string(),
+  "securityType": zod.string(),
+  "identitySourceReference": zod.string(),
+  "verificationAccessDate": zod.string()
+}),
+  "viewpoint": zod.string().min(1),
+  "thesis": zod.string().min(1),
+  "valuationReversalBasis": zod.string().optional(),
+  "financials": zod.string().optional(),
+  "buybacks": zod.string().optional(),
+  "cashBalanceSheet": zod.string().optional(),
+  "catalysts": zod.string().optional(),
+  "risks": zod.string().optional(),
+  "outcomes": zod.string().optional(),
+  "industryChainTags": zod.array(zod.string()).optional(),
+  "canonicalIndustryChainKey": zod.string().optional(),
+  "confidence": zod.string().optional()
+})
+
+
+
+export const appendResearchObservationResponseResonancesItemSourceLanesMin = 2;
+export const appendResearchObservationResponseResonancesItemSourceLanesMax = 2;
+
+
+
+export const AppendResearchObservationResponse = zod.object({
+  "observation": zod.object({
+  "id": zod.string(),
+  "eventKey": zod.string(),
+  "recordVersion": zod.number().min(1),
+  "recordHash": zod.string(),
+  "sourceLane": zod.enum(['alex_moonvest', 'serenity']),
+  "source": zod.string(),
+  "researchOnlyLabel": zod.string(),
+  "ticker": zod.string().nullable(),
+  "tickerIdentity": zod.object({
+  "exchange": zod.string(),
+  "lifecycleStatus": zod.string(),
+  "securityType": zod.string(),
+  "identitySourceReference": zod.string(),
+  "verificationAccessDate": zod.string()
+}),
+  "tickerIdentityState": zod.enum(['overseas_reference', 'us_watch']),
+  "usTickerAdmission": zod.enum(['admitted', 'not_admitted', 'unavailable']),
+  "usTickerIdentityEvidence": zod.string(),
+  "viewpoint": zod.string(),
+  "thesis": zod.string(),
+  "valuationReversalBasis": zod.string(),
+  "financials": zod.string(),
+  "buybacks": zod.string(),
+  "cashBalanceSheet": zod.string(),
+  "catalysts": zod.string(),
+  "risks": zod.string(),
+  "outcomes": zod.string(),
+  "industryChainTags": zod.array(zod.string()),
+  "canonicalIndustryChainKey": zod.string(),
+  "observedDate": zod.string(),
+  "confidence": zod.string(),
+  "sourceReference": zod.string(),
+  "evidence": zod.record(zod.string(), zod.union([zod.string(),zod.array(zod.string()),zod.boolean(),zod.number(),zod.null()])),
+  "createdAt": zod.coerce.date()
+}),
+  "resonances": zod.array(zod.object({
+  "id": zod.string(),
+  "resonanceKey": zod.string(),
+  "recordVersion": zod.number().min(1),
+  "recordHash": zod.string(),
+  "leftObservationId": zod.string(),
+  "rightObservationId": zod.string(),
+  "sourceLanes": zod.array(zod.enum(['alex_moonvest', 'serenity'])).min(appendResearchObservationResponseResonancesItemSourceLanesMin).max(appendResearchObservationResponseResonancesItemSourceLanesMax),
+  "resonanceBasis": zod.enum(['us_ticker', 'industry_chain']),
+  "admittedUsTicker": zod.string().nullable(),
+  "canonicalIndustryChainKey": zod.string().nullable(),
+  "derivedAt": zod.coerce.date(),
+  "createdAt": zod.coerce.date()
+})),
+  "idempotent": zod.boolean()
+})
+
+
+/**
  * Read-only engineering governance. It never reads or changes the Replit Task Board, agent leases, scoring, live scan cadence, Alert delivery, or Shadow Learning eligibility.
  * @summary Read the engineering-governance projection
  */
