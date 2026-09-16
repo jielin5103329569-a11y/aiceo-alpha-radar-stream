@@ -104,6 +104,8 @@ export const aiceoTasksTable = pgTable("aiceo_tasks", {
   maxRetries: integer("max_retries").notNull(),
   retryCount: integer("retry_count").notNull().default(0),
   nextRetryAt: timestamp("next_retry_at", { withTimezone: true }),
+  providerAttemptId: uuid("provider_attempt_id"),
+  providerAttemptDeadlineAt: timestamp("provider_attempt_deadline_at", { withTimezone: true }),
   providerTimestamp: timestamp("provider_timestamp", { withTimezone: true }),
   clientTimestamp: timestamp("client_timestamp", { withTimezone: true }),
   serverTimestamp: timestamp("server_timestamp", { withTimezone: true }).notNull().defaultNow(),
@@ -112,6 +114,9 @@ export const aiceoTasksTable = pgTable("aiceo_tasks", {
 }, (table) => [
   index("aiceo_tasks_state_updated_idx").on(table.state, table.updatedAt),
   index("aiceo_tasks_correlation_idx").on(table.correlationId),
+  index("aiceo_tasks_provider_attempt_deadline_idx")
+    .on(table.providerAttemptDeadlineAt)
+    .where(sql`${table.state} = 'RUNNING' and ${table.providerAttemptId} is not null`),
   // The database is the authority for the one-active-task invariant.
   uniqueIndex("aiceo_tasks_one_active_unique")
     .on(sql`(true)`)

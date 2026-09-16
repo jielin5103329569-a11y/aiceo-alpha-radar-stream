@@ -368,6 +368,9 @@ importers:
 
   artifacts/api-server:
     dependencies:
+      '@replit/connectors-sdk':
+        specifier: ^0.4.1
+        version: 0.4.1
       '@clerk/express':
         specifier: ^2.1.59
         version: 2.1.59(express@5.2.1)(react-dom@19.1.4(react@19.1.4))(react@19.1.4)

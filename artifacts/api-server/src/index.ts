@@ -18,6 +18,7 @@ import { buildEngineeringGovernanceSnapshot } from "./lib/engineeringGovernance"
 import { createGracefulShutdown, inspectListeningPort } from "./lib/serverLifecycle";
 import { secEdgarCatalyst } from "./lib/secEdgarCatalyst";
 import { scanRecorder } from "./lib/scanRecorder";
+import { aiceoControlPlane } from "./lib/aiceoControlPlane";
 
 const rawPort = process.env["PORT"];
 
@@ -115,6 +116,9 @@ server.once("listening", () => {
   }
   backendLifeline.owner.markListening();
   logger.info({ port, ownerId: ownership.ownerId }, "Server-owned Alpha Radar lifeline is listening");
+  void aiceoControlPlane.reconcileExpiredAttempts("aiceo:startup-recovery").then((recovered) => {
+    if (recovered) logger.warn({ recovered }, "Recovered expired AICEO provider attempts as UNKNOWN");
+  }).catch((error) => logger.error({ error }, "AICEO expired-attempt recovery failed"));
   marketUniverse.start();
   aiIndustryStockPool.start();
   secEdgarCatalyst.start();

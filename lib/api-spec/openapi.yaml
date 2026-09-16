@@ -17,7 +17,7 @@ tags:
   - name: research-sidecar
     description: Read-only Alex/Moonvest and Serenity research observations; never production decision data
   - name: aiceo
-    description: ARCH-001 isolated AICEO control plane; no provider execution authority
+    description: ARCH-001 isolated AICEO control plane with restricted development-only Grok authority
 paths:
   /aiceo/self-check:
     get:
@@ -47,14 +47,16 @@ paths:
       responses:
         "200": { description: Task submitted, content: { application/json: { schema: { $ref: "#/components/schemas/AiceoTask" } } } }
         "401": { description: Authentication required }
-  /aiceo/tasks/{id}/state:
+  /aiceo/tasks/{id}/execute:
     post:
-      operationId: transitionAiceoTask
+      operationId: executeApprovedAiceoTask
       tags: [aiceo]
       security: [{ clerk: [] }]
       parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
-      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/AiceoTransitionInput" } } } }
-      responses: { "200": { description: Transition accepted }, "401": { description: Authentication required } }
+      responses:
+        "200": { description: Provider result settled into VALIDATING or an incident state, content: { application/json: { schema: { $ref: "#/components/schemas/AiceoTask" } } } }
+        "401": { description: Authentication required }
+        "409": { description: Execution gate rejected the task }
   /aiceo/tasks/{id}/validate:
     post:
       operationId: validateAiceoTask

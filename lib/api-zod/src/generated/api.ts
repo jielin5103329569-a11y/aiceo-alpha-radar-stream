@@ -83,18 +83,21 @@ export const SubmitAiceoTaskResponse = zod.object({
 })
 
 
-export const TransitionAiceoTaskParams = zod.object({
+export const ExecuteApprovedAiceoTaskParams = zod.object({
   "id": zod.coerce.string()
 })
 
-export const TransitionAiceoTaskBody = zod.object({
+export const ExecuteApprovedAiceoTaskResponse = zod.object({
+  "id": zod.string(),
+  "correlationId": zod.string(),
   "state": zod.enum(['QUEUED', 'RUNNING', 'VALIDATING', 'COMPLETED', 'FAILED', 'UNKNOWN', 'STALE', 'BLOCKED', 'CANCELLED']),
-  "evidence": zod.object({
-  "validated": zod.boolean().optional()
-}).optional()
+  "action": zod.string(),
+  "resource": zod.string(),
+  "authority": zod.string(),
+  "environment": zod.string(),
+  "contractVersion": zod.string(),
+  "contractHash": zod.string()
 })
-
-export const TransitionAiceoTaskResponse = zod.unknown()
 
 
 export const ValidateAiceoTaskParams = zod.object({

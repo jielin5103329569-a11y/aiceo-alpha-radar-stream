@@ -29,7 +29,6 @@ import type {
   AiceoStatus,
   AiceoTask,
   AiceoTaskInput,
-  AiceoTransitionInput,
   AlertSettings,
   AlertsListResponse,
   BackendLifelineSnapshot,
@@ -371,23 +370,22 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
       return useMutation(getSubmitAiceoTaskMutationOptions(options));
     }
 
-export const getTransitionAiceoTaskUrl = (id: string,) => {
+export const getExecuteApprovedAiceoTaskUrl = (id: string,) => {
 
 
 
 
-  return `/api/aiceo/tasks/${id}/state`
+  return `/api/aiceo/tasks/${id}/execute`
 }
 
-export const transitionAiceoTask = async (id: string,
-    aiceoTransitionInput: AiceoTransitionInput, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+export const executeApprovedAiceoTask = async (id: string, options?: Parameters<typeof customFetch>[1]): Promise<AiceoTask> => {
 
-  return customFetch<void>(getTransitionAiceoTaskUrl(id),
+  return customFetch<AiceoTask>(getExecuteApprovedAiceoTaskUrl(id),
   {
     ...options,
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
-    body: JSON.stringify(aiceoTransitionInput)
+    method: 'POST'
+
+
   }
 );}
 
@@ -395,11 +393,11 @@ export const transitionAiceoTask = async (id: string,
 
 
 
-export const getTransitionAiceoTaskMutationOptions = <TError = ErrorType<void>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof transitionAiceoTask>>, TError,{id: string;data: BodyType<AiceoTransitionInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof transitionAiceoTask>>, TError,{id: string;data: BodyType<AiceoTransitionInput>}, TContext> => {
+export const getExecuteApprovedAiceoTaskMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof executeApprovedAiceoTask>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof executeApprovedAiceoTask>>, TError,{id: string}, TContext> => {
 
-const mutationKey = ['transitionAiceoTask'];
+const mutationKey = ['executeApprovedAiceoTask'];
 const {mutation: mutationOptions, request: requestOptions} = options ?
       options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
       options
@@ -409,10 +407,10 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof transitionAiceoTask>>, {id: string;data: BodyType<AiceoTransitionInput>}> = (props) => {
-          const {id,data} = props ?? {};
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof executeApprovedAiceoTask>>, {id: string}> = (props) => {
+          const {id} = props ?? {};
 
-          return  transitionAiceoTask(id,data,requestOptions)
+          return  executeApprovedAiceoTask(id,requestOptions)
         }
 
 
@@ -422,19 +420,19 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
   return  { mutationFn, ...mutationOptions }}
 
-    export type TransitionAiceoTaskMutationResult = NonNullable<Awaited<ReturnType<typeof transitionAiceoTask>>>
-    export type TransitionAiceoTaskMutationBody = BodyType<AiceoTransitionInput>
-    export type TransitionAiceoTaskMutationError = ErrorType<void>
+    export type ExecuteApprovedAiceoTaskMutationResult = NonNullable<Awaited<ReturnType<typeof executeApprovedAiceoTask>>>
 
-    export const useTransitionAiceoTask = <TError = ErrorType<void>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof transitionAiceoTask>>, TError,{id: string;data: BodyType<AiceoTransitionInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+    export type ExecuteApprovedAiceoTaskMutationError = ErrorType<void>
+
+    export const useExecuteApprovedAiceoTask = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof executeApprovedAiceoTask>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
-        Awaited<ReturnType<typeof transitionAiceoTask>>,
+        Awaited<ReturnType<typeof executeApprovedAiceoTask>>,
         TError,
-        {id: string;data: BodyType<AiceoTransitionInput>},
+        {id: string},
         TContext
       > => {
-      return useMutation(getTransitionAiceoTaskMutationOptions(options));
+      return useMutation(getExecuteApprovedAiceoTaskMutationOptions(options));
     }
 
 export const getValidateAiceoTaskUrl = (id: string,) => {
