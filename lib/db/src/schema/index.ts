@@ -24,3 +24,4 @@ export * from "./runtimeSupervisor";
 export * from "./autonomousOperations";
 export * from "./aiIndustryStockPool";
 export * from "./researchSidecar";
+export * from "./aiceoControlPlane";

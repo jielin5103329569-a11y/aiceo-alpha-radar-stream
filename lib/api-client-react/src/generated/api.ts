@@ -22,6 +22,14 @@ import type {
 import type {
   AiIndustryPoolHistoryEvent,
   AiIndustryPoolSnapshot,
+  AiceoAuditEvent,
+  AiceoDiagnosisInput,
+  AiceoKillSwitchInput,
+  AiceoSelfCheck,
+  AiceoStatus,
+  AiceoTask,
+  AiceoTaskInput,
+  AiceoTransitionInput,
   AlertSettings,
   AlertsListResponse,
   BackendLifelineSnapshot,
@@ -84,6 +92,676 @@ const withQueryKey = <T extends object, K>(query: T, queryKey: K): T & { queryKe
   }
   return result;
 };
+
+export const getGetAiceoSelfCheckUrl = () => {
+
+
+
+
+  return `/api/aiceo/self-check`
+}
+
+export const getAiceoSelfCheck = async ( options?: Parameters<typeof customFetch>[1]): Promise<AiceoSelfCheck> => {
+
+  return customFetch<AiceoSelfCheck>(getGetAiceoSelfCheckUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetAiceoSelfCheckQueryKey = () => {
+    return [
+    `/api/aiceo/self-check`
+    ] as const;
+    }
+
+
+export const getGetAiceoSelfCheckQueryOptions = <TData = Awaited<ReturnType<typeof getAiceoSelfCheck>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAiceoSelfCheck>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetAiceoSelfCheckQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getAiceoSelfCheck>>> = ({ signal }) => getAiceoSelfCheck({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getAiceoSelfCheck>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetAiceoSelfCheckQueryResult = NonNullable<Awaited<ReturnType<typeof getAiceoSelfCheck>>>
+export type GetAiceoSelfCheckQueryError = ErrorType<unknown>
+
+
+
+export function useGetAiceoSelfCheck<TData = Awaited<ReturnType<typeof getAiceoSelfCheck>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAiceoSelfCheck>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetAiceoSelfCheckQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetAiceoStatusUrl = () => {
+
+
+
+
+  return `/api/aiceo/status`
+}
+
+export const getAiceoStatus = async ( options?: Parameters<typeof customFetch>[1]): Promise<AiceoStatus> => {
+
+  return customFetch<AiceoStatus>(getGetAiceoStatusUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetAiceoStatusQueryKey = () => {
+    return [
+    `/api/aiceo/status`
+    ] as const;
+    }
+
+
+export const getGetAiceoStatusQueryOptions = <TData = Awaited<ReturnType<typeof getAiceoStatus>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAiceoStatus>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetAiceoStatusQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getAiceoStatus>>> = ({ signal }) => getAiceoStatus({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getAiceoStatus>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetAiceoStatusQueryResult = NonNullable<Awaited<ReturnType<typeof getAiceoStatus>>>
+export type GetAiceoStatusQueryError = ErrorType<void>
+
+
+
+export function useGetAiceoStatus<TData = Awaited<ReturnType<typeof getAiceoStatus>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAiceoStatus>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetAiceoStatusQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetAiceoHistoryUrl = () => {
+
+
+
+
+  return `/api/aiceo/history`
+}
+
+export const getAiceoHistory = async ( options?: Parameters<typeof customFetch>[1]): Promise<AiceoAuditEvent[]> => {
+
+  return customFetch<AiceoAuditEvent[]>(getGetAiceoHistoryUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetAiceoHistoryQueryKey = () => {
+    return [
+    `/api/aiceo/history`
+    ] as const;
+    }
+
+
+export const getGetAiceoHistoryQueryOptions = <TData = Awaited<ReturnType<typeof getAiceoHistory>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAiceoHistory>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetAiceoHistoryQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getAiceoHistory>>> = ({ signal }) => getAiceoHistory({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getAiceoHistory>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetAiceoHistoryQueryResult = NonNullable<Awaited<ReturnType<typeof getAiceoHistory>>>
+export type GetAiceoHistoryQueryError = ErrorType<unknown>
+
+
+
+export function useGetAiceoHistory<TData = Awaited<ReturnType<typeof getAiceoHistory>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAiceoHistory>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetAiceoHistoryQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getSubmitAiceoTaskUrl = () => {
+
+
+
+
+  return `/api/aiceo/tasks`
+}
+
+export const submitAiceoTask = async (aiceoTaskInput: AiceoTaskInput, options?: Parameters<typeof customFetch>[1]): Promise<AiceoTask> => {
+
+  return customFetch<AiceoTask>(getSubmitAiceoTaskUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(aiceoTaskInput)
+  }
+);}
+
+
+
+
+
+export const getSubmitAiceoTaskMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof submitAiceoTask>>, TError,{data: BodyType<AiceoTaskInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof submitAiceoTask>>, TError,{data: BodyType<AiceoTaskInput>}, TContext> => {
+
+const mutationKey = ['submitAiceoTask'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof submitAiceoTask>>, {data: BodyType<AiceoTaskInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  submitAiceoTask(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SubmitAiceoTaskMutationResult = NonNullable<Awaited<ReturnType<typeof submitAiceoTask>>>
+    export type SubmitAiceoTaskMutationBody = BodyType<AiceoTaskInput>
+    export type SubmitAiceoTaskMutationError = ErrorType<void>
+
+    export const useSubmitAiceoTask = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof submitAiceoTask>>, TError,{data: BodyType<AiceoTaskInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof submitAiceoTask>>,
+        TError,
+        {data: BodyType<AiceoTaskInput>},
+        TContext
+      > => {
+      return useMutation(getSubmitAiceoTaskMutationOptions(options));
+    }
+
+export const getTransitionAiceoTaskUrl = (id: string,) => {
+
+
+
+
+  return `/api/aiceo/tasks/${id}/state`
+}
+
+export const transitionAiceoTask = async (id: string,
+    aiceoTransitionInput: AiceoTransitionInput, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+  return customFetch<void>(getTransitionAiceoTaskUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(aiceoTransitionInput)
+  }
+);}
+
+
+
+
+
+export const getTransitionAiceoTaskMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof transitionAiceoTask>>, TError,{id: string;data: BodyType<AiceoTransitionInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof transitionAiceoTask>>, TError,{id: string;data: BodyType<AiceoTransitionInput>}, TContext> => {
+
+const mutationKey = ['transitionAiceoTask'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof transitionAiceoTask>>, {id: string;data: BodyType<AiceoTransitionInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  transitionAiceoTask(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type TransitionAiceoTaskMutationResult = NonNullable<Awaited<ReturnType<typeof transitionAiceoTask>>>
+    export type TransitionAiceoTaskMutationBody = BodyType<AiceoTransitionInput>
+    export type TransitionAiceoTaskMutationError = ErrorType<void>
+
+    export const useTransitionAiceoTask = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof transitionAiceoTask>>, TError,{id: string;data: BodyType<AiceoTransitionInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof transitionAiceoTask>>,
+        TError,
+        {id: string;data: BodyType<AiceoTransitionInput>},
+        TContext
+      > => {
+      return useMutation(getTransitionAiceoTaskMutationOptions(options));
+    }
+
+export const getValidateAiceoTaskUrl = (id: string,) => {
+
+
+
+
+  return `/api/aiceo/tasks/${id}/validate`
+}
+
+export const validateAiceoTask = async (id: string, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+  return customFetch<void>(getValidateAiceoTaskUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getValidateAiceoTaskMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof validateAiceoTask>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof validateAiceoTask>>, TError,{id: string}, TContext> => {
+
+const mutationKey = ['validateAiceoTask'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof validateAiceoTask>>, {id: string}> = (props) => {
+          const {id} = props ?? {};
+
+          return  validateAiceoTask(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ValidateAiceoTaskMutationResult = NonNullable<Awaited<ReturnType<typeof validateAiceoTask>>>
+
+    export type ValidateAiceoTaskMutationError = ErrorType<unknown>
+
+    export const useValidateAiceoTask = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof validateAiceoTask>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof validateAiceoTask>>,
+        TError,
+        {id: string},
+        TContext
+      > => {
+      return useMutation(getValidateAiceoTaskMutationOptions(options));
+    }
+
+export const getCancelAiceoTaskUrl = (id: string,) => {
+
+
+
+
+  return `/api/aiceo/tasks/${id}/cancel`
+}
+
+export const cancelAiceoTask = async (id: string, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+  return customFetch<void>(getCancelAiceoTaskUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getCancelAiceoTaskMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof cancelAiceoTask>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof cancelAiceoTask>>, TError,{id: string}, TContext> => {
+
+const mutationKey = ['cancelAiceoTask'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof cancelAiceoTask>>, {id: string}> = (props) => {
+          const {id} = props ?? {};
+
+          return  cancelAiceoTask(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CancelAiceoTaskMutationResult = NonNullable<Awaited<ReturnType<typeof cancelAiceoTask>>>
+
+    export type CancelAiceoTaskMutationError = ErrorType<unknown>
+
+    export const useCancelAiceoTask = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof cancelAiceoTask>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof cancelAiceoTask>>,
+        TError,
+        {id: string},
+        TContext
+      > => {
+      return useMutation(getCancelAiceoTaskMutationOptions(options));
+    }
+
+export const getDiagnoseAiceoTaskUrl = (id: string,) => {
+
+
+
+
+  return `/api/aiceo/tasks/${id}/diagnose`
+}
+
+export const diagnoseAiceoTask = async (id: string,
+    aiceoDiagnosisInput: AiceoDiagnosisInput, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+  return customFetch<void>(getDiagnoseAiceoTaskUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(aiceoDiagnosisInput)
+  }
+);}
+
+
+
+
+
+export const getDiagnoseAiceoTaskMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof diagnoseAiceoTask>>, TError,{id: string;data: BodyType<AiceoDiagnosisInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof diagnoseAiceoTask>>, TError,{id: string;data: BodyType<AiceoDiagnosisInput>}, TContext> => {
+
+const mutationKey = ['diagnoseAiceoTask'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof diagnoseAiceoTask>>, {id: string;data: BodyType<AiceoDiagnosisInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  diagnoseAiceoTask(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DiagnoseAiceoTaskMutationResult = NonNullable<Awaited<ReturnType<typeof diagnoseAiceoTask>>>
+    export type DiagnoseAiceoTaskMutationBody = BodyType<AiceoDiagnosisInput>
+    export type DiagnoseAiceoTaskMutationError = ErrorType<unknown>
+
+    export const useDiagnoseAiceoTask = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof diagnoseAiceoTask>>, TError,{id: string;data: BodyType<AiceoDiagnosisInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof diagnoseAiceoTask>>,
+        TError,
+        {id: string;data: BodyType<AiceoDiagnosisInput>},
+        TContext
+      > => {
+      return useMutation(getDiagnoseAiceoTaskMutationOptions(options));
+    }
+
+export const getSetAiceoKillSwitchUrl = () => {
+
+
+
+
+  return `/api/aiceo/operator/kill-switch`
+}
+
+export const setAiceoKillSwitch = async (aiceoKillSwitchInput: AiceoKillSwitchInput, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+  return customFetch<void>(getSetAiceoKillSwitchUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(aiceoKillSwitchInput)
+  }
+);}
+
+
+
+
+
+export const getSetAiceoKillSwitchMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof setAiceoKillSwitch>>, TError,{data: BodyType<AiceoKillSwitchInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof setAiceoKillSwitch>>, TError,{data: BodyType<AiceoKillSwitchInput>}, TContext> => {
+
+const mutationKey = ['setAiceoKillSwitch'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof setAiceoKillSwitch>>, {data: BodyType<AiceoKillSwitchInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  setAiceoKillSwitch(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SetAiceoKillSwitchMutationResult = NonNullable<Awaited<ReturnType<typeof setAiceoKillSwitch>>>
+    export type SetAiceoKillSwitchMutationBody = BodyType<AiceoKillSwitchInput>
+    export type SetAiceoKillSwitchMutationError = ErrorType<unknown>
+
+    export const useSetAiceoKillSwitch = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof setAiceoKillSwitch>>, TError,{data: BodyType<AiceoKillSwitchInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof setAiceoKillSwitch>>,
+        TError,
+        {data: BodyType<AiceoKillSwitchInput>},
+        TContext
+      > => {
+      return useMutation(getSetAiceoKillSwitchMutationOptions(options));
+    }
+
+export const getAcknowledgeAiceoRecoveryUrl = () => {
+
+
+
+
+  return `/api/aiceo/operator/recovery-ack`
+}
+
+export const acknowledgeAiceoRecovery = async ( options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+  return customFetch<void>(getAcknowledgeAiceoRecoveryUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getAcknowledgeAiceoRecoveryMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof acknowledgeAiceoRecovery>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof acknowledgeAiceoRecovery>>, TError,void, TContext> => {
+
+const mutationKey = ['acknowledgeAiceoRecovery'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof acknowledgeAiceoRecovery>>, void> = () => {
+
+
+          return  acknowledgeAiceoRecovery(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AcknowledgeAiceoRecoveryMutationResult = NonNullable<Awaited<ReturnType<typeof acknowledgeAiceoRecovery>>>
+
+    export type AcknowledgeAiceoRecoveryMutationError = ErrorType<unknown>
+
+    export const useAcknowledgeAiceoRecovery = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof acknowledgeAiceoRecovery>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof acknowledgeAiceoRecovery>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getAcknowledgeAiceoRecoveryMutationOptions(options));
+    }
 
 export const getHealthCheckUrl = () => {
 

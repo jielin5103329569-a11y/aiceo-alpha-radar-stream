@@ -16,7 +16,80 @@ tags:
     description: Account-scoped verified Alpha alerts and notification settings
   - name: research-sidecar
     description: Read-only Alex/Moonvest and Serenity research observations; never production decision data
+  - name: aiceo
+    description: ARCH-001 isolated AICEO control plane; no provider execution authority
 paths:
+  /aiceo/self-check:
+    get:
+      operationId: getAiceoSelfCheck
+      tags: [aiceo]
+      responses:
+        "200": { description: ARCH-001 self-check, content: { application/json: { schema: { $ref: "#/components/schemas/AiceoSelfCheck" } } } }
+  /aiceo/status:
+    get:
+      operationId: getAiceoStatus
+      tags: [aiceo]
+      responses:
+        "200": { description: Control-plane status, content: { application/json: { schema: { $ref: "#/components/schemas/AiceoStatus" } } } }
+        "503": { description: Durable control plane degraded }
+  /aiceo/history:
+    get:
+      operationId: getAiceoHistory
+      tags: [aiceo]
+      responses:
+        "200": { description: Append-only audit history, content: { application/json: { schema: { type: array, items: { $ref: "#/components/schemas/AiceoAuditEvent" } } } } }
+  /aiceo/tasks:
+    post:
+      operationId: submitAiceoTask
+      tags: [aiceo]
+      security: [{ clerk: [] }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/AiceoTaskInput" } } } }
+      responses:
+        "200": { description: Task submitted, content: { application/json: { schema: { $ref: "#/components/schemas/AiceoTask" } } } }
+        "401": { description: Authentication required }
+  /aiceo/tasks/{id}/state:
+    post:
+      operationId: transitionAiceoTask
+      tags: [aiceo]
+      security: [{ clerk: [] }]
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/AiceoTransitionInput" } } } }
+      responses: { "200": { description: Transition accepted }, "401": { description: Authentication required } }
+  /aiceo/tasks/{id}/validate:
+    post:
+      operationId: validateAiceoTask
+      tags: [aiceo]
+      security: [{ clerk: [] }]
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      responses: { "200": { description: Explicit validation completion } }
+  /aiceo/tasks/{id}/cancel:
+    post:
+      operationId: cancelAiceoTask
+      tags: [aiceo]
+      security: [{ clerk: [] }]
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      responses: { "200": { description: Task cancelled } }
+  /aiceo/tasks/{id}/diagnose:
+    post:
+      operationId: diagnoseAiceoTask
+      tags: [aiceo]
+      security: [{ clerk: [] }]
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/AiceoDiagnosisInput" } } } }
+      responses: { "200": { description: Incident diagnosed without replay } }
+  /aiceo/operator/kill-switch:
+    post:
+      operationId: setAiceoKillSwitch
+      tags: [aiceo]
+      security: [{ clerk: [] }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/AiceoKillSwitchInput" } } } }
+      responses: { "200": { description: Kill switch state } }
+  /aiceo/operator/recovery-ack:
+    post:
+      operationId: acknowledgeAiceoRecovery
+      tags: [aiceo]
+      security: [{ clerk: [] }]
+      responses: { "200": { description: Recovery acknowledged } }
   /healthz:
     get:
       operationId: healthCheck
@@ -634,6 +707,79 @@ components:
       schema:
         type: string
   schemas:
+    AiceoTaskInput:
+      type: object
+      required: [action, resource]
+      properties:
+        action: { type: string, minLength: 1, maxLength: 120 }
+        resource: { type: string, minLength: 1, maxLength: 180 }
+        environment: { type: string, enum: [development, staging, production] }
+        timeoutMs: { type: number, minimum: 1, maximum: 30000 }
+        maxRetries: { type: number, minimum: 0, maximum: 2 }
+        clientTimestamp: { type: string, format: date-time }
+    AiceoTask:
+      type: object
+      required: [id, correlationId, state, action, resource, authority, environment, contractVersion, contractHash]
+      properties:
+        id: { type: string }
+        correlationId: { type: string }
+        state: { type: string, enum: [QUEUED, RUNNING, VALIDATING, COMPLETED, FAILED, UNKNOWN, STALE, BLOCKED, CANCELLED] }
+        action: { type: string }
+        resource: { type: string }
+        authority: { type: string }
+        environment: { type: string }
+        contractVersion: { type: string }
+        contractHash: { type: string }
+    AiceoTransitionInput:
+      type: object
+      required: [state]
+      properties:
+        state: { type: string, enum: [QUEUED, RUNNING, VALIDATING, COMPLETED, FAILED, UNKNOWN, STALE, BLOCKED, CANCELLED] }
+        evidence: { type: object, properties: { validated: { type: boolean } } }
+    AiceoSelfCheck:
+      type: object
+      required: [source, foundations, state, gaps, authority]
+      properties:
+        source:
+          type: object
+          properties:
+            catalogId: { type: string }
+            provider: { type: string }
+            model: { type: string }
+            configured: { type: boolean }
+            connected: { type: boolean }
+            tested: { type: boolean }
+        foundations: { type: array, items: { type: object, properties: { id: { type: string }, version: { type: string }, hash: { type: string } } } }
+        state: { type: string, enum: [CONFIGURED, CONNECTED, TESTED, BLOCKED] }
+        gaps: { type: array, items: { type: string } }
+        authority: { type: string }
+    AiceoStatus:
+      type: object
+      required: [queueActive, killSwitch, circuit, degraded]
+      properties:
+        queueActive: { type: boolean }
+        killSwitch: { type: boolean }
+        circuit: { type: object, properties: { state: { type: string }, failureCount: { type: number }, threshold: { type: number }, cooldownMs: { type: number } } }
+        degraded: { type: boolean }
+    AiceoAuditEvent:
+      type: object
+      required: [id, type, at, hash]
+      properties:
+        id: { type: string }
+        type: { type: string }
+        at: { type: string, format: date-time }
+        hash: { type: string }
+    AiceoKillSwitchInput:
+      type: object
+      required: [enabled]
+      properties:
+        enabled: { type: boolean }
+    AiceoDiagnosisInput:
+      type: object
+      required: [resolution, evidence]
+      properties:
+        resolution: { type: string, enum: [BLOCKED, CANCELLED] }
+        evidence: { type: object, properties: { summary: { type: string } } }
     DiagnosticCategory:
       type: string
       enum: [infrastructure, application, data, configuration, permission_subscription, governance, performance]

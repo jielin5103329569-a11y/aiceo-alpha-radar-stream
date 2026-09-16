@@ -8,6 +8,133 @@
 import * as zod from 'zod';
 
 
+export const GetAiceoSelfCheckResponse = zod.object({
+  "source": zod.object({
+  "catalogId": zod.string().optional(),
+  "provider": zod.string().optional(),
+  "model": zod.string().optional(),
+  "configured": zod.boolean().optional(),
+  "connected": zod.boolean().optional(),
+  "tested": zod.boolean().optional()
+}),
+  "foundations": zod.array(zod.object({
+  "id": zod.string().optional(),
+  "version": zod.string().optional(),
+  "hash": zod.string().optional()
+})),
+  "state": zod.enum(['CONFIGURED', 'CONNECTED', 'TESTED', 'BLOCKED']),
+  "gaps": zod.array(zod.string()),
+  "authority": zod.string()
+})
+
+
+export const GetAiceoStatusResponse = zod.object({
+  "queueActive": zod.boolean(),
+  "killSwitch": zod.boolean(),
+  "circuit": zod.object({
+  "state": zod.string().optional(),
+  "failureCount": zod.number().optional(),
+  "threshold": zod.number().optional(),
+  "cooldownMs": zod.number().optional()
+}),
+  "degraded": zod.boolean()
+})
+
+
+export const GetAiceoHistoryResponseItem = zod.object({
+  "id": zod.string(),
+  "type": zod.string(),
+  "at": zod.coerce.date(),
+  "hash": zod.string()
+})
+export const GetAiceoHistoryResponse = zod.array(GetAiceoHistoryResponseItem)
+
+
+export const submitAiceoTaskBodyActionMax = 120;
+
+export const submitAiceoTaskBodyResourceMax = 180;
+
+export const submitAiceoTaskBodyTimeoutMsMax = 30000;
+
+export const submitAiceoTaskBodyMaxRetriesMin = 0;
+export const submitAiceoTaskBodyMaxRetriesMax = 2;
+
+
+
+export const SubmitAiceoTaskBody = zod.object({
+  "action": zod.string().min(1).max(submitAiceoTaskBodyActionMax),
+  "resource": zod.string().min(1).max(submitAiceoTaskBodyResourceMax),
+  "environment": zod.enum(['development', 'staging', 'production']).optional(),
+  "timeoutMs": zod.number().min(1).max(submitAiceoTaskBodyTimeoutMsMax).optional(),
+  "maxRetries": zod.number().min(submitAiceoTaskBodyMaxRetriesMin).max(submitAiceoTaskBodyMaxRetriesMax).optional(),
+  "clientTimestamp": zod.coerce.date().optional()
+})
+
+export const SubmitAiceoTaskResponse = zod.object({
+  "id": zod.string(),
+  "correlationId": zod.string(),
+  "state": zod.enum(['QUEUED', 'RUNNING', 'VALIDATING', 'COMPLETED', 'FAILED', 'UNKNOWN', 'STALE', 'BLOCKED', 'CANCELLED']),
+  "action": zod.string(),
+  "resource": zod.string(),
+  "authority": zod.string(),
+  "environment": zod.string(),
+  "contractVersion": zod.string(),
+  "contractHash": zod.string()
+})
+
+
+export const TransitionAiceoTaskParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const TransitionAiceoTaskBody = zod.object({
+  "state": zod.enum(['QUEUED', 'RUNNING', 'VALIDATING', 'COMPLETED', 'FAILED', 'UNKNOWN', 'STALE', 'BLOCKED', 'CANCELLED']),
+  "evidence": zod.object({
+  "validated": zod.boolean().optional()
+}).optional()
+})
+
+export const TransitionAiceoTaskResponse = zod.unknown()
+
+
+export const ValidateAiceoTaskParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const ValidateAiceoTaskResponse = zod.unknown()
+
+
+export const CancelAiceoTaskParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const CancelAiceoTaskResponse = zod.unknown()
+
+
+export const DiagnoseAiceoTaskParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const DiagnoseAiceoTaskBody = zod.object({
+  "resolution": zod.enum(['BLOCKED', 'CANCELLED']),
+  "evidence": zod.object({
+  "summary": zod.string().optional()
+})
+})
+
+export const DiagnoseAiceoTaskResponse = zod.unknown()
+
+
+export const SetAiceoKillSwitchBody = zod.object({
+  "enabled": zod.boolean()
+})
+
+export const SetAiceoKillSwitchResponse = zod.unknown()
+
+
+export const AcknowledgeAiceoRecoveryResponse = zod.unknown()
+
+
 /**
  * Returns server health status
  * @summary Health check

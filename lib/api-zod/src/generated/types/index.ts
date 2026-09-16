@@ -6,6 +6,24 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from './aiceoAuditEvent';
+export * from './aiceoDiagnosisInput';
+export * from './aiceoDiagnosisInputEvidence';
+export * from './aiceoDiagnosisInputResolution';
+export * from './aiceoKillSwitchInput';
+export * from './aiceoSelfCheck';
+export * from './aiceoSelfCheckFoundationsItem';
+export * from './aiceoSelfCheckSource';
+export * from './aiceoSelfCheckState';
+export * from './aiceoStatus';
+export * from './aiceoStatusCircuit';
+export * from './aiceoTask';
+export * from './aiceoTaskInput';
+export * from './aiceoTaskInputEnvironment';
+export * from './aiceoTaskState';
+export * from './aiceoTransitionInput';
+export * from './aiceoTransitionInputEvidence';
+export * from './aiceoTransitionInputState';
 export * from './aiIndustryPoolHistoryEvent';
 export * from './aiIndustryPoolHistoryEventEvidence';
 export * from './aiIndustryPoolMember';

@@ -5,6 +5,166 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+export type AiceoTaskInputEnvironment = typeof AiceoTaskInputEnvironment[keyof typeof AiceoTaskInputEnvironment];
+
+
+export const AiceoTaskInputEnvironment = {
+  development: 'development',
+  staging: 'staging',
+  production: 'production',
+} as const;
+
+export interface AiceoTaskInput {
+  /**
+     * @minLength 1
+     * @maxLength 120
+     */
+  action: string;
+  /**
+     * @minLength 1
+     * @maxLength 180
+     */
+  resource: string;
+  environment?: AiceoTaskInputEnvironment;
+  /**
+     * @minimum 1
+     * @maximum 30000
+     */
+  timeoutMs?: number;
+  /**
+     * @minimum 0
+     * @maximum 2
+     */
+  maxRetries?: number;
+  clientTimestamp?: string;
+}
+
+export type AiceoTaskState = typeof AiceoTaskState[keyof typeof AiceoTaskState];
+
+
+export const AiceoTaskState = {
+  QUEUED: 'QUEUED',
+  RUNNING: 'RUNNING',
+  VALIDATING: 'VALIDATING',
+  COMPLETED: 'COMPLETED',
+  FAILED: 'FAILED',
+  UNKNOWN: 'UNKNOWN',
+  STALE: 'STALE',
+  BLOCKED: 'BLOCKED',
+  CANCELLED: 'CANCELLED',
+} as const;
+
+export interface AiceoTask {
+  id: string;
+  correlationId: string;
+  state: AiceoTaskState;
+  action: string;
+  resource: string;
+  authority: string;
+  environment: string;
+  contractVersion: string;
+  contractHash: string;
+}
+
+export type AiceoTransitionInputState = typeof AiceoTransitionInputState[keyof typeof AiceoTransitionInputState];
+
+
+export const AiceoTransitionInputState = {
+  QUEUED: 'QUEUED',
+  RUNNING: 'RUNNING',
+  VALIDATING: 'VALIDATING',
+  COMPLETED: 'COMPLETED',
+  FAILED: 'FAILED',
+  UNKNOWN: 'UNKNOWN',
+  STALE: 'STALE',
+  BLOCKED: 'BLOCKED',
+  CANCELLED: 'CANCELLED',
+} as const;
+
+export type AiceoTransitionInputEvidence = {
+  validated?: boolean;
+};
+
+export interface AiceoTransitionInput {
+  state: AiceoTransitionInputState;
+  evidence?: AiceoTransitionInputEvidence;
+}
+
+export type AiceoSelfCheckSource = {
+  catalogId?: string;
+  provider?: string;
+  model?: string;
+  configured?: boolean;
+  connected?: boolean;
+  tested?: boolean;
+};
+
+export type AiceoSelfCheckFoundationsItem = {
+  id?: string;
+  version?: string;
+  hash?: string;
+};
+
+export type AiceoSelfCheckState = typeof AiceoSelfCheckState[keyof typeof AiceoSelfCheckState];
+
+
+export const AiceoSelfCheckState = {
+  CONFIGURED: 'CONFIGURED',
+  CONNECTED: 'CONNECTED',
+  TESTED: 'TESTED',
+  BLOCKED: 'BLOCKED',
+} as const;
+
+export interface AiceoSelfCheck {
+  source: AiceoSelfCheckSource;
+  foundations: AiceoSelfCheckFoundationsItem[];
+  state: AiceoSelfCheckState;
+  gaps: string[];
+  authority: string;
+}
+
+export type AiceoStatusCircuit = {
+  state?: string;
+  failureCount?: number;
+  threshold?: number;
+  cooldownMs?: number;
+};
+
+export interface AiceoStatus {
+  queueActive: boolean;
+  killSwitch: boolean;
+  circuit: AiceoStatusCircuit;
+  degraded: boolean;
+}
+
+export interface AiceoAuditEvent {
+  id: string;
+  type: string;
+  at: string;
+  hash: string;
+}
+
+export interface AiceoKillSwitchInput {
+  enabled: boolean;
+}
+
+export type AiceoDiagnosisInputResolution = typeof AiceoDiagnosisInputResolution[keyof typeof AiceoDiagnosisInputResolution];
+
+
+export const AiceoDiagnosisInputResolution = {
+  BLOCKED: 'BLOCKED',
+  CANCELLED: 'CANCELLED',
+} as const;
+
+export type AiceoDiagnosisInputEvidence = {
+  summary?: string;
+};
+
+export interface AiceoDiagnosisInput {
+  resolution: AiceoDiagnosisInputResolution;
+  evidence: AiceoDiagnosisInputEvidence;
+}
+
 export type DiagnosticCategory = typeof DiagnosticCategory[keyof typeof DiagnosticCategory];
 
 

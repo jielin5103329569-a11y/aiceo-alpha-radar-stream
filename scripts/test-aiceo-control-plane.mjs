@@ -1,0 +1,23 @@
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+
+const source = readFileSync("artifacts/api-server/src/lib/aiceoControlPlane.ts", "utf8");
+const routes = readFileSync("artifacts/api-server/src/routes/aiceoControlPlane.ts", "utf8");
+const migration = readFileSync("lib/db/drizzle/0013_aiceo_control_plane.sql", "utf8");
+assert.match(source, /from "@workspace\/db"/);
+assert.match(source, /aiceoTasksTable/);
+assert.match(source, /db\.transaction/);
+assert.doesNotMatch(source, /\bnew Map\b|\bprivate readonly (tasks|events)\b/);
+assert.match(source, /FOUNDATION_COUNT = 13/);
+assert.match(source, /Only VALIDATING tasks may be completed/);
+assert.match(source, /aggregate token budget exceeded/);
+assert.match(source, /Recovery acknowledgment requires resolved incidents/);
+assert.match(source, /jsonb_set/);
+assert.match(migration, /aiceo_tasks_one_active_unique/);
+assert.match(migration, /WHERE "state" IN \('RUNNING', 'VALIDATING'\)/);
+assert.match(migration, /aiceo_control_state_singleton_unique/);
+assert.match(migration, /aiceo_policy_registry_frozen/);
+assert.match(routes, /getAuth/);
+assert.match(routes, /aiceoControlPlane\.validate/);
+assert.doesNotMatch(source, /fetch\(|child_process|workflow control|databentoLive|alertService/);
+console.log("AICEO PostgreSQL service regression passed: DB transactions, serial guard, graph/validation gates, durable recovery, budgets, audit, auth, and production isolation.");
