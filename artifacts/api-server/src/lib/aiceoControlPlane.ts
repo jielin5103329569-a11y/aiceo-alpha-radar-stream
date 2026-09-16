@@ -99,8 +99,10 @@ export class AiceoControlPlane {
       if (!source.tested || environment !== "development" || !APPROVED_GROK_DEVELOPMENT_ACTIONS.includes(input.action as ApprovedGrokDevelopmentAction) || DENIES.some((item) => text.includes(item))) throw new Error("ARCH-001 permission denied");
       const maxRetries = Math.min(input.maxRetries ?? 1, 2);
       const defaultTokens = MAX_ATTEMPT_TOKENS * (maxRetries + 1);
-      const estimatedTokens = input.budget?.estimatedTokens ?? defaultTokens, estimatedCalls = input.budget?.estimatedCalls ?? maxRetries + 1, estimatedUsd = input.budget?.estimatedUsd ?? Number((defaultTokens * TOKEN_USD_RATE).toFixed(6));
-      if (estimatedCalls < maxRetries + 1) throw new Error("ARCH-001 call reservation must cover all retry attempts");
+      const requiredCalls = maxRetries + 1;
+      const requiredUsd = Number((defaultTokens * TOKEN_USD_RATE).toFixed(6));
+      const estimatedTokens = input.budget?.estimatedTokens ?? defaultTokens, estimatedCalls = input.budget?.estimatedCalls ?? requiredCalls, estimatedUsd = input.budget?.estimatedUsd ?? requiredUsd;
+      if (estimatedTokens < defaultTokens || estimatedCalls < requiredCalls || estimatedUsd < requiredUsd) throw new Error("ARCH-001 reservation must cover the maximum usage of all attempts");
       if (estimatedTokens > 4096 || estimatedCalls > 4 || estimatedUsd > 0.25) throw new Error("ARCH-001 per-task development budget exceeded");
       const totals = await tx.select({ budget: aiceoTasksTable.budget }).from(aiceoTasksTable).where(inArray(aiceoTasksTable.state, ["QUEUED", "RUNNING", "VALIDATING"]));
       const totalTokens = totals.reduce((sum, item) => sum + Number(item.budget.reservedTokens ?? 0), 0);

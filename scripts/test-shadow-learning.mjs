@@ -114,6 +114,9 @@ try {
     matchShadowBaselineCohorts,
     normalizeSignedPercentFeature,
     shadowCohortKey,
+    shadowPriceObservationKey,
+    shadowTriggerEventKey,
+    shadowTriggerHash,
     shadowTriggerIntegrityIsValid,
     shadowOutcomeIntegrityIsValid,
     shadowPriceIntegrityIsValid,
@@ -196,6 +199,35 @@ try {
   const duplicate = buildImmutableShadowTrigger(accepted);
   assert.equal(record.eventKey, duplicate.eventKey, "duplicate writes use a deterministic immutable key");
   assert.equal(record.recordHash, duplicate.recordHash, "duplicate writes preserve the frozen evidence hash");
+  const changedEvidence = buildImmutableShadowTrigger({
+    ...accepted,
+    shadowScore: accepted.shadowScore + 1,
+    evidenceSnapshot: accepted.evidenceSnapshot.map((item, index) => index === 0
+      ? { ...item, detail: "distinct immutable observation" }
+      : { ...item }),
+  });
+  assert.notEqual(
+    record.eventKey,
+    changedEvidence.eventKey,
+    "different immutable evidence for one transition must use a distinct archive identity",
+  );
+  assert.equal(
+    shadowTriggerIntegrityIsValid(changedEvidence),
+    true,
+    "each distinct immutable observation must retain independently valid integrity evidence",
+  );
+  const legacyEventKey = shadowTriggerEventKey(accepted, 1);
+  const legacyRecord = {
+    ...accepted,
+    eventKey: legacyEventKey,
+    schemaVersion: 1,
+    recordHash: shadowTriggerHash(accepted, 1),
+  };
+  assert.equal(
+    shadowTriggerIntegrityIsValid(legacyRecord),
+    true,
+    "legacy schema-v1 immutable archive records must remain recoverable",
+  );
   accepted.evidenceSnapshot[0].detail = "mutated after trigger";
   assert.equal(record.evidenceSnapshot[0].detail, "fresh", "future mutations cannot change frozen trigger evidence");
   assert.equal(shadowTriggerIntegrityIsValid(record), true, "stored trigger retains its integrity hash");
@@ -251,6 +283,36 @@ try {
     freshness: "fresh",
   });
   assert.equal(shadowPriceIntegrityIsValid(archivedPrice), true, "post-trigger price has immutable archive evidence");
+  const priceEvidence = {
+    symbol: "NVDA",
+    observedAt: new Date("2026-08-03T14:31:00.000Z"),
+    price: 101,
+    source: "Databento EQUS.MINI live",
+    freshness: "fresh",
+    lifecycleSnapshot: {
+      learningStage: "true_breakout",
+      postBreakoutState: "trend_continuation",
+      postBreakoutActive: true,
+      dataFresh: true,
+    },
+  };
+  const priceKey = shadowPriceObservationKey(priceEvidence);
+  assert.equal(
+    priceKey,
+    shadowPriceObservationKey(structuredClone(priceEvidence)),
+    "identical immutable price evidence must retain one idempotent archive key",
+  );
+  assert.notEqual(
+    priceKey,
+    shadowPriceObservationKey({
+      ...priceEvidence,
+      lifecycleSnapshot: {
+        ...priceEvidence.lifecycleSnapshot,
+        postBreakoutState: "take_profit_watch",
+      },
+    }),
+    "different lifecycle evidence at the same symbol, timestamp, and price must use a distinct archive key",
+  );
   assert.equal(
     shadowPriceIntegrityIsValid({ ...archivedPrice, price: 102 }),
     false,

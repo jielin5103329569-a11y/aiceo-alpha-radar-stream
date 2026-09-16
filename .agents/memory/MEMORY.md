@@ -27,3 +27,4 @@
 - [Research sidecar authority](research-sidecar-authority.md) — Alex/Moonvest and Serenity remain independent research lanes with no production decision authority.
 - [AICEO external-agent authority](aiceo-external-agent-authority.md) — External agents use one durable serial control plane and never inherit Alpha Radar or production authority.
 - [Database JSON parameter typing](database-json-parameter-typing.md) — Cast bound SQL parameters explicitly when they enter polymorphic PostgreSQL JSON builders.
+- [AICEO Clerk role authority](aiceo-clerk-role-authority.md) — Resolve current roles server-side; Development session JWTs may omit public metadata.

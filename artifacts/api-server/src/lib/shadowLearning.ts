@@ -18,6 +18,7 @@ import {
   isEligibleShadowObservation,
   isIndependentHoldout,
   matchShadowBaselineCohorts,
+  shadowPriceObservationKey,
   type ShadowCohortEligibilitySnapshot,
   type ImmutableShadowTrigger,
   type ShadowMetricComparison,
@@ -259,10 +260,6 @@ function stageFeatureAssessments(
   });
 }
 
-function shadowObservationKey(input: PriceInput): string {
-  return `${input.symbol.trim().toUpperCase()}|${input.observedAt.toISOString()}|${input.price}`;
-}
-
 export class ShadowLearningService {
   private readonly trackedSymbols = new Set<string>();
   private readonly pendingTriggerKeys = new Set<string>();
@@ -317,14 +314,17 @@ export class ShadowLearningService {
       || !Number.isFinite(input.price)
       || input.price <= 0
     ) return;
-    const observation = buildShadowPriceObservation({
-      observationKey: shadowObservationKey({ ...input, symbol }),
+    const immutableEvidence = {
       symbol,
       observedAt: input.observedAt,
       price: input.price,
       source: input.source,
-      freshness: "fresh",
+      freshness: "fresh" as const,
       lifecycleSnapshot: input.lifecycleSnapshot,
+    };
+    const observation = buildShadowPriceObservation({
+      observationKey: shadowPriceObservationKey(immutableEvidence),
+      ...immutableEvidence,
     });
     if (this.pendingPriceKeys.has(observation.observationKey)) return;
     this.pendingPriceKeys.add(observation.observationKey);

@@ -43,6 +43,21 @@ import {
 import type { RadarStatus } from "./databentoLive";
 
 // ---------------------------------------------------------------------------
+// Protected alert boundary
+// ---------------------------------------------------------------------------
+
+export function isProtectedAlertCandidateReady(candidate: NotificationCandidate): boolean {
+  const gates = candidate.gateSnapshot;
+  return gates.scanHealthMarketDataReady === true
+    && gates.networkAlertReady === true
+    && gates.subscriptionVerified === true
+    && gates.realMarketEventReceived === true
+    && gates.preBreakoutDataFresh === true
+    && gates.noMissingDataVeto === true
+    && gates.noStaleDataVeto === true;
+}
+
+// ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
 
@@ -536,6 +551,8 @@ export class AlertService {
     for (const obs of observations) {
       if (!this.isCurrentEpoch(epoch)) return;
       if (!obs.isNewCandidate || !obs.result.ok) continue;
+
+      if (!isProtectedAlertCandidateReady(obs.result.candidate)) continue;
 
       this.counters.newCandidatesProduced += 1;
       this.counters.lastCandidateAt = obs.evaluatedAt;

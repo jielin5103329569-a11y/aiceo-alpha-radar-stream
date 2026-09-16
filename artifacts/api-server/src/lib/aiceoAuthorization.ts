@@ -3,6 +3,7 @@ export type AiceoRole = "aiceo_operator" | "aiceo_validator";
 export type AiceoAuthContext = {
   userId: string | null | undefined;
   sessionClaims: Record<string, unknown> | null | undefined;
+  publicMetadata?: Record<string, unknown> | null;
 };
 
 const metadataRecord = (value: unknown): Record<string, unknown> | null =>
@@ -35,6 +36,16 @@ export const aiceoRolesFromClaims = (
   ));
 };
 
+export const aiceoRolesFromPublicMetadata = (
+  publicMetadata: Record<string, unknown> | null | undefined,
+): Set<AiceoRole> => new Set([
+  publicMetadata?.role,
+  ...stringValues(publicMetadata?.roles),
+].filter(
+  (value): value is AiceoRole =>
+    value === "aiceo_operator" || value === "aiceo_validator",
+));
+
 export const authorizeAiceoRole = (
   auth: AiceoAuthContext,
   requiredRole: AiceoRole,
@@ -42,7 +53,9 @@ export const authorizeAiceoRole = (
   if (!auth.userId) {
     return { allowed: false, status: 401, error: "Authentication required." };
   }
-  const roles = aiceoRolesFromClaims(auth.sessionClaims);
+  const claimRoles = aiceoRolesFromClaims(auth.sessionClaims);
+  const metadataRoles = aiceoRolesFromPublicMetadata(auth.publicMetadata);
+  const roles = new Set([...claimRoles, ...metadataRoles]);
   if (roles.size !== 1 || !roles.has(requiredRole)) {
     return {
       allowed: false,

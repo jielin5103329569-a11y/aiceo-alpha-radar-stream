@@ -238,6 +238,7 @@ exports.inArray = (col, vals) => ({ col, vals, type: "inArray" });
     alertService: _defaultService,
     buildAlertSectorLeaderContext,
     buildAlertPushPayload,
+    isProtectedAlertCandidateReady,
     vapidCapability,
   } = require(join(outputDirectory, "alertService.js"));
   const db = require(join(outputDirectory, "db.js"));
@@ -809,6 +810,72 @@ exports.inArray = (col, vals) => ({ col, vals, type: "inArray" });
   await sleep(50);
 
   assert.equal(db._records.length, 0, "stale snapshot must not insert any alert record");
+
+  const staleHealthStatus = {
+    symbolRadars: [buildPassingSymbolStatus({ symbol: "STALE-HEALTH" })],
+  };
+  staleHealthStatus.symbolRadars[0].scanHealth = {
+    ...staleHealthStatus.symbolRadars[0].scanHealth,
+    marketDataState: "stale",
+    marketDataGateReady: false,
+    degradation: "stale_market_data",
+    reason: "Verified event aged beyond the protected freshness limit.",
+  };
+  databentoLive.emit("status", staleHealthStatus);
+  await sleep(50);
+  assert.equal(db._records.length, 0, "stale scan-health evidence must not reach alert persistence");
+
+  const missingEventStatus = {
+    symbolRadars: [buildPassingSymbolStatus({ symbol: "MISSING-EVENT" })],
+  };
+  missingEventStatus.symbolRadars[0].scanHealth = {
+    ...missingEventStatus.symbolRadars[0].scanHealth,
+    lastMarketEventAt: null,
+    lastMarketEventAgeMs: null,
+    marketDataState: "insufficient",
+    marketDataGateReady: false,
+    degradation: "awaiting_live_event",
+    reason: "No verified market event has been received.",
+  };
+  missingEventStatus.symbolRadars[0].liveIngestion.lastMarketEventAt = null;
+  missingEventStatus.symbolRadars[0].liveIngestion.lastMarketEventReceivedAt = null;
+  missingEventStatus.symbolRadars[0].liveIngestion.conditions.realMarketEventReceived = false;
+  databentoLive.emit("status", missingEventStatus);
+  await sleep(50);
+  assert.equal(db._records.length, 0, "missing market-event evidence must not reach alert persistence");
+
+  const heartbeatOnlyStatus = {
+    symbolRadars: [buildPassingSymbolStatus({ symbol: "HEARTBEAT-ONLY" })],
+  };
+  heartbeatOnlyStatus.symbolRadars[0].network = {
+    ...heartbeatOnlyStatus.symbolRadars[0].network,
+    alertReady: false,
+    reason: "Heartbeat is fresh but no verified market event exists.",
+  };
+  heartbeatOnlyStatus.symbolRadars[0].liveIngestion.conditions.realMarketEventReceived = false;
+  databentoLive.emit("status", heartbeatOnlyStatus);
+  await sleep(50);
+  assert.equal(db._records.length, 0, "heartbeat-only evidence must not reach alert persistence");
+
+  const protectedBoundaryCandidate = {
+    ...buildPassingSymbolStatus({ symbol: "BOUNDARY" }),
+    gateSnapshot: {
+      scanHealthMarketDataReady: true,
+      networkAlertReady: true,
+      subscriptionVerified: true,
+      realMarketEventReceived: true,
+      preBreakoutDataFresh: true,
+      noMissingDataVeto: true,
+      noStaleDataVeto: true,
+    },
+  };
+  assert.equal(isProtectedAlertCandidateReady(protectedBoundaryCandidate), true);
+  protectedBoundaryCandidate.gateSnapshot.realMarketEventReceived = false;
+  assert.equal(
+    isProtectedAlertCandidateReady(protectedBoundaryCandidate),
+    false,
+    "the final persistence boundary must independently reject missing real market-event evidence",
+  );
 
   // ---------------------------------------------------------------------------
   // Test 9: no push subscriptions → skipped_no_subscriptions audit entry

@@ -1,5 +1,5 @@
 import { Router, type Request, type Response } from "express";
-import { getAuth } from "@clerk/express";
+import { clerkClient, getAuth } from "@clerk/express";
 import { z } from "zod";
 import { aiceoControlPlane } from "../lib/aiceoControlPlane";
 import { authorizeAiceoRole, type AiceoRole } from "../lib/aiceoAuthorization";
@@ -14,9 +14,22 @@ const submission = z.object({
 const evidence = z.object({ summary: z.string().min(1).max(500), facts: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).optional() }).strict();
 const privileged = (role: AiceoRole, handler: (req: Request, res: Response, userId: string) => Promise<void>) => async (req: Request, res: Response): Promise<void> => {
   const auth = getAuth(req);
+  if (!auth.userId) {
+    res.status(401).json({ error: "Authentication required." });
+    return;
+  }
+  let publicMetadata: Record<string, unknown>;
+  try {
+    const user = await clerkClient.users.getUser(auth.userId);
+    publicMetadata = user.publicMetadata;
+  } catch {
+    res.status(503).json({ error: "Clerk role authority is unavailable." });
+    return;
+  }
   const authorization = authorizeAiceoRole({
     userId: auth.userId,
     sessionClaims: auth.sessionClaims as Record<string, unknown> | null | undefined,
+    publicMetadata,
   }, role);
   if (!authorization.allowed) {
     res.status(authorization.status).json({ error: authorization.error });

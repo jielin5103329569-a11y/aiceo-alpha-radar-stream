@@ -14,6 +14,8 @@ import {
 } from "./signalValidationCore";
 
 export const SHADOW_RECORD_SCHEMA_VERSION = 1;
+export const SHADOW_TRIGGER_SCHEMA_VERSION = 2;
+export const SHADOW_PRICE_KEY_SCHEMA_VERSION = 2;
 export const SHADOW_STRATEGY_VERSION = "shadow-alpha-velocity-v1";
 export const SHADOW_SCAN_WINDOW = "60s";
 export const SHADOW_SCAN_PROFILE = "fresh-streaming-pre-breakout";
@@ -644,10 +646,13 @@ export function buildShadowLearningEvolutionSnapshot(input: {
   return { ...unsigned, auditHash: hash(unsigned) };
 }
 
-export function shadowTriggerHash(input: ShadowTriggerInput): string {
+export function shadowTriggerHash(
+  input: ShadowTriggerInput,
+  schemaVersion = SHADOW_TRIGGER_SCHEMA_VERSION,
+): string {
   return hash({
-    schemaVersion: SHADOW_RECORD_SCHEMA_VERSION,
-    eventKey: shadowTriggerEventKey(input),
+    schemaVersion,
+    eventKey: shadowTriggerEventKey(input, schemaVersion),
     ...input,
   });
 }
@@ -667,14 +672,23 @@ export function shadowCohortKey(input: {
   });
 }
 
-function shadowTriggerEventKey(input: ShadowTriggerInput): string {
-  return hash({
+export function shadowTriggerEventKey(
+  input: ShadowTriggerInput,
+  schemaVersion = SHADOW_TRIGGER_SCHEMA_VERSION,
+): string {
+  const transitionIdentity = {
     strategyVersion: input.strategyVersion,
     signalType: input.signalType,
     symbol: input.symbol.trim().toUpperCase(),
     occurredAt: input.occurredAt,
     modelVersion: input.modelVersion,
     learningStage: input.learningStage,
+  };
+  if (schemaVersion === 1) return hash(transitionIdentity);
+  return hash({
+    schemaVersion,
+    transitionIdentity,
+    immutableEvidence: input,
   });
 }
 
@@ -696,21 +710,21 @@ export function buildImmutableShadowTrigger(input: ShadowTriggerInput): Immutabl
       requiredEvidenceKeys: [...input.cohortEligibilitySnapshot.requiredEvidenceKeys],
     },
   };
-  const eventKey = shadowTriggerEventKey(normalized);
+  const eventKey = shadowTriggerEventKey(normalized, SHADOW_TRIGGER_SCHEMA_VERSION);
   return {
     ...normalized,
     eventKey,
-    schemaVersion: SHADOW_RECORD_SCHEMA_VERSION,
-    recordHash: shadowTriggerHash(normalized),
+    schemaVersion: SHADOW_TRIGGER_SCHEMA_VERSION,
+    recordHash: shadowTriggerHash(normalized, SHADOW_TRIGGER_SCHEMA_VERSION),
   };
 }
 
 export function shadowTriggerIntegrityIsValid(record: ImmutableShadowTrigger): boolean {
   const { eventKey: _eventKey, schemaVersion, recordHash, ...input } = record;
   return (
-    schemaVersion === SHADOW_RECORD_SCHEMA_VERSION
-    && _eventKey === shadowTriggerEventKey(input)
-    && recordHash === shadowTriggerHash(input)
+    (schemaVersion === 1 || schemaVersion === SHADOW_TRIGGER_SCHEMA_VERSION)
+    && _eventKey === shadowTriggerEventKey(input, schemaVersion)
+    && recordHash === shadowTriggerHash(input, schemaVersion)
   );
 }
 
@@ -1071,6 +1085,15 @@ export function buildShadowPriceObservation(input: Omit<ShadowPriceObservation, 
     ...input,
     recordHash: hash({ schemaVersion: SHADOW_RECORD_SCHEMA_VERSION, ...input }),
   };
+}
+
+export function shadowPriceObservationKey(
+  input: Omit<ShadowPriceObservation, "observationKey" | "recordHash">,
+): string {
+  return hash({
+    schemaVersion: SHADOW_PRICE_KEY_SCHEMA_VERSION,
+    immutableEvidence: input,
+  });
 }
 
 export function shadowPriceIntegrityIsValid(record: ShadowPriceObservation): boolean {
