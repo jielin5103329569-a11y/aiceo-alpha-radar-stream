@@ -33,6 +33,7 @@
     "test:ai-industry-stock-pool": "node scripts/test-ai-industry-stock-pool.mjs",
     "test:research-sidecar": "node scripts/test-research-sidecar.mjs",
     "test:aiceo-control-plane": "node scripts/test-aiceo-control-plane.mjs",
+    "test:aiceo-permission-matrix": "node --experimental-strip-types scripts/test-aiceo-permission-matrix.mjs",
     "test:grok-provider-adapter": "node --experimental-strip-types scripts/test-grok-provider-adapter.mjs"
   },
   "private": true,
