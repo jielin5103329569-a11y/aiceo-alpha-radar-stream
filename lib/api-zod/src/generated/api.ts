@@ -203,6 +203,15 @@ export const CheckpointAiceoAgentRunBody = zod.record(zod.string(), zod.unknown(
 export const CheckpointAiceoAgentRunResponse = zod.unknown()
 
 
+export const ResumeAiceoAgentRunParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const ResumeAiceoAgentRunBody = zod.record(zod.string(), zod.unknown())
+
+export const ResumeAiceoAgentRunResponse = zod.unknown()
+
+
 export const submitAiceoTaskBodyActionMax = 120;
 
 export const submitAiceoTaskBodyResourceMax = 180;

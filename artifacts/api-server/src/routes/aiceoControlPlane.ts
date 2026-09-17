@@ -169,6 +169,9 @@ router.post("/aiceo/continuity/runs/:id/result", privileged("aiceo_operator", as
 router.post("/aiceo/continuity/runs/:id/checkpoint", privileged("aiceo_operator", async (req, res) => {
   await run(() => aiceoAgentExecutionProtocol.checkpoint(String(req.params.id), req.body), res);
 }));
+router.post("/aiceo/continuity/runs/:id/resume", privileged("aiceo_operator", async (req, res) => {
+  await run(() => aiceoAgentExecutionProtocol.resume(String(req.params.id), String(req.body?.contextHash ?? "")), res);
+}));
 router.post("/aiceo/continuity/runs/:id/verify", privileged("aiceo_validator", async (req, res, userId) => {
   await run(() => aiceoAgentExecutionProtocol.verify(String(req.params.id), req.body, userId), res);
 }));

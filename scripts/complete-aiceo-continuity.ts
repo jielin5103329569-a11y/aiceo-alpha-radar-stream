@@ -10,7 +10,10 @@ async function main() {
   const hasAgentProtocolEvidence = state.evidencePointers.some(
     (pointer) => pointer.pointer === "scripts/test-aiceo-agent-protocol-integration.ts",
   );
-  if (state.state !== "COMPLETED" || !hasImprovementLoop || !hasIntegrationEvidence || !hasAgentProtocolEvidence) {
+  const hasExpandedAgentProtocolEvidence = state.evidencePointers.some(
+    (pointer) => pointer.id === "brain-agent-negative-gates-v2",
+  );
+  if (state.state !== "COMPLETED" || !hasImprovementLoop || !hasIntegrationEvidence || !hasAgentProtocolEvidence || !hasExpandedAgentProtocolEvidence) {
   const entities = state.entityRegistry.map((entity) =>
     entity.id === "continuity-001"
       ? { ...entity, status: "COMPLETED", verification: "PENDING_INDEPENDENT_READ_ONLY_ACCEPTANCE" }
@@ -65,6 +68,22 @@ async function main() {
       }, {
         type: "migration",
         pointer: "lib/db/drizzle/0018_aiceo_brain_agent_protocol.sql",
+      }] : []),
+      ...(!hasExpandedAgentProtocolEvidence ? [{
+        id: "brain-agent-negative-gates-v2",
+        type: "expanded_transactional_integration_test",
+        pointer: "scripts/test-aiceo-agent-protocol-integration.ts",
+        isolation: "automatic_rollback",
+        paths: [
+          "delegation_and_authority_inheritance",
+          "secret_isolation",
+          "timeout_retry_call_cost_budgets",
+          "kill_switch_and_circuit",
+          "checkpoint_and_safe_resume",
+          "capability_blocker",
+          "owner_attention_budget",
+          "behavioral_failure_to_improvement_loop",
+        ],
       }] : []),
     ],
     resumeNode: {

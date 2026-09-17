@@ -144,6 +144,14 @@ paths:
       parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
       requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/AiceoAgentProtocolInput" } } } }
       responses: { "200": { description: Durable bounded checkpoint or real capability blocker } }
+  /aiceo/continuity/runs/{id}/resume:
+    post:
+      operationId: resumeAiceoAgentRun
+      tags: [aiceo]
+      security: [{ clerk: [] }]
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/AiceoAgentProtocolInput" } } } }
+      responses: { "200": { description: Version-bound safe checkpoint recovery } }
   /aiceo/tasks:
     post:
       operationId: submitAiceoTask
