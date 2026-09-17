@@ -5,6 +5,82 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+export interface AiceoContinuityResumeInput {
+  /**
+     * @minLength 1
+     * @maxLength 120
+     */
+  alias: string;
+}
+
+export type AiceoContinuityStateInputState = typeof AiceoContinuityStateInputState[keyof typeof AiceoContinuityStateInputState];
+
+
+export const AiceoContinuityStateInputState = {
+  RUNNING: 'RUNNING',
+  PAUSED: 'PAUSED',
+  FAILED: 'FAILED',
+  COMPLETED: 'COMPLETED',
+  OWNER_GATE: 'OWNER_GATE',
+} as const;
+
+export type AiceoContinuityStateInputCurrentState = { [key: string]: unknown };
+
+export type AiceoContinuityStateInputDecisionRuleRegistryItem = { [key: string]: unknown };
+
+export type AiceoContinuityStateInputEntityRegistryItem = { [key: string]: unknown };
+
+export type AiceoContinuityStateInputAliasDictionary = { [key: string]: unknown };
+
+export type AiceoContinuityStateInputEvidencePointersItem = { [key: string]: unknown };
+
+export type AiceoContinuityStateInputResumeNode = { [key: string]: unknown };
+
+export interface AiceoContinuityStateInput {
+  state: AiceoContinuityStateInputState;
+  currentState: AiceoContinuityStateInputCurrentState;
+  decisionRuleRegistry: AiceoContinuityStateInputDecisionRuleRegistryItem[];
+  entityRegistry: AiceoContinuityStateInputEntityRegistryItem[];
+  aliasDictionary: AiceoContinuityStateInputAliasDictionary;
+  evidencePointers: AiceoContinuityStateInputEvidencePointersItem[];
+  resumeNode: AiceoContinuityStateInputResumeNode;
+  /** @nullable */
+  failureReason?: string | null;
+  /** @nullable */
+  recoveryStrategy?: string | null;
+  /** @nullable */
+  ownerGateReason?: string | null;
+}
+
+export type AiceoContinuitySnapshotRole = typeof AiceoContinuitySnapshotRole[keyof typeof AiceoContinuitySnapshotRole];
+
+
+export const AiceoContinuitySnapshotRole = {
+  aiceo_owner: 'aiceo_owner',
+  aiceo_operator: 'aiceo_operator',
+  aiceo_validator: 'aiceo_validator',
+} as const;
+
+export type AiceoContinuitySnapshotProject = { [key: string]: unknown };
+
+export type AiceoContinuitySnapshotState = { [key: string]: unknown };
+
+export type AiceoContinuitySnapshotEventsItem = { [key: string]: unknown };
+
+export type AiceoContinuitySnapshotResume = { [key: string]: unknown };
+
+export interface AiceoContinuitySnapshot {
+  version: 'CONTINUITY-001';
+  truthSource: 'persistent_state';
+  memoryPolicy: string;
+  role?: AiceoContinuitySnapshotRole;
+  project: AiceoContinuitySnapshotProject;
+  state: AiceoContinuitySnapshotState;
+  events: AiceoContinuitySnapshotEventsItem[];
+  resume?: AiceoContinuitySnapshotResume;
+  productionAuthority: false;
+}
+
 export type AiceoTaskInputGovernanceClassification = typeof AiceoTaskInputGovernanceClassification[keyof typeof AiceoTaskInputGovernanceClassification];
 
 

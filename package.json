@@ -35,6 +35,9 @@
     "test:aiceo-control-plane": "node scripts/test-aiceo-control-plane.mjs",
     "test:aiceo-permission-matrix": "node --experimental-strip-types scripts/test-aiceo-permission-matrix.mjs",
     "test:aiceo-governance-root": "node --experimental-strip-types scripts/test-aiceo-governance-root.mjs",
+    "test:aiceo-continuity-layer": "node scripts/test-aiceo-continuity-layer.mjs",
+    "complete:aiceo-continuity": "pnpm --filter @workspace/api-server exec esbuild ../../scripts/complete-aiceo-continuity.ts --bundle --platform=node --format=cjs --outfile=/tmp/complete-aiceo-continuity.cjs && node /tmp/complete-aiceo-continuity.cjs",
+    "verify:aiceo-continuity": "pnpm --filter @workspace/api-server exec esbuild ../../scripts/verify-aiceo-continuity.ts --bundle --platform=node --format=cjs --outfile=/tmp/verify-aiceo-continuity.cjs && node /tmp/verify-aiceo-continuity.cjs",
     "test:grok-provider-adapter": "node --experimental-strip-types scripts/test-grok-provider-adapter.mjs"
   },
   "private": true,

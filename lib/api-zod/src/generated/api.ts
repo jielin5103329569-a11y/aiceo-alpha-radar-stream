@@ -50,6 +50,56 @@ export const GetAiceoHistoryResponseItem = zod.object({
 export const GetAiceoHistoryResponse = zod.array(GetAiceoHistoryResponseItem)
 
 
+export const GetAiceoContinuityResponse = zod.object({
+  "version": zod.literal("CONTINUITY-001"),
+  "truthSource": zod.literal("persistent_state"),
+  "memoryPolicy": zod.string(),
+  "role": zod.enum(['aiceo_owner', 'aiceo_operator', 'aiceo_validator']).optional(),
+  "project": zod.record(zod.string(), zod.unknown()),
+  "state": zod.record(zod.string(), zod.unknown()),
+  "events": zod.array(zod.record(zod.string(), zod.unknown())),
+  "resume": zod.record(zod.string(), zod.unknown()).optional(),
+  "productionAuthority": zod.literal(false)
+})
+
+
+export const resumeAiceoContinuityBodyAliasMax = 120;
+
+
+
+export const ResumeAiceoContinuityBody = zod.object({
+  "alias": zod.string().min(1).max(resumeAiceoContinuityBodyAliasMax)
+})
+
+export const ResumeAiceoContinuityResponse = zod.object({
+  "version": zod.literal("CONTINUITY-001"),
+  "truthSource": zod.literal("persistent_state"),
+  "memoryPolicy": zod.string(),
+  "role": zod.enum(['aiceo_owner', 'aiceo_operator', 'aiceo_validator']).optional(),
+  "project": zod.record(zod.string(), zod.unknown()),
+  "state": zod.record(zod.string(), zod.unknown()),
+  "events": zod.array(zod.record(zod.string(), zod.unknown())),
+  "resume": zod.record(zod.string(), zod.unknown()).optional(),
+  "productionAuthority": zod.literal(false)
+})
+
+
+export const RecordAiceoContinuityStateBody = zod.object({
+  "state": zod.enum(['RUNNING', 'PAUSED', 'FAILED', 'COMPLETED', 'OWNER_GATE']),
+  "currentState": zod.record(zod.string(), zod.unknown()),
+  "decisionRuleRegistry": zod.array(zod.record(zod.string(), zod.unknown())),
+  "entityRegistry": zod.array(zod.record(zod.string(), zod.unknown())),
+  "aliasDictionary": zod.record(zod.string(), zod.unknown()),
+  "evidencePointers": zod.array(zod.record(zod.string(), zod.unknown())),
+  "resumeNode": zod.record(zod.string(), zod.unknown()),
+  "failureReason": zod.string().nullish(),
+  "recoveryStrategy": zod.string().nullish(),
+  "ownerGateReason": zod.string().nullish()
+})
+
+export const RecordAiceoContinuityStateResponse = zod.unknown()
+
+
 export const submitAiceoTaskBodyActionMax = 120;
 
 export const submitAiceoTaskBodyResourceMax = 180;

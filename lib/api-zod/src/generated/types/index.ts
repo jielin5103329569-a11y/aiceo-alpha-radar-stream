@@ -7,6 +7,21 @@
  */
 
 export * from './aiceoAuditEvent';
+export * from './aiceoContinuityResumeInput';
+export * from './aiceoContinuitySnapshot';
+export * from './aiceoContinuitySnapshotEventsItem';
+export * from './aiceoContinuitySnapshotProject';
+export * from './aiceoContinuitySnapshotResume';
+export * from './aiceoContinuitySnapshotRole';
+export * from './aiceoContinuitySnapshotState';
+export * from './aiceoContinuityStateInput';
+export * from './aiceoContinuityStateInputAliasDictionary';
+export * from './aiceoContinuityStateInputCurrentState';
+export * from './aiceoContinuityStateInputDecisionRuleRegistryItem';
+export * from './aiceoContinuityStateInputEntityRegistryItem';
+export * from './aiceoContinuityStateInputEvidencePointersItem';
+export * from './aiceoContinuityStateInputResumeNode';
+export * from './aiceoContinuityStateInputState';
 export * from './aiceoDiagnosisInput';
 export * from './aiceoDiagnosisInputEvidence';
 export * from './aiceoDiagnosisInputResolution';

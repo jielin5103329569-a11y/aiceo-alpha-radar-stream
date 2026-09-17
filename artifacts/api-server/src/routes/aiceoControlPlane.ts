@@ -2,6 +2,7 @@ import { Router, type Request, type Response } from "express";
 import { clerkClient, getAuth } from "@clerk/express";
 import { z } from "zod";
 import { aiceoControlPlane } from "../lib/aiceoControlPlane";
+import { aiceoContinuityLayer } from "../lib/aiceoContinuityLayer";
 import { authorizeAiceoRole, authorizeAnyAiceoRole, type AiceoRole } from "../lib/aiceoAuthorization";
 
 const router = Router();
@@ -16,6 +17,18 @@ const submission = z.object({
   timeoutMs: z.number().int().positive().max(30_000).optional(), maxRetries: z.number().int().nonnegative().max(2).optional(), clientTimestamp: z.string().datetime().optional(),
 }).strict();
 const evidence = z.object({ summary: z.string().min(1).max(500), facts: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).optional() }).strict();
+const continuityUpdate = z.object({
+  state: z.enum(["RUNNING", "PAUSED", "FAILED", "COMPLETED", "OWNER_GATE"]),
+  currentState: z.record(z.string(), z.unknown()),
+  decisionRuleRegistry: z.array(z.record(z.string(), z.unknown())),
+  entityRegistry: z.array(z.record(z.string(), z.unknown())),
+  aliasDictionary: z.record(z.string(), z.unknown()),
+  evidencePointers: z.array(z.record(z.string(), z.unknown())),
+  resumeNode: z.record(z.string(), z.unknown()),
+  failureReason: z.string().max(1000).nullable().optional(),
+  recoveryStrategy: z.string().max(1000).nullable().optional(),
+  ownerGateReason: z.string().max(1000).nullable().optional(),
+}).strict();
 const privileged = (role: AiceoRole, handler: (req: Request, res: Response, userId: string) => Promise<void>) => async (req: Request, res: Response): Promise<void> => {
   const auth = getAuth(req);
   if (!auth.userId) {
@@ -82,6 +95,19 @@ router.get("/aiceo/status", async (_req, res) => {
   res.status(status.degraded ? 503 : 200).json(status);
 });
 router.get("/aiceo/history", async (req, res) => { try { res.json(await aiceoControlPlane.history(Number(req.query.limit) || 100)); } catch (error) { res.status(503).json({ error: String(error) }); } });
+router.get("/aiceo/continuity", anyAiceoRole(async (_req, res, _userId, role) => {
+  await run(() => aiceoContinuityLayer.snapshot(role), res);
+}));
+router.post("/aiceo/continuity/resume", anyAiceoRole(async (req, res, _userId, role) => {
+  const parsed = z.object({ alias: z.string().min(1).max(120) }).strict().safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
+  await run(() => aiceoContinuityLayer.resume(parsed.data.alias, role), res);
+}));
+router.put("/aiceo/continuity/state", privileged("aiceo_operator", async (req, res, userId) => {
+  const parsed = continuityUpdate.safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
+  await run(() => aiceoContinuityLayer.update(parsed.data, userId), res);
+}));
 router.post("/aiceo/tasks", privileged("aiceo_operator", async (req, res, userId) => {
   const parsed = submission.safeParse(req.body); if (!parsed.success) {
     await aiceoControlPlane.rejectSubmission(userId, parsed.error.message);

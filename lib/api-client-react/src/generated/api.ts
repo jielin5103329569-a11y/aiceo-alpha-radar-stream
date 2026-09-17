@@ -23,6 +23,9 @@ import type {
   AiIndustryPoolHistoryEvent,
   AiIndustryPoolSnapshot,
   AiceoAuditEvent,
+  AiceoContinuityResumeInput,
+  AiceoContinuitySnapshot,
+  AiceoContinuityStateInput,
   AiceoDiagnosisInput,
   AiceoGovernanceAcceptance,
   AiceoKillSwitchInput,
@@ -306,6 +309,207 @@ export function useGetAiceoHistory<TData = Awaited<ReturnType<typeof getAiceoHis
 
 
 
+
+export const getGetAiceoContinuityUrl = () => {
+
+
+
+
+  return `/api/aiceo/continuity`
+}
+
+export const getAiceoContinuity = async ( options?: Parameters<typeof customFetch>[1]): Promise<AiceoContinuitySnapshot> => {
+
+  return customFetch<AiceoContinuitySnapshot>(getGetAiceoContinuityUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetAiceoContinuityQueryKey = () => {
+    return [
+    `/api/aiceo/continuity`
+    ] as const;
+    }
+
+
+export const getGetAiceoContinuityQueryOptions = <TData = Awaited<ReturnType<typeof getAiceoContinuity>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAiceoContinuity>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetAiceoContinuityQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getAiceoContinuity>>> = ({ signal }) => getAiceoContinuity({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getAiceoContinuity>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetAiceoContinuityQueryResult = NonNullable<Awaited<ReturnType<typeof getAiceoContinuity>>>
+export type GetAiceoContinuityQueryError = ErrorType<void>
+
+
+
+export function useGetAiceoContinuity<TData = Awaited<ReturnType<typeof getAiceoContinuity>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAiceoContinuity>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetAiceoContinuityQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getResumeAiceoContinuityUrl = () => {
+
+
+
+
+  return `/api/aiceo/continuity/resume`
+}
+
+export const resumeAiceoContinuity = async (aiceoContinuityResumeInput: AiceoContinuityResumeInput, options?: Parameters<typeof customFetch>[1]): Promise<AiceoContinuitySnapshot> => {
+
+  return customFetch<AiceoContinuitySnapshot>(getResumeAiceoContinuityUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(aiceoContinuityResumeInput)
+  }
+);}
+
+
+
+
+
+export const getResumeAiceoContinuityMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof resumeAiceoContinuity>>, TError,{data: BodyType<AiceoContinuityResumeInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof resumeAiceoContinuity>>, TError,{data: BodyType<AiceoContinuityResumeInput>}, TContext> => {
+
+const mutationKey = ['resumeAiceoContinuity'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof resumeAiceoContinuity>>, {data: BodyType<AiceoContinuityResumeInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  resumeAiceoContinuity(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ResumeAiceoContinuityMutationResult = NonNullable<Awaited<ReturnType<typeof resumeAiceoContinuity>>>
+    export type ResumeAiceoContinuityMutationBody = BodyType<AiceoContinuityResumeInput>
+    export type ResumeAiceoContinuityMutationError = ErrorType<unknown>
+
+    export const useResumeAiceoContinuity = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof resumeAiceoContinuity>>, TError,{data: BodyType<AiceoContinuityResumeInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof resumeAiceoContinuity>>,
+        TError,
+        {data: BodyType<AiceoContinuityResumeInput>},
+        TContext
+      > => {
+      return useMutation(getResumeAiceoContinuityMutationOptions(options));
+    }
+
+export const getRecordAiceoContinuityStateUrl = () => {
+
+
+
+
+  return `/api/aiceo/continuity/state`
+}
+
+export const recordAiceoContinuityState = async (aiceoContinuityStateInput: AiceoContinuityStateInput, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+  return customFetch<void>(getRecordAiceoContinuityStateUrl(),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(aiceoContinuityStateInput)
+  }
+);}
+
+
+
+
+
+export const getRecordAiceoContinuityStateMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof recordAiceoContinuityState>>, TError,{data: BodyType<AiceoContinuityStateInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof recordAiceoContinuityState>>, TError,{data: BodyType<AiceoContinuityStateInput>}, TContext> => {
+
+const mutationKey = ['recordAiceoContinuityState'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof recordAiceoContinuityState>>, {data: BodyType<AiceoContinuityStateInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  recordAiceoContinuityState(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RecordAiceoContinuityStateMutationResult = NonNullable<Awaited<ReturnType<typeof recordAiceoContinuityState>>>
+    export type RecordAiceoContinuityStateMutationBody = BodyType<AiceoContinuityStateInput>
+    export type RecordAiceoContinuityStateMutationError = ErrorType<void>
+
+    export const useRecordAiceoContinuityState = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof recordAiceoContinuityState>>, TError,{data: BodyType<AiceoContinuityStateInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof recordAiceoContinuityState>>,
+        TError,
+        {data: BodyType<AiceoContinuityStateInput>},
+        TContext
+      > => {
+      return useMutation(getRecordAiceoContinuityStateMutationOptions(options));
+    }
 
 export const getSubmitAiceoTaskUrl = () => {
 

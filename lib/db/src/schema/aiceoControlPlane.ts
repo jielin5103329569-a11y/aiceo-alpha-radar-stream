@@ -150,3 +150,59 @@ export const aiceoAuditEventsTable = pgTable("aiceo_audit_events", {
   uniqueIndex("aiceo_audit_event_hash_unique").on(table.eventHash),
   index("aiceo_audit_task_server_time_idx").on(table.taskId, table.serverTimestamp),
 ]);
+
+export const AICEO_CONTINUITY_STATES = [
+  "RUNNING", "PAUSED", "FAILED", "COMPLETED", "OWNER_GATE",
+] as const;
+export type AiceoContinuityState = (typeof AICEO_CONTINUITY_STATES)[number];
+
+export const aiceoContinuityProjectsTable = pgTable("aiceo_continuity_projects", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  projectKey: varchar("project_key", { length: 120 }).notNull(),
+  title: varchar("title", { length: 180 }).notNull(),
+  purpose: text("purpose").notNull(),
+  authority: varchar("authority", { length: 120 }).notNull().default("grok_restricted_development"),
+  environment: varchar("environment", { length: 24 }).notNull().default("development"),
+  productionAuthority: boolean("production_authority").notNull().default(false),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [uniqueIndex("aiceo_continuity_project_key_unique").on(table.projectKey)]);
+
+export const aiceoContinuityStateTable = pgTable("aiceo_continuity_state", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  projectId: uuid("project_id").notNull(),
+  state: varchar("state", { length: 20 }).notNull(),
+  currentState: jsonb("current_state").$type<Record<string, unknown>>().notNull(),
+  decisionRuleRegistry: jsonb("decision_rule_registry").$type<Record<string, unknown>[]>().notNull(),
+  entityRegistry: jsonb("entity_registry").$type<Record<string, unknown>[]>().notNull(),
+  aliasDictionary: jsonb("alias_dictionary").$type<Record<string, unknown>>().notNull(),
+  evidencePointers: jsonb("evidence_pointers").$type<Record<string, unknown>[]>().notNull(),
+  resumeNode: jsonb("resume_node").$type<Record<string, unknown>>().notNull(),
+  failureReason: text("failure_reason"),
+  recoveryStrategy: text("recovery_strategy"),
+  ownerGateReason: text("owner_gate_reason"),
+  heartbeatAt: timestamp("heartbeat_at", { withTimezone: true }).notNull().defaultNow(),
+  supervisorVersion: varchar("supervisor_version", { length: 80 }).notNull().default("CONTINUITY-001"),
+  revision: integer("revision").notNull().default(1),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex("aiceo_continuity_project_state_unique").on(table.projectId),
+  index("aiceo_continuity_state_heartbeat_idx").on(table.state, table.heartbeatAt),
+  uniqueIndex("aiceo_continuity_one_running_unique").on(sql`(true)`).where(sql`${table.state} = 'RUNNING'`),
+]);
+
+export const aiceoContinuityEventsTable = pgTable("aiceo_continuity_events", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  projectId: uuid("project_id").notNull(),
+  state: varchar("state", { length: 20 }).notNull(),
+  actorId: varchar("actor_id", { length: 180 }).notNull(),
+  eventType: varchar("event_type", { length: 80 }).notNull(),
+  payload: jsonb("payload").$type<Record<string, unknown>>().notNull(),
+  previousHash: varchar("previous_hash", { length: 128 }),
+  eventHash: varchar("event_hash", { length: 128 }).notNull(),
+  serverTimestamp: timestamp("server_timestamp", { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex("aiceo_continuity_event_hash_unique").on(table.eventHash),
+  index("aiceo_continuity_event_project_time_idx").on(table.projectId, table.serverTimestamp),
+]);

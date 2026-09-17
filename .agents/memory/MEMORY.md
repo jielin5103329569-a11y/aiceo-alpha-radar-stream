@@ -29,3 +29,4 @@
 - [Database JSON parameter typing](database-json-parameter-typing.md) — Cast bound SQL parameters explicitly when they enter polymorphic PostgreSQL JSON builders.
 - [AICEO Clerk role authority](aiceo-clerk-role-authority.md) — Resolve current roles server-side; Development session JWTs may omit public metadata.
 - [Owner–Brain execution protocol](owner-brain-execution-protocol.md) — Future capability responses are binary: execute safely when able; otherwise say “不能” and give only the real blocker.
+- [API operational script bundles](api-operational-script-bundles.md) — Bundle DB-backed TypeScript scripts as CommonJS with async main; native TS/ESM paths conflict with workspace and `pg`.
