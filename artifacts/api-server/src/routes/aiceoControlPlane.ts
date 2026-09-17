@@ -29,6 +29,11 @@ const continuityUpdate = z.object({
   recoveryStrategy: z.string().max(1000).nullable().optional(),
   ownerGateReason: z.string().max(1000).nullable().optional(),
 }).strict();
+const collaborationCategory = z.enum([
+  "communication_bottleneck", "execution_friction", "repeated_error", "capability_gap",
+  "owner_time_waste", "incorrect_pause", "continuity_problem", "other",
+]);
+const collaborationEvidence = z.array(z.record(z.string(), z.unknown())).min(1);
 const privileged = (role: AiceoRole, handler: (req: Request, res: Response, userId: string) => Promise<void>) => async (req: Request, res: Response): Promise<void> => {
   const auth = getAuth(req);
   if (!auth.userId) {
@@ -107,6 +112,49 @@ router.put("/aiceo/continuity/state", privileged("aiceo_operator", async (req, r
   const parsed = continuityUpdate.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
   await run(() => aiceoContinuityLayer.update(parsed.data, userId), res);
+}));
+router.get("/aiceo/continuity/collaboration-loop", anyAiceoRole(async (_req, res) => {
+  await run(() => aiceoContinuityLayer.collaborationLoop(), res);
+}));
+router.post("/aiceo/continuity/collaboration-loop/issues", privileged("aiceo_operator", async (req, res, userId) => {
+  const parsed = z.object({
+    category: collaborationCategory,
+    summary: z.string().min(1).max(1000),
+    evidence: collaborationEvidence,
+    context: z.record(z.string(), z.unknown()),
+  }).strict().safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
+  await run(() => aiceoContinuityLayer.captureIssue(parsed.data, userId), res);
+}));
+router.post("/aiceo/continuity/collaboration-loop/rules", privileged("aiceo_operator", async (req, res, userId) => {
+  const parsed = z.object({
+    issueId: z.string().uuid(),
+    ruleKey: z.string().min(1).max(120),
+    ruleText: z.string().min(1).max(4000),
+    source: z.string().min(1).max(1000),
+    reason: z.string().min(1).max(1000),
+    scope: z.record(z.string(), z.unknown()),
+    rootCause: z.string().min(1).max(1000),
+    desiredBehavior: z.string().min(1).max(1000),
+    additionalEvidence: z.array(z.record(z.string(), z.unknown())).min(1),
+    protectedImpacts: z.array(z.string().max(120)).max(20),
+  }).strict().safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
+  await run(() => aiceoContinuityLayer.proposeRule(parsed.data, userId), res);
+}));
+router.post("/aiceo/continuity/collaboration-loop/rules/:id/validate", privileged("aiceo_validator", async (req, res, userId) => {
+  const parsed = z.object({
+    improved: z.boolean(),
+    evidence: collaborationEvidence,
+    summary: z.string().min(1).max(1000),
+  }).strict().safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
+  await run(() => aiceoContinuityLayer.validateRule(String(req.params.id), parsed.data, userId), res);
+}));
+router.post("/aiceo/continuity/collaboration-loop/rules/:id/rollback", privileged("aiceo_operator", async (req, res, userId) => {
+  const parsed = z.object({ reason: z.string().min(1).max(1000) }).strict().safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
+  await run(() => aiceoContinuityLayer.rollbackRule(String(req.params.id), parsed.data.reason, userId), res);
 }));
 router.post("/aiceo/tasks", privileged("aiceo_operator", async (req, res, userId) => {
   const parsed = submission.safeParse(req.body); if (!parsed.success) {

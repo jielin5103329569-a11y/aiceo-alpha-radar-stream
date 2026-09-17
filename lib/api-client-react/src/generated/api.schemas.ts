@@ -5,6 +5,63 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+export type AiceoCollaborationIssueInputCategory = typeof AiceoCollaborationIssueInputCategory[keyof typeof AiceoCollaborationIssueInputCategory];
+
+
+export const AiceoCollaborationIssueInputCategory = {
+  communication_bottleneck: 'communication_bottleneck',
+  execution_friction: 'execution_friction',
+  repeated_error: 'repeated_error',
+  capability_gap: 'capability_gap',
+  owner_time_waste: 'owner_time_waste',
+  incorrect_pause: 'incorrect_pause',
+  continuity_problem: 'continuity_problem',
+  other: 'other',
+} as const;
+
+export type AiceoCollaborationIssueInputEvidenceItem = { [key: string]: unknown };
+
+export type AiceoCollaborationIssueInputContext = { [key: string]: unknown };
+
+export interface AiceoCollaborationIssueInput {
+  category: AiceoCollaborationIssueInputCategory;
+  summary: string;
+  /** @minItems 1 */
+  evidence: AiceoCollaborationIssueInputEvidenceItem[];
+  context: AiceoCollaborationIssueInputContext;
+}
+
+export type AiceoCollaborationRuleInputScope = { [key: string]: unknown };
+
+export type AiceoCollaborationRuleInputAdditionalEvidenceItem = { [key: string]: unknown };
+
+export interface AiceoCollaborationRuleInput {
+  issueId: string;
+  ruleKey: string;
+  ruleText: string;
+  source: string;
+  reason: string;
+  scope: AiceoCollaborationRuleInputScope;
+  rootCause: string;
+  desiredBehavior: string;
+  /** @minItems 1 */
+  additionalEvidence: AiceoCollaborationRuleInputAdditionalEvidenceItem[];
+  protectedImpacts: string[];
+}
+
+export type AiceoCollaborationValidationInputEvidenceItem = { [key: string]: unknown };
+
+export interface AiceoCollaborationValidationInput {
+  improved: boolean;
+  /** @minItems 1 */
+  evidence: AiceoCollaborationValidationInputEvidenceItem[];
+  summary: string;
+}
+
+export interface AiceoCollaborationRollbackInput {
+  reason: string;
+}
+
 export interface AiceoContinuityResumeInput {
   /**
      * @minLength 1

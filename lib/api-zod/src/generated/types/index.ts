@@ -7,6 +7,16 @@
  */
 
 export * from './aiceoAuditEvent';
+export * from './aiceoCollaborationIssueInput';
+export * from './aiceoCollaborationIssueInputCategory';
+export * from './aiceoCollaborationIssueInputContext';
+export * from './aiceoCollaborationIssueInputEvidenceItem';
+export * from './aiceoCollaborationRollbackInput';
+export * from './aiceoCollaborationRuleInput';
+export * from './aiceoCollaborationRuleInputAdditionalEvidenceItem';
+export * from './aiceoCollaborationRuleInputScope';
+export * from './aiceoCollaborationValidationInput';
+export * from './aiceoCollaborationValidationInputEvidenceItem';
 export * from './aiceoContinuityResumeInput';
 export * from './aiceoContinuitySnapshot';
 export * from './aiceoContinuitySnapshotEventsItem';

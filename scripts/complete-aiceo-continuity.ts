@@ -3,12 +3,25 @@ import { aiceoContinuityLayer } from "../artifacts/api-server/src/lib/aiceoConti
 async function main() {
   const snapshot = await aiceoContinuityLayer.snapshot("aiceo_operator");
   const state = snapshot.state;
-  if (state.state !== "COMPLETED") {
+  const hasImprovementLoop = state.decisionRuleRegistry.some((rule) => rule.id === "continuous-collaboration-improvement-loop");
+  if (state.state !== "COMPLETED" || !hasImprovementLoop) {
   const entities = state.entityRegistry.map((entity) =>
     entity.id === "continuity-001"
       ? { ...entity, status: "COMPLETED", verification: "PENDING_INDEPENDENT_READ_ONLY_ACCEPTANCE" }
       : entity,
   );
+  if (!entities.some((entity) => entity.id === "collaboration-loop-001")) {
+    entities.push({ id: "collaboration-loop-001", type: "continuous_improvement_loop", status: "ACTIVE", version: "COLLABORATION-LOOP-001" });
+  }
+  const rules = hasImprovementLoop ? state.decisionRuleRegistry : [
+    ...state.decisionRuleRegistry,
+    {
+      id: "continuous-collaboration-improvement-loop",
+      version: 1,
+      rule: "Capture evidence-backed collaboration friction, classify root cause, define correct behavior, conflict-check, version ordinary improvements, validate actual improvement, and roll back safely. Owner Protection or authority changes fail closed at OWNER_GATE.",
+      scope: "Owner–Brain collaboration",
+    },
+  ];
   const result = await aiceoContinuityLayer.update({
     state: "COMPLETED",
     currentState: {
@@ -16,13 +29,14 @@ async function main() {
       implementation: "COMPLETED",
       verification: "PENDING_INDEPENDENT_READ_ONLY_ACCEPTANCE",
     },
-    decisionRuleRegistry: state.decisionRuleRegistry,
+    decisionRuleRegistry: rules,
     entityRegistry: entities,
     aliasDictionary: state.aliasDictionary,
     evidencePointers: [
       ...state.evidencePointers,
       { type: "test", pointer: "scripts/test-aiceo-continuity-layer.mjs" },
       { type: "api_contract", pointer: "lib/api-spec/openapi.yaml" },
+      { type: "migration", pointer: "lib/db/drizzle/0017_aiceo_collaboration_improvement_loop.sql" },
     ],
     resumeNode: {
       node: "independent-read-only-acceptance",

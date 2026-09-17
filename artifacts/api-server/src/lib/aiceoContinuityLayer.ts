@@ -1,10 +1,12 @@
 import { createHash, createHmac, randomUUID } from "node:crypto";
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, max } from "drizzle-orm";
 import { db } from "@workspace/db";
 import {
   aiceoContinuityEventsTable,
   aiceoContinuityProjectsTable,
   aiceoContinuityStateTable,
+  aiceoCollaborationIssuesTable,
+  aiceoCollaborationRulesTable,
   aiceoControlStateTable,
   type AiceoContinuityState,
 } from "@workspace/db/schema";
@@ -156,6 +158,183 @@ export class AiceoContinuityLayer {
       await tx.insert(aiceoContinuityEventsTable).values({ ...values, eventHash: signed });
       return { projectId: project.id, state: input.state, revision, heartbeatAt: now, eventHash: signed, productionAuthority: false };
     });
+  }
+
+  async captureIssue(input: {
+    category: string;
+    summary: string;
+    evidence: Record<string, unknown>[];
+    context: Record<string, unknown>;
+  }, actorId: string) {
+    if (!input.evidence.length) throw new Error("不能：合作问题必须包含证据，不能用临时情绪直接生成长期规则");
+    return db.transaction(async (tx) => {
+      const project = await this.project(tx);
+      const [issue] = await tx.insert(aiceoCollaborationIssuesTable).values({
+        projectId: project.id,
+        category: input.category,
+        summary: input.summary,
+        evidence: input.evidence,
+        context: input.context,
+        status: "CAPTURED",
+        createdBy: actorId.slice(0, 180),
+      }).returning();
+      return { issue, next: "root_cause_and_desired_behavior", productionAuthority: false };
+    });
+  }
+
+  async proposeRule(input: {
+    issueId: string;
+    ruleKey: string;
+    ruleText: string;
+    source: string;
+    reason: string;
+    scope: Record<string, unknown>;
+    rootCause: string;
+    desiredBehavior: string;
+    additionalEvidence: Record<string, unknown>[];
+    protectedImpacts: string[];
+  }, actorId: string) {
+    return db.transaction(async (tx) => {
+      const control = (await tx.select().from(aiceoControlStateTable).limit(1).for("update"))[0];
+      if (!control || control.killSwitch || !control.queueActive || control.circuitState === "OPEN") {
+        throw new Error("不能：安全控制阻止合作规则持久化");
+      }
+      const project = await this.project(tx);
+      const issue = (await tx.select().from(aiceoCollaborationIssuesTable)
+        .where(and(eq(aiceoCollaborationIssuesTable.id, input.issueId), eq(aiceoCollaborationIssuesTable.projectId, project.id)))
+        .for("update"))[0];
+      if (!issue) throw new Error("不能：合作问题证据不存在");
+      const evidence = [...issue.evidence, ...input.additionalEvidence];
+      if (evidence.length < 2 || !input.rootCause.trim() || !input.desiredBehavior.trim()) {
+        throw new Error("不能：至少需要两项证据、根因和正确行为定义，避免偶发事件污染长期规则");
+      }
+      const protectedTerms = [
+        "financial_and_physical_assets", "legal_liability", "aiceo_system_integrity",
+        "financial and physical assets", "legal liability", "aiceo system integrity",
+        "owner_sovereignty", "owner sovereignty", "governance_authority", "governance authority",
+        "production", "trading", "databento", "alert",
+      ];
+      const candidateText = JSON.stringify({
+        ruleText: input.ruleText,
+        reason: input.reason,
+        scope: input.scope,
+        rootCause: input.rootCause,
+        desiredBehavior: input.desiredBehavior,
+        protectedImpacts: input.protectedImpacts,
+      }).toLowerCase();
+      const touchesProtection = protectedTerms.some((term) => candidateText.includes(term));
+      const classification = touchesProtection ? "owner_protection" : "ordinary_collaboration";
+      const status = touchesProtection ? "OWNER_GATE" : "ACTIVE";
+      const latest = (await tx.select({ version: max(aiceoCollaborationRulesTable.version) })
+        .from(aiceoCollaborationRulesTable)
+        .where(and(eq(aiceoCollaborationRulesTable.projectId, project.id), eq(aiceoCollaborationRulesTable.ruleKey, input.ruleKey))))[0];
+      const version = Number(latest?.version ?? 0) + 1;
+      const prior = version > 1
+        ? (await tx.select().from(aiceoCollaborationRulesTable).where(and(
+          eq(aiceoCollaborationRulesTable.projectId, project.id),
+          eq(aiceoCollaborationRulesTable.ruleKey, input.ruleKey),
+          eq(aiceoCollaborationRulesTable.version, version - 1),
+        )).limit(1))[0]
+        : null;
+      if (status === "ACTIVE" && prior?.status === "ACTIVE") {
+        await tx.update(aiceoCollaborationRulesTable).set({ status: "IMPROVED" }).where(eq(aiceoCollaborationRulesTable.id, prior.id));
+      }
+      const conflictCheck = {
+        ownerProtectionTriad: touchesProtection ? "OWNER_GATE" : "CLEAR",
+        ownerSovereignty: touchesProtection ? "OWNER_GATE" : "CLEAR",
+        authorityExpansion: touchesProtection ? "BLOCKED_PENDING_OWNER" : "NONE",
+        productionAuthority: false,
+      };
+      const [rule] = await tx.insert(aiceoCollaborationRulesTable).values({
+        projectId: project.id,
+        issueId: issue.id,
+        ruleKey: input.ruleKey,
+        version,
+        ruleText: input.ruleText,
+        source: input.source,
+        reason: input.reason,
+        scope: input.scope,
+        classification,
+        conflictCheck,
+        status,
+        supersedesRuleId: prior?.id ?? null,
+        activatedAt: status === "ACTIVE" ? new Date() : null,
+        createdBy: actorId.slice(0, 180),
+      }).returning();
+      await tx.update(aiceoCollaborationIssuesTable).set({
+        evidence,
+        rootCause: input.rootCause,
+        desiredBehavior: input.desiredBehavior,
+        status,
+        occurrenceCount: evidence.length,
+        lastObservedAt: new Date(),
+      }).where(eq(aiceoCollaborationIssuesTable.id, issue.id));
+      return {
+        rule,
+        decision: touchesProtection ? "不能：候选规则触及 Owner-only Gate，必须走 Owner Governance Approval" : "能：普通协作规则已安全版本化并激活",
+        requiresOwnerGovernanceApproval: touchesProtection,
+        productionAuthority: false,
+      };
+    });
+  }
+
+  async validateRule(ruleId: string, input: { improved: boolean; evidence: Record<string, unknown>[]; summary: string }, actorId: string) {
+    if (!input.evidence.length) throw new Error("不能：规则改善验证必须包含实际证据");
+    return db.transaction(async (tx) => {
+      const rule = (await tx.select().from(aiceoCollaborationRulesTable).where(eq(aiceoCollaborationRulesTable.id, ruleId)).for("update"))[0];
+      if (!rule || !["ACTIVE", "VALIDATING"].includes(rule.status)) throw new Error("不能：只有已激活的普通协作规则可以验证");
+      if (rule.classification !== "ordinary_collaboration") throw new Error("不能：Owner Protection 候选未获个人批准，不能验证或激活");
+      const result = { improved: input.improved, evidence: input.evidence, summary: input.summary, validatedBy: actorId.slice(0, 180), validatedAt: new Date().toISOString() };
+      await tx.update(aiceoCollaborationRulesTable).set({ status: input.improved ? "IMPROVED" : "ACTIVE", validationResult: result })
+        .where(eq(aiceoCollaborationRulesTable.id, rule.id));
+      await tx.update(aiceoCollaborationIssuesTable).set({ status: input.improved ? "IMPROVED" : "ACTIVE", lastObservedAt: new Date() })
+        .where(eq(aiceoCollaborationIssuesTable.id, rule.issueId));
+      return { ruleId, status: input.improved ? "IMPROVED" : "ACTIVE", validationResult: result, productionAuthority: false };
+    });
+  }
+
+  async rollbackRule(ruleId: string, reason: string, actorId: string) {
+    return db.transaction(async (tx) => {
+      const rule = (await tx.select().from(aiceoCollaborationRulesTable).where(eq(aiceoCollaborationRulesTable.id, ruleId)).for("update"))[0];
+      if (!rule || rule.classification !== "ordinary_collaboration" || !["ACTIVE", "IMPROVED"].includes(rule.status)) {
+        throw new Error("不能：该规则不能自动回滚；Owner Protection 变更必须走 Owner Governance Approval");
+      }
+      const latest = (await tx.select({ version: max(aiceoCollaborationRulesTable.version) })
+        .from(aiceoCollaborationRulesTable).where(and(
+          eq(aiceoCollaborationRulesTable.projectId, rule.projectId),
+          eq(aiceoCollaborationRulesTable.ruleKey, rule.ruleKey),
+        )))[0];
+      const [rollback] = await tx.insert(aiceoCollaborationRulesTable).values({
+        projectId: rule.projectId,
+        issueId: rule.issueId,
+        ruleKey: rule.ruleKey,
+        version: Number(latest?.version ?? rule.version) + 1,
+        ruleText: `ROLLBACK ${rule.ruleKey} v${rule.version}`,
+        source: "validated rollback",
+        reason,
+        scope: rule.scope,
+        classification: "ordinary_collaboration",
+        conflictCheck: { rollback: true, ownerProtectionTriad: "CLEAR", productionAuthority: false },
+        status: "ACTIVE",
+        rollbackOfRuleId: rule.id,
+        createdBy: actorId.slice(0, 180),
+        activatedAt: new Date(),
+      }).returning();
+      await tx.update(aiceoCollaborationRulesTable).set({ status: "ROLLED_BACK", rolledBackAt: new Date() })
+        .where(eq(aiceoCollaborationRulesTable.id, rule.id));
+      return { rolledBackRuleId: rule.id, rollbackRule: rollback, productionAuthority: false };
+    });
+  }
+
+  async collaborationLoop() {
+    const project = await this.project(db);
+    const [issues, rules] = await Promise.all([
+      db.select().from(aiceoCollaborationIssuesTable).where(eq(aiceoCollaborationIssuesTable.projectId, project.id))
+        .orderBy(desc(aiceoCollaborationIssuesTable.lastObservedAt)).limit(100),
+      db.select().from(aiceoCollaborationRulesTable).where(eq(aiceoCollaborationRulesTable.projectId, project.id))
+        .orderBy(desc(aiceoCollaborationRulesTable.createdAt)).limit(100),
+    ]);
+    return { version: "COLLABORATION-LOOP-001", issues, rules, productionAuthority: false };
   }
 }
 

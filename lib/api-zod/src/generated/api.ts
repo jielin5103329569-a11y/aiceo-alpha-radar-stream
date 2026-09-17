@@ -100,6 +100,68 @@ export const RecordAiceoContinuityStateBody = zod.object({
 export const RecordAiceoContinuityStateResponse = zod.unknown()
 
 
+export const GetAiceoCollaborationLoopResponse = zod.unknown()
+
+
+
+
+
+export const CaptureAiceoCollaborationIssueBody = zod.object({
+  "category": zod.enum(['communication_bottleneck', 'execution_friction', 'repeated_error', 'capability_gap', 'owner_time_waste', 'incorrect_pause', 'continuity_problem', 'other']),
+  "summary": zod.string(),
+  "evidence": zod.array(zod.record(zod.string(), zod.unknown())).min(1),
+  "context": zod.record(zod.string(), zod.unknown())
+})
+
+export const CaptureAiceoCollaborationIssueResponse = zod.unknown()
+
+
+
+
+
+export const ProposeAiceoCollaborationRuleBody = zod.object({
+  "issueId": zod.string(),
+  "ruleKey": zod.string(),
+  "ruleText": zod.string(),
+  "source": zod.string(),
+  "reason": zod.string(),
+  "scope": zod.record(zod.string(), zod.unknown()),
+  "rootCause": zod.string(),
+  "desiredBehavior": zod.string(),
+  "additionalEvidence": zod.array(zod.record(zod.string(), zod.unknown())).min(1),
+  "protectedImpacts": zod.array(zod.string())
+})
+
+export const ProposeAiceoCollaborationRuleResponse = zod.unknown()
+
+
+export const ValidateAiceoCollaborationRuleParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+
+
+
+export const ValidateAiceoCollaborationRuleBody = zod.object({
+  "improved": zod.boolean(),
+  "evidence": zod.array(zod.record(zod.string(), zod.unknown())).min(1),
+  "summary": zod.string()
+})
+
+export const ValidateAiceoCollaborationRuleResponse = zod.unknown()
+
+
+export const RollbackAiceoCollaborationRuleParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const RollbackAiceoCollaborationRuleBody = zod.object({
+  "reason": zod.string()
+})
+
+export const RollbackAiceoCollaborationRuleResponse = zod.unknown()
+
+
 export const submitAiceoTaskBodyActionMax = 120;
 
 export const submitAiceoTaskBodyResourceMax = 180;

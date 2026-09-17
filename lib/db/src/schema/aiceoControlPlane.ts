@@ -206,3 +206,44 @@ export const aiceoContinuityEventsTable = pgTable("aiceo_continuity_events", {
   uniqueIndex("aiceo_continuity_event_hash_unique").on(table.eventHash),
   index("aiceo_continuity_event_project_time_idx").on(table.projectId, table.serverTimestamp),
 ]);
+
+export const aiceoCollaborationIssuesTable = pgTable("aiceo_collaboration_issues", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  projectId: uuid("project_id").notNull(),
+  category: varchar("category", { length: 64 }).notNull(),
+  summary: text("summary").notNull(),
+  evidence: jsonb("evidence").$type<Record<string, unknown>[]>().notNull(),
+  context: jsonb("context").$type<Record<string, unknown>>().notNull(),
+  rootCause: text("root_cause"),
+  desiredBehavior: text("desired_behavior"),
+  status: varchar("status", { length: 32 }).notNull().default("CAPTURED"),
+  occurrenceCount: integer("occurrence_count").notNull().default(1),
+  firstObservedAt: timestamp("first_observed_at", { withTimezone: true }).notNull().defaultNow(),
+  lastObservedAt: timestamp("last_observed_at", { withTimezone: true }).notNull().defaultNow(),
+  createdBy: varchar("created_by", { length: 180 }).notNull(),
+}, (table) => [index("aiceo_collaboration_issue_status_idx").on(table.status, table.lastObservedAt)]);
+
+export const aiceoCollaborationRulesTable = pgTable("aiceo_collaboration_rules", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  projectId: uuid("project_id").notNull(),
+  issueId: uuid("issue_id").notNull(),
+  ruleKey: varchar("rule_key", { length: 120 }).notNull(),
+  version: integer("version").notNull(),
+  ruleText: text("rule_text").notNull(),
+  source: text("source").notNull(),
+  reason: text("reason").notNull(),
+  scope: jsonb("scope").$type<Record<string, unknown>>().notNull(),
+  classification: varchar("classification", { length: 32 }).notNull(),
+  conflictCheck: jsonb("conflict_check").$type<Record<string, unknown>>().notNull(),
+  status: varchar("status", { length: 32 }).notNull(),
+  validationResult: jsonb("validation_result").$type<Record<string, unknown>>(),
+  supersedesRuleId: uuid("supersedes_rule_id"),
+  rollbackOfRuleId: uuid("rollback_of_rule_id"),
+  activatedAt: timestamp("activated_at", { withTimezone: true }),
+  rolledBackAt: timestamp("rolled_back_at", { withTimezone: true }),
+  createdBy: varchar("created_by", { length: 180 }).notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex("aiceo_collaboration_rule_version_unique").on(table.projectId, table.ruleKey, table.version),
+  index("aiceo_collaboration_rule_status_idx").on(table.status, table.createdAt),
+]);

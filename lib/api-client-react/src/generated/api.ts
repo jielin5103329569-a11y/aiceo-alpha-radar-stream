@@ -23,6 +23,10 @@ import type {
   AiIndustryPoolHistoryEvent,
   AiIndustryPoolSnapshot,
   AiceoAuditEvent,
+  AiceoCollaborationIssueInput,
+  AiceoCollaborationRollbackInput,
+  AiceoCollaborationRuleInput,
+  AiceoCollaborationValidationInput,
   AiceoContinuityResumeInput,
   AiceoContinuitySnapshot,
   AiceoContinuityStateInput,
@@ -509,6 +513,339 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
         TContext
       > => {
       return useMutation(getRecordAiceoContinuityStateMutationOptions(options));
+    }
+
+export const getGetAiceoCollaborationLoopUrl = () => {
+
+
+
+
+  return `/api/aiceo/continuity/collaboration-loop`
+}
+
+export const getAiceoCollaborationLoop = async ( options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+  return customFetch<void>(getGetAiceoCollaborationLoopUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetAiceoCollaborationLoopQueryKey = () => {
+    return [
+    `/api/aiceo/continuity/collaboration-loop`
+    ] as const;
+    }
+
+
+export const getGetAiceoCollaborationLoopQueryOptions = <TData = Awaited<ReturnType<typeof getAiceoCollaborationLoop>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAiceoCollaborationLoop>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetAiceoCollaborationLoopQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getAiceoCollaborationLoop>>> = ({ signal }) => getAiceoCollaborationLoop({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getAiceoCollaborationLoop>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetAiceoCollaborationLoopQueryResult = NonNullable<Awaited<ReturnType<typeof getAiceoCollaborationLoop>>>
+export type GetAiceoCollaborationLoopQueryError = ErrorType<unknown>
+
+
+
+export function useGetAiceoCollaborationLoop<TData = Awaited<ReturnType<typeof getAiceoCollaborationLoop>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAiceoCollaborationLoop>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetAiceoCollaborationLoopQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCaptureAiceoCollaborationIssueUrl = () => {
+
+
+
+
+  return `/api/aiceo/continuity/collaboration-loop/issues`
+}
+
+export const captureAiceoCollaborationIssue = async (aiceoCollaborationIssueInput: AiceoCollaborationIssueInput, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+  return customFetch<void>(getCaptureAiceoCollaborationIssueUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(aiceoCollaborationIssueInput)
+  }
+);}
+
+
+
+
+
+export const getCaptureAiceoCollaborationIssueMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof captureAiceoCollaborationIssue>>, TError,{data: BodyType<AiceoCollaborationIssueInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof captureAiceoCollaborationIssue>>, TError,{data: BodyType<AiceoCollaborationIssueInput>}, TContext> => {
+
+const mutationKey = ['captureAiceoCollaborationIssue'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof captureAiceoCollaborationIssue>>, {data: BodyType<AiceoCollaborationIssueInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  captureAiceoCollaborationIssue(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CaptureAiceoCollaborationIssueMutationResult = NonNullable<Awaited<ReturnType<typeof captureAiceoCollaborationIssue>>>
+    export type CaptureAiceoCollaborationIssueMutationBody = BodyType<AiceoCollaborationIssueInput>
+    export type CaptureAiceoCollaborationIssueMutationError = ErrorType<unknown>
+
+    export const useCaptureAiceoCollaborationIssue = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof captureAiceoCollaborationIssue>>, TError,{data: BodyType<AiceoCollaborationIssueInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof captureAiceoCollaborationIssue>>,
+        TError,
+        {data: BodyType<AiceoCollaborationIssueInput>},
+        TContext
+      > => {
+      return useMutation(getCaptureAiceoCollaborationIssueMutationOptions(options));
+    }
+
+export const getProposeAiceoCollaborationRuleUrl = () => {
+
+
+
+
+  return `/api/aiceo/continuity/collaboration-loop/rules`
+}
+
+export const proposeAiceoCollaborationRule = async (aiceoCollaborationRuleInput: AiceoCollaborationRuleInput, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+  return customFetch<void>(getProposeAiceoCollaborationRuleUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(aiceoCollaborationRuleInput)
+  }
+);}
+
+
+
+
+
+export const getProposeAiceoCollaborationRuleMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof proposeAiceoCollaborationRule>>, TError,{data: BodyType<AiceoCollaborationRuleInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof proposeAiceoCollaborationRule>>, TError,{data: BodyType<AiceoCollaborationRuleInput>}, TContext> => {
+
+const mutationKey = ['proposeAiceoCollaborationRule'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof proposeAiceoCollaborationRule>>, {data: BodyType<AiceoCollaborationRuleInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  proposeAiceoCollaborationRule(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ProposeAiceoCollaborationRuleMutationResult = NonNullable<Awaited<ReturnType<typeof proposeAiceoCollaborationRule>>>
+    export type ProposeAiceoCollaborationRuleMutationBody = BodyType<AiceoCollaborationRuleInput>
+    export type ProposeAiceoCollaborationRuleMutationError = ErrorType<unknown>
+
+    export const useProposeAiceoCollaborationRule = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof proposeAiceoCollaborationRule>>, TError,{data: BodyType<AiceoCollaborationRuleInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof proposeAiceoCollaborationRule>>,
+        TError,
+        {data: BodyType<AiceoCollaborationRuleInput>},
+        TContext
+      > => {
+      return useMutation(getProposeAiceoCollaborationRuleMutationOptions(options));
+    }
+
+export const getValidateAiceoCollaborationRuleUrl = (id: string,) => {
+
+
+
+
+  return `/api/aiceo/continuity/collaboration-loop/rules/${id}/validate`
+}
+
+export const validateAiceoCollaborationRule = async (id: string,
+    aiceoCollaborationValidationInput: AiceoCollaborationValidationInput, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+  return customFetch<void>(getValidateAiceoCollaborationRuleUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(aiceoCollaborationValidationInput)
+  }
+);}
+
+
+
+
+
+export const getValidateAiceoCollaborationRuleMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof validateAiceoCollaborationRule>>, TError,{id: string;data: BodyType<AiceoCollaborationValidationInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof validateAiceoCollaborationRule>>, TError,{id: string;data: BodyType<AiceoCollaborationValidationInput>}, TContext> => {
+
+const mutationKey = ['validateAiceoCollaborationRule'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof validateAiceoCollaborationRule>>, {id: string;data: BodyType<AiceoCollaborationValidationInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  validateAiceoCollaborationRule(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ValidateAiceoCollaborationRuleMutationResult = NonNullable<Awaited<ReturnType<typeof validateAiceoCollaborationRule>>>
+    export type ValidateAiceoCollaborationRuleMutationBody = BodyType<AiceoCollaborationValidationInput>
+    export type ValidateAiceoCollaborationRuleMutationError = ErrorType<unknown>
+
+    export const useValidateAiceoCollaborationRule = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof validateAiceoCollaborationRule>>, TError,{id: string;data: BodyType<AiceoCollaborationValidationInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof validateAiceoCollaborationRule>>,
+        TError,
+        {id: string;data: BodyType<AiceoCollaborationValidationInput>},
+        TContext
+      > => {
+      return useMutation(getValidateAiceoCollaborationRuleMutationOptions(options));
+    }
+
+export const getRollbackAiceoCollaborationRuleUrl = (id: string,) => {
+
+
+
+
+  return `/api/aiceo/continuity/collaboration-loop/rules/${id}/rollback`
+}
+
+export const rollbackAiceoCollaborationRule = async (id: string,
+    aiceoCollaborationRollbackInput: AiceoCollaborationRollbackInput, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+  return customFetch<void>(getRollbackAiceoCollaborationRuleUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(aiceoCollaborationRollbackInput)
+  }
+);}
+
+
+
+
+
+export const getRollbackAiceoCollaborationRuleMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof rollbackAiceoCollaborationRule>>, TError,{id: string;data: BodyType<AiceoCollaborationRollbackInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof rollbackAiceoCollaborationRule>>, TError,{id: string;data: BodyType<AiceoCollaborationRollbackInput>}, TContext> => {
+
+const mutationKey = ['rollbackAiceoCollaborationRule'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof rollbackAiceoCollaborationRule>>, {id: string;data: BodyType<AiceoCollaborationRollbackInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  rollbackAiceoCollaborationRule(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RollbackAiceoCollaborationRuleMutationResult = NonNullable<Awaited<ReturnType<typeof rollbackAiceoCollaborationRule>>>
+    export type RollbackAiceoCollaborationRuleMutationBody = BodyType<AiceoCollaborationRollbackInput>
+    export type RollbackAiceoCollaborationRuleMutationError = ErrorType<unknown>
+
+    export const useRollbackAiceoCollaborationRule = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof rollbackAiceoCollaborationRule>>, TError,{id: string;data: BodyType<AiceoCollaborationRollbackInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof rollbackAiceoCollaborationRule>>,
+        TError,
+        {id: string;data: BodyType<AiceoCollaborationRollbackInput>},
+        TContext
+      > => {
+      return useMutation(getRollbackAiceoCollaborationRuleMutationOptions(options));
     }
 
 export const getSubmitAiceoTaskUrl = () => {
