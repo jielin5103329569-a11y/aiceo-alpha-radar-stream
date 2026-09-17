@@ -10,14 +10,15 @@ import {
   aiceoTasksTable, aiceoThoughtNodesTable,
   aiceoSelfCheckReportsTable, aiceoSelfCheckChainContractsTable,
   aiceoPreclassificationMemoryInboxTable, aiceoPreclassificationSeedManifestTable,
+  aiceoContextEvidenceEventsTable,
 } from "@workspace/db/schema";
 import {
   AiceoContinuityLayer, closureIntentDigest, LAYERED_SELF_CHECK_RULE, MEMORY_FOUNDATION_RULE,
-  PRECLASSIFICATION_MEMORY_INBOX_RULE,
+  PRECLASSIFICATION_MEMORY_INBOX_RULE, CONTEXT_AUTHORITY_CONTINUITY_RULE,
 } from "../artifacts/api-server/src/lib/aiceoContinuityLayer";
 import { aiceoPreclassificationInbox } from "../artifacts/api-server/src/lib/aiceoPreclassificationInbox";
 
-const AUDITED_REVISION = 38;
+const AUDITED_REVISION = 44;
 const canonical = (value: unknown): unknown => {
   if (value instanceof Date) return value.toISOString();
   if (Array.isArray(value)) return value.map(canonical);
@@ -35,6 +36,7 @@ async function main() {
   const secret = process.env.SESSION_SECRET;
   assert.ok(secret && secret.length >= 32, "Fail-Closed: signing authority is unavailable");
   const commands = [
+    { name: "api-spec:codegen", args: ["--filter", "@workspace/api-spec", "run", "codegen"] },
     { name: "api-server:typecheck", args: ["--filter", "@workspace/api-server", "run", "typecheck"] },
     { name: "test:aiceo-control-plane", args: ["run", "test:aiceo-control-plane"] },
     { name: "test:aiceo-permission-matrix", args: ["run", "test:aiceo-permission-matrix"] },
@@ -51,6 +53,7 @@ async function main() {
     { name: "test:aiceo-thought-concurrency", args: ["run", "test:aiceo-thought-concurrency"] },
     { name: "test:aiceo-layered-self-checks", args: ["run", "test:aiceo-layered-self-checks"] },
     { name: "test:aiceo-preclassification-inbox", args: ["run", "test:aiceo-preclassification-inbox"] },
+    { name: "test:aiceo-context-drift", args: ["run", "test:aiceo-context-drift"] },
   ].map((command) => {
     const executed = spawnSync("pnpm", command.args, { encoding: "utf8", env: process.env });
     const output = `${executed.stdout ?? ""}\n${executed.stderr ?? ""}`;
@@ -74,8 +77,8 @@ async function main() {
     assert.equal(state.revision, AUDITED_REVISION);
     assert.equal(state.currentState.verification, "NOT_VERIFIED");
     assert.equal(state.currentState.closure, "BLOCKED");
-    assert.equal(state.currentState.acceptedRevision, 37);
-    assert.equal(state.resumeNode.node, "g1-001-preclassification-inbox-closure-integrity-audit");
+    assert.equal(state.currentState.acceptedRevision, 43);
+    assert.equal(state.resumeNode.node, "g1-001-context-authority-closure-integrity-audit");
     assert.equal(project.environment, "development");
     assert.equal(project.authority, "grok_restricted_development");
     assert.equal(project.productionAuthority, false);
@@ -101,6 +104,19 @@ async function main() {
     assert.deepEqual(memoryCounts, { candidates: 0, promoted: 0, activeEvents: 0, thoughts: 0, selfChecks: 0, preclassificationInbox: 8 });
     assert.equal(Number((await tx.select({ value: count() }).from(aiceoPreclassificationSeedManifestTable))[0].value), 8);
     assert.deepEqual(await aiceoPreclassificationInbox.verifyIntegrity(project.id, tx), { count: 8, valid: true });
+    const layer = new AiceoContinuityLayer(tx, true);
+    const contextIntegrity = await layer.verifyContextEvidenceIntegrity(project.id, tx);
+    assert.ok(contextIntegrity.count >= 2 && contextIntegrity.drift_count >= 1 && contextIntegrity.valid);
+    const contextEvidence = await tx.select().from(aiceoContextEvidenceEventsTable)
+      .where(eq(aiceoContextEvidenceEventsTable.projectId, project.id));
+    assert.ok(contextEvidence.some((event) =>
+      event.source === "work"
+      && event.claimedPhase === "Architecture Phase"
+      && event.claimedTask === "Grok Agent Integration Contract"
+      && event.claimedNextStep === "next Grok Agent Integration Contract"
+      && event.disposition === "context_drift_rejected"
+      && !event.stateOverrideAccepted
+      && !event.productionAuthority));
     const selfCheckContracts = await tx.select().from(aiceoSelfCheckChainContractsTable);
     assert.deepEqual(selfCheckContracts, [{
       chainKey: "g1-memory", contractVersion: "G1-001-SC-1",
@@ -122,20 +138,24 @@ async function main() {
     assert.deepEqual(canonical(selfCheckRule), canonical(LAYERED_SELF_CHECK_RULE));
     const inboxRule = state.decisionRuleRegistry.find((rule: any) => rule.id === PRECLASSIFICATION_MEMORY_INBOX_RULE.id);
     assert.deepEqual(canonical(inboxRule), canonical(PRECLASSIFICATION_MEMORY_INBOX_RULE));
+    const contextRule = state.decisionRuleRegistry.find((rule: any) => rule.id === CONTEXT_AUTHORITY_CONTINUITY_RULE.id);
+    assert.deepEqual(canonical(contextRule), canonical(CONTEXT_AUTHORITY_CONTINUITY_RULE));
     const memoryEntity = state.entityRegistry.find((entity: any) => entity.id === "memory-g1-001");
     assert.deepEqual(memoryEntity, {
       id: "memory-g1-001", type: "memory_operating_system_foundation",
       status: "COMPLETED", verification: "NOT_VERIFIED", closure: "BLOCKED",
       version: "G1-001", productionAuthority: false,
     });
-    const acceptance = state.evidencePointers.find((pointer: any) => pointer.id === "g1-001-preclassification-inbox-independent-acceptance");
+    const acceptance = state.evidencePointers.find((pointer: any) =>
+      pointer.id === "g1-001-context-authority-generated-contract-reacceptance");
     assert.equal(acceptance?.result, "VERIFIED");
 
     const continuityEvents = await tx.select().from(aiceoContinuityEventsTable)
       .where(eq(aiceoContinuityEventsTable.projectId, project.id))
-      .orderBy(asc(aiceoContinuityEventsTable.serverTimestamp), asc(aiceoContinuityEventsTable.id));
+      .orderBy(asc(aiceoContinuityEventsTable.appendSequence));
     let previous: string | null = null;
-    for (const event of continuityEvents) {
+    for (const [index, event] of continuityEvents.entries()) {
+      assert.equal(Number(event.appendSequence), index + 1, "Fail-Closed: Continuity sequence gap");
       assert.equal(event.previousHash, previous, "Fail-Closed: Continuity evidence chain broken");
       const expected = createHmac("sha256", secret).update(JSON.stringify(canonical({
         id: event.id, projectId: event.projectId, state: event.state, actorId: event.actorId,
@@ -209,6 +229,10 @@ async function main() {
         summaryFirstGlobalIntegrity: true, selfCheckNotIndependentValidation: true,
         sealedPreclassificationInbox: true, exactEightOwnerThemes: true,
         inboxOriginProvenanceIntegrity: true, futureScientificMigrationDeferredAndBlocked: true,
+        externalContextCandidateOnly: true, persistentStateCompleteIntentVerified: true,
+        contextDriftRecordedAndRejected: true, staleArchitecturePhaseRollbackRejected: true,
+        crossIngressResumeWithoutOwnerRestatement: true, contextEvidenceIntegrity: true,
+        officialOpenapiCodegen: true, generatedReactAndZodContracts: true,
         persistentState: true, continuityHmac: true,
         ownerSovereignty: true, ownerProtectionTriad: true, intentGate: true,
         foundationsFrozen: true, queueAndSafetyControls: true, deferredModules: true,
@@ -218,13 +242,14 @@ async function main() {
       regressionReportHmac: createHmac("sha256", secret)
         .update(JSON.stringify(canonical(report))).digest("hex"),
       memoryCounts,
+      contextIntegrity,
       quarantinedInvalidTestEvents: 2,
       continuityEventsVerified: continuityEvents.length,
       authorityUnchanged: true,
       grantsAuthority: false,
       productionAuthority: false,
     };
-    return new AiceoContinuityLayer(tx, true).update({
+    return layer.update({
       state: "COMPLETED",
       currentState: targetCurrentState,
       decisionRuleRegistry: state.decisionRuleRegistry,
@@ -237,7 +262,7 @@ async function main() {
       ownerGateReason: null,
     }, "aiceo:g1-001-closure-integrity-auditor");
   });
-  assert.equal(result.revision, 39);
+  assert.equal(result.revision, 45);
   assert.equal(result.productionAuthority, false);
   console.log(JSON.stringify({
     revision: result.revision, verification: "VERIFIED", closure: "CLOSED",

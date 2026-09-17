@@ -59,6 +59,9 @@
     ,"test:aiceo-layered-self-checks": "pnpm --filter @workspace/api-server exec esbuild ../../scripts/test-aiceo-layered-self-checks.ts --bundle --platform=node --format=cjs --outfile=/tmp/test-aiceo-layered-self-checks.cjs && node /tmp/test-aiceo-layered-self-checks.cjs"
     ,"seed:aiceo-preclassification-inbox": "pnpm --filter @workspace/api-server exec esbuild ../../scripts/seed-aiceo-preclassification-inbox.ts --bundle --platform=node --format=cjs --outfile=/tmp/seed-aiceo-preclassification-inbox.cjs && node /tmp/seed-aiceo-preclassification-inbox.cjs"
     ,"test:aiceo-preclassification-inbox": "pnpm --filter @workspace/api-server exec esbuild ../../scripts/test-aiceo-preclassification-inbox.ts --bundle --platform=node --format=cjs --outfile=/tmp/test-aiceo-preclassification-inbox.cjs && node /tmp/test-aiceo-preclassification-inbox.cjs"
+    ,"reopen:aiceo-g1-001-context-drift": "pnpm --filter @workspace/api-server exec esbuild ../../scripts/reopen-aiceo-g1-001-context-drift.ts --bundle --platform=node --format=cjs --outfile=/tmp/reopen-aiceo-g1-001-context-drift.cjs && node /tmp/reopen-aiceo-g1-001-context-drift.cjs"
+    ,"test:aiceo-context-drift": "pnpm --filter @workspace/api-server exec esbuild ../../scripts/test-aiceo-context-drift.ts --bundle --platform=node --format=cjs --outfile=/tmp/test-aiceo-context-drift.cjs && node /tmp/test-aiceo-context-drift.cjs"
+    ,"reopen:aiceo-g1-001-generated-contract": "pnpm --filter @workspace/api-server exec esbuild ../../scripts/reopen-aiceo-g1-001-generated-contract.ts --bundle --platform=node --format=cjs --outfile=/tmp/reopen-aiceo-g1-001-generated-contract.cjs && node /tmp/reopen-aiceo-g1-001-generated-contract.cjs"
   },
   "private": true,
   "dependencies": {

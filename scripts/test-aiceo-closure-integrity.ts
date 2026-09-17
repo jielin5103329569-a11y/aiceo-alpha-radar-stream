@@ -80,6 +80,7 @@ async function main() {
     );
 
     const commandNames = [
+      "api-spec:codegen",
       "api-server:typecheck",
       "test:aiceo-control-plane",
       "test:aiceo-permission-matrix",
@@ -96,6 +97,7 @@ async function main() {
       "test:aiceo-thought-concurrency",
       "test:aiceo-layered-self-checks",
       "test:aiceo-preclassification-inbox",
+      "test:aiceo-context-drift",
     ];
     const intentConfirmations = await tx.select().from(aiceoIntentConfirmationsTable);
     const report = {

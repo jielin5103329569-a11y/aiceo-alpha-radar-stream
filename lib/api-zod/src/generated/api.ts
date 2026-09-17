@@ -54,32 +54,49 @@ export const GetAiceoContinuityResponse = zod.object({
   "version": zod.literal("CONTINUITY-001"),
   "truthSource": zod.literal("persistent_state"),
   "memoryPolicy": zod.string(),
+  "recoveryAuthorityOrder": zod.array(zod.string()),
+  "persistentEvidenceVerified": zod.literal(true),
   "role": zod.enum(['aiceo_owner', 'aiceo_operator', 'aiceo_validator']).optional(),
   "project": zod.record(zod.string(), zod.unknown()),
   "state": zod.record(zod.string(), zod.unknown()),
   "events": zod.array(zod.record(zod.string(), zod.unknown())),
   "resume": zod.record(zod.string(), zod.unknown()).optional(),
+  "contextAuthority": zod.record(zod.string(), zod.unknown()).optional(),
   "productionAuthority": zod.literal(false)
 })
 
 
 export const resumeAiceoContinuityBodyAliasMax = 120;
 
+export const resumeAiceoContinuityBodyExternalContextClaimedRevisionMultipleOf = 1;
+
 
 
 export const ResumeAiceoContinuityBody = zod.object({
-  "alias": zod.string().min(1).max(resumeAiceoContinuityBodyAliasMax)
+  "alias": zod.string().min(1).max(resumeAiceoContinuityBodyAliasMax),
+  "externalContext": zod.object({
+  "source": zod.enum(['work', 'notion', 'ordinary_chat', 'new_chat', 'agent', 'future_ai', 'connector', 'other']),
+  "context": zod.record(zod.string(), zod.unknown()),
+  "claimedPhase": zod.string().optional(),
+  "claimedTask": zod.string().optional(),
+  "claimedNextStep": zod.string().optional(),
+  "claimedRevision": zod.number().min(1).multipleOf(resumeAiceoContinuityBodyExternalContextClaimedRevisionMultipleOf).optional(),
+  "observedAt": zod.coerce.date()
+}).optional()
 })
 
 export const ResumeAiceoContinuityResponse = zod.object({
   "version": zod.literal("CONTINUITY-001"),
   "truthSource": zod.literal("persistent_state"),
   "memoryPolicy": zod.string(),
+  "recoveryAuthorityOrder": zod.array(zod.string()),
+  "persistentEvidenceVerified": zod.literal(true),
   "role": zod.enum(['aiceo_owner', 'aiceo_operator', 'aiceo_validator']).optional(),
   "project": zod.record(zod.string(), zod.unknown()),
   "state": zod.record(zod.string(), zod.unknown()),
   "events": zod.array(zod.record(zod.string(), zod.unknown())),
   "resume": zod.record(zod.string(), zod.unknown()).optional(),
+  "contextAuthority": zod.record(zod.string(), zod.unknown()).optional(),
   "productionAuthority": zod.literal(false)
 })
 

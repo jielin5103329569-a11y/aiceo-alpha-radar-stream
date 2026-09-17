@@ -5,6 +5,7 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { AiceoContinuityResumeInputExternalContext } from './aiceoContinuityResumeInputExternalContext';
 
 export interface AiceoContinuityResumeInput {
   /**
@@ -12,4 +13,5 @@ export interface AiceoContinuityResumeInput {
      * @maxLength 120
      */
   alias: string;
+  externalContext?: AiceoContinuityResumeInputExternalContext;
 }

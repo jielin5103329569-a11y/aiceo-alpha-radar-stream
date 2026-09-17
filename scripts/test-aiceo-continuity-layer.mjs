@@ -4,6 +4,7 @@ import fs from "node:fs";
 const schema = fs.readFileSync("lib/db/src/schema/aiceoControlPlane.ts", "utf8");
 const migration = fs.readFileSync("lib/db/drizzle/0016_aiceo_continuity_layer.sql", "utf8");
 const improvementMigration = fs.readFileSync("lib/db/drizzle/0017_aiceo_collaboration_improvement_loop.sql", "utf8");
+const contextMigration = fs.readFileSync("lib/db/drizzle/0038_aiceo_context_authority_and_drift.sql", "utf8");
 const service = fs.readFileSync("artifacts/api-server/src/lib/aiceoContinuityLayer.ts", "utf8");
 const routes = fs.readFileSync("artifacts/api-server/src/routes/aiceoControlPlane.ts", "utf8");
 const spec = fs.readFileSync("lib/api-spec/openapi.yaml", "utf8");
@@ -39,6 +40,17 @@ assert.match(routes, /privileged\("aiceo_operator".*aiceoContinuityLayer\.update
 assert.match(routes, /anyAiceoRole.*aiceoContinuityLayer\.resume/s);
 assert.match(spec, /truthSource: \{ type: string, const: persistent_state \}/);
 assert.match(spec, /productionAuthority: \{ type: boolean, const: false \}/);
+for (const term of ["work","notion","ordinary_chat","new_chat","agent","future_ai","connector"]) {
+  assert.match(contextMigration, new RegExp(`'${term}'`));
+}
+assert.match(contextMigration, /context_drift_rejected/);
+assert.match(contextMigration, /state_override_accepted=false/);
+assert.match(contextMigration, /append-only/);
+assert.match(service, /Persistent State decides engineering state/);
+assert.match(service, /memoryRole: "why_history_context_only"/);
+assert.match(service, /verifyContextEvidenceIntegrity/);
+assert.match(routes, /externalContext.*claimedPhase.*claimedTask.*claimedNextStep/s);
+assert.match(spec, /persistentEvidenceVerified: \{ type: boolean, const: true \}/);
 for (const step of ["CAPTURED", "ANALYZED", "CANDIDATE_DEFINED", "OWNER_GATE", "ACTIVE", "VALIDATING", "IMPROVED", "ROLLED_BACK"]) {
   assert.match(improvementMigration, new RegExp(`'${step}'`), `collaboration loop must persist ${step}`);
 }

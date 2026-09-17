@@ -142,6 +142,7 @@ export const aiceoAuditEventsTable = pgTable("aiceo_audit_events", {
   state: varchar("state", { length: 16 }),
   actorId: varchar("actor_id", { length: 180 }),
   payload: jsonb("payload").$type<Record<string, unknown>>().notNull(),
+  appendSequence: integer("append_sequence").notNull(),
   previousHash: varchar("previous_hash", { length: 128 }),
   eventHash: varchar("event_hash", { length: 128 }).notNull(),
   clientTimestamp: timestamp("client_timestamp", { withTimezone: true }),
@@ -199,12 +200,42 @@ export const aiceoContinuityEventsTable = pgTable("aiceo_continuity_events", {
   actorId: varchar("actor_id", { length: 180 }).notNull(),
   eventType: varchar("event_type", { length: 80 }).notNull(),
   payload: jsonb("payload").$type<Record<string, unknown>>().notNull(),
+  appendSequence: integer("append_sequence").notNull(),
   previousHash: varchar("previous_hash", { length: 128 }),
   eventHash: varchar("event_hash", { length: 128 }).notNull(),
   serverTimestamp: timestamp("server_timestamp", { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [
   uniqueIndex("aiceo_continuity_event_hash_unique").on(table.eventHash),
+  uniqueIndex("aiceo_continuity_event_project_sequence_unique").on(table.projectId, table.appendSequence),
   index("aiceo_continuity_event_project_time_idx").on(table.projectId, table.serverTimestamp),
+]);
+
+export const aiceoContextEvidenceEventsTable = pgTable("aiceo_context_evidence_events", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  projectId: uuid("project_id").notNull(),
+  source: varchar("source", { length: 32 }).notNull(),
+  externalContext: jsonb("external_context").$type<Record<string, unknown>>().notNull(),
+  claimedPhase: text("claimed_phase"),
+  claimedTask: text("claimed_task"),
+  claimedNextStep: text("claimed_next_step"),
+  claimedRevision: integer("claimed_revision"),
+  observedAt: timestamp("observed_at", { withTimezone: true }).notNull(),
+  candidateContextHash: varchar("candidate_context_hash", { length: 64 }).notNull(),
+  persistentRevision: integer("persistent_revision").notNull(),
+  persistentStateHash: varchar("persistent_state_hash", { length: 64 }).notNull(),
+  verifiedResumeNode: jsonb("verified_resume_node").$type<Record<string, unknown>>().notNull(),
+  conflictFields: varchar("conflict_fields", { length: 48 }).array().notNull(),
+  disposition: varchar("disposition", { length: 40 }).notNull(),
+  appendSequence: integer("append_sequence").notNull(),
+  previousHash: varchar("previous_hash", { length: 64 }),
+  eventHash: varchar("event_hash", { length: 64 }).notNull(),
+  operationalInput: boolean("operational_input").notNull().default(false),
+  stateOverrideAccepted: boolean("state_override_accepted").notNull().default(false),
+  grantsAuthority: boolean("grants_authority").notNull().default(false),
+  productionAuthority: boolean("production_authority").notNull().default(false),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  index("aiceo_context_evidence_project_time_idx").on(table.projectId, table.createdAt),
 ]);
 
 export const aiceoCollaborationIssuesTable = pgTable("aiceo_collaboration_issues", {

@@ -267,6 +267,27 @@
       "when": 1789639223000,
       "tag": "0037_aiceo_preclassification_inbox_closure_integrity",
       "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1789640400000,
+      "tag": "0038_aiceo_context_authority_and_drift",
+      "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "7",
+      "when": 1789640500000,
+      "tag": "0039_aiceo_continuity_project_sequence",
+      "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1789640600000,
+      "tag": "0040_aiceo_continuity_chain_resequence",
+      "breakpoints": true
     }
   ]
 }

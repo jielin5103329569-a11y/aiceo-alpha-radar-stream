@@ -1,7 +1,8 @@
 import { createHash, createHmac, randomUUID } from "node:crypto";
-import { and, asc, count, desc, eq, inArray, max } from "drizzle-orm";
+import { and, asc, count, desc, eq, inArray, max, sql } from "drizzle-orm";
 import { db } from "@workspace/db";
 import {
+  aiceoContextEvidenceEventsTable,
   aiceoContinuityEventsTable,
   aiceoContinuityProjectsTable,
   aiceoContinuityStateTable,
@@ -18,6 +19,7 @@ import type { AiceoRole } from "./aiceoAuthorization";
 const VERSION = "CONTINUITY-001";
 const AUTHORITY = "grok_restricted_development";
 const CLOSURE_REGRESSION_CHECKS = [
+  "api-spec:codegen",
   "api-server:typecheck",
   "test:aiceo-control-plane",
   "test:aiceo-permission-matrix",
@@ -34,6 +36,7 @@ const CLOSURE_REGRESSION_CHECKS = [
   "test:aiceo-thought-concurrency",
   "test:aiceo-layered-self-checks",
   "test:aiceo-preclassification-inbox",
+  "test:aiceo-context-drift",
 ];
 const PROTECTED_CURRENT_STATE_FIELDS_EXCLUDED_AT_CLOSURE = new Set([
   "verification",
@@ -135,6 +138,32 @@ export const PRECLASSIFICATION_MEMORY_INBOX_RULE = {
   grantsAuthority: false,
   productionAuthority: false,
 };
+export const CONTEXT_AUTHORITY_CONTINUITY_RULE = {
+  id: "context-authority-continuity",
+  version: "G1-001-CONTEXT-1",
+  classification: "continuity_and_memory_governance",
+  rule: "Every external ingress—including Work, Notion, ordinary or new chat, Agent, future AI, and connector context—is candidate context or Memory evidence only. Recovery resolves AICEO identity and project first, then reads verified Persistent State, Current Project State, and Resume Node as engineering fact; Memory may explain thought, history, context, and why but cannot select or overwrite current engineering state. Any conflicting claimed phase, task, or next step is Context Drift: record the source and conflict, reject stale-state overwrite, and fail closed on uncertainty. Only real Persistent State evidence determines the current breakpoint. Stable resume aliases such as Bro，继续 and AICEO继续 restore verified progress, protected rules, the current breakpoint, and necessary context without requiring the Owner to restate background.",
+  recoveryAuthorityOrder: [
+    "aiceo_identity_and_project",
+    "verified_persistent_state",
+    "current_project_state",
+    "verified_resume_node",
+    "candidate_memory_for_why_history_and_context_only",
+  ],
+  externalIngressIsCandidateEvidenceOnly: true,
+  persistentStateWinsEngineeringConflict: true,
+  memoryMayExplainButNotOverride: true,
+  contextDriftMustBeRecorded: true,
+  staleContextRollbackForbidden: true,
+  uncertaintyFailsClosed: true,
+  crossIngressResumeWithoutOwnerRestatement: true,
+  ownerSovereigntyUnchanged: true,
+  ownerProtectionTriadUnchanged: true,
+  independentValidationRequired: true,
+  closureIntegrityAuditRequired: true,
+  grantsAuthority: false,
+  productionAuthority: false,
+};
 const PROTECTED_RULE_BASELINES: Record<string, Record<string, unknown>> = {
   "owner-zero-trial-error": {
     id: "owner-zero-trial-error",
@@ -168,6 +197,7 @@ const PROTECTED_RULE_BASELINES: Record<string, Record<string, unknown>> = {
   "memory-operating-system-foundation": MEMORY_FOUNDATION_RULE,
   "layered-self-check-integrity": LAYERED_SELF_CHECK_RULE,
   "preclassification-memory-inbox": PRECLASSIFICATION_MEMORY_INBOX_RULE,
+  "context-authority-continuity": CONTEXT_AUTHORITY_CONTINUITY_RULE,
 };
 const PROTECTED_ENTITY_BASELINES: Record<string, Record<string, unknown>> = {
   owner: { id: "owner", type: "human_authority", authority: "ultimate_human_governance_authority" },
@@ -276,6 +306,15 @@ export type ContinuityUpdate = {
   recoveryStrategy?: string | null;
   ownerGateReason?: string | null;
 };
+export type ExternalContinuityContext = {
+  source: "work" | "notion" | "ordinary_chat" | "new_chat" | "agent" | "future_ai" | "connector" | "other";
+  context: Record<string, unknown>;
+  claimedPhase?: string;
+  claimedTask?: string;
+  claimedNextStep?: string;
+  claimedRevision?: number;
+  observedAt: Date;
+};
 
 export class AiceoContinuityLayer {
   constructor(private readonly database: any = db, private readonly existingTransaction = false) {}
@@ -293,30 +332,81 @@ export class AiceoContinuityLayer {
     return project;
   }
 
-  async snapshot(role: AiceoRole) {
-    const project = await this.project(this.database);
-    const state = (await this.database.select().from(aiceoContinuityStateTable)
-      .where(eq(aiceoContinuityStateTable.projectId, project.id)).limit(1))[0];
+  private async snapshotFrom(executor: any, role: AiceoRole, lock = false) {
+    const project = await this.project(executor);
+    let stateQuery = executor.select().from(aiceoContinuityStateTable)
+      .where(eq(aiceoContinuityStateTable.projectId, project.id)).limit(1);
+    if (lock) stateQuery = stateQuery.for("update");
+    const state = (await stateQuery)[0];
     if (!state) throw new Error("CONTINUITY-001 persistent state is missing; cannot resume from memory");
-    const events = await this.database.select().from(aiceoContinuityEventsTable)
+    const allEvents = await executor.select().from(aiceoContinuityEventsTable)
       .where(eq(aiceoContinuityEventsTable.projectId, project.id))
-      .orderBy(desc(aiceoContinuityEventsTable.serverTimestamp), desc(aiceoContinuityEventsTable.id)).limit(100);
+      .orderBy(asc(aiceoContinuityEventsTable.appendSequence));
+    let previous: string | null = null;
+    for (const [index, event] of allEvents.entries()) {
+      const expected = eventHash({
+        id: event.id, projectId: event.projectId, state: event.state, actorId: event.actorId,
+        eventType: event.eventType, payload: event.payload, previousHash: event.previousHash,
+        serverTimestamp: event.serverTimestamp,
+      });
+      if (Number(event.appendSequence) !== index + 1 || event.previousHash !== previous || event.eventHash !== expected) {
+        throw new Error("CONTINUITY-001 Persistent State evidence is invalid; fail closed");
+      }
+      previous = event.eventHash;
+    }
+    const latest = allEvents.at(-1);
+    const persistedIntent = {
+      state: state.state,
+      currentState: state.currentState,
+      decisionRuleRegistry: state.decisionRuleRegistry,
+      entityRegistry: state.entityRegistry,
+      aliasDictionary: state.aliasDictionary,
+      evidencePointers: state.evidencePointers,
+      resumeNode: state.resumeNode,
+      failureReason: state.failureReason ?? null,
+      recoveryStrategy: state.recoveryStrategy ?? null,
+      ownerGateReason: state.ownerGateReason ?? null,
+      revision: state.revision,
+      productionAuthority: false,
+    };
+    const protectedRulesValid = Object.entries(PROTECTED_RULE_BASELINES).every(([id, baseline]) => {
+      const actual = state.decisionRuleRegistry.find((rule: Record<string, unknown>) => rule.id === id);
+      return JSON.stringify(canonical(actual)) === JSON.stringify(canonical(baseline));
+    });
+    const protectedAliasesValid = Object.entries(PROTECTED_ALIASES).every(([key, value]) =>
+      JSON.stringify(canonical(state.aliasDictionary[key])) === JSON.stringify(canonical(value)));
+    if (
+      !latest
+      || Number(latest.payload.revision) !== state.revision
+      || latest.payload.intentHash !== hash(persistedIntent)
+      || !protectedRulesValid
+      || !protectedAliasesValid
+      || typeof state.resumeNode.node !== "string"
+      || !state.resumeNode.node.trim()
+      || typeof state.resumeNode.action !== "string"
+      || typeof state.resumeNode.ownerGate !== "boolean"
+    ) {
+      throw new Error("CONTINUITY-001 Persistent State revision is not bound to verified evidence; fail closed");
+    }
     return {
       version: VERSION,
       truthSource: "persistent_state",
-      memoryPolicy: "Memory is context, Persistent State is truth",
+      memoryPolicy: "Memory explains why/history/context; Persistent State decides engineering state",
+      recoveryAuthorityOrder: CONTEXT_AUTHORITY_CONTINUITY_RULE.recoveryAuthorityOrder,
+      persistentEvidenceVerified: true,
       role,
       project,
       state,
-      events,
+      events: allEvents.slice(-100).reverse(),
       productionAuthority: false,
     };
   }
 
-  async resume(alias: string, role: AiceoRole) {
-    const normalized = alias.trim().toLowerCase().replace(/\s+/g, " ");
-    if (!RESUME_ALIASES.has(normalized)) throw new Error("不能：未识别恢复别名");
-    const snapshot = await this.snapshot(role);
+  async snapshot(role: AiceoRole) {
+    return this.transact((tx) => this.snapshotFrom(tx, role, true));
+  }
+
+  private resumeDirective(snapshot: any) {
     const state = snapshot.state;
     let directive = "continue";
     let blocker: string | null = null;
@@ -331,7 +421,113 @@ export class AiceoContinuityLayer {
     } else if (state.state === "PAUSED") {
       directive = "resume";
     }
-    return { ...snapshot, resume: { directive, blocker, node: state.resumeNode }, productionAuthority: false };
+    return { directive, blocker, node: state.resumeNode };
+  }
+
+  async resume(alias: string, role: AiceoRole, externalContext?: ExternalContinuityContext) {
+    const normalized = alias.trim().toLowerCase().replace(/\s+/g, " ");
+    if (!RESUME_ALIASES.has(normalized)) throw new Error("不能：未识别恢复别名");
+    if (!externalContext) {
+      const snapshot = await this.snapshot(role);
+      return {
+        ...snapshot,
+        contextAuthority: {
+          disposition: "persistent_state_recovery",
+          engineeringTruthSource: "persistent_state",
+          stateOverrideAccepted: false,
+          memoryRole: "why_history_context_only",
+        },
+        resume: this.resumeDirective(snapshot),
+        productionAuthority: false,
+      };
+    }
+    return this.transact(async (tx) => {
+      const snapshot = await this.snapshotFrom(tx, role, true);
+      const [evidence] = await tx.insert(aiceoContextEvidenceEventsTable).values({
+        projectId: snapshot.project.id,
+        source: externalContext.source,
+        externalContext: externalContext.context,
+        claimedPhase: externalContext.claimedPhase,
+        claimedTask: externalContext.claimedTask,
+        claimedNextStep: externalContext.claimedNextStep,
+        claimedRevision: externalContext.claimedRevision,
+        observedAt: externalContext.observedAt,
+        candidateContextHash: "db-owned",
+        persistentRevision: 0,
+        persistentStateHash: "db-owned",
+        verifiedResumeNode: {},
+        conflictFields: [],
+        disposition: "candidate_context_only",
+        appendSequence: 0,
+        eventHash: "db-owned",
+        operationalInput: false,
+        stateOverrideAccepted: false,
+        grantsAuthority: false,
+        productionAuthority: false,
+      }).returning();
+      return {
+        ...snapshot,
+        contextAuthority: {
+          disposition: evidence.disposition,
+          conflictFields: evidence.conflictFields,
+          evidenceId: evidence.id,
+          evidenceHash: evidence.eventHash,
+          engineeringTruthSource: "persistent_state",
+          persistentRevision: evidence.persistentRevision,
+          stateOverrideAccepted: false,
+          memoryRole: "why_history_context_only",
+        },
+        resume: this.resumeDirective(snapshot),
+        productionAuthority: false,
+      };
+    });
+  }
+
+  async verifyContextEvidenceIntegrity(projectId: string, executor: any = this.database) {
+    const result = await executor.execute(sql`
+      WITH ordered AS (
+        SELECT e.*,
+          row_number() OVER (PARTITION BY project_id ORDER BY append_sequence) expected_sequence,
+          lag(event_hash) OVER (PARTITION BY project_id ORDER BY append_sequence) expected_previous
+        FROM aiceo_context_evidence_events e WHERE project_id=${projectId}::uuid
+      ), hashes AS (
+        SELECT *,
+          encode(digest(
+            source||':'||external_context::text||':'||coalesce(claimed_phase,'')||':'||
+            coalesce(claimed_task,'')||':'||coalesce(claimed_next_step,'')||':'||
+            coalesce(claimed_revision::text,'')||':'||observed_at::text,'sha256'),'hex') expected_candidate_hash
+        FROM ordered
+      ), verified AS (
+        SELECT *,
+          encode(digest(
+            project_id::text||':'||id::text||':'||source||':'||
+            expected_candidate_hash||':'||persistent_revision::text||':'||
+            persistent_state_hash||':'||verified_resume_node::text||':'||
+            conflict_fields::text||':'||disposition||':'||append_sequence::text||':'||
+            coalesce(previous_hash,'')||':'||operational_input::text||':'||
+            state_override_accepted::text||':'||grants_authority::text||':'||
+            production_authority::text,'sha256'),'hex') expected_event_hash
+        FROM hashes
+      )
+      SELECT count(*)::int count,
+        count(*) FILTER (WHERE disposition='context_drift_rejected')::int drift_count,
+        coalesce(bool_and(
+          append_sequence=expected_sequence
+          AND previous_hash IS NOT DISTINCT FROM expected_previous
+          AND candidate_context_hash=expected_candidate_hash
+          AND event_hash=expected_event_hash
+          AND jsonb_typeof(verified_resume_node)='object'
+          AND persistent_state_hash ~ '^[a-f0-9]{64}$'
+          AND (
+            (cardinality(conflict_fields)>0 AND disposition='context_drift_rejected')
+            OR (cardinality(conflict_fields)=0 AND disposition='candidate_context_only')
+          )
+          AND NOT operational_input AND NOT state_override_accepted
+          AND NOT grants_authority AND NOT production_authority
+        ),false) valid
+      FROM verified
+    `);
+    return result.rows[0] as { count: number; drift_count: number; valid: boolean };
   }
 
   async update(input: ContinuityUpdate, actorId: string) {
@@ -599,10 +795,12 @@ export class AiceoContinuityLayer {
         }
         const events = await tx.select().from(aiceoContinuityEventsTable)
           .where(eq(aiceoContinuityEventsTable.projectId, project.id))
-          .orderBy(asc(aiceoContinuityEventsTable.serverTimestamp), asc(aiceoContinuityEventsTable.id));
+          .orderBy(asc(aiceoContinuityEventsTable.appendSequence));
         let previous: string | null = null;
-        for (const event of events) {
-          if (event.previousHash !== previous) throw new Error("不能：Closure Integrity Audit detected a broken evidence chain");
+        for (const [index, event] of events.entries()) {
+          if (Number(event.appendSequence) !== index + 1 || event.previousHash !== previous) {
+            throw new Error("不能：Closure Integrity Audit detected a broken evidence chain");
+          }
           const expected = eventHash({
             id: event.id,
             projectId: event.projectId,
@@ -639,8 +837,15 @@ export class AiceoContinuityLayer {
         supervisorVersion: VERSION,
         updatedAt: now,
       }).where(and(eq(aiceoContinuityStateTable.id, current.id), eq(aiceoContinuityStateTable.revision, current.revision)));
+      await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${project.id}::text||':continuity-events'))`);
+      const [sequenceState] = await tx.select({ value: max(aiceoContinuityEventsTable.appendSequence) })
+        .from(aiceoContinuityEventsTable)
+        .where(eq(aiceoContinuityEventsTable.projectId, project.id));
+      const appendSequence = Number(sequenceState?.value ?? 0) + 1;
       const prior = (await tx.select({ hash: aiceoContinuityEventsTable.eventHash })
-        .from(aiceoContinuityEventsTable).orderBy(desc(aiceoContinuityEventsTable.serverTimestamp), desc(aiceoContinuityEventsTable.id)).limit(1))[0];
+        .from(aiceoContinuityEventsTable)
+        .where(eq(aiceoContinuityEventsTable.projectId, project.id))
+        .orderBy(desc(aiceoContinuityEventsTable.appendSequence)).limit(1))[0];
       const values = {
         id: randomUUID(),
         projectId: project.id,
@@ -648,10 +853,15 @@ export class AiceoContinuityLayer {
         actorId: actorId.slice(0, 180),
         eventType: "STATE_RECORDED",
         payload: { intentHash: hash(intent), resumeNode: input.resumeNode, revision, supervisorVersion: VERSION, productionAuthority: false },
+        appendSequence,
         previousHash: prior?.hash ?? null,
         serverTimestamp: now,
       };
-      const signed = eventHash(values);
+      const signed = eventHash({
+        id: values.id, projectId: values.projectId, state: values.state, actorId: values.actorId,
+        eventType: values.eventType, payload: values.payload, previousHash: values.previousHash,
+        serverTimestamp: values.serverTimestamp,
+      });
       await tx.insert(aiceoContinuityEventsTable).values({ ...values, eventHash: signed });
       return { projectId: project.id, state: input.state, revision, heartbeatAt: now, eventHash: signed, productionAuthority: false };
     });

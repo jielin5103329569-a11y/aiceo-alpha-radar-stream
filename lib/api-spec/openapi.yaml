@@ -899,6 +899,18 @@ components:
       required: [alias]
       properties:
         alias: { type: string, minLength: 1, maxLength: 120 }
+        externalContext:
+          type: object
+          additionalProperties: false
+          required: [source, context, observedAt]
+          properties:
+            source: { type: string, enum: [work, notion, ordinary_chat, new_chat, agent, future_ai, connector, other] }
+            context: { type: object, additionalProperties: true }
+            claimedPhase: { type: string }
+            claimedTask: { type: string }
+            claimedNextStep: { type: string }
+            claimedRevision: { type: number, minimum: 1, multipleOf: 1 }
+            observedAt: { type: string, format: date-time }
     AiceoContinuityStateInput:
       type: object
       additionalProperties: false
@@ -916,16 +928,19 @@ components:
         ownerGateReason: { type: [string, "null"] }
     AiceoContinuitySnapshot:
       type: object
-      required: [version, truthSource, memoryPolicy, project, state, events, productionAuthority]
+      required: [version, truthSource, memoryPolicy, recoveryAuthorityOrder, persistentEvidenceVerified, project, state, events, productionAuthority]
       properties:
         version: { type: string, const: CONTINUITY-001 }
         truthSource: { type: string, const: persistent_state }
         memoryPolicy: { type: string }
+        recoveryAuthorityOrder: { type: array, items: { type: string } }
+        persistentEvidenceVerified: { type: boolean, const: true }
         role: { type: string, enum: [aiceo_owner, aiceo_operator, aiceo_validator] }
         project: { type: object, additionalProperties: true }
         state: { type: object, additionalProperties: true }
         events: { type: array, items: { type: object, additionalProperties: true } }
         resume: { type: object, additionalProperties: true }
+        contextAuthority: { type: object, additionalProperties: true }
         productionAuthority: { type: boolean, const: false }
     AiceoTaskInput:
       type: object

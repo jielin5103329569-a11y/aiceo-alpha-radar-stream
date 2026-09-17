@@ -207,9 +207,20 @@ router.get("/aiceo/continuity", anyAiceoRole(async (_req, res, _userId, role) =>
   await run(() => aiceoContinuityLayer.snapshot(role), res);
 }));
 router.post("/aiceo/continuity/resume", anyAiceoRole(async (req, res, _userId, role) => {
-  const parsed = z.object({ alias: z.string().min(1).max(120) }).strict().safeParse(req.body);
+  const parsed = z.object({
+    alias: z.string().min(1).max(120),
+    externalContext: z.object({
+      source: z.enum(["work","notion","ordinary_chat","new_chat","agent","future_ai","connector","other"]),
+      context: z.record(z.string(), z.unknown()),
+      claimedPhase: z.string().min(1).max(500).optional(),
+      claimedTask: z.string().min(1).max(500).optional(),
+      claimedNextStep: z.string().min(1).max(1000).optional(),
+      claimedRevision: z.number().int().positive().optional(),
+      observedAt: z.coerce.date(),
+    }).strict().optional(),
+  }).strict().safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
-  await run(() => aiceoContinuityLayer.resume(parsed.data.alias, role), res);
+  await run(() => aiceoContinuityLayer.resume(parsed.data.alias, role, parsed.data.externalContext), res);
 }));
 router.put("/aiceo/continuity/state", privileged("aiceo_operator", async (req, res, userId) => {
   const parsed = continuityUpdate.safeParse(req.body);

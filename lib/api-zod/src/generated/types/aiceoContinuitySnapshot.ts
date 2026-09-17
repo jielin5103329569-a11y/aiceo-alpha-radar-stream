@@ -5,6 +5,7 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { AiceoContinuitySnapshotContextAuthority } from './aiceoContinuitySnapshotContextAuthority';
 import type { AiceoContinuitySnapshotEventsItem } from './aiceoContinuitySnapshotEventsItem';
 import type { AiceoContinuitySnapshotProject } from './aiceoContinuitySnapshotProject';
 import type { AiceoContinuitySnapshotResume } from './aiceoContinuitySnapshotResume';
@@ -15,10 +16,13 @@ export interface AiceoContinuitySnapshot {
   version: 'CONTINUITY-001';
   truthSource: 'persistent_state';
   memoryPolicy: string;
+  recoveryAuthorityOrder: string[];
+  persistentEvidenceVerified: true;
   role?: AiceoContinuitySnapshotRole;
   project: AiceoContinuitySnapshotProject;
   state: AiceoContinuitySnapshotState;
   events: AiceoContinuitySnapshotEventsItem[];
   resume?: AiceoContinuitySnapshotResume;
+  contextAuthority?: AiceoContinuitySnapshotContextAuthority;
   productionAuthority: false;
 }

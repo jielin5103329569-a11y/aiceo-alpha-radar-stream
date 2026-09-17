@@ -64,12 +64,40 @@ export interface AiceoCollaborationRollbackInput {
   reason: string;
 }
 
+export type AiceoContinuityResumeInputExternalContextSource = typeof AiceoContinuityResumeInputExternalContextSource[keyof typeof AiceoContinuityResumeInputExternalContextSource];
+
+
+export const AiceoContinuityResumeInputExternalContextSource = {
+  work: 'work',
+  notion: 'notion',
+  ordinary_chat: 'ordinary_chat',
+  new_chat: 'new_chat',
+  agent: 'agent',
+  future_ai: 'future_ai',
+  connector: 'connector',
+  other: 'other',
+} as const;
+
+export type AiceoContinuityResumeInputExternalContextContext = { [key: string]: unknown };
+
+export type AiceoContinuityResumeInputExternalContext = {
+  source: AiceoContinuityResumeInputExternalContextSource;
+  context: AiceoContinuityResumeInputExternalContextContext;
+  claimedPhase?: string;
+  claimedTask?: string;
+  claimedNextStep?: string;
+  /** @minimum 1 */
+  claimedRevision?: number;
+  observedAt: string;
+};
+
 export interface AiceoContinuityResumeInput {
   /**
      * @minLength 1
      * @maxLength 120
      */
   alias: string;
+  externalContext?: AiceoContinuityResumeInputExternalContext;
 }
 
 export type AiceoContinuityStateInputState = typeof AiceoContinuityStateInputState[keyof typeof AiceoContinuityStateInputState];
@@ -128,15 +156,20 @@ export type AiceoContinuitySnapshotEventsItem = { [key: string]: unknown };
 
 export type AiceoContinuitySnapshotResume = { [key: string]: unknown };
 
+export type AiceoContinuitySnapshotContextAuthority = { [key: string]: unknown };
+
 export interface AiceoContinuitySnapshot {
   version: 'CONTINUITY-001';
   truthSource: 'persistent_state';
   memoryPolicy: string;
+  recoveryAuthorityOrder: string[];
+  persistentEvidenceVerified: true;
   role?: AiceoContinuitySnapshotRole;
   project: AiceoContinuitySnapshotProject;
   state: AiceoContinuitySnapshotState;
   events: AiceoContinuitySnapshotEventsItem[];
   resume?: AiceoContinuitySnapshotResume;
+  contextAuthority?: AiceoContinuitySnapshotContextAuthority;
   productionAuthority: false;
 }
 

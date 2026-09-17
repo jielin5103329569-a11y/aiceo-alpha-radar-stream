@@ -34,3 +34,4 @@
 - [Memory foundation scope](memory-foundation-scope.md) — G1-001 is candidate-only and includes Thought Continuity; promotion and retrieval/learning remain non-executable.
 - [Layered self-check integrity](layered-self-check-integrity.md) — Local, chain, and global checks escalate progressively but never replace independent validation or closure.
 - [Pre-classification memory inbox](preclassification-memory-inbox.md) — Preserve high-value raw ideas as sealed non-authoritative provenance roots until scientific classification is ready.
+- [Context authority continuity](context-authority-continuity.md) — External ingress is candidate evidence only; verified Persistent State and Resume Node decide recovery.
