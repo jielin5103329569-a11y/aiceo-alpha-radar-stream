@@ -4,7 +4,10 @@ async function main() {
   const snapshot = await aiceoContinuityLayer.snapshot("aiceo_operator");
   const state = snapshot.state;
   const hasImprovementLoop = state.decisionRuleRegistry.some((rule) => rule.id === "continuous-collaboration-improvement-loop");
-  if (state.state !== "COMPLETED" || !hasImprovementLoop) {
+  const hasIntegrationEvidence = state.evidencePointers.some(
+    (pointer) => pointer.pointer === "scripts/test-aiceo-collaboration-loop-integration.ts",
+  );
+  if (state.state !== "COMPLETED" || !hasImprovementLoop || !hasIntegrationEvidence) {
   const entities = state.entityRegistry.map((entity) =>
     entity.id === "continuity-001"
       ? { ...entity, status: "COMPLETED", verification: "PENDING_INDEPENDENT_READ_ONLY_ACCEPTANCE" }
@@ -34,9 +37,12 @@ async function main() {
     aliasDictionary: state.aliasDictionary,
     evidencePointers: [
       ...state.evidencePointers,
-      { type: "test", pointer: "scripts/test-aiceo-continuity-layer.mjs" },
-      { type: "api_contract", pointer: "lib/api-spec/openapi.yaml" },
-      { type: "migration", pointer: "lib/db/drizzle/0017_aiceo_collaboration_improvement_loop.sql" },
+      ...(!hasIntegrationEvidence ? [{
+        type: "transactional_integration_test",
+        pointer: "scripts/test-aiceo-collaboration-loop-integration.ts",
+        isolation: "automatic_rollback",
+        paths: ["ordinary_rule_lifecycle", "owner_protection_fail_closed"],
+      }] : []),
     ],
     resumeNode: {
       node: "independent-read-only-acceptance",

@@ -55,6 +55,12 @@ export type ContinuityUpdate = {
 };
 
 export class AiceoContinuityLayer {
+  constructor(private readonly database: any = db, private readonly existingTransaction = false) {}
+
+  private transact<T>(work: (tx: any) => Promise<T>): Promise<T> {
+    return this.existingTransaction ? work(this.database) : this.database.transaction(work);
+  }
+
   private async project(tx: any) {
     const project = (await tx.select().from(aiceoContinuityProjectsTable)
       .where(eq(aiceoContinuityProjectsTable.projectKey, "aiceo")).limit(1))[0];
@@ -65,11 +71,11 @@ export class AiceoContinuityLayer {
   }
 
   async snapshot(role: AiceoRole) {
-    const project = await this.project(db);
-    const state = (await db.select().from(aiceoContinuityStateTable)
+    const project = await this.project(this.database);
+    const state = (await this.database.select().from(aiceoContinuityStateTable)
       .where(eq(aiceoContinuityStateTable.projectId, project.id)).limit(1))[0];
     if (!state) throw new Error("CONTINUITY-001 persistent state is missing; cannot resume from memory");
-    const events = await db.select().from(aiceoContinuityEventsTable)
+    const events = await this.database.select().from(aiceoContinuityEventsTable)
       .where(eq(aiceoContinuityEventsTable.projectId, project.id))
       .orderBy(desc(aiceoContinuityEventsTable.serverTimestamp), desc(aiceoContinuityEventsTable.id)).limit(100);
     return {
@@ -106,7 +112,7 @@ export class AiceoContinuityLayer {
   }
 
   async update(input: ContinuityUpdate, actorId: string) {
-    return db.transaction(async (tx) => {
+    return this.transact(async (tx) => {
       const control = (await tx.select().from(aiceoControlStateTable).limit(1).for("update"))[0];
       if (!control || control.killSwitch || !control.queueActive || control.circuitState === "OPEN") {
         throw new Error("不能：Kill Switch、Queue 或 Circuit gate 阻止 Continuity 状态推进");
@@ -167,7 +173,7 @@ export class AiceoContinuityLayer {
     context: Record<string, unknown>;
   }, actorId: string) {
     if (!input.evidence.length) throw new Error("不能：合作问题必须包含证据，不能用临时情绪直接生成长期规则");
-    return db.transaction(async (tx) => {
+    return this.transact(async (tx) => {
       const project = await this.project(tx);
       const [issue] = await tx.insert(aiceoCollaborationIssuesTable).values({
         projectId: project.id,
@@ -194,7 +200,7 @@ export class AiceoContinuityLayer {
     additionalEvidence: Record<string, unknown>[];
     protectedImpacts: string[];
   }, actorId: string) {
-    return db.transaction(async (tx) => {
+    return this.transact(async (tx) => {
       const control = (await tx.select().from(aiceoControlStateTable).limit(1).for("update"))[0];
       if (!control || control.killSwitch || !control.queueActive || control.circuitState === "OPEN") {
         throw new Error("不能：安全控制阻止合作规则持久化");
@@ -280,7 +286,7 @@ export class AiceoContinuityLayer {
 
   async validateRule(ruleId: string, input: { improved: boolean; evidence: Record<string, unknown>[]; summary: string }, actorId: string) {
     if (!input.evidence.length) throw new Error("不能：规则改善验证必须包含实际证据");
-    return db.transaction(async (tx) => {
+    return this.transact(async (tx) => {
       const rule = (await tx.select().from(aiceoCollaborationRulesTable).where(eq(aiceoCollaborationRulesTable.id, ruleId)).for("update"))[0];
       if (!rule || !["ACTIVE", "VALIDATING"].includes(rule.status)) throw new Error("不能：只有已激活的普通协作规则可以验证");
       if (rule.classification !== "ordinary_collaboration") throw new Error("不能：Owner Protection 候选未获个人批准，不能验证或激活");
@@ -294,7 +300,7 @@ export class AiceoContinuityLayer {
   }
 
   async rollbackRule(ruleId: string, reason: string, actorId: string) {
-    return db.transaction(async (tx) => {
+    return this.transact(async (tx) => {
       const rule = (await tx.select().from(aiceoCollaborationRulesTable).where(eq(aiceoCollaborationRulesTable.id, ruleId)).for("update"))[0];
       if (!rule || rule.classification !== "ordinary_collaboration" || !["ACTIVE", "IMPROVED"].includes(rule.status)) {
         throw new Error("不能：该规则不能自动回滚；Owner Protection 变更必须走 Owner Governance Approval");
@@ -316,6 +322,7 @@ export class AiceoContinuityLayer {
         classification: "ordinary_collaboration",
         conflictCheck: { rollback: true, ownerProtectionTriad: "CLEAR", productionAuthority: false },
         status: "ACTIVE",
+        supersedesRuleId: rule.id,
         rollbackOfRuleId: rule.id,
         createdBy: actorId.slice(0, 180),
         activatedAt: new Date(),
@@ -327,11 +334,11 @@ export class AiceoContinuityLayer {
   }
 
   async collaborationLoop() {
-    const project = await this.project(db);
+    const project = await this.project(this.database);
     const [issues, rules] = await Promise.all([
-      db.select().from(aiceoCollaborationIssuesTable).where(eq(aiceoCollaborationIssuesTable.projectId, project.id))
+      this.database.select().from(aiceoCollaborationIssuesTable).where(eq(aiceoCollaborationIssuesTable.projectId, project.id))
         .orderBy(desc(aiceoCollaborationIssuesTable.lastObservedAt)).limit(100),
-      db.select().from(aiceoCollaborationRulesTable).where(eq(aiceoCollaborationRulesTable.projectId, project.id))
+      this.database.select().from(aiceoCollaborationRulesTable).where(eq(aiceoCollaborationRulesTable.projectId, project.id))
         .orderBy(desc(aiceoCollaborationRulesTable.createdAt)).limit(100),
     ]);
     return { version: "COLLABORATION-LOOP-001", issues, rules, productionAuthority: false };
