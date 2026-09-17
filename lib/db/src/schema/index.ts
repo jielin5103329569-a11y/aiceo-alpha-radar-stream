@@ -25,3 +25,6 @@ export * from "./autonomousOperations";
 export * from "./aiIndustryStockPool";
 export * from "./researchSidecar";
 export * from "./aiceoControlPlane";
+export * from "./aiceoMemory";
+export * from "./aiceoSelfChecks";
+export * from "./aiceoPreclassificationInbox";

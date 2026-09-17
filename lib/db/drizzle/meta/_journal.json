@@ -113,6 +113,160 @@
       "when": 1789639200000,
       "tag": "0015_aiceo_governance_root",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1789639205000,
+      "tag": "0016_aiceo_continuity_layer",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1789639206000,
+      "tag": "0017_aiceo_collaboration_improvement_loop",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1789639206500,
+      "tag": "0018_aiceo_brain_agent_protocol",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1789639207000,
+      "tag": "0019_aiceo_intent_uncertainty_confirmation_gate",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1789639207500,
+      "tag": "0020_aiceo_intent_gate_contract_binding",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1789639207800,
+      "tag": "0021_aiceo_agent_intent_resolution_binding",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1789639208000,
+      "tag": "0022_aiceo_memory_operating_system",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1789639209000,
+      "tag": "0023_aiceo_memory_chain_hardening",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1789639210000,
+      "tag": "0024_aiceo_memory_db_owned_chain_and_promotion",
+      "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1789639211000,
+      "tag": "0025_aiceo_memory_controlled_events",
+      "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1789639212000,
+      "tag": "0026_aiceo_memory_candidate_only_foundation",
+      "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1789639213000,
+      "tag": "0027_aiceo_memory_candidate_integrity",
+      "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1789639214000,
+      "tag": "0028_aiceo_memory_monotonic_event_sequence",
+      "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1789639215000,
+      "tag": "0029_aiceo_memory_invalid_event_quarantine",
+      "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1789639216000,
+      "tag": "0030_aiceo_thought_continuity_graph",
+      "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1789639217000,
+      "tag": "0031_aiceo_thought_continuity_integrity",
+      "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1789639218000,
+      "tag": "0032_aiceo_layered_self_check_contract",
+      "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1789639219000,
+      "tag": "0033_aiceo_layered_self_check_integrity",
+      "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1789639220000,
+      "tag": "0034_aiceo_self_check_registry_integrity",
+      "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1789639221000,
+      "tag": "0035_aiceo_preclassification_memory_inbox",
+      "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1789639222000,
+      "tag": "0036_aiceo_preclassification_inbox_integrity",
+      "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1789639223000,
+      "tag": "0037_aiceo_preclassification_inbox_closure_integrity",
+      "breakpoints": true
     }
   ]
 }

@@ -43,14 +43,16 @@ async function main() {
     };
     const closingResume = { node: "test-closed", action: "test closure", status: "CLOSED", ownerGate: false };
     const recoveryStrategy = "test";
-    const closingEntities = state.entityRegistry.map((entity: any) =>
-      entity.id === "continuity-001"
-        ? { id: "continuity-001", type: "implementation", status: "COMPLETED", verification: "VERIFIED", closure: "CLOSED" }
-        : entity);
-    const blockedEntities = state.entityRegistry.map((entity: any) =>
-      entity.id === "continuity-001"
-        ? { id: "continuity-001", type: "implementation", status: "COMPLETED", verification: "NOT_VERIFIED", closure: "BLOCKED" }
-        : entity);
+    const closingEntities = state.entityRegistry.map((entity: any) => {
+      if (entity.id === "continuity-001") return { id: "continuity-001", type: "implementation", status: "COMPLETED", verification: "VERIFIED", closure: "CLOSED" };
+      if (entity.id === "memory-g1-001") return { ...entity, status: "COMPLETED", verification: "VERIFIED", closure: "CLOSED" };
+      return entity;
+    });
+    const blockedEntities = state.entityRegistry.map((entity: any) => {
+      if (entity.id === "continuity-001") return { id: "continuity-001", type: "implementation", status: "COMPLETED", verification: "NOT_VERIFIED", closure: "BLOCKED" };
+      if (entity.id === "memory-g1-001") return { ...entity, status: "COMPLETED", verification: "NOT_VERIFIED", closure: "BLOCKED" };
+      return entity;
+    });
     const base = {
       state: "COMPLETED" as const,
       currentState: closingState,
@@ -87,6 +89,13 @@ async function main() {
       "test:aiceo-collaboration-loop-integration",
       "test:aiceo-agent-protocol-integration",
       "test:aiceo-closure-integrity",
+      "test:aiceo-memory",
+      "test:aiceo-memory-integration",
+      "test:aiceo-memory-concurrency",
+      "test:aiceo-thought-continuity",
+      "test:aiceo-thought-concurrency",
+      "test:aiceo-layered-self-checks",
+      "test:aiceo-preclassification-inbox",
     ];
     const intentConfirmations = await tx.select().from(aiceoIntentConfirmationsTable);
     const report = {
@@ -234,7 +243,7 @@ async function main() {
       () => layer.update({
         ...base,
         currentState: { ...state.currentState, verification: "NOT_VERIFIED", closure: "BLOCKED" },
-        entityRegistry: state.entityRegistry.map((entity: any) =>
+        entityRegistry: blockedEntities.map((entity: any) =>
           entity.id === "continuity-001"
             ? { id: "continuity-001", type: "implementation", status: "COMPLETED", authority: "production_authority" }
             : entity),
@@ -266,7 +275,10 @@ async function main() {
       () => layer.update({
         ...base,
         currentState: { ...state.currentState, verification: "VERIFIED", closure: "CLOSED" },
-        entityRegistry: blockedEntities,
+        entityRegistry: closingEntities.map((entity: any) =>
+          entity.id === "continuity-001"
+            ? { id: "continuity-001", type: "implementation", status: "COMPLETED", verification: "NOT_VERIFIED", closure: "BLOCKED" }
+            : entity),
       }, "forged-operator"),
       /continuity-001 只能携带受限 implementation 状态字段/,
     );

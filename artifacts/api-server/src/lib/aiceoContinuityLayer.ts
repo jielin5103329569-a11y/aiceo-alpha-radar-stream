@@ -27,6 +27,13 @@ const CLOSURE_REGRESSION_CHECKS = [
   "test:aiceo-collaboration-loop-integration",
   "test:aiceo-agent-protocol-integration",
   "test:aiceo-closure-integrity",
+  "test:aiceo-memory",
+  "test:aiceo-memory-integration",
+  "test:aiceo-memory-concurrency",
+  "test:aiceo-thought-continuity",
+  "test:aiceo-thought-concurrency",
+  "test:aiceo-layered-self-checks",
+  "test:aiceo-preclassification-inbox",
 ];
 const PROTECTED_CURRENT_STATE_FIELDS_EXCLUDED_AT_CLOSURE = new Set([
   "verification",
@@ -75,6 +82,59 @@ export const CLOSURE_INTEGRITY_RULE = {
   },
   grantsAuthority: false,
 };
+export const MEMORY_FOUNDATION_RULE = {
+  id: "memory-operating-system-foundation",
+  version: "G1-001",
+  classification: "memory_governance_foundation",
+  rule: "Memory records are project-isolated context candidates with explicit layer, cognitive state, truth level, source lineage, temporal validity, lifecycle, and writer authority. Thought Continuity Graph is a core G1-001 contract: immutable non-authoritative candidates preserve the causal chain Motivation, Context, Observation, Interpretation, Belief/Hypothesis, Principle, Decision, Action, Outcome, Reflection, Updated Belief, and Next Decision. Important judgments remain backtraceable to prior context, evidence, intended result, outcome validation, counterfactuals, and superseded thought. Repetition or citation never upgrades thought to fact or rule; reality may contradict and supersede prior thought without rewriting history. Persistent State remains engineering truth. Ordinary agents and external sources cannot establish facts, decisions, rules, governance memory, or authority. Learning Promotion, Retrieval Router, Context Compiler, Agent Memory Distribution, and Temporal Replay are DEFERRED and non-executable in G1-001.",
+  persistentStateIsTruth: true,
+  candidateOnly: true,
+  immutableCandidates: true,
+  thoughtContinuityGraphCore: true,
+  citationDoesNotUpgradeTruth: true,
+  realityMaySupersedeThought: true,
+  deferredCapabilities: [
+    "retrieval_router", "context_compiler", "agent_memory_distribution",
+    "learning_promotion", "temporal_replay",
+  ],
+  grantsAuthority: false,
+  productionAuthority: false,
+};
+export const LAYERED_SELF_CHECK_RULE = {
+  id: "layered-self-check-integrity",
+  version: "G1-001-SC-1",
+  classification: "cross_cutting_diagnostic_integrity",
+  rule: "Every future AICEO critical module or node must expose a lightweight Local Self-Check over input, output, state, permission, evidence, version, freshness, and invariants. Each functional chain must aggregate fresh local summaries into a Chain Health Check that cannot report healthier than its children and must localize fault domains. Global Integrity Check reads health summaries, anomalies, hashes, timestamps, versions, and necessary evidence by default; it may deepen into raw evidence only for an unexplained chain or cross-chain conflict with an explicit reason. Self-checks are immutable diagnostic evidence only: they cannot grant authority, modify governance, promote memory, or count as independent validation. High-risk and critical closure still require an independent Validator and signed Closure Integrity Audit.",
+  progressiveEscalation: ["local_low_cost", "related_chain", "global_deep_on_unexplained_or_cross_chain_conflict"],
+  defaultGlobalMode: "summary_only",
+  selfCheckIsIndependentValidation: false,
+  closureStillRequiresIndependentValidator: true,
+  grantsAuthority: false,
+  productionAuthority: false,
+};
+export const PRECLASSIFICATION_MEMORY_INBOX_RULE = {
+  id: "preclassification-memory-inbox",
+  version: "G1-001-INBOX-1",
+  classification: "memory_governance_foundation",
+  rule: "Before scientific Memory OS classification is complete, Owner-designated high-value ideas may be preserved only as immutable pre-classification, unverified, non-operational candidate records with original semantics, source context, time, provenance hashes, and non-authoritative future destination hints. Inbox records are not facts, decisions, production rules, governance rules, retrieval inputs, or independent validation. Future scientific migration may split one origin into Decision, Knowledge, Experience/Learning, Collaboration, and Project/Roadmap memory only after classification, permission, provenance, epistemic-state, lifecycle, independent-validation, and Owner-approved migration gates are verified. Every formal descendant must retain the origin inbox ID, origin hash, and source/context/time snapshot; the original record remains immutable. No automatic promotion is allowed.",
+  migrationAcceptanceRequirements: {
+    scientificClassificationRequired: true,
+    allowSplitIntoMultipleFormalNodes: true,
+    preserveOriginInboxId: true,
+    preserveOriginHash: true,
+    preserveSourceContextTimeSnapshot: true,
+    independentValidationRequired: true,
+    ownerApprovedMigrationRequired: true,
+    noAutomaticPromotion: true,
+  },
+  formalDescendantMigrationImplementation: "DEFERRED_BLOCKED_UNTIL_MEMORY_OS_SCIENTIFIC_CLASSIFICATION",
+  currentClosureCertifiesMigrationImplementation: false,
+  trustedWriterBoundary: "database_owner_and_explicit_migration_only_public_revoked_no_runtime_route",
+  operationalInput: false,
+  retrievalAuthority: false,
+  grantsAuthority: false,
+  productionAuthority: false,
+};
 const PROTECTED_RULE_BASELINES: Record<string, Record<string, unknown>> = {
   "owner-zero-trial-error": {
     id: "owner-zero-trial-error",
@@ -105,6 +165,9 @@ const PROTECTED_RULE_BASELINES: Record<string, Record<string, unknown>> = {
   "brain-agent-execution-protocol": BRAIN_AGENT_EXECUTION_RULE,
   "intent-uncertainty-confirmation-gate": INTENT_UNCERTAINTY_CONFIRMATION_RULE,
   "closure-integrity-audit": CLOSURE_INTEGRITY_RULE,
+  "memory-operating-system-foundation": MEMORY_FOUNDATION_RULE,
+  "layered-self-check-integrity": LAYERED_SELF_CHECK_RULE,
+  "preclassification-memory-inbox": PRECLASSIFICATION_MEMORY_INBOX_RULE,
 };
 const PROTECTED_ENTITY_BASELINES: Record<string, Record<string, unknown>> = {
   owner: { id: "owner", type: "human_authority", authority: "ultimate_human_governance_authority" },
@@ -114,6 +177,12 @@ const PROTECTED_ENTITY_BASELINES: Record<string, Record<string, unknown>> = {
   "collaboration-loop-001": { id: "collaboration-loop-001", type: "continuous_improvement_loop", status: "ACTIVE", version: "COLLABORATION-LOOP-001" },
   "brain-agent-001": { id: "brain-agent-001", type: "execution_protocol", status: "ACTIVE", version: "BRAIN-AGENT-001" },
   "intent-gate-001": { id: "intent-gate-001", type: "communication_understanding_gate", status: "ACTIVE", version: "INTENT-GATE-001", productionAuthority: false },
+};
+const MEMORY_ENTITY_IDENTITY = {
+  id: "memory-g1-001",
+  type: "memory_operating_system_foundation",
+  version: "G1-001",
+  productionAuthority: false,
 };
 const PROTECTED_ALIASES: Record<string, unknown> = {
   "AI CEO继续": "resume",
@@ -332,6 +401,31 @@ export class AiceoContinuityLayer {
           throw new Error(`不能：受保护的治理实体 ${id} 不可删除、改写或绕过`);
         }
       }
+      const memoryEntity = inputEntities.get("memory-g1-001");
+      const memoryAllowedKeys = new Set(["id", "type", "version", "productionAuthority", "status", "verification", "closure"]);
+      const memoryIdentity = memoryEntity && Object.fromEntries(
+        Object.keys(MEMORY_ENTITY_IDENTITY).map((key) => [key, memoryEntity[key]]),
+      );
+      const expectedMemoryStatus = input.currentState.verification === "VERIFIED"
+        ? { status: "COMPLETED", verification: "VERIFIED", closure: "CLOSED" }
+        : { status: "COMPLETED", verification: "NOT_VERIFIED", closure: "BLOCKED" };
+      const starterMemoryStatus = memoryEntity?.status === "NOT_VERIFIED"
+        && memoryEntity?.verification === undefined
+        && memoryEntity?.closure === "BLOCKED"
+        && input.currentState.verification === "NOT_VERIFIED"
+        && input.currentState.closure === "BLOCKED";
+      if (
+        !memoryEntity
+        || Object.keys(memoryEntity).some((key) => !memoryAllowedKeys.has(key))
+        || JSON.stringify(canonical(memoryIdentity)) !== JSON.stringify(canonical(MEMORY_ENTITY_IDENTITY))
+        || (!starterMemoryStatus && (
+          memoryEntity.status !== expectedMemoryStatus.status
+          || memoryEntity.verification !== expectedMemoryStatus.verification
+          || memoryEntity.closure !== expectedMemoryStatus.closure
+        ))
+      ) {
+        throw new Error("不能：memory-g1-001 身份不可改写，且状态必须与受保护 verification/closure 一致");
+      }
       const continuityEntity = inputEntities.get("continuity-001");
       const continuityEntityKeys = continuityEntity ? Object.keys(continuityEntity) : [];
       const continuityEntityAllowedKeys = new Set(["id", "type", "status", "verification", "closure"]);
@@ -357,7 +451,7 @@ export class AiceoContinuityLayer {
         }
       }
       for (const entity of input.entityRegistry) {
-        if (PROTECTED_ENTITY_BASELINES[entity.id as string] || entity.id === "continuity-001") continue;
+        if (PROTECTED_ENTITY_BASELINES[entity.id as string] || entity.id === "continuity-001" || entity.id === "memory-g1-001") continue;
         throw new Error(`不能：未知治理实体 ${String(entity.id)} 未经过代码基线化与 Closure Integrity Audit`);
       }
       for (const [alias, target] of Object.entries(input.aliasDictionary)) {
@@ -439,7 +533,9 @@ export class AiceoContinuityLayer {
           throw new Error("不能：signed regression evidence is not bound to the complete closure intent");
         }
         const closureEntityIdentity = (entities: Record<string, unknown>[]) => entities.map((entity) =>
-          entity.id === "continuity-001" ? { id: entity.id, type: entity.type } : entity);
+          entity.id === "continuity-001" || entity.id === "memory-g1-001"
+            ? { id: entity.id, type: entity.type, version: entity.version, productionAuthority: entity.productionAuthority }
+            : entity);
         if (
           JSON.stringify(canonical(input.decisionRuleRegistry)) !== JSON.stringify(canonical(current.decisionRuleRegistry))
           || JSON.stringify(canonical(closureEntityIdentity(input.entityRegistry))) !== JSON.stringify(canonical(closureEntityIdentity(current.entityRegistry)))

@@ -31,3 +31,6 @@
 - [Owner–Brain execution protocol](owner-brain-execution-protocol.md) — Future capability responses are binary: execute safely when able; otherwise say “不能” and give only the real blocker.
 - [API operational script bundles](api-operational-script-bundles.md) — Bundle DB-backed TypeScript scripts as CommonJS with async main; native TS/ESM paths conflict with workspace and `pg`.
 - [Closure integrity gates](closure-integrity-gates.md) — Validate every mutable surface across intermediate revisions and bind signed regression outputs to the complete closure intent.
+- [Memory foundation scope](memory-foundation-scope.md) — G1-001 is candidate-only and includes Thought Continuity; promotion and retrieval/learning remain non-executable.
+- [Layered self-check integrity](layered-self-check-integrity.md) — Local, chain, and global checks escalate progressively but never replace independent validation or closure.
+- [Pre-classification memory inbox](preclassification-memory-inbox.md) — Preserve high-value raw ideas as sealed non-authoritative provenance roots until scientific classification is ready.
