@@ -34,8 +34,12 @@ async function main() {
     .where(eq(aiceoContinuityStateTable.projectId, project.id)).limit(1))[0];
   assert.ok(state);
   assert.equal(state.state, "COMPLETED");
-  assert.equal(state.currentState.verification, "PENDING_INDEPENDENT_READ_ONLY_ACCEPTANCE");
-  assert.equal(state.resumeNode.node, "independent-read-only-acceptance");
+  assert.equal(state.currentState.verification, "VERIFIED");
+  assert.equal(state.currentState.closure, "CLOSED");
+  assert.equal(state.resumeNode.node, "task-2-closed");
+  assert.equal(state.resumeNode.status, "CLOSED");
+  assert.equal(state.aliasDictionary.Bro, "aiceo_brain_exclusive_alias");
+  assert.equal(state.aliasDictionary["Bro，继续"], "resume");
   assert.ok(state.decisionRuleRegistry.length >= 5);
   assert.ok(state.entityRegistry.length >= 5);
   assert.ok(state.evidencePointers.length >= 4);
@@ -61,11 +65,11 @@ async function main() {
   assert.ok(events.length >= 1);
   const control = (await db.select().from(aiceoControlStateTable).limit(1))[0];
   assert.ok(control && !control.killSwitch && control.queueActive && control.circuitState !== "OPEN");
-  for (const alias of ["AI CEO继续", "AICEO继续"]) {
+  for (const alias of ["AI CEO继续", "AICEO继续", "Bro，继续"]) {
     const resumed = await aiceoContinuityLayer.resume(alias, "aiceo_owner");
     assert.equal(resumed.truthSource, "persistent_state");
     assert.equal(resumed.resume.directive, "completed");
-    assert.equal(resumed.resume.node.node, "independent-read-only-acceptance");
+    assert.equal(resumed.resume.node.node, "task-2-closed");
     assert.equal(resumed.productionAuthority, false);
   }
   console.log(JSON.stringify({
@@ -73,7 +77,7 @@ async function main() {
     revision: state.revision,
     eventCount: events.length,
     hmacChainValid: true,
-    aliasesVerified: 2,
+    aliasesVerified: 3,
     resumeNode: state.resumeNode.node,
     productionAuthority: false,
   }));

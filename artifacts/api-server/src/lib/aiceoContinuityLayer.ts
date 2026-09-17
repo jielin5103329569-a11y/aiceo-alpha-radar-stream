@@ -14,7 +14,13 @@ import type { AiceoRole } from "./aiceoAuthorization";
 
 const VERSION = "CONTINUITY-001";
 const AUTHORITY = "grok_restricted_development";
-const RESUME_ALIASES = new Set(["ai ceo继续", "aiceo继续", "ai ceo continue", "aiceo continue"]);
+const RESUME_ALIASES = new Set([
+  "ai ceo继续",
+  "aiceo继续",
+  "ai ceo continue",
+  "aiceo continue",
+  "bro，继续",
+]);
 const TRANSITIONS: Record<AiceoContinuityState, AiceoContinuityState[]> = {
   RUNNING: ["PAUSED", "FAILED", "COMPLETED", "OWNER_GATE"],
   PAUSED: ["RUNNING", "FAILED", "COMPLETED", "OWNER_GATE"],
