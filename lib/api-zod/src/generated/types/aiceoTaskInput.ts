@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { AiceoTaskInputEnvironment } from './aiceoTaskInputEnvironment';
+import type { AiceoTaskInputGovernance } from './aiceoTaskInputGovernance';
 
 export interface AiceoTaskInput {
   /**
@@ -18,6 +19,7 @@ export interface AiceoTaskInput {
      * @maxLength 180
      */
   resource: string;
+  governance: AiceoTaskInputGovernance;
   environment?: AiceoTaskInputEnvironment;
   /**
      * @minimum 1

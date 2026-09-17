@@ -54,6 +54,8 @@ export const submitAiceoTaskBodyActionMax = 120;
 
 export const submitAiceoTaskBodyResourceMax = 180;
 
+export const submitAiceoTaskBodyGovernanceRedLinesMax = 3;
+
 export const submitAiceoTaskBodyTimeoutMsMax = 30000;
 
 export const submitAiceoTaskBodyMaxRetriesMin = 0;
@@ -64,6 +66,10 @@ export const submitAiceoTaskBodyMaxRetriesMax = 2;
 export const SubmitAiceoTaskBody = zod.object({
   "action": zod.string().min(1).max(submitAiceoTaskBodyActionMax),
   "resource": zod.string().min(1).max(submitAiceoTaskBodyResourceMax),
+  "governance": zod.object({
+  "classification": zod.enum(['ordinary_technical', 'owner_protection']),
+  "redLines": zod.array(zod.enum(['financial_and_physical_assets', 'legal_liability', 'aiceo_system_integrity'])).max(submitAiceoTaskBodyGovernanceRedLinesMax)
+}),
   "environment": zod.enum(['development', 'staging', 'production']).optional(),
   "timeoutMs": zod.number().min(1).max(submitAiceoTaskBodyTimeoutMsMax).optional(),
   "maxRetries": zod.number().min(submitAiceoTaskBodyMaxRetriesMin).max(submitAiceoTaskBodyMaxRetriesMax).optional(),
@@ -79,7 +85,66 @@ export const SubmitAiceoTaskResponse = zod.object({
   "authority": zod.string(),
   "environment": zod.string(),
   "contractVersion": zod.string(),
-  "contractHash": zod.string()
+  "contractHash": zod.string(),
+  "governanceClassification": zod.enum(['ordinary_technical', 'owner_protection', 'legacy_unclassified']),
+  "ownerProtectionRedLines": zod.array(zod.enum(['financial_and_physical_assets', 'legal_liability', 'aiceo_system_integrity'])),
+  "ownerGovernanceApprovedAt": zod.coerce.date().nullish(),
+  "ownerGovernanceApprovedBy": zod.string().nullish(),
+  "ownerGovernanceApprovalHash": zod.string().nullish()
+})
+
+
+export const GetAiceoGovernanceAcceptanceResponse = zod.object({
+  "governanceRootVersion": zod.string(),
+  "role": zod.enum(['aiceo_owner', 'aiceo_operator', 'aiceo_validator']),
+  "ownerAuthority": zod.string(),
+  "brainAuthority": zod.string(),
+  "agentAuthority": zod.string(),
+  "productionAuthority": zod.literal(false),
+  "tasks": zod.array(zod.object({
+  "id": zod.string(),
+  "state": zod.string(),
+  "action": zod.string(),
+  "resource": zod.string(),
+  "permissions": zod.record(zod.string(), zod.unknown()),
+  "contractVersion": zod.string(),
+  "contractHash": zod.string(),
+  "environment": zod.string(),
+  "authority": zod.string(),
+  "governanceClassification": zod.string(),
+  "ownerProtectionRedLines": zod.array(zod.string()),
+  "ownerGovernanceApprovedAt": zod.coerce.date().nullish(),
+  "ownerGovernanceApprovedBy": zod.string().nullish(),
+  "ownerGovernanceApprovalHash": zod.string().nullish(),
+  "createdAt": zod.coerce.date(),
+  "events": zod.array(zod.object({
+  "id": zod.string(),
+  "eventType": zod.string(),
+  "actorId": zod.string().nullish(),
+  "eventHash": zod.string(),
+  "previousHash": zod.string().nullish(),
+  "serverTimestamp": zod.coerce.date(),
+  "payload": zod.record(zod.string(), zod.unknown())
+}))
+}))
+})
+
+
+export const CreateAiceoGovernanceAcceptanceTaskResponse = zod.object({
+  "id": zod.string(),
+  "correlationId": zod.string(),
+  "state": zod.enum(['QUEUED', 'RUNNING', 'VALIDATING', 'COMPLETED', 'FAILED', 'UNKNOWN', 'STALE', 'BLOCKED', 'CANCELLED']),
+  "action": zod.string(),
+  "resource": zod.string(),
+  "authority": zod.string(),
+  "environment": zod.string(),
+  "contractVersion": zod.string(),
+  "contractHash": zod.string(),
+  "governanceClassification": zod.enum(['ordinary_technical', 'owner_protection', 'legacy_unclassified']),
+  "ownerProtectionRedLines": zod.array(zod.enum(['financial_and_physical_assets', 'legal_liability', 'aiceo_system_integrity'])),
+  "ownerGovernanceApprovedAt": zod.coerce.date().nullish(),
+  "ownerGovernanceApprovedBy": zod.string().nullish(),
+  "ownerGovernanceApprovalHash": zod.string().nullish()
 })
 
 
@@ -96,7 +161,35 @@ export const ExecuteApprovedAiceoTaskResponse = zod.object({
   "authority": zod.string(),
   "environment": zod.string(),
   "contractVersion": zod.string(),
-  "contractHash": zod.string()
+  "contractHash": zod.string(),
+  "governanceClassification": zod.enum(['ordinary_technical', 'owner_protection', 'legacy_unclassified']),
+  "ownerProtectionRedLines": zod.array(zod.enum(['financial_and_physical_assets', 'legal_liability', 'aiceo_system_integrity'])),
+  "ownerGovernanceApprovedAt": zod.coerce.date().nullish(),
+  "ownerGovernanceApprovedBy": zod.string().nullish(),
+  "ownerGovernanceApprovalHash": zod.string().nullish()
+})
+
+
+export const ApproveAiceoOwnerGovernanceParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const ApproveAiceoOwnerGovernanceResponse = zod.object({
+  "taskId": zod.string(),
+  "approvedAt": zod.coerce.date(),
+  "approvedBy": zod.string(),
+  "approvalHash": zod.string(),
+  "redLines": zod.array(zod.enum(['financial_and_physical_assets', 'legal_liability', 'aiceo_system_integrity'])),
+  "auditEvent": zod.object({
+  "id": zod.string(),
+  "eventType": zod.string(),
+  "actorId": zod.string().nullish(),
+  "eventHash": zod.string(),
+  "previousHash": zod.string().nullish(),
+  "serverTimestamp": zod.coerce.date(),
+  "payload": zod.record(zod.string(), zod.unknown())
+}),
+  "productionAuthority": zod.literal(false)
 })
 
 

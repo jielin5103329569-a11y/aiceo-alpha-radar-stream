@@ -5,6 +5,29 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+export type AiceoTaskInputGovernanceClassification = typeof AiceoTaskInputGovernanceClassification[keyof typeof AiceoTaskInputGovernanceClassification];
+
+
+export const AiceoTaskInputGovernanceClassification = {
+  ordinary_technical: 'ordinary_technical',
+  owner_protection: 'owner_protection',
+} as const;
+
+export type AiceoTaskInputGovernanceRedLinesItem = typeof AiceoTaskInputGovernanceRedLinesItem[keyof typeof AiceoTaskInputGovernanceRedLinesItem];
+
+
+export const AiceoTaskInputGovernanceRedLinesItem = {
+  financial_and_physical_assets: 'financial_and_physical_assets',
+  legal_liability: 'legal_liability',
+  aiceo_system_integrity: 'aiceo_system_integrity',
+} as const;
+
+export type AiceoTaskInputGovernance = {
+  classification: AiceoTaskInputGovernanceClassification;
+  /** @maxItems 3 */
+  redLines: AiceoTaskInputGovernanceRedLinesItem[];
+};
+
 export type AiceoTaskInputEnvironment = typeof AiceoTaskInputEnvironment[keyof typeof AiceoTaskInputEnvironment];
 
 
@@ -25,6 +48,7 @@ export interface AiceoTaskInput {
      * @maxLength 180
      */
   resource: string;
+  governance: AiceoTaskInputGovernance;
   environment?: AiceoTaskInputEnvironment;
   /**
      * @minimum 1
@@ -54,6 +78,24 @@ export const AiceoTaskState = {
   CANCELLED: 'CANCELLED',
 } as const;
 
+export type AiceoTaskGovernanceClassification = typeof AiceoTaskGovernanceClassification[keyof typeof AiceoTaskGovernanceClassification];
+
+
+export const AiceoTaskGovernanceClassification = {
+  ordinary_technical: 'ordinary_technical',
+  owner_protection: 'owner_protection',
+  legacy_unclassified: 'legacy_unclassified',
+} as const;
+
+export type AiceoTaskOwnerProtectionRedLinesItem = typeof AiceoTaskOwnerProtectionRedLinesItem[keyof typeof AiceoTaskOwnerProtectionRedLinesItem];
+
+
+export const AiceoTaskOwnerProtectionRedLinesItem = {
+  financial_and_physical_assets: 'financial_and_physical_assets',
+  legal_liability: 'legal_liability',
+  aiceo_system_integrity: 'aiceo_system_integrity',
+} as const;
+
 export interface AiceoTask {
   id: string;
   correlationId: string;
@@ -64,6 +106,90 @@ export interface AiceoTask {
   environment: string;
   contractVersion: string;
   contractHash: string;
+  governanceClassification: AiceoTaskGovernanceClassification;
+  ownerProtectionRedLines: AiceoTaskOwnerProtectionRedLinesItem[];
+  /** @nullable */
+  ownerGovernanceApprovedAt?: string | null;
+  /** @nullable */
+  ownerGovernanceApprovedBy?: string | null;
+  /** @nullable */
+  ownerGovernanceApprovalHash?: string | null;
+}
+
+export type AiceoGovernanceAuditEventPayload = { [key: string]: unknown };
+
+export interface AiceoGovernanceAuditEvent {
+  id: string;
+  eventType: string;
+  /** @nullable */
+  actorId?: string | null;
+  eventHash: string;
+  /** @nullable */
+  previousHash?: string | null;
+  serverTimestamp: string;
+  payload: AiceoGovernanceAuditEventPayload;
+}
+
+export type AiceoGovernanceAcceptanceTaskPermissions = { [key: string]: unknown };
+
+export interface AiceoGovernanceAcceptanceTask {
+  id: string;
+  state: string;
+  action: string;
+  resource: string;
+  permissions: AiceoGovernanceAcceptanceTaskPermissions;
+  contractVersion: string;
+  contractHash: string;
+  environment: string;
+  authority: string;
+  governanceClassification: string;
+  ownerProtectionRedLines: string[];
+  /** @nullable */
+  ownerGovernanceApprovedAt?: string | null;
+  /** @nullable */
+  ownerGovernanceApprovedBy?: string | null;
+  /** @nullable */
+  ownerGovernanceApprovalHash?: string | null;
+  createdAt: string;
+  events: AiceoGovernanceAuditEvent[];
+}
+
+export type AiceoGovernanceAcceptanceRole = typeof AiceoGovernanceAcceptanceRole[keyof typeof AiceoGovernanceAcceptanceRole];
+
+
+export const AiceoGovernanceAcceptanceRole = {
+  aiceo_owner: 'aiceo_owner',
+  aiceo_operator: 'aiceo_operator',
+  aiceo_validator: 'aiceo_validator',
+} as const;
+
+export interface AiceoGovernanceAcceptance {
+  governanceRootVersion: string;
+  role: AiceoGovernanceAcceptanceRole;
+  ownerAuthority: string;
+  brainAuthority: string;
+  agentAuthority: string;
+  productionAuthority: false;
+  tasks: AiceoGovernanceAcceptanceTask[];
+}
+
+export type AiceoOwnerGovernanceApprovalResultRedLinesItem = typeof AiceoOwnerGovernanceApprovalResultRedLinesItem[keyof typeof AiceoOwnerGovernanceApprovalResultRedLinesItem];
+
+
+export const AiceoOwnerGovernanceApprovalResultRedLinesItem = {
+  financial_and_physical_assets: 'financial_and_physical_assets',
+  legal_liability: 'legal_liability',
+  aiceo_system_integrity: 'aiceo_system_integrity',
+} as const;
+
+export interface AiceoOwnerGovernanceApprovalResult {
+  taskId: string;
+  approvedAt: string;
+  approvedBy: string;
+  approvalHash: string;
+  redLines: AiceoOwnerGovernanceApprovalResultRedLinesItem[];
+  auditEvent: AiceoGovernanceAuditEvent;
+  productionAuthority: false;
 }
 
 export type AiceoTransitionInputState = typeof AiceoTransitionInputState[keyof typeof AiceoTransitionInputState];

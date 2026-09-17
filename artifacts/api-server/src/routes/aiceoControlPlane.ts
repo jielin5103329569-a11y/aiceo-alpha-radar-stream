@@ -2,7 +2,7 @@ import { Router, type Request, type Response } from "express";
 import { clerkClient, getAuth } from "@clerk/express";
 import { z } from "zod";
 import { aiceoControlPlane } from "../lib/aiceoControlPlane";
-import { authorizeAiceoRole, type AiceoRole } from "../lib/aiceoAuthorization";
+import { authorizeAiceoRole, authorizeAnyAiceoRole, type AiceoRole } from "../lib/aiceoAuthorization";
 
 const router = Router();
 const submission = z.object({
@@ -44,6 +44,33 @@ const privileged = (role: AiceoRole, handler: (req: Request, res: Response, user
   }
   await handler(req, res, authorization.userId);
 };
+const anyAiceoRole = (handler: (req: Request, res: Response, userId: string, role: AiceoRole) => Promise<void>) => async (req: Request, res: Response): Promise<void> => {
+  const auth = getAuth(req);
+  if (!auth.userId) {
+    await aiceoControlPlane.rejectAccess("anonymous", "exclusive AICEO role", "Authentication required.").catch(() => undefined);
+    res.status(401).json({ error: "Authentication required." });
+    return;
+  }
+  let publicMetadata: Record<string, unknown>;
+  try {
+    publicMetadata = (await clerkClient.users.getUser(auth.userId)).publicMetadata;
+  } catch {
+    await aiceoControlPlane.rejectAccess(auth.userId, "exclusive AICEO role", "Clerk role authority is unavailable.").catch(() => undefined);
+    res.status(503).json({ error: "Clerk role authority is unavailable." });
+    return;
+  }
+  const authorization = authorizeAnyAiceoRole({
+    userId: auth.userId,
+    sessionClaims: auth.sessionClaims as Record<string, unknown> | null | undefined,
+    publicMetadata,
+  });
+  if (!authorization.allowed) {
+    await aiceoControlPlane.rejectAccess(auth.userId, "exclusive AICEO role", authorization.error).catch(() => undefined);
+    res.status(authorization.status).json({ error: authorization.error });
+    return;
+  }
+  await handler(req, res, authorization.userId, authorization.role);
+};
 const run = async (fn: () => Promise<unknown>, res: Response): Promise<void> => {
   try { res.json(await fn()); } catch (error) { const message = error instanceof Error ? error.message : String(error); res.status(/storage|database|connection/i.test(message) ? 503 : 409).json({ error: message }); }
 };
@@ -61,6 +88,12 @@ router.post("/aiceo/tasks", privileged("aiceo_operator", async (req, res, userId
     res.status(400).json({ error: parsed.error.message }); return;
   }
   await run(() => aiceoControlPlane.submit(parsed.data, userId), res);
+}));
+router.get("/aiceo/governance-acceptance", anyAiceoRole(async (_req, res, _userId, role) => {
+  await run(() => aiceoControlPlane.governanceAcceptance(role), res);
+}));
+router.post("/aiceo/governance-acceptance/test-task", privileged("aiceo_operator", async (_req, res, userId) => {
+  await run(() => aiceoControlPlane.createGovernanceAcceptanceTask(userId), res);
 }));
 router.post("/aiceo/tasks/:id/execute", privileged("aiceo_operator", async (req, res, userId) => {
   await run(() => aiceoControlPlane.executeApproved(String(req.params.id), userId), res);

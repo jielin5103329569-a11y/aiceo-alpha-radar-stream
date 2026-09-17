@@ -66,9 +66,17 @@ export function ownerGovernanceApprovalHash(input: {
     contractHash: string;
     environment: string;
     authority: string;
+    budget: unknown;
+    timeoutMs: number;
+    maxRetries: number;
   };
   classification: "owner_protection";
   redLines: OwnerProtectionRedLine[];
+  submission: {
+    eventId: string;
+    eventHash: string;
+    actorId: string;
+  };
   ownerId: string;
   approvedAt: Date;
 }, secret: string): string {

@@ -47,6 +47,24 @@ paths:
       responses:
         "200": { description: Task submitted, content: { application/json: { schema: { $ref: "#/components/schemas/AiceoTask" } } } }
         "401": { description: Authentication required }
+  /aiceo/governance-acceptance:
+    get:
+      operationId: getAiceoGovernanceAcceptance
+      tags: [aiceo]
+      security: [{ clerk: [] }]
+      responses:
+        "200": { description: Role-scoped Development governance acceptance state, content: { application/json: { schema: { $ref: "#/components/schemas/AiceoGovernanceAcceptance" } } } }
+        "401": { description: Authentication required }
+        "403": { description: Exactly one current AICEO role required }
+  /aiceo/governance-acceptance/test-task:
+    post:
+      operationId: createAiceoGovernanceAcceptanceTask
+      tags: [aiceo]
+      security: [{ clerk: [] }]
+      responses:
+        "200": { description: Fixed no-side-effect Development governance acceptance task, content: { application/json: { schema: { $ref: "#/components/schemas/AiceoTask" } } } }
+        "401": { description: Authentication required }
+        "403": { description: Exclusive operator role required }
   /aiceo/tasks/{id}/execute:
     post:
       operationId: executeApprovedAiceoTask
@@ -64,10 +82,10 @@ paths:
       security: [{ clerk: [] }]
       parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
       responses:
-        "200": { description: Immutable independent Owner Governance Approval recorded }
+        "200": { description: Immutable independent Owner Governance Approval recorded, content: { application/json: { schema: { $ref: "#/components/schemas/AiceoOwnerGovernanceApprovalResult" } } } }
         "401": { description: Authentication required }
         "403": { description: Exclusive AICEO Owner role required }
-        "409": { description: Governance classification, independence, or immutability gate rejected approval }
+        "409": { description: "Governance classification, independence, or immutability gate rejected approval" }
   /aiceo/tasks/{id}/validate:
     post:
       operationId: validateAiceoTask
@@ -760,6 +778,59 @@ components:
         ownerGovernanceApprovedAt: { type: [string, "null"], format: date-time }
         ownerGovernanceApprovedBy: { type: [string, "null"] }
         ownerGovernanceApprovalHash: { type: [string, "null"] }
+    AiceoGovernanceAuditEvent:
+      type: object
+      required: [id, eventType, eventHash, serverTimestamp, payload]
+      properties:
+        id: { type: string }
+        eventType: { type: string }
+        actorId: { type: [string, "null"] }
+        eventHash: { type: string }
+        previousHash: { type: [string, "null"] }
+        serverTimestamp: { type: string, format: date-time }
+        payload: { type: object, additionalProperties: true }
+    AiceoGovernanceAcceptanceTask:
+      type: object
+      required: [id, state, action, resource, permissions, contractVersion, contractHash, environment, authority, governanceClassification, ownerProtectionRedLines, createdAt, events]
+      properties:
+        id: { type: string }
+        state: { type: string }
+        action: { type: string }
+        resource: { type: string }
+        permissions: { type: object, additionalProperties: true }
+        contractVersion: { type: string }
+        contractHash: { type: string }
+        environment: { type: string }
+        authority: { type: string }
+        governanceClassification: { type: string }
+        ownerProtectionRedLines: { type: array, items: { type: string } }
+        ownerGovernanceApprovedAt: { type: [string, "null"], format: date-time }
+        ownerGovernanceApprovedBy: { type: [string, "null"] }
+        ownerGovernanceApprovalHash: { type: [string, "null"] }
+        createdAt: { type: string, format: date-time }
+        events: { type: array, items: { $ref: "#/components/schemas/AiceoGovernanceAuditEvent" } }
+    AiceoGovernanceAcceptance:
+      type: object
+      required: [governanceRootVersion, role, ownerAuthority, brainAuthority, agentAuthority, productionAuthority, tasks]
+      properties:
+        governanceRootVersion: { type: string }
+        role: { type: string, enum: [aiceo_owner, aiceo_operator, aiceo_validator] }
+        ownerAuthority: { type: string }
+        brainAuthority: { type: string }
+        agentAuthority: { type: string }
+        productionAuthority: { type: boolean, enum: [false] }
+        tasks: { type: array, items: { $ref: "#/components/schemas/AiceoGovernanceAcceptanceTask" } }
+    AiceoOwnerGovernanceApprovalResult:
+      type: object
+      required: [taskId, approvedAt, approvedBy, approvalHash, redLines, auditEvent, productionAuthority]
+      properties:
+        taskId: { type: string }
+        approvedAt: { type: string, format: date-time }
+        approvedBy: { type: string }
+        approvalHash: { type: string }
+        redLines: { type: array, items: { type: string, enum: [financial_and_physical_assets, legal_liability, aiceo_system_integrity] } }
+        auditEvent: { $ref: "#/components/schemas/AiceoGovernanceAuditEvent" }
+        productionAuthority: { type: boolean, enum: [false] }
     AiceoTransitionInput:
       type: object
       required: [state]

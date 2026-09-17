@@ -62,9 +62,17 @@ const approval = {
     contractHash: "contract-hash",
     environment: "development",
     authority: "grok_restricted_development",
+    budget: { estimatedTokens: 1024, estimatedCalls: 1, estimatedUsd: "0.0512" },
+    timeoutMs: 10000,
+    maxRetries: 0,
   },
   classification: "owner_protection",
   redLines: ["aiceo_system_integrity"],
+  submission: {
+    eventId: "submission-event-1",
+    eventHash: "submission-hash-1",
+    actorId: "operator-1",
+  },
   ownerId: "owner-1",
   approvedAt: new Date("2026-09-17T12:00:00.000Z"),
 };
@@ -75,6 +83,11 @@ assert.notEqual(
   hash,
   ownerGovernanceApprovalHash({ ...approval, ownerId: "agent-forged-owner" }, secret),
   "Owner identity is bound into immutable approval evidence",
+);
+assert.notEqual(
+  hash,
+  ownerGovernanceApprovalHash({ ...approval, submission: { ...approval.submission, actorId: "owner-1" } }, secret),
+  "submission identity and independence evidence are bound into immutable approval evidence",
 );
 assert.notEqual(
   hash,

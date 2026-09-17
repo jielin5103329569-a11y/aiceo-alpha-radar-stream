@@ -113,6 +113,10 @@ export default function Dashboard() {
                 <Activity className="h-3 w-3" />
                 Diagnostics
               </Link>
+              <Link href="/governance-acceptance" className="flex min-h-11 min-w-11 items-center justify-center gap-1.5 text-xs font-medium uppercase tracking-widest text-muted-foreground transition-colors hover:text-foreground sm:min-h-0 sm:min-w-0" aria-label="Governance acceptance" data-testid="link-governance-acceptance">
+                <ShieldAlert className="h-3 w-3" />
+                <span className="hidden sm:inline">Governance</span>
+              </Link>
               <MarketFeedStatusBadge
                 state={universeStatus?.marketFeedState}
                 error={isError}

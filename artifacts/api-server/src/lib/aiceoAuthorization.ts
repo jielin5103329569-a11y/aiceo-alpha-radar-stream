@@ -67,3 +67,16 @@ export const authorizeAiceoRole = (
   }
   return { allowed: true, userId: auth.userId };
 };
+
+export const authorizeAnyAiceoRole = (
+  auth: AiceoAuthContext,
+): { allowed: true; userId: string; role: AiceoRole } | { allowed: false; status: 401 | 403; error: string } => {
+  if (!auth.userId) return { allowed: false, status: 401, error: "Authentication required." };
+  const roles = auth.publicMetadata === undefined
+    ? aiceoRolesFromClaims(auth.sessionClaims)
+    : aiceoRolesFromPublicMetadata(auth.publicMetadata);
+  if (roles.size !== 1) {
+    return { allowed: false, status: 403, error: "IMPL-001 exactly one current AICEO role is required." };
+  }
+  return { allowed: true, userId: auth.userId, role: [...roles][0] };
+};

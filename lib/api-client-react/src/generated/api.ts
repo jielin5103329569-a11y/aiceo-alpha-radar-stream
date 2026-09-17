@@ -24,7 +24,9 @@ import type {
   AiIndustryPoolSnapshot,
   AiceoAuditEvent,
   AiceoDiagnosisInput,
+  AiceoGovernanceAcceptance,
   AiceoKillSwitchInput,
+  AiceoOwnerGovernanceApprovalResult,
   AiceoSelfCheck,
   AiceoStatus,
   AiceoTask,
@@ -370,6 +372,142 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
       return useMutation(getSubmitAiceoTaskMutationOptions(options));
     }
 
+export const getGetAiceoGovernanceAcceptanceUrl = () => {
+
+
+
+
+  return `/api/aiceo/governance-acceptance`
+}
+
+export const getAiceoGovernanceAcceptance = async ( options?: Parameters<typeof customFetch>[1]): Promise<AiceoGovernanceAcceptance> => {
+
+  return customFetch<AiceoGovernanceAcceptance>(getGetAiceoGovernanceAcceptanceUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetAiceoGovernanceAcceptanceQueryKey = () => {
+    return [
+    `/api/aiceo/governance-acceptance`
+    ] as const;
+    }
+
+
+export const getGetAiceoGovernanceAcceptanceQueryOptions = <TData = Awaited<ReturnType<typeof getAiceoGovernanceAcceptance>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAiceoGovernanceAcceptance>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetAiceoGovernanceAcceptanceQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getAiceoGovernanceAcceptance>>> = ({ signal }) => getAiceoGovernanceAcceptance({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getAiceoGovernanceAcceptance>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetAiceoGovernanceAcceptanceQueryResult = NonNullable<Awaited<ReturnType<typeof getAiceoGovernanceAcceptance>>>
+export type GetAiceoGovernanceAcceptanceQueryError = ErrorType<void>
+
+
+
+export function useGetAiceoGovernanceAcceptance<TData = Awaited<ReturnType<typeof getAiceoGovernanceAcceptance>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAiceoGovernanceAcceptance>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetAiceoGovernanceAcceptanceQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateAiceoGovernanceAcceptanceTaskUrl = () => {
+
+
+
+
+  return `/api/aiceo/governance-acceptance/test-task`
+}
+
+export const createAiceoGovernanceAcceptanceTask = async ( options?: Parameters<typeof customFetch>[1]): Promise<AiceoTask> => {
+
+  return customFetch<AiceoTask>(getCreateAiceoGovernanceAcceptanceTaskUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getCreateAiceoGovernanceAcceptanceTaskMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createAiceoGovernanceAcceptanceTask>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createAiceoGovernanceAcceptanceTask>>, TError,void, TContext> => {
+
+const mutationKey = ['createAiceoGovernanceAcceptanceTask'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createAiceoGovernanceAcceptanceTask>>, void> = () => {
+
+
+          return  createAiceoGovernanceAcceptanceTask(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateAiceoGovernanceAcceptanceTaskMutationResult = NonNullable<Awaited<ReturnType<typeof createAiceoGovernanceAcceptanceTask>>>
+
+    export type CreateAiceoGovernanceAcceptanceTaskMutationError = ErrorType<void>
+
+    export const useCreateAiceoGovernanceAcceptanceTask = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createAiceoGovernanceAcceptanceTask>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createAiceoGovernanceAcceptanceTask>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getCreateAiceoGovernanceAcceptanceTaskMutationOptions(options));
+    }
+
 export const getExecuteApprovedAiceoTaskUrl = (id: string,) => {
 
 
@@ -433,6 +571,71 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
         TContext
       > => {
       return useMutation(getExecuteApprovedAiceoTaskMutationOptions(options));
+    }
+
+export const getApproveAiceoOwnerGovernanceUrl = (id: string,) => {
+
+
+
+
+  return `/api/aiceo/tasks/${id}/owner-governance-approve`
+}
+
+export const approveAiceoOwnerGovernance = async (id: string, options?: Parameters<typeof customFetch>[1]): Promise<AiceoOwnerGovernanceApprovalResult> => {
+
+  return customFetch<AiceoOwnerGovernanceApprovalResult>(getApproveAiceoOwnerGovernanceUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getApproveAiceoOwnerGovernanceMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof approveAiceoOwnerGovernance>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof approveAiceoOwnerGovernance>>, TError,{id: string}, TContext> => {
+
+const mutationKey = ['approveAiceoOwnerGovernance'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof approveAiceoOwnerGovernance>>, {id: string}> = (props) => {
+          const {id} = props ?? {};
+
+          return  approveAiceoOwnerGovernance(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ApproveAiceoOwnerGovernanceMutationResult = NonNullable<Awaited<ReturnType<typeof approveAiceoOwnerGovernance>>>
+
+    export type ApproveAiceoOwnerGovernanceMutationError = ErrorType<void>
+
+    export const useApproveAiceoOwnerGovernance = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof approveAiceoOwnerGovernance>>, TError,{id: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof approveAiceoOwnerGovernance>>,
+        TError,
+        {id: string},
+        TContext
+      > => {
+      return useMutation(getApproveAiceoOwnerGovernanceMutationOptions(options));
     }
 
 export const getValidateAiceoTaskUrl = (id: string,) => {

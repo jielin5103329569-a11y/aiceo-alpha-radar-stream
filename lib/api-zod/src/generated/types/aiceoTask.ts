@@ -5,6 +5,8 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { AiceoTaskGovernanceClassification } from './aiceoTaskGovernanceClassification';
+import type { AiceoTaskOwnerProtectionRedLinesItem } from './aiceoTaskOwnerProtectionRedLinesItem';
 import type { AiceoTaskState } from './aiceoTaskState';
 
 export interface AiceoTask {
@@ -17,4 +19,12 @@ export interface AiceoTask {
   environment: string;
   contractVersion: string;
   contractHash: string;
+  governanceClassification: AiceoTaskGovernanceClassification;
+  ownerProtectionRedLines: AiceoTaskOwnerProtectionRedLinesItem[];
+  /** @nullable */
+  ownerGovernanceApprovedAt?: Date | null;
+  /** @nullable */
+  ownerGovernanceApprovedBy?: string | null;
+  /** @nullable */
+  ownerGovernanceApprovalHash?: string | null;
 }
