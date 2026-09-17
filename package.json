@@ -34,6 +34,7 @@
     "test:research-sidecar": "node scripts/test-research-sidecar.mjs",
     "test:aiceo-control-plane": "node scripts/test-aiceo-control-plane.mjs",
     "test:aiceo-permission-matrix": "node --experimental-strip-types scripts/test-aiceo-permission-matrix.mjs",
+    "test:aiceo-governance-root": "node --experimental-strip-types scripts/test-aiceo-governance-root.mjs",
     "test:grok-provider-adapter": "node --experimental-strip-types scripts/test-grok-provider-adapter.mjs"
   },
   "private": true,

@@ -1,4 +1,4 @@
-export type AiceoRole = "aiceo_operator" | "aiceo_validator";
+export type AiceoRole = "aiceo_owner" | "aiceo_operator" | "aiceo_validator";
 
 export type AiceoAuthContext = {
   userId: string | null | undefined;
@@ -32,7 +32,7 @@ export const aiceoRolesFromClaims = (
   ];
   return new Set(values.filter(
     (value): value is AiceoRole =>
-      value === "aiceo_operator" || value === "aiceo_validator",
+      value === "aiceo_owner" || value === "aiceo_operator" || value === "aiceo_validator",
   ));
 };
 
@@ -43,7 +43,7 @@ export const aiceoRolesFromPublicMetadata = (
   ...stringValues(publicMetadata?.roles),
 ].filter(
   (value): value is AiceoRole =>
-    value === "aiceo_operator" || value === "aiceo_validator",
+    value === "aiceo_owner" || value === "aiceo_operator" || value === "aiceo_validator",
 ));
 
 export const authorizeAiceoRole = (
@@ -53,9 +53,11 @@ export const authorizeAiceoRole = (
   if (!auth.userId) {
     return { allowed: false, status: 401, error: "Authentication required." };
   }
-  const claimRoles = aiceoRolesFromClaims(auth.sessionClaims);
-  const metadataRoles = aiceoRolesFromPublicMetadata(auth.publicMetadata);
-  const roles = new Set([...claimRoles, ...metadataRoles]);
+  // Current server-fetched Clerk metadata is authoritative when available.
+  // Session claims are only a compatibility fallback for non-route unit contexts.
+  const roles = auth.publicMetadata === undefined
+    ? aiceoRolesFromClaims(auth.sessionClaims)
+    : aiceoRolesFromPublicMetadata(auth.publicMetadata);
   if (roles.size !== 1 || !roles.has(requiredRole)) {
     return {
       allowed: false,

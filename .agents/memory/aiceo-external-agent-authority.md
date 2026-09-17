@@ -12,3 +12,9 @@ Provider execution needs a durable attempt fence before any network call. The fi
 **Why:** A second execute request, a process crash between state transitions, or a response body that stalls after headers can otherwise clear another invocation's fence, lose usage evidence, or strand the sole active slot.
 
 **How to apply:** Keep provider identity, frozen policies, permissions, budgets, Kill Switch, circuit state, tasks, timestamps, attempt ownership/deadlines, and hash-chained audit events durable. Register schema changes as incremental migrations in the migration ledger. Never grant shell, workflow, trading, model-upgrade, production, Alpha, Radar, Databento, Alert, or arbitrary network/tool authority.
+
+Owner is the ultimate human governance authority. Financial and physical assets, legal liability, and AICEO system integrity are protected red lines. The AICEO Brain has maximum technical sovereignty only below those lines; external agents have delegated technical authority only. Any red-line protection change requires independent, server-authenticated Owner governance approval that is bound to immutable full task intent and audit provenance. Unknown, ambiguous, unclassified, conflicting, missing-authority, or stale-role cases fail closed and are audited. Kill Switch, circuit recovery, and recovery acknowledgment remain Owner-exclusive controls above execution.
+
+**Why:** Ordinary task approval, client-declared classification, unkeyed approval hashes, or stale session roles can otherwise impersonate Owner authority or weaken protection without independent consent.
+
+**How to apply:** Keep legacy work explicitly unclassified and non-runnable. Treat current server-fetched identity metadata as authoritative, authenticate Owner approval evidence with a server-held key, freeze approved intent at the database boundary, and never let task execution or validation mint Owner authority.

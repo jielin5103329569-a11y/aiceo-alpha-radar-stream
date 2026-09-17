@@ -37,6 +37,11 @@ export type AiceoBudget = {
   actualUsd: string;
 };
 
+export type AiceoOwnerProtectionRedLine =
+  | "financial_and_physical_assets"
+  | "legal_liability"
+  | "aiceo_system_integrity";
+
 export const aiceoSourceRegistryTable = pgTable("aiceo_source_registry", {
   id: uuid("id").primaryKey().defaultRandom(),
   catalogId: varchar("catalog_id", { length: 180 }).notNull(),
@@ -98,6 +103,11 @@ export const aiceoTasksTable = pgTable("aiceo_tasks", {
   contractHash: varchar("contract_hash", { length: 128 }).notNull(),
   environment: varchar("environment", { length: 24 }).notNull(),
   authority: varchar("authority", { length: 120 }).notNull(),
+  governanceClassification: varchar("governance_classification", { length: 40 }).notNull(),
+  ownerProtectionRedLines: jsonb("owner_protection_red_lines").$type<AiceoOwnerProtectionRedLine[]>().notNull(),
+  ownerGovernanceApprovedAt: timestamp("owner_governance_approved_at", { withTimezone: true }),
+  ownerGovernanceApprovedBy: varchar("owner_governance_approved_by", { length: 180 }),
+  ownerGovernanceApprovalHash: varchar("owner_governance_approval_hash", { length: 128 }),
   evidence: jsonb("evidence").$type<Record<string, unknown>>(),
   budget: jsonb("budget").$type<AiceoBudget>().notNull(),
   timeoutMs: integer("timeout_ms").notNull(),

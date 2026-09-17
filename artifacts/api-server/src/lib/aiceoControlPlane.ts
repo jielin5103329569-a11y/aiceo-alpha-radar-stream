@@ -14,6 +14,15 @@ import {
   type ApprovedGrokDevelopmentAction,
   type GrokAttemptResult,
 } from "./grokProviderAdapter";
+import {
+  AICEO_AGENT_AUTHORITY,
+  AICEO_BRAIN_AUTHORITY,
+  AICEO_GOVERNANCE_ROOT_VERSION,
+  AICEO_OWNER_AUTHORITY,
+  ownerGovernanceApprovalHash,
+  validateGovernanceDeclaration,
+  type GovernanceDeclaration,
+} from "./aiceoGovernanceRoot";
 
 export const AICEO_STATES = ["QUEUED", "RUNNING", "VALIDATING", "COMPLETED", "FAILED", "UNKNOWN", "STALE", "BLOCKED", "CANCELLED"] as const;
 export type AiceoState = (typeof AICEO_STATES)[number];
@@ -46,6 +55,11 @@ function canonical(value: unknown): unknown {
 function digest(value: unknown): string { return createHash("sha256").update(JSON.stringify(canonical(value))).digest("hex"); }
 function safe(value: unknown, max = 500): string { return String(value).replace(/(?:sk|pk|rk|db)[-_][a-z0-9_-]{12,}/gi, "[redacted]").replace(/[\r\n]/g, " ").slice(0, max); }
 function fail(error: unknown): Error { return new Error(safe(error instanceof Error ? error.message : error)); }
+function ownerApprovalSecret(): string {
+  const secret = process.env.SESSION_SECRET;
+  if (!secret || secret.length < 32) throw new Error("IMPL-001 Owner approval signing authority is unavailable");
+  return secret;
+}
 
 /** PostgreSQL is the sole state authority; this class intentionally has no process-owned state. */
 export class AiceoControlPlane {
@@ -89,12 +103,43 @@ export class AiceoControlPlane {
     await tx.insert(aiceoAuditEventsTable).values({ taskId: input.taskId, correlationId: input.correlationId, runId: input.runId, eventType: input.type, state: input.state, actorId: safe(input.actorId, 180), payload, previousHash: prior[0]?.hash ?? null, eventHash, serverTimestamp: new Date() });
   }
 
-  async submit(input: { action: string; resource: string; environment?: "development" | "staging" | "production"; budget?: { estimatedTokens?: number; estimatedCalls?: number; estimatedUsd?: number }; timeoutMs?: number; maxRetries?: number; clientTimestamp?: string }, actorId: string) {
-    return db.transaction(async (tx) => {
+  private async auditRejection(input: { taskId?: string; correlationId?: string; type: string; actorId: string; error: unknown }) {
+    await db.transaction(async (tx) => {
+      const task = input.taskId
+        ? (await tx.select().from(aiceoTasksTable).where(eq(aiceoTasksTable.id, input.taskId)).limit(1))[0]
+        : null;
+      await this.audit(tx, {
+        taskId: task?.id,
+        correlationId: task?.correlationId ?? input.correlationId ?? randomUUID(),
+        runId: task?.runId ?? undefined,
+        type: input.type,
+        state: task?.state as AiceoState | undefined,
+        actorId: input.actorId,
+        details: { reason: fail(input.error).message, failClosed: true, productionAuthority: false },
+      });
+    });
+  }
+
+  async rejectSubmission(actorId: string, error: unknown) {
+    await this.auditRejection({ type: "SUBMISSION_REJECTED", actorId, error });
+  }
+
+  async rejectAccess(actorId: string, requiredRole: string, error: unknown) {
+    await this.auditRejection({
+      type: "ACCESS_REJECTED",
+      actorId,
+      error: `${safe(error)} Required role: ${safe(requiredRole)}.`,
+    });
+  }
+
+  async submit(input: { action: string; resource: string; governance?: GovernanceDeclaration; environment?: "development" | "staging" | "production"; budget?: { estimatedTokens?: number; estimatedCalls?: number; estimatedUsd?: number }; timeoutMs?: number; maxRetries?: number; clientTimestamp?: string }, actorId: string) {
+    try {
+      return await db.transaction(async (tx) => {
       const source = (await tx.select().from(aiceoSourceRegistryTable).where(eq(aiceoSourceRegistryTable.catalogId, "connector_catalog:xai")))[0];
       const policies = await tx.select().from(aiceoPolicyRegistryTable);
       const environment = input.environment ?? "development";
       const text = `${input.action} ${input.resource}`.toLowerCase();
+      const governance = validateGovernanceDeclaration(input.governance, input.action, input.resource);
       if (!source || policies.length !== FOUNDATION_COUNT) throw new Error("ARCH-001 source or frozen policy registry is incomplete");
       if (!source.tested || environment !== "development" || !APPROVED_GROK_DEVELOPMENT_ACTIONS.includes(input.action as ApprovedGrokDevelopmentAction) || DENIES.some((item) => text.includes(item))) throw new Error("ARCH-001 permission denied");
       const maxRetries = Math.min(input.maxRetries ?? 1, 2);
@@ -108,11 +153,63 @@ export class AiceoControlPlane {
       const totalTokens = totals.reduce((sum, item) => sum + Number(item.budget.reservedTokens ?? 0), 0);
       if (totalTokens + estimatedTokens > 8192) throw new Error("ARCH-001 aggregate token budget exceeded");
       const id = randomUUID(), correlationId = randomUUID(), timestamp = new Date();
-      const task = { id, correlationId, runId: null, sourceId: source.id, policyId: policies[0].id, state: "QUEUED" as const, action: safe(input.action, 120), resource: safe(input.resource, 180), permissions: { actions: [...APPROVED_GROK_DEVELOPMENT_ACTIONS], resources: ["synthetic", "development-text"], explicitDenies: DENIES }, contractVersion: FIXED_VERSION, contractHash: digest({ authority: FIXED_AUTHORITY, version: FIXED_VERSION, actions: APPROVED_GROK_DEVELOPMENT_ACTIONS }), environment, authority: FIXED_AUTHORITY, evidence: null, budget: { estimatedTokens, reservedTokens: 0, actualTokens: 0, estimatedCalls, reservedCalls: 0, actualCalls: 0, estimatedUsd: String(estimatedUsd), reservedUsd: "0", actualUsd: "0" }, timeoutMs: Math.min(input.timeoutMs ?? 10_000, 30_000), maxRetries, retryCount: 0, serverTimestamp: timestamp, clientTimestamp: input.clientTimestamp ? new Date(input.clientTimestamp) : null, createdAt: timestamp, updatedAt: timestamp };
+      const task = { id, correlationId, runId: null, sourceId: source.id, policyId: policies[0].id, state: "QUEUED" as const, action: safe(input.action, 120), resource: safe(input.resource, 180), permissions: { actions: [...APPROVED_GROK_DEVELOPMENT_ACTIONS], resources: ["synthetic", "development-text"], explicitDenies: DENIES }, contractVersion: FIXED_VERSION, contractHash: digest({ authority: FIXED_AUTHORITY, version: FIXED_VERSION, actions: APPROVED_GROK_DEVELOPMENT_ACTIONS }), environment, authority: FIXED_AUTHORITY, governanceClassification: governance.classification, ownerProtectionRedLines: governance.redLines, ownerGovernanceApprovedAt: null, ownerGovernanceApprovedBy: null, ownerGovernanceApprovalHash: null, evidence: null, budget: { estimatedTokens, reservedTokens: 0, actualTokens: 0, estimatedCalls, reservedCalls: 0, actualCalls: 0, estimatedUsd: String(estimatedUsd), reservedUsd: "0", actualUsd: "0" }, timeoutMs: Math.min(input.timeoutMs ?? 10_000, 30_000), maxRetries, retryCount: 0, serverTimestamp: timestamp, clientTimestamp: input.clientTimestamp ? new Date(input.clientTimestamp) : null, createdAt: timestamp, updatedAt: timestamp };
       await tx.insert(aiceoTasksTable).values(task);
-      await this.audit(tx, { taskId: id, correlationId, type: "SUBMITTED", state: "QUEUED", actorId, details: { action: task.action, resource: task.resource } });
+      await this.audit(tx, { taskId: id, correlationId, type: "SUBMITTED", state: "QUEUED", actorId, details: { action: task.action, resource: task.resource, governanceRootVersion: AICEO_GOVERNANCE_ROOT_VERSION, governanceClassification: governance.classification, ownerProtectionRedLines: governance.redLines, ownerAuthority: AICEO_OWNER_AUTHORITY, brainAuthority: AICEO_BRAIN_AUTHORITY, agentAuthority: AICEO_AGENT_AUTHORITY, productionAuthority: false } });
       return task;
-    }).catch((error) => { throw fail(error); });
+      });
+    } catch (error) {
+      await this.auditRejection({ type: "SUBMISSION_REJECTED", actorId, error });
+      throw fail(error);
+    }
+  }
+
+  async approveOwnerGovernance(id: string, ownerId: string) {
+    return db.transaction(async (tx) => {
+      const task = (await tx.select().from(aiceoTasksTable).where(eq(aiceoTasksTable.id, id)).for("update"))[0];
+      if (!task || task.state !== "QUEUED") throw new Error("IMPL-001 Owner Governance Approval applies only to a queued task");
+      if (task.governanceClassification !== "owner_protection" || !task.ownerProtectionRedLines.length) {
+        throw new Error("IMPL-001 ordinary tasks cannot acquire or inherit Owner Governance Approval");
+      }
+      if (task.ownerGovernanceApprovedAt || task.ownerGovernanceApprovedBy || task.ownerGovernanceApprovalHash) {
+        throw new Error("IMPL-001 Owner Governance Approval is immutable and cannot be replaced");
+      }
+      const submitted = (await tx.select({ actorId: aiceoAuditEventsTable.actorId }).from(aiceoAuditEventsTable)
+        .where(and(eq(aiceoAuditEventsTable.taskId, id), eq(aiceoAuditEventsTable.eventType, "SUBMITTED"))).limit(1))[0];
+      if (!submitted || submitted.actorId === safe(ownerId, 180)) {
+        throw new Error("IMPL-001 independent Owner Governance Approval cannot be self-approved");
+      }
+      const approvedAt = new Date();
+      const approvalHash = ownerGovernanceApprovalHash({
+        taskId: task.id,
+        taskIntent: {
+          action: task.action,
+          resource: task.resource,
+          permissions: task.permissions,
+          sourceId: task.sourceId,
+          policyId: task.policyId,
+          contractVersion: task.contractVersion,
+          contractHash: task.contractHash,
+          environment: task.environment,
+          authority: task.authority,
+        },
+        classification: "owner_protection",
+        redLines: task.ownerProtectionRedLines,
+        ownerId: safe(ownerId, 180),
+        approvedAt,
+      }, ownerApprovalSecret());
+      await tx.update(aiceoTasksTable).set({
+        ownerGovernanceApprovedAt: approvedAt,
+        ownerGovernanceApprovedBy: safe(ownerId, 180),
+        ownerGovernanceApprovalHash: approvalHash,
+        updatedAt: approvedAt,
+      }).where(eq(aiceoTasksTable.id, id));
+      await this.audit(tx, { taskId: id, correlationId: task.correlationId, type: "OWNER_GOVERNANCE_APPROVED", state: "QUEUED", actorId: ownerId, details: { governanceRootVersion: AICEO_GOVERNANCE_ROOT_VERSION, redLines: task.ownerProtectionRedLines, approvalHash, productionAuthority: false } });
+      return { taskId: id, approvedAt, approvalHash, redLines: task.ownerProtectionRedLines };
+    }).catch(async (error) => {
+      await this.auditRejection({ taskId: id, type: "OWNER_GOVERNANCE_APPROVAL_REJECTED", actorId: ownerId, error });
+      throw fail(error);
+    });
   }
 
   private async claimAttempt(id: string, actorId: string, allowQueuedStart = false) {
@@ -124,6 +221,43 @@ export class AiceoControlPlane {
       if (!control || !control.queueActive || control.killSwitch || control.circuitState === "OPEN") throw new Error("ARCH-001 provider gate is closed");
       if (!source?.tested || !source.model) throw new Error("ARCH-001 verified Grok source is unavailable");
       if (task.environment !== "development" || task.authority !== FIXED_AUTHORITY || !APPROVED_GROK_DEVELOPMENT_ACTIONS.includes(task.action as ApprovedGrokDevelopmentAction)) throw new Error("ARCH-001 execution authority denied");
+      if (task.governanceClassification === "owner_protection") {
+        if (!task.ownerProtectionRedLines.length || !task.ownerGovernanceApprovedAt || !task.ownerGovernanceApprovedBy || !task.ownerGovernanceApprovalHash) {
+          throw new Error("IMPL-001 independent Owner Governance Approval is required");
+        }
+        const expectedHash = ownerGovernanceApprovalHash({
+          taskId: task.id,
+          taskIntent: {
+            action: task.action,
+            resource: task.resource,
+            permissions: task.permissions,
+            sourceId: task.sourceId,
+            policyId: task.policyId,
+            contractVersion: task.contractVersion,
+            contractHash: task.contractHash,
+            environment: task.environment,
+            authority: task.authority,
+          },
+          classification: "owner_protection",
+          redLines: task.ownerProtectionRedLines,
+          ownerId: task.ownerGovernanceApprovedBy,
+          approvedAt: task.ownerGovernanceApprovedAt,
+        }, ownerApprovalSecret());
+        if (expectedHash !== task.ownerGovernanceApprovalHash) throw new Error("IMPL-001 Owner Governance Approval integrity conflict; execution fails closed");
+        const approvalEvents = await tx.select({
+          actorId: aiceoAuditEventsTable.actorId,
+          payload: aiceoAuditEventsTable.payload,
+        }).from(aiceoAuditEventsTable).where(and(
+          eq(aiceoAuditEventsTable.taskId, id),
+          eq(aiceoAuditEventsTable.eventType, "OWNER_GOVERNANCE_APPROVED"),
+        ));
+        if (!approvalEvents.some((event) =>
+          event.actorId === task.ownerGovernanceApprovedBy
+          && event.payload.approvalHash === task.ownerGovernanceApprovalHash
+        )) throw new Error("IMPL-001 Owner Governance Approval audit provenance is missing; execution fails closed");
+      } else if (task.governanceClassification !== "ordinary_technical" || task.ownerProtectionRedLines.length || task.ownerGovernanceApprovedAt || task.ownerGovernanceApprovedBy || task.ownerGovernanceApprovalHash) {
+        throw new Error("IMPL-001 governance classification or authority conflict; execution fails closed");
+      }
       if (allowQueuedStart && task.state !== "QUEUED") throw new Error("ARCH-001 task has already started");
       if (task.state === "QUEUED" && allowQueuedStart) {
         const submitted = (await tx.select({ actorId: aiceoAuditEventsTable.actorId }).from(aiceoAuditEventsTable).where(and(eq(aiceoAuditEventsTable.taskId, id), eq(aiceoAuditEventsTable.eventType, "SUBMITTED"))).limit(1))[0];
@@ -223,7 +357,10 @@ export class AiceoControlPlane {
         context = await this.claimAttempt(id, actorId, firstAttempt);
         firstAttempt = false;
       } catch (error) {
-        if (firstAttempt) throw fail(error);
+        if (firstAttempt) {
+          await this.auditRejection({ taskId: id, type: "EXECUTION_REJECTED", actorId, error });
+          throw fail(error);
+        }
         return this.transition(id, "FAILED", actorId, { reason: fail(error).message, settled: true, productionAuthority: false });
       }
       const result = await executeGrokDevelopmentAttempt({ action: context.task.action as ApprovedGrokDevelopmentAction, resource: context.task.resource, model: context.model, timeoutMs: context.task.timeoutMs });

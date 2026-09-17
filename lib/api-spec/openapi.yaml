@@ -57,6 +57,17 @@ paths:
         "200": { description: Provider result settled into VALIDATING or an incident state, content: { application/json: { schema: { $ref: "#/components/schemas/AiceoTask" } } } }
         "401": { description: Authentication required }
         "409": { description: Execution gate rejected the task }
+  /aiceo/tasks/{id}/owner-governance-approve:
+    post:
+      operationId: approveAiceoOwnerGovernance
+      tags: [aiceo]
+      security: [{ clerk: [] }]
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      responses:
+        "200": { description: Immutable independent Owner Governance Approval recorded }
+        "401": { description: Authentication required }
+        "403": { description: Exclusive AICEO Owner role required }
+        "409": { description: Governance classification, independence, or immutability gate rejected approval }
   /aiceo/tasks/{id}/validate:
     post:
       operationId: validateAiceoTask
@@ -711,17 +722,27 @@ components:
   schemas:
     AiceoTaskInput:
       type: object
-      required: [action, resource]
+      required: [action, resource, governance]
       properties:
         action: { type: string, minLength: 1, maxLength: 120 }
         resource: { type: string, minLength: 1, maxLength: 180 }
+        governance:
+          type: object
+          required: [classification, redLines]
+          properties:
+            classification: { type: string, enum: [ordinary_technical, owner_protection] }
+            redLines:
+              type: array
+              maxItems: 3
+              uniqueItems: true
+              items: { type: string, enum: [financial_and_physical_assets, legal_liability, aiceo_system_integrity] }
         environment: { type: string, enum: [development, staging, production] }
         timeoutMs: { type: number, minimum: 1, maximum: 30000 }
         maxRetries: { type: number, minimum: 0, maximum: 2 }
         clientTimestamp: { type: string, format: date-time }
     AiceoTask:
       type: object
-      required: [id, correlationId, state, action, resource, authority, environment, contractVersion, contractHash]
+      required: [id, correlationId, state, action, resource, authority, environment, contractVersion, contractHash, governanceClassification, ownerProtectionRedLines]
       properties:
         id: { type: string }
         correlationId: { type: string }
@@ -732,6 +753,13 @@ components:
         environment: { type: string }
         contractVersion: { type: string }
         contractHash: { type: string }
+        governanceClassification: { type: string, enum: [ordinary_technical, owner_protection, legacy_unclassified] }
+        ownerProtectionRedLines:
+          type: array
+          items: { type: string, enum: [financial_and_physical_assets, legal_liability, aiceo_system_integrity] }
+        ownerGovernanceApprovedAt: { type: [string, "null"], format: date-time }
+        ownerGovernanceApprovedBy: { type: [string, "null"] }
+        ownerGovernanceApprovalHash: { type: [string, "null"] }
     AiceoTransitionInput:
       type: object
       required: [state]
