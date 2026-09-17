@@ -14,3 +14,9 @@ Owner governance acceptance must use one server-owned fingerprint covering the f
 **Why:** A generic submission that copies visible task text but changes retries or budget can otherwise impersonate a fixed safety check, and mutable or fabricated provenance could defeat independent-Owner enforcement.
 
 **How to apply:** Reject the acceptance identity on generic submission paths. Authenticate new audit events, require unique submission and approval events, and revalidate their identity, integrity, and task binding before approval and execution.
+
+For Development-only identity acceptance, Replit-managed Clerk's `+clerk_test` email-code flow is a verified way to establish an independent test user without relying on real mail delivery.
+
+**Why:** A real mailbox verification was blocked by delivery, while the official test identity completed verification without weakening user separation or consuming Development email quota.
+
+**How to apply:** Reserve it for Development. The human still controls the password/session and final Owner approval; assign exactly one role only after verifying the new Clerk user is distinct from operator and validator.
