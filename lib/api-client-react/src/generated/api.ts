@@ -22,6 +22,7 @@ import type {
 import type {
   AiIndustryPoolHistoryEvent,
   AiIndustryPoolSnapshot,
+  AiceoAgentProtocolInput,
   AiceoAuditEvent,
   AiceoCollaborationIssueInput,
   AiceoCollaborationRollbackInput,
@@ -846,6 +847,335 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
         TContext
       > => {
       return useMutation(getRollbackAiceoCollaborationRuleMutationOptions(options));
+    }
+
+export const getIssueAiceoExecutionContractUrl = () => {
+
+
+
+
+  return `/api/aiceo/continuity/contracts`
+}
+
+export const issueAiceoExecutionContract = async (aiceoAgentProtocolInput: AiceoAgentProtocolInput, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+  return customFetch<void>(getIssueAiceoExecutionContractUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(aiceoAgentProtocolInput)
+  }
+);}
+
+
+
+
+
+export const getIssueAiceoExecutionContractMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof issueAiceoExecutionContract>>, TError,{data: BodyType<AiceoAgentProtocolInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof issueAiceoExecutionContract>>, TError,{data: BodyType<AiceoAgentProtocolInput>}, TContext> => {
+
+const mutationKey = ['issueAiceoExecutionContract'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof issueAiceoExecutionContract>>, {data: BodyType<AiceoAgentProtocolInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  issueAiceoExecutionContract(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type IssueAiceoExecutionContractMutationResult = NonNullable<Awaited<ReturnType<typeof issueAiceoExecutionContract>>>
+    export type IssueAiceoExecutionContractMutationBody = BodyType<AiceoAgentProtocolInput>
+    export type IssueAiceoExecutionContractMutationError = ErrorType<unknown>
+
+    export const useIssueAiceoExecutionContract = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof issueAiceoExecutionContract>>, TError,{data: BodyType<AiceoAgentProtocolInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof issueAiceoExecutionContract>>,
+        TError,
+        {data: BodyType<AiceoAgentProtocolInput>},
+        TContext
+      > => {
+      return useMutation(getIssueAiceoExecutionContractMutationOptions(options));
+    }
+
+export const getStartAiceoAgentRunUrl = (id: string,) => {
+
+
+
+
+  return `/api/aiceo/continuity/contracts/${id}/runs`
+}
+
+export const startAiceoAgentRun = async (id: string,
+    aiceoAgentProtocolInput: AiceoAgentProtocolInput, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+  return customFetch<void>(getStartAiceoAgentRunUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(aiceoAgentProtocolInput)
+  }
+);}
+
+
+
+
+
+export const getStartAiceoAgentRunMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof startAiceoAgentRun>>, TError,{id: string;data: BodyType<AiceoAgentProtocolInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof startAiceoAgentRun>>, TError,{id: string;data: BodyType<AiceoAgentProtocolInput>}, TContext> => {
+
+const mutationKey = ['startAiceoAgentRun'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof startAiceoAgentRun>>, {id: string;data: BodyType<AiceoAgentProtocolInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  startAiceoAgentRun(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type StartAiceoAgentRunMutationResult = NonNullable<Awaited<ReturnType<typeof startAiceoAgentRun>>>
+    export type StartAiceoAgentRunMutationBody = BodyType<AiceoAgentProtocolInput>
+    export type StartAiceoAgentRunMutationError = ErrorType<unknown>
+
+    export const useStartAiceoAgentRun = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof startAiceoAgentRun>>, TError,{id: string;data: BodyType<AiceoAgentProtocolInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof startAiceoAgentRun>>,
+        TError,
+        {id: string;data: BodyType<AiceoAgentProtocolInput>},
+        TContext
+      > => {
+      return useMutation(getStartAiceoAgentRunMutationOptions(options));
+    }
+
+export const getSubmitAiceoAgentResultUrl = (id: string,) => {
+
+
+
+
+  return `/api/aiceo/continuity/runs/${id}/result`
+}
+
+export const submitAiceoAgentResult = async (id: string,
+    aiceoAgentProtocolInput: AiceoAgentProtocolInput, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+  return customFetch<void>(getSubmitAiceoAgentResultUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(aiceoAgentProtocolInput)
+  }
+);}
+
+
+
+
+
+export const getSubmitAiceoAgentResultMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof submitAiceoAgentResult>>, TError,{id: string;data: BodyType<AiceoAgentProtocolInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof submitAiceoAgentResult>>, TError,{id: string;data: BodyType<AiceoAgentProtocolInput>}, TContext> => {
+
+const mutationKey = ['submitAiceoAgentResult'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof submitAiceoAgentResult>>, {id: string;data: BodyType<AiceoAgentProtocolInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  submitAiceoAgentResult(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SubmitAiceoAgentResultMutationResult = NonNullable<Awaited<ReturnType<typeof submitAiceoAgentResult>>>
+    export type SubmitAiceoAgentResultMutationBody = BodyType<AiceoAgentProtocolInput>
+    export type SubmitAiceoAgentResultMutationError = ErrorType<unknown>
+
+    export const useSubmitAiceoAgentResult = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof submitAiceoAgentResult>>, TError,{id: string;data: BodyType<AiceoAgentProtocolInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof submitAiceoAgentResult>>,
+        TError,
+        {id: string;data: BodyType<AiceoAgentProtocolInput>},
+        TContext
+      > => {
+      return useMutation(getSubmitAiceoAgentResultMutationOptions(options));
+    }
+
+export const getVerifyAiceoAgentRunUrl = (id: string,) => {
+
+
+
+
+  return `/api/aiceo/continuity/runs/${id}/verify`
+}
+
+export const verifyAiceoAgentRun = async (id: string,
+    aiceoAgentProtocolInput: AiceoAgentProtocolInput, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+  return customFetch<void>(getVerifyAiceoAgentRunUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(aiceoAgentProtocolInput)
+  }
+);}
+
+
+
+
+
+export const getVerifyAiceoAgentRunMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof verifyAiceoAgentRun>>, TError,{id: string;data: BodyType<AiceoAgentProtocolInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof verifyAiceoAgentRun>>, TError,{id: string;data: BodyType<AiceoAgentProtocolInput>}, TContext> => {
+
+const mutationKey = ['verifyAiceoAgentRun'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof verifyAiceoAgentRun>>, {id: string;data: BodyType<AiceoAgentProtocolInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  verifyAiceoAgentRun(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type VerifyAiceoAgentRunMutationResult = NonNullable<Awaited<ReturnType<typeof verifyAiceoAgentRun>>>
+    export type VerifyAiceoAgentRunMutationBody = BodyType<AiceoAgentProtocolInput>
+    export type VerifyAiceoAgentRunMutationError = ErrorType<unknown>
+
+    export const useVerifyAiceoAgentRun = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof verifyAiceoAgentRun>>, TError,{id: string;data: BodyType<AiceoAgentProtocolInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof verifyAiceoAgentRun>>,
+        TError,
+        {id: string;data: BodyType<AiceoAgentProtocolInput>},
+        TContext
+      > => {
+      return useMutation(getVerifyAiceoAgentRunMutationOptions(options));
+    }
+
+export const getCheckpointAiceoAgentRunUrl = (id: string,) => {
+
+
+
+
+  return `/api/aiceo/continuity/runs/${id}/checkpoint`
+}
+
+export const checkpointAiceoAgentRun = async (id: string,
+    aiceoAgentProtocolInput: AiceoAgentProtocolInput, options?: Parameters<typeof customFetch>[1]): Promise<void> => {
+
+  return customFetch<void>(getCheckpointAiceoAgentRunUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(aiceoAgentProtocolInput)
+  }
+);}
+
+
+
+
+
+export const getCheckpointAiceoAgentRunMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof checkpointAiceoAgentRun>>, TError,{id: string;data: BodyType<AiceoAgentProtocolInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof checkpointAiceoAgentRun>>, TError,{id: string;data: BodyType<AiceoAgentProtocolInput>}, TContext> => {
+
+const mutationKey = ['checkpointAiceoAgentRun'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof checkpointAiceoAgentRun>>, {id: string;data: BodyType<AiceoAgentProtocolInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  checkpointAiceoAgentRun(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CheckpointAiceoAgentRunMutationResult = NonNullable<Awaited<ReturnType<typeof checkpointAiceoAgentRun>>>
+    export type CheckpointAiceoAgentRunMutationBody = BodyType<AiceoAgentProtocolInput>
+    export type CheckpointAiceoAgentRunMutationError = ErrorType<unknown>
+
+    export const useCheckpointAiceoAgentRun = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof checkpointAiceoAgentRun>>, TError,{id: string;data: BodyType<AiceoAgentProtocolInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof checkpointAiceoAgentRun>>,
+        TError,
+        {id: string;data: BodyType<AiceoAgentProtocolInput>},
+        TContext
+      > => {
+      return useMutation(getCheckpointAiceoAgentRunMutationOptions(options));
     }
 
 export const getSubmitAiceoTaskUrl = () => {

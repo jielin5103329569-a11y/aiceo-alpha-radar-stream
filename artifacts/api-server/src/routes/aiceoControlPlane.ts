@@ -3,6 +3,7 @@ import { clerkClient, getAuth } from "@clerk/express";
 import { z } from "zod";
 import { aiceoControlPlane } from "../lib/aiceoControlPlane";
 import { aiceoContinuityLayer } from "../lib/aiceoContinuityLayer";
+import { aiceoAgentExecutionProtocol } from "../lib/aiceoAgentExecutionProtocol";
 import { authorizeAiceoRole, authorizeAnyAiceoRole, type AiceoRole } from "../lib/aiceoAuthorization";
 
 const router = Router();
@@ -155,6 +156,21 @@ router.post("/aiceo/continuity/collaboration-loop/rules/:id/rollback", privilege
   const parsed = z.object({ reason: z.string().min(1).max(1000) }).strict().safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
   await run(() => aiceoContinuityLayer.rollbackRule(String(req.params.id), parsed.data.reason, userId), res);
+}));
+router.post("/aiceo/continuity/contracts", privileged("aiceo_operator", async (req, res, userId) => {
+  await run(() => aiceoAgentExecutionProtocol.issue(req.body, userId), res);
+}));
+router.post("/aiceo/continuity/contracts/:id/runs", privileged("aiceo_operator", async (req, res) => {
+  await run(() => aiceoAgentExecutionProtocol.start(String(req.params.id), req.body), res);
+}));
+router.post("/aiceo/continuity/runs/:id/result", privileged("aiceo_operator", async (req, res) => {
+  await run(() => aiceoAgentExecutionProtocol.submit(String(req.params.id), req.body), res);
+}));
+router.post("/aiceo/continuity/runs/:id/checkpoint", privileged("aiceo_operator", async (req, res) => {
+  await run(() => aiceoAgentExecutionProtocol.checkpoint(String(req.params.id), req.body), res);
+}));
+router.post("/aiceo/continuity/runs/:id/verify", privileged("aiceo_validator", async (req, res, userId) => {
+  await run(() => aiceoAgentExecutionProtocol.verify(String(req.params.id), req.body, userId), res);
 }));
 router.post("/aiceo/tasks", privileged("aiceo_operator", async (req, res, userId) => {
   const parsed = submission.safeParse(req.body); if (!parsed.success) {

@@ -39,6 +39,8 @@
     "complete:aiceo-continuity": "pnpm --filter @workspace/api-server exec esbuild ../../scripts/complete-aiceo-continuity.ts --bundle --platform=node --format=cjs --outfile=/tmp/complete-aiceo-continuity.cjs && node /tmp/complete-aiceo-continuity.cjs",
     "verify:aiceo-continuity": "pnpm --filter @workspace/api-server exec esbuild ../../scripts/verify-aiceo-continuity.ts --bundle --platform=node --format=cjs --outfile=/tmp/verify-aiceo-continuity.cjs && node /tmp/verify-aiceo-continuity.cjs",
     "test:aiceo-collaboration-loop-integration": "pnpm --filter @workspace/api-server exec esbuild ../../scripts/test-aiceo-collaboration-loop-integration.ts --bundle --platform=node --format=cjs --outfile=/tmp/test-aiceo-collaboration-loop-integration.cjs && node /tmp/test-aiceo-collaboration-loop-integration.cjs",
+    "test:aiceo-agent-protocol": "node scripts/test-aiceo-agent-protocol.mjs",
+    "test:aiceo-agent-protocol-integration": "pnpm --filter @workspace/api-server exec esbuild ../../scripts/test-aiceo-agent-protocol-integration.ts --bundle --platform=node --format=cjs --outfile=/tmp/test-aiceo-agent-protocol-integration.cjs && node /tmp/test-aiceo-agent-protocol-integration.cjs",
     "test:grok-provider-adapter": "node --experimental-strip-types scripts/test-grok-provider-adapter.mjs"
   },
   "private": true,

@@ -162,6 +162,47 @@ export const RollbackAiceoCollaborationRuleBody = zod.object({
 export const RollbackAiceoCollaborationRuleResponse = zod.unknown()
 
 
+export const IssueAiceoExecutionContractBody = zod.record(zod.string(), zod.unknown())
+
+export const IssueAiceoExecutionContractResponse = zod.unknown()
+
+
+export const StartAiceoAgentRunParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const StartAiceoAgentRunBody = zod.record(zod.string(), zod.unknown())
+
+export const StartAiceoAgentRunResponse = zod.unknown()
+
+
+export const SubmitAiceoAgentResultParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const SubmitAiceoAgentResultBody = zod.record(zod.string(), zod.unknown())
+
+export const SubmitAiceoAgentResultResponse = zod.unknown()
+
+
+export const VerifyAiceoAgentRunParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const VerifyAiceoAgentRunBody = zod.record(zod.string(), zod.unknown())
+
+export const VerifyAiceoAgentRunResponse = zod.unknown()
+
+
+export const CheckpointAiceoAgentRunParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const CheckpointAiceoAgentRunBody = zod.record(zod.string(), zod.unknown())
+
+export const CheckpointAiceoAgentRunResponse = zod.unknown()
+
+
 export const submitAiceoTaskBodyActionMax = 120;
 
 export const submitAiceoTaskBodyResourceMax = 180;

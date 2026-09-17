@@ -105,6 +105,45 @@ paths:
       requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/AiceoCollaborationRollbackInput" } } } }
       responses:
         "200": { description: Ordinary collaboration rule rolled back through a new immutable version }
+  /aiceo/continuity/contracts:
+    post:
+      operationId: issueAiceoExecutionContract
+      tags: [aiceo]
+      security: [{ clerk: [] }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/AiceoAgentProtocolInput" } } } }
+      responses: { "200": { description: Immutable Brain-issued machine execution contract } }
+  /aiceo/continuity/contracts/{id}/runs:
+    post:
+      operationId: startAiceoAgentRun
+      tags: [aiceo]
+      security: [{ clerk: [] }]
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/AiceoAgentProtocolInput" } } } }
+      responses: { "200": { description: Idempotent serial Agent run } }
+  /aiceo/continuity/runs/{id}/result:
+    post:
+      operationId: submitAiceoAgentResult
+      tags: [aiceo]
+      security: [{ clerk: [] }]
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/AiceoAgentProtocolInput" } } } }
+      responses: { "200": { description: Agent result awaiting independent verification } }
+  /aiceo/continuity/runs/{id}/verify:
+    post:
+      operationId: verifyAiceoAgentRun
+      tags: [aiceo]
+      security: [{ clerk: [] }]
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/AiceoAgentProtocolInput" } } } }
+      responses: { "200": { description: Independent output and behavioral compliance verification } }
+  /aiceo/continuity/runs/{id}/checkpoint:
+    post:
+      operationId: checkpointAiceoAgentRun
+      tags: [aiceo]
+      security: [{ clerk: [] }]
+      parameters: [{ name: id, in: path, required: true, schema: { type: string } }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/AiceoAgentProtocolInput" } } } }
+      responses: { "200": { description: Durable bounded checkpoint or real capability blocker } }
   /aiceo/tasks:
     post:
       operationId: submitAiceoTask
@@ -805,6 +844,9 @@ components:
       schema:
         type: string
   schemas:
+    AiceoAgentProtocolInput:
+      type: object
+      additionalProperties: true
     AiceoCollaborationIssueInput:
       type: object
       additionalProperties: false

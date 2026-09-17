@@ -5,6 +5,8 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+export interface AiceoAgentProtocolInput { [key: string]: unknown }
+
 export type AiceoCollaborationIssueInputCategory = typeof AiceoCollaborationIssueInputCategory[keyof typeof AiceoCollaborationIssueInputCategory];
 
 

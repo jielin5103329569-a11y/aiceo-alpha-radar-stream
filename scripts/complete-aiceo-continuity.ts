@@ -7,7 +7,10 @@ async function main() {
   const hasIntegrationEvidence = state.evidencePointers.some(
     (pointer) => pointer.pointer === "scripts/test-aiceo-collaboration-loop-integration.ts",
   );
-  if (state.state !== "COMPLETED" || !hasImprovementLoop || !hasIntegrationEvidence) {
+  const hasAgentProtocolEvidence = state.evidencePointers.some(
+    (pointer) => pointer.pointer === "scripts/test-aiceo-agent-protocol-integration.ts",
+  );
+  if (state.state !== "COMPLETED" || !hasImprovementLoop || !hasIntegrationEvidence || !hasAgentProtocolEvidence) {
   const entities = state.entityRegistry.map((entity) =>
     entity.id === "continuity-001"
       ? { ...entity, status: "COMPLETED", verification: "PENDING_INDEPENDENT_READ_ONLY_ACCEPTANCE" }
@@ -15,6 +18,9 @@ async function main() {
   );
   if (!entities.some((entity) => entity.id === "collaboration-loop-001")) {
     entities.push({ id: "collaboration-loop-001", type: "continuous_improvement_loop", status: "ACTIVE", version: "COLLABORATION-LOOP-001" });
+  }
+  if (!entities.some((entity) => entity.id === "brain-agent-001")) {
+    entities.push({ id: "brain-agent-001", type: "execution_protocol", status: "ACTIVE", version: "BRAIN-AGENT-001" });
   }
   const rules = hasImprovementLoop ? state.decisionRuleRegistry : [
     ...state.decisionRuleRegistry,
@@ -25,6 +31,14 @@ async function main() {
       scope: "Owner–Brain collaboration",
     },
   ];
+  if (!rules.some((rule) => rule.id === "brain-agent-execution-protocol")) {
+    rules.push({
+      id: "brain-agent-execution-protocol",
+      version: 1,
+      rule: "Only the Brain resolves Owner intent and issues immutable machine contracts. Agents cannot expand authority, drift scope, reuse stale context, expose secrets, or self-verify; questions escalate to Brain and only true Owner Gates reach Owner.",
+      scope: "All current and future delegated agents",
+    });
+  }
   const result = await aiceoContinuityLayer.update({
     state: "COMPLETED",
     currentState: {
@@ -42,6 +56,15 @@ async function main() {
         pointer: "scripts/test-aiceo-collaboration-loop-integration.ts",
         isolation: "automatic_rollback",
         paths: ["ordinary_rule_lifecycle", "owner_protection_fail_closed"],
+      }] : []),
+      ...(!hasAgentProtocolEvidence ? [{
+        type: "transactional_integration_test",
+        pointer: "scripts/test-aiceo-agent-protocol-integration.ts",
+        isolation: "automatic_rollback",
+        paths: ["contract_idempotency", "stale_rejection", "scope_drift", "independent_verification"],
+      }, {
+        type: "migration",
+        pointer: "lib/db/drizzle/0018_aiceo_brain_agent_protocol.sql",
       }] : []),
     ],
     resumeNode: {
