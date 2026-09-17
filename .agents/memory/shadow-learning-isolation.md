@@ -14,3 +14,9 @@ Every immutable archive key must include all evidence that participates in its r
 **Why:** A stable transition timestamp or price tuple can be observed repeatedly while its evidence changes. Reusing one key causes valid observations to collide even though the archive correctly refuses overwrites.
 
 **How to apply:** Version key algorithms without rewriting existing records. Integrity validation and recovery must continue accepting legacy keys, while new records derive identity from the complete immutable evidence envelope.
+
+Outcome identity needs the same treatment as trigger and price identity. A `trigger + horizon` tuple is not immutable evidence when price observations may arrive out of order; recovery can later compute a different complete outcome from a more complete historical window.
+
+**Why:** Reusing one outcome key for a changed complete-window calculation correctly triggers the archive's overwrite protection and leaves recovery unavailable. Silently keeping the first calculation would discard later evidence.
+
+**How to apply:** Preserve every existing outcome object. Before retrying recovery, define versioned immutable outcome snapshots and a deterministic read policy that selects the authoritative complete snapshot without double-counting a trigger/horizon cohort.

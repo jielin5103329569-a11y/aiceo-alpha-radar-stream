@@ -265,6 +265,72 @@ try {
   ]);
   assert.equal(completed.checkpointStatus, "complete", "only post-trigger future prices finalize the separate outcome");
   assert.equal(shadowOutcomeIntegrityIsValid(completed), true, "final outcome has an immutable evidence hash");
+  const completedDuplicate = buildShadowOutcome(record, 1, [
+    {
+      observedAt: new Date("2026-08-03T14:31:00.000Z"),
+      price: 101,
+      lifecycleSnapshot: {
+        learningStage: "true_breakout",
+        postBreakoutState: "trend_continuation",
+        postBreakoutActive: true,
+        dataFresh: true,
+      },
+    },
+    {
+      observedAt: new Date("2026-08-04T20:00:00.000Z"),
+      price: 104,
+      lifecycleSnapshot: {
+        learningStage: "post_breakout",
+        postBreakoutState: "take_profit_watch",
+        postBreakoutActive: true,
+        dataFresh: true,
+      },
+    },
+  ]);
+  assert.equal(completed.outcomeKey, completedDuplicate.outcomeKey, "identical complete outcome evidence remains idempotent");
+  assert.equal(completed.recordHash, completedDuplicate.recordHash, "identical complete outcome evidence retains one immutable hash");
+  const changedCompleteEvidence = buildShadowOutcome(record, 1, [
+    {
+      observedAt: new Date("2026-08-03T14:31:00.000Z"),
+      price: 101,
+      lifecycleSnapshot: {
+        learningStage: "true_breakout",
+        postBreakoutState: "trend_continuation",
+        postBreakoutActive: true,
+        dataFresh: true,
+      },
+    },
+    {
+      observedAt: new Date("2026-08-04T19:00:00.000Z"),
+      price: 95,
+      lifecycleSnapshot: {
+        learningStage: "post_breakout",
+        postBreakoutState: "trend_reversal_confirmed",
+        postBreakoutActive: true,
+        dataFresh: true,
+      },
+    },
+    {
+      observedAt: new Date("2026-08-04T20:00:00.000Z"),
+      price: 104,
+      lifecycleSnapshot: {
+        learningStage: "post_breakout",
+        postBreakoutState: "take_profit_watch",
+        postBreakoutActive: true,
+        dataFresh: true,
+      },
+    },
+  ]);
+  assert.notEqual(
+    completed.outcomeKey,
+    changedCompleteEvidence.outcomeKey,
+    "late-arriving complete-window evidence receives a distinct immutable outcome identity",
+  );
+  assert.equal(
+    shadowOutcomeIntegrityIsValid(changedCompleteEvidence),
+    true,
+    "each complete outcome snapshot retains independently valid integrity evidence",
+  );
   assert.equal(completed.stageOutcome.enteredTrendContinuation, true, "future lifecycle evidence records a real trend-continuation transition");
   assert.equal(completed.stageOutcome.enteredTakeProfitWatch, true, "future lifecycle evidence records a real take-profit transition");
   assert.equal(completed.stageOutcome.maximumFavorableExcursionPercent, 4, "future outcome records maximum favorable excursion");

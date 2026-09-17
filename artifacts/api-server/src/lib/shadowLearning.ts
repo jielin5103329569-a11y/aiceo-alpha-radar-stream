@@ -376,7 +376,7 @@ export class ShadowLearningService {
         .where(where.length ? and(...where) : undefined)
         .orderBy(desc(dbModule.shadowLearningTriggersTable.occurredAt));
       const triggerIds = triggers.map((trigger) => trigger.id);
-      const shadowOutcomes = triggerIds.length === 0
+      const shadowOutcomeRows = triggerIds.length === 0
         ? []
         : await dbModule.db
           .select({
@@ -388,7 +388,15 @@ export class ShadowLearningService {
             inArray(dbModule.shadowLearningOutcomesTable.triggerId, triggerIds),
             eq(dbModule.shadowLearningOutcomesTable.horizonDays, selectedHorizonDays),
             eq(dbModule.shadowLearningOutcomesTable.checkpointStatus, "complete"),
-          ));
+          ))
+          .orderBy(desc(dbModule.shadowLearningOutcomesTable.createdAt));
+      const shadowOutcomes = [...shadowOutcomeRows.reduce(
+        (latestByTrigger, row) => {
+          if (!latestByTrigger.has(row.triggerId)) latestByTrigger.set(row.triggerId, row);
+          return latestByTrigger;
+        },
+        new Map<string, (typeof shadowOutcomeRows)[number]>(),
+      ).values()];
       const triggerById = new Map(triggers.map((trigger) => [trigger.id, trigger]));
       const shadowComplete = shadowOutcomes.flatMap(({ triggerId, outcome }) => {
         const metric = metricInput(outcome);

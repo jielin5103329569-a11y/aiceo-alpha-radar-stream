@@ -16,6 +16,7 @@ import {
 export const SHADOW_RECORD_SCHEMA_VERSION = 1;
 export const SHADOW_TRIGGER_SCHEMA_VERSION = 2;
 export const SHADOW_PRICE_KEY_SCHEMA_VERSION = 2;
+export const SHADOW_OUTCOME_KEY_SCHEMA_VERSION = 2;
 export const SHADOW_STRATEGY_VERSION = "shadow-alpha-velocity-v1";
 export const SHADOW_SCAN_WINDOW = "60s";
 export const SHADOW_SCAN_PROFILE = "fresh-streaming-pre-breakout";
@@ -1065,13 +1066,16 @@ export function buildShadowOutcome(
   observations: Array<ValidationPriceObservation & { lifecycleSnapshot?: ShadowLifecycleSnapshot }>,
 ): ShadowOutcomeRecord {
   const checkpoint = calculateOutcomeCheckpoint(trigger, observations, horizonDays);
-  const immutableOutcome = {
+  const immutableEvidence = {
     ...checkpoint,
     stageOutcome: stageOutcomeSummary(trigger, checkpoint, observations),
     triggerEventKey: trigger.eventKey,
+  };
+  const immutableOutcome = {
+    ...immutableEvidence,
     outcomeKey: hash({
-      triggerEventKey: trigger.eventKey,
-      horizonDays,
+      schemaVersion: SHADOW_OUTCOME_KEY_SCHEMA_VERSION,
+      immutableEvidence,
     }),
   };
   return {
