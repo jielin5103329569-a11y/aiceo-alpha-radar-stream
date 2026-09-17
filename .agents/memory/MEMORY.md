@@ -28,3 +28,4 @@
 - [AICEO external-agent authority](aiceo-external-agent-authority.md) — External agents use one durable serial control plane and never inherit Alpha Radar or production authority.
 - [Database JSON parameter typing](database-json-parameter-typing.md) — Cast bound SQL parameters explicitly when they enter polymorphic PostgreSQL JSON builders.
 - [AICEO Clerk role authority](aiceo-clerk-role-authority.md) — Resolve current roles server-side; Development session JWTs may omit public metadata.
+- [Owner–Brain execution protocol](owner-brain-execution-protocol.md) — Future capability responses are binary: execute safely when able; otherwise say “不能” and give only the real blocker.
