@@ -1,32 +1,60 @@
 import assert from "node:assert/strict";
 import { count, eq } from "drizzle-orm";
 import { db } from "@workspace/db";
-import { aiceoAgentRunsTable, aiceoAgentVerificationsTable, aiceoCollaborationIssuesTable, aiceoContinuityStateTable, aiceoControlStateTable, aiceoExecutionContractsTable } from "@workspace/db/schema";
+import { aiceoAgentRunsTable, aiceoAgentVerificationsTable, aiceoCollaborationIssuesTable, aiceoContinuityStateTable, aiceoControlStateTable, aiceoExecutionContractsTable, aiceoIntentConfirmationsTable } from "@workspace/db/schema";
 import { AiceoAgentExecutionProtocol } from "../artifacts/api-server/src/lib/aiceoAgentExecutionProtocol";
 const ROLLBACK=Symbol("rollback");
 const tableCounts=async()=>Object.fromEntries(await Promise.all([
- ["contracts",aiceoExecutionContractsTable],["runs",aiceoAgentRunsTable],["verifications",aiceoAgentVerificationsTable],["issues",aiceoCollaborationIssuesTable],
+ ["contracts",aiceoExecutionContractsTable],["runs",aiceoAgentRunsTable],["verifications",aiceoAgentVerificationsTable],["issues",aiceoCollaborationIssuesTable],["intentConfirmations",aiceoIntentConfirmationsTable],
 ].map(async([k,t]:any)=>[k,Number((await db.select({n:count()}).from(t))[0].n)])));
 async function main(){
  const before=await tableCounts();
  try{await db.transaction(async tx=>{
   const protocol=new AiceoAgentExecutionProtocol(tx,true),revision=(await tx.select().from(aiceoContinuityStateTable).limit(1))[0].revision;
-  const input={idempotencyKey:"isolated-contract",ownerIntent:"Complete a safe development check",continuityRevision:revision,scope:{allowedOperations:["code.inspect"]},objective:"Produce evidence",allowedCapabilities:["code.inspect"],deniedCapabilities:[],frozenRules:[{id:"001-013",frozen:true}],completionDefinition:{result:true},evidenceRequirements:[{type:"fact"}],executionPolicy:{timeoutMs:10000,maxRetries:1,maxCalls:2,maxCostMicrousd:1000,checkpointRequired:true},resumeNode:{node:"test"},escalationConditions:[{target:"brain",condition:"question"},{target:"owner",condition:"true_owner_gate"}],ownerAttentionBudget:{maxOwnerInterruptions:1,mergeHumanActions:true,noScreenshotWhenAutoVerifiable:true},maxDelegationDepth:1};
+    const clearUnderstanding={certainty:"HIGH",interpretedIntent:"Complete a safe development check",actionTarget:"development check",confirmationSummary:"你是要我执行安全的开发验证，对吗？",reasonableInterpretations:[{meaning:"Run the requested development-only verification",actionTarget:"development check"}],materiallyDifferentActions:false,contextHighlyClear:true,stableAlias:false,verifiedExpressionPattern:false,riskLevel:"LOW"};
+    const input={idempotencyKey:"isolated-contract",ownerIntent:"Bro，继续",intentUnderstanding:{...clearUnderstanding,interpretedIntent:"Resume",actionTarget:"resume",stableAlias:true},continuityRevision:revision,scope:{allowedOperations:["code.inspect"]},objective:"Produce evidence",allowedCapabilities:["code.inspect"],deniedCapabilities:[],frozenRules:[{id:"001-013",frozen:true}],completionDefinition:{result:true},evidenceRequirements:[{type:"fact"}],executionPolicy:{timeoutMs:10000,maxRetries:1,maxCalls:2,maxCostMicrousd:1000,checkpointRequired:true},resumeNode:{node:"test"},escalationConditions:[{target:"brain",condition:"question"},{target:"owner",condition:"true_owner_gate"}],ownerAttentionBudget:{maxOwnerInterruptions:1,mergeHumanActions:true,noScreenshotWhenAutoVerifiable:true},maxDelegationDepth:1};
+   const fixedDenies=["production","trading","databento","alert","shell","workflow","network","database"];
   const contract=await protocol.issue(input,"brain");
   assert.equal((await protocol.issue(input,"brain")).id,contract.id);
   await assert.rejects(()=>protocol.issue({...input,idempotencyKey:"stale",continuityRevision:revision-1},"brain"),/stale/);
   const run=await protocol.start(contract.id,{idempotencyKey:"run-1",agentType:"coding",agentActorId:"agent-1",parentRunId:null,delegationDepth:0,inheritedAuthority:"delegated_technical_authority",contextHash:contract.contextHash});
   assert.equal((await protocol.start(contract.id,{idempotencyKey:"run-1",agentType:"coding",agentActorId:"agent-1",parentRunId:null,delegationDepth:0,inheritedAuthority:"delegated_technical_authority",contextHash:contract.contextHash})).id,run.id);
-  await assert.rejects(()=>protocol.submit(run.id,{observedScope:["trading"],result:{ok:true},evidence:[{x:1}]}),/scope drift/);
-  const submitted=await protocol.submit(run.id,{observedScope:["code.inspect"],result:{ok:true},evidence:[{fact:"checked"}],checkpoint:{node:"done",partialSuccess:false}});
+   await assert.rejects(()=>protocol.submit(run.id,{understandingStatus:"CLEAR",observedScope:["trading"],result:{ok:true},evidence:[{x:1}],usedCalls:1,usedCostMicrousd:1}),/scope drift/);
+   const submitted=await protocol.submit(run.id,{understandingStatus:"CLEAR",observedScope:["code.inspect"],result:{ok:true},evidence:[{fact:"checked"}],usedCalls:1,usedCostMicrousd:1,checkpoint:{node:"done",partialSuccess:false}});
   assert.equal(submitted.verified,false);
   await assert.rejects(()=>protocol.verify(run.id,{passed:true,compliance:{scope:true},evidence:[{fact:true}]},"agent-1"),/independent/);
-  const verified=await protocol.verify(run.id,{passed:true,compliance:{authority:true,scope:true,understanding:true,noDuplicate:true,noOwnerInterruption:true,evidence:true},evidence:[{validator:"independent"}]},"validator-1");
+   const verified=await protocol.verify(run.id,{passed:true,compliance:{authority:true,scope:true,understanding:true,intentGate:true,noDuplicate:true,noOwnerInterruption:true,evidence:true},evidence:[{validator:"independent"}]},"validator-1");
   assert.equal(verified.finalStatus,"VERIFIED");
   await assert.rejects(()=>protocol.start(contract.id,{idempotencyKey:"run-replay",agentType:"coding",agentActorId:"agent-2",parentRunId:null,delegationDepth:0,inheritedAuthority:"delegated_technical_authority",contextHash:contract.contextHash}),/contract replay/);
 
   await assert.rejects(()=>protocol.issue({...input,idempotencyKey:"secret-contract",ownerIntent:"use api_key value"},"brain"),/秘密或凭据/);
   await assert.rejects(()=>protocol.issue({...input,idempotencyKey:"owner-attention-violation",ownerAttentionBudget:{maxOwnerInterruptions:2,mergeHumanActions:false,noScreenshotWhenAutoVerifiable:false}},"brain"),/Owner Attention Budget/);
+   await assert.rejects(()=>protocol.issue({...input,idempotencyKey:"denied-overlap",allowedCapabilities:["production"]},"brain"),/allowed and denied capabilities must be disjoint/);
+    await assert.rejects(()=>protocol.issue({...input,idempotencyKey:"denied-namespace",allowedCapabilities:["production.deploy"]},"brain"),/protected capabilities remain denied/);
+    await assert.rejects(()=>protocol.issue({...input,idempotencyKey:"denied-whitespace",allowedCapabilities:["production "]},"brain"),/protected capabilities remain denied/);
+    await assert.rejects(()=>protocol.issue({...input,idempotencyKey:"denied-space",allowedCapabilities:["production deploy"]},"brain"),/protected capabilities remain denied/);
+    const disguisedAmbiguity={...input,idempotencyKey:"caller-downgrade",ownerIntent:"Update gate",intentUnderstanding:{...clearUnderstanding,interpretedIntent:"Update gate",actionTarget:"gate",reasonableInterpretations:[{meaning:"Update one gate",actionTarget:"gate"}],materiallyDifferentActions:false,contextHighlyClear:true,riskLevel:"LOW"}};
+   await assert.rejects(()=>protocol.issue(disguisedAmbiguity,"brain"),/意图不确定.*Owner.*确认/);
+    await assert.rejects(()=>protocol.issue({...disguisedAmbiguity,idempotencyKey:"caller-downgrade-selected",ownerIntent:"Update selected gate configuration for deployment",intentUnderstanding:{...disguisedAmbiguity.intentUnderstanding,interpretedIntent:"Update selected gate configuration for deployment",actionTarget:"gate configuration"}},"brain"),/意图不确定.*Owner.*确认/);
+    await assert.rejects(()=>protocol.issue({...input,idempotencyKey:"alias-substitution",intentUnderstanding:{...input.intentUnderstanding,interpretedIntent:"Delete development files",actionTarget:"development files"}},"brain"),/意图不确定.*Owner.*确认/);
+   const ambiguousUnderstanding={...clearUnderstanding,certainty:"UNCERTAIN",interpretedIntent:"Update the selected gate",actionTarget:"one of two governance gates",confirmationSummary:"你是要我更新权限闸门，还是只更新沟通确认闸门？",reasonableInterpretations:[{meaning:"Update the governance approval gate",actionTarget:"governance approval gate"},{meaning:"Update only the communication confirmation gate",actionTarget:"intent confirmation gate"}],materiallyDifferentActions:true,riskLevel:"HIGH"};
+   const ambiguousInput={...input,idempotencyKey:"ambiguous-contract",ownerIntent:"Update that gate",intentUnderstanding:ambiguousUnderstanding};
+   await assert.rejects(()=>protocol.issue(ambiguousInput,"brain"),/意图不确定.*Owner.*确认/);
+   const executionBinding={scope:input.scope,objective:input.objective,allowedCapabilities:input.allowedCapabilities,deniedCapabilities:fixedDenies,completionDefinition:input.completionDefinition};
+   const confirmation=await protocol.confirmIntent({confirmationKey:"confirm-ambiguous-gate",ownerExpression:"Update that gate",continuityRevision:revision,understanding:ambiguousUnderstanding,executionBinding},"owner-1");
+   const confirmedContract=await protocol.issue({...ambiguousInput,intentConfirmationId:confirmation.id},"brain");
+   const intentGate=(confirmedContract.frozenRules as any[]).find((rule:any)=>rule.id==="intent-uncertainty-confirmation-gate");
+   assert.equal(intentGate.confirmationRequired,true);
+   assert.equal(intentGate.intentConfirmationIsNotAuthorization,true);
+   assert.equal(intentGate.ownerGovernanceGateStillRequired,false);
+   assert.equal(confirmedContract.productionAuthority,false);
+   await assert.rejects(()=>protocol.issue({...ambiguousInput,idempotencyKey:"mismatched-confirmation",intentConfirmationId:confirmation.id,intentUnderstanding:{...ambiguousUnderstanding,interpretedIntent:"Delete the governance gate"}},"brain"),/different meaning/);
+   await assert.rejects(()=>protocol.issue({...ambiguousInput,idempotencyKey:"scope-replay",intentConfirmationId:confirmation.id,scope:{allowedOperations:["code.write"]}},"brain"),/different meaning/);
+    await assert.rejects(()=>protocol.issue({...ambiguousInput,idempotencyKey:"confirmation-reuse",intentConfirmationId:confirmation.id},"brain"),/already consumed/);
+   const protectedUnderstanding={...ambiguousUnderstanding,certainty:"HIGH",reasonableInterpretations:[{meaning:"Change a protected governance gate",actionTarget:"governance approval gate"}],materiallyDifferentActions:false,contextHighlyClear:true,riskLevel:"PROTECTED"};
+   const protectedBinding={...executionBinding,objective:"Change protected governance"};
+   const protectedConfirmation=await protocol.confirmIntent({confirmationKey:"confirm-protected",ownerExpression:"Change the protected gate",continuityRevision:revision,understanding:protectedUnderstanding,executionBinding:protectedBinding},"owner-1");
+   await assert.rejects(()=>protocol.issue({...input,idempotencyKey:"protected-contract",ownerIntent:"Change the protected gate",objective:"Change protected governance",intentUnderstanding:protectedUnderstanding,intentConfirmationId:protectedConfirmation.id},"brain"),/cannot replace.*Owner Governance Approval/);
 
   const bounded=await protocol.issue({...input,idempotencyKey:"bounded-contract"},"brain");
   await assert.rejects(()=>protocol.start(bounded.id,{idempotencyKey:"bad-context",agentType:"coding",agentActorId:"agent-2",parentRunId:null,delegationDepth:0,inheritedAuthority:"delegated_technical_authority",contextHash:"stale"}),/stale contract/);
@@ -38,16 +66,24 @@ async function main(){
   await assert.rejects(()=>protocol.start(bounded.id,{idempotencyKey:"circuit-blocked",agentType:"coding",agentActorId:"agent-2",parentRunId:null,delegationDepth:1,inheritedAuthority:"delegated_technical_authority",contextHash:bounded.contextHash}),/control gate/);
   await tx.update(aiceoControlStateTable).set({circuitState:"CLOSED"});
   const boundedRun=await protocol.start(bounded.id,{idempotencyKey:"bounded-run",agentType:"coding",agentActorId:"agent-2",parentRunId:null,delegationDepth:1,inheritedAuthority:"delegated_technical_authority",contextHash:bounded.contextHash});
-  await assert.rejects(()=>protocol.submit(boundedRun.id,{observedScope:["code.inspect"],result:{apiKey:"secret"},evidence:[{fact:true}],usedCalls:1,usedCostMicrousd:1}),/scope drift, secret/);
-  await assert.rejects(()=>protocol.submit(boundedRun.id,{observedScope:["code.inspect"],result:{ok:true},evidence:[{fact:true}],usedCalls:3,usedCostMicrousd:1}),/call, or cost budget/);
-  await assert.rejects(()=>protocol.checkpoint(boundedRun.id,{state:"PAUSED",checkpoint:{node:"x"},retryCount:2,usedCalls:1,usedCostMicrousd:1}),/retry, call, or cost budget/);
-  await assert.rejects(()=>protocol.checkpoint(boundedRun.id,{state:"FAILED",checkpoint:{node:"x"},retryCount:0,usedCalls:1,usedCostMicrousd:1}),/capability blocker/);
-  const paused=await protocol.checkpoint(boundedRun.id,{state:"PAUSED",checkpoint:{node:"safe-resume",partialSuccess:true},retryCount:0,usedCalls:1,usedCostMicrousd:10,blocker:null});
+   await assert.rejects(()=>protocol.submit(boundedRun.id,{understandingStatus:"CLEAR",observedScope:["code.inspect"],result:{apiKey:"secret"},evidence:[{fact:true}],usedCalls:1,usedCostMicrousd:1}),/scope drift, secret/);
+   await assert.rejects(()=>protocol.submit(boundedRun.id,{understandingStatus:"CLEAR",observedScope:["code.inspect"],result:{ok:true},evidence:[{fact:true}],usedCalls:3,usedCostMicrousd:1}),/call, or cost budget/);
+   await assert.rejects(()=>protocol.checkpoint(boundedRun.id,{state:"PAUSED",understandingStatus:"CLEAR",checkpoint:{node:"x"},retryCount:2,usedCalls:1,usedCostMicrousd:1}),/retry, call, or cost budget/);
+   await assert.rejects(()=>protocol.checkpoint(boundedRun.id,{state:"FAILED",understandingStatus:"CLEAR",checkpoint:{node:"x"},retryCount:0,usedCalls:1,usedCostMicrousd:1}),/capability blocker/);
+   await assert.rejects(()=>protocol.checkpoint(boundedRun.id,{state:"OWNER_GATE",understandingStatus:"AMBIGUOUS",semanticAmbiguity:true,checkpoint:{node:"ambiguous"},retryCount:0,usedCalls:1,usedCostMicrousd:1,blocker:"Owner wording is ambiguous"}),/semantic ambiguity must pause and escalate to Brain/);
+   const paused=await protocol.checkpoint(boundedRun.id,{state:"PAUSED",understandingStatus:"AMBIGUOUS",semanticAmbiguity:true,checkpoint:{node:"safe-resume",partialSuccess:true},retryCount:0,usedCalls:1,usedCostMicrousd:10,blocker:"Agent cannot disambiguate Owner language"});
   assert.equal(paused.escalateTo,"brain");
-  await assert.rejects(()=>protocol.resume(boundedRun.id,"stale"),/stale or non-resumable/);
-  const resumed=await protocol.resume(boundedRun.id,bounded.contextHash);
+   assert.equal(paused.ownerConfirmationRequired,false);
+   await assert.rejects(()=>protocol.resume(boundedRun.id,{contextHash:"stale"},"brain"),/stale or non-resumable/);
+   await assert.rejects(()=>protocol.resume(boundedRun.id,{contextHash:bounded.contextHash},"brain"),/requires a bound Brain resolution/);
+    const resolutionUnderstanding={...ambiguousUnderstanding,interpretedIntent:"Continue the original development verification",actionTarget:"development check",reasonableInterpretations:[{meaning:"Continue the original development verification",actionTarget:"development check"}],materiallyDifferentActions:false,riskLevel:"HIGH"};
+    const wrongResolutionConfirmation=await protocol.confirmIntent({confirmationKey:"wrong-resume-binding",ownerExpression:bounded.ownerIntent,continuityRevision:revision,understanding:resolutionUnderstanding,executionBinding:{...executionBinding,objective:"Unrelated work"}},"owner-1");
+    await assert.rejects(()=>protocol.resume(boundedRun.id,{contextHash:bounded.contextHash,brainResolution:{resolvedByBrain:true,certainty:"UNCERTAIN",interpretedIntent:resolutionUnderstanding.interpretedIntent,actionTarget:resolutionUnderstanding.actionTarget,ownerConfirmationId:wrongResolutionConfirmation.id}},"brain"),/missing, stale, or mismatched/);
+    const resolutionConfirmation=await protocol.confirmIntent({confirmationKey:"correct-resume-binding",ownerExpression:bounded.ownerIntent,continuityRevision:revision,understanding:resolutionUnderstanding,executionBinding},"owner-1");
+    const resumed=await protocol.resume(boundedRun.id,{contextHash:bounded.contextHash,brainResolution:{resolvedByBrain:true,certainty:"UNCERTAIN",interpretedIntent:resolutionUnderstanding.interpretedIntent,actionTarget:resolutionUnderstanding.actionTarget,ownerConfirmationId:resolutionConfirmation.id}},"brain");
+    await assert.rejects(()=>protocol.issue({...input,idempotencyKey:"resume-first-reuse",intentUnderstanding:resolutionUnderstanding,intentConfirmationId:resolutionConfirmation.id},"brain"),/already consumed/);
   assert.equal(resumed.checkpoint.node,"safe-resume");
-  const failed=await protocol.checkpoint(boundedRun.id,{state:"FAILED",checkpoint:{node:"fallback",partialSuccess:true},retryCount:1,usedCalls:2,usedCostMicrousd:100,blocker:"External Agent unavailable; retain checkpoint and use Brain-approved fallback."});
+   const failed=await protocol.checkpoint(boundedRun.id,{state:"FAILED",understandingStatus:"CLEAR",checkpoint:{node:"fallback",partialSuccess:true},retryCount:1,usedCalls:2,usedCostMicrousd:100,blocker:"External Agent unavailable; retain checkpoint and use Brain-approved fallback."});
   assert.equal(failed.escalateTo,"brain");
 
   const behavior=await protocol.issue({...input,idempotencyKey:"behavior-contract"},"brain");
@@ -55,10 +91,13 @@ async function main(){
   await assert.rejects(()=>protocol.start(behavior.id,{idempotencyKey:"behavior-run",agentType:"research",agentActorId:"agent-3",parentRunId:null,delegationDepth:0,inheritedAuthority:"delegated_technical_authority",contextHash:behavior.contextHash}),/control gate/);
   await tx.update(aiceoControlStateTable).set({circuitState:"CLOSED"});
   const behaviorRun=await protocol.start(behavior.id,{idempotencyKey:"behavior-run",agentType:"research",agentActorId:"agent-3",parentRunId:null,delegationDepth:0,inheritedAuthority:"delegated_technical_authority",contextHash:behavior.contextHash});
+   await protocol.checkpoint(behaviorRun.id,{state:"PAUSED",understandingStatus:"AMBIGUOUS",semanticAmbiguity:true,checkpoint:{node:"reuse-check"},retryCount:0,usedCalls:0,usedCostMicrousd:0,blocker:"Semantic ambiguity"});
+   await assert.rejects(()=>protocol.resume(behaviorRun.id,{contextHash:behavior.contextHash,brainResolution:{resolvedByBrain:true,certainty:"UNCERTAIN",interpretedIntent:resolutionUnderstanding.interpretedIntent,actionTarget:resolutionUnderstanding.actionTarget,ownerConfirmationId:resolutionConfirmation.id}},"brain"),/missing, stale, or mismatched/);
+   await protocol.resume(behaviorRun.id,{contextHash:behavior.contextHash,brainResolution:{resolvedByBrain:true,certainty:"HIGH",interpretedIntent:"Complete a safe development check",actionTarget:"development check"}},"brain");
   await tx.update(aiceoAgentRunsTable).set({deadlineAt:new Date(0)}).where(eq(aiceoAgentRunsTable.id,behaviorRun.id));
-  await assert.rejects(()=>protocol.submit(behaviorRun.id,{observedScope:["code.inspect"],result:{ok:true},evidence:[{fact:true}],usedCalls:1,usedCostMicrousd:1}),/timeout/);
+   await assert.rejects(()=>protocol.submit(behaviorRun.id,{understandingStatus:"CLEAR",observedScope:["code.inspect"],result:{ok:true},evidence:[{fact:true}],usedCalls:1,usedCostMicrousd:1}),/timeout/);
   await tx.update(aiceoAgentRunsTable).set({deadlineAt:new Date(Date.now()+10_000)}).where(eq(aiceoAgentRunsTable.id,behaviorRun.id));
-  await protocol.submit(behaviorRun.id,{observedScope:["code.inspect"],result:{ok:true},evidence:[{fact:true}],usedCalls:1,usedCostMicrousd:1,checkpoint:{node:"done"}});
+   await protocol.submit(behaviorRun.id,{understandingStatus:"CLEAR",observedScope:["code.inspect"],result:{ok:true},evidence:[{fact:true}],usedCalls:1,usedCostMicrousd:1,checkpoint:{node:"done"}});
   const issuesBefore=Number((await tx.select({n:count()}).from(aiceoCollaborationIssuesTable))[0].n);
   const rejected=await protocol.verify(behaviorRun.id,{passed:true,compliance:{authority:true,scope:true,understanding:true,noDuplicate:true,noOwnerInterruption:false,evidence:true},evidence:[{violation:"unnecessary_owner_interruption"}]},"validator-2");
   assert.equal(rejected.finalStatus,"REJECTED");
@@ -66,6 +105,6 @@ async function main(){
   throw ROLLBACK;
  })}catch(e){if(e!==ROLLBACK)throw e}
  assert.deepEqual(await tableCounts(),before);
- console.log(JSON.stringify({contractIdempotency:true,staleRejected:true,contextBound:true,scopeDriftRejected:true,delegationBounded:true,secretsRejected:true,budgetsEnforced:true,controlGatesEnforced:true,checkpointRecovery:true,capabilityBlockerRequired:true,ownerAttentionBudget:true,behaviorFailureCaptured:true,independentVerification:true,selfCompletedNotVerified:true,transactionRolledBack:true,productionAuthority:false}));
+   console.log(JSON.stringify({contractIdempotency:true,staleRejected:true,contextBound:true,scopeDriftRejected:true,deniedCapabilitiesEnforced:true,protectedNamespacesEnforced:true,callerRiskDowngradeRejected:true,confirmationScopeReplayRejected:true,confirmationSingleContract:true,resumeConfirmationBinding:true,resumeConfirmationSingleUse:true,protectedApprovalNotSubstituted:true,delegationBounded:true,secretsRejected:true,budgetsEnforced:true,controlGatesEnforced:true,checkpointRecovery:true,brainResolutionRequired:true,capabilityBlockerRequired:true,ownerAttentionBudget:true,intentUncertaintyBlocked:true,ownerConfirmationBound:true,confirmationIsNotAuthorization:true,agentAmbiguityEscalatesBrain:true,behaviorFailureCaptured:true,independentVerification:true,selfCompletedNotVerified:true,transactionRolledBack:true,productionAuthority:false}));
 }
 main().catch(e=>{console.error(e);process.exitCode=1});

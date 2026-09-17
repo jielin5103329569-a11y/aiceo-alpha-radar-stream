@@ -1,5 +1,5 @@
 import { createHash, createHmac, randomUUID } from "node:crypto";
-import { and, desc, eq, max } from "drizzle-orm";
+import { and, asc, count, desc, eq, inArray, max } from "drizzle-orm";
 import { db } from "@workspace/db";
 import {
   aiceoContinuityEventsTable,
@@ -8,12 +8,121 @@ import {
   aiceoCollaborationIssuesTable,
   aiceoCollaborationRulesTable,
   aiceoControlStateTable,
+  aiceoIntentConfirmationsTable,
+  aiceoPolicyRegistryTable,
+  aiceoTasksTable,
   type AiceoContinuityState,
 } from "@workspace/db/schema";
 import type { AiceoRole } from "./aiceoAuthorization";
 
 const VERSION = "CONTINUITY-001";
 const AUTHORITY = "grok_restricted_development";
+const CLOSURE_REGRESSION_CHECKS = [
+  "api-server:typecheck",
+  "test:aiceo-control-plane",
+  "test:aiceo-permission-matrix",
+  "test:aiceo-governance-root",
+  "test:aiceo-continuity-layer",
+  "test:aiceo-agent-protocol",
+  "test:aiceo-collaboration-loop-integration",
+  "test:aiceo-agent-protocol-integration",
+  "test:aiceo-closure-integrity",
+];
+const PROTECTED_CURRENT_STATE_FIELDS_EXCLUDED_AT_CLOSURE = new Set([
+  "verification",
+  "closure",
+  "closureIntegrityAudit",
+  "closureIntegrityAuditedRevision",
+]);
+export const INTENT_UNCERTAINTY_CONFIRMATION_RULE = {
+  id: "intent-uncertainty-confirmation-gate",
+  version: 1,
+  classification: "owner_brain_communication_safety",
+  rule: "When Owner context, reference, tone, action target, or true intent is not sufficiently certain—especially when two or more reasonable interpretations lead to different actions—the Brain must pause that action, briefly restate its current understanding, and obtain Owner confirmation. Inference is not authorization. Understanding confidence and execution authority remain separate; higher-risk actions require stricter confirmation. Owner Protection, irreversible action, authority change, and Governance Approval gates remain independently mandatory. Clear low-risk language, stable Aliases, and verified expression patterns may be parsed directly. Agents escalate semantic ambiguity to Brain and never guess Owner intent.",
+  lowInterruptionPolicy: {
+    clearLowRiskLanguage: "direct_parse",
+    stableAliases: "direct_parse",
+    verifiedExpressionPatterns: "direct_parse",
+    singleCaseLongTermInference: "forbidden_without_validation",
+  },
+  ownerProtectionTriadUnaffected: true,
+  confirmationIsAuthorization: false,
+  grantsAuthority: false,
+  productionAuthority: false,
+};
+export const BRAIN_AGENT_EXECUTION_RULE = {
+  id: "brain-agent-execution-protocol",
+  version: 2,
+  rule: "Only the Brain resolves Owner intent and issues immutable machine contracts. Agents cannot guess ambiguous Owner intent: semantic ambiguity pauses and escalates to Brain; only if Brain remains uncertain does it ask Owner for the shortest natural confirmation. Agents cannot expand authority, drift scope, reuse stale context, expose secrets, or self-verify; only true Owner Gates reach Owner.",
+  scope: "All current and future delegated agents",
+};
+export const CLOSURE_INTEGRITY_RULE = {
+  id: "closure-integrity-audit",
+  version: 2,
+  classification: "technical_quality_and_collaboration_process",
+  rule: "Before any Task or phase may become VERIFIED or CLOSED, perform a mandatory backward integrity audit of dependencies, governing and peer rules, authority changes, Persistent State, Evidence/HMAC, Intent Uncertainty Confirmation Gate, Agent/Contract constraints, safety mechanisms, legacy regressions, Queue and Resume Node. Any conflict, missing evidence, drift, authority anomaly or regression must fail closed with a real blocker and require repair plus re-acceptance.",
+  protectedInvariants: {
+    foundations: "001-013_frozen",
+    ownerSovereignty: true,
+    ownerProtectionTriad: [
+      "financial_and_physical_assets",
+      "legal_liability",
+      "aiceo_system_integrity",
+    ],
+    failClosed: true,
+    killSwitchAndCircuitBreaker: "unchanged_and_not_bypassed",
+    productionAuthority: false,
+  },
+  grantsAuthority: false,
+};
+const PROTECTED_RULE_BASELINES: Record<string, Record<string, unknown>> = {
+  "owner-zero-trial-error": {
+    id: "owner-zero-trial-error",
+    rule: "AICEO completes safely delegable technical work without transferring trial-and-error to the Owner.",
+  },
+  "capability-binary": {
+    id: "capability-binary",
+    rule: "能就直接执行；不能就明确说不能，并只说明真实阻塞原因。",
+  },
+  "owner-only-gates": {
+    id: "owner-only-gates",
+    rule: "Pause only for identity or credentials, personal Owner Governance Approval, Owner Protection red lines, or genuinely non-delegable human acts.",
+  },
+  "authority-boundary": {
+    id: "authority-boundary",
+    rule: "No Production, trading, Databento, Alert, asset, legal, or other new authority.",
+  },
+  "strict-serial": {
+    id: "strict-serial",
+    rule: "Only one continuity project may be RUNNING.",
+  },
+  "continuous-collaboration-improvement-loop": {
+    id: "continuous-collaboration-improvement-loop",
+    version: 1,
+    rule: "Capture evidence-backed collaboration friction, classify root cause, define correct behavior, conflict-check, version ordinary improvements, validate actual improvement, and roll back safely. Owner Protection or authority changes fail closed at OWNER_GATE.",
+    scope: "Owner–Brain collaboration",
+  },
+  "brain-agent-execution-protocol": BRAIN_AGENT_EXECUTION_RULE,
+  "intent-uncertainty-confirmation-gate": INTENT_UNCERTAINTY_CONFIRMATION_RULE,
+  "closure-integrity-audit": CLOSURE_INTEGRITY_RULE,
+};
+const PROTECTED_ENTITY_BASELINES: Record<string, Record<string, unknown>> = {
+  owner: { id: "owner", type: "human_authority", authority: "ultimate_human_governance_authority" },
+  brain: { id: "brain", type: "technical_authority", authority: "maximum_technical_sovereignty_below_owner_red_lines" },
+  agent: { id: "agent", type: "delegated_executor", authority: "delegated_technical_authority" },
+  "impl-001": { id: "impl-001", type: "governance_root", status: "VERIFIED" },
+  "collaboration-loop-001": { id: "collaboration-loop-001", type: "continuous_improvement_loop", status: "ACTIVE", version: "COLLABORATION-LOOP-001" },
+  "brain-agent-001": { id: "brain-agent-001", type: "execution_protocol", status: "ACTIVE", version: "BRAIN-AGENT-001" },
+  "intent-gate-001": { id: "intent-gate-001", type: "communication_understanding_gate", status: "ACTIVE", version: "INTENT-GATE-001", productionAuthority: false },
+};
+const PROTECTED_ALIASES: Record<string, unknown> = {
+  "AI CEO继续": "resume",
+  "AICEO继续": "resume",
+  "ai ceo continue": "resume",
+  "aiceo continue": "resume",
+  Bro: "aiceo_brain_exclusive_alias",
+  "Bro，继续": "resume",
+};
 const RESUME_ALIASES = new Set([
   "ai ceo继续",
   "aiceo继续",
@@ -39,7 +148,46 @@ const canonical = (value: unknown): unknown => {
   );
   return value;
 };
+const evidenceClaimsAuthority = (value: unknown, key = ""): boolean => {
+  const normalizedKey = key.toLowerCase();
+  if (normalizedKey === "productionauthority" || normalizedKey === "grantsauthority") return value !== false;
+  if (normalizedKey === "authorityunchanged" || normalizedKey === "authoritychanges") return value !== true;
+  if (/authority|permission|capability|role/.test(normalizedKey)) return true;
+  if (typeof value === "string") {
+    return /production_authority|ultimate_human_governance_authority|delegated_technical_authority|grok_restricted_development|authority_assignment/i.test(value);
+  }
+  if (Array.isArray(value)) return value.some((item) => evidenceClaimsAuthority(item));
+  if (value && typeof value === "object") {
+    return Object.entries(value as Record<string, unknown>).some(([childKey, child]) => evidenceClaimsAuthority(child, childKey));
+  }
+  return false;
+};
 const hash = (value: unknown) => createHash("sha256").update(JSON.stringify(canonical(value))).digest("hex");
+export const closureIntentDigest = (input: {
+  auditedRevision: number;
+  state: string;
+  currentState: Record<string, unknown>;
+  decisionRuleRegistry: Record<string, unknown>[];
+  entityRegistry: Record<string, unknown>[];
+  aliasDictionary: Record<string, unknown>;
+  historicalEvidence: Record<string, unknown>[];
+  resumeNode: Record<string, unknown>;
+  failureReason: string | null;
+  recoveryStrategy: string | null;
+  ownerGateReason: string | null;
+}) => hash({
+  auditedRevision: input.auditedRevision,
+  state: input.state,
+  currentState: input.currentState,
+  decisionRuleRegistryHash: hash(input.decisionRuleRegistry),
+  entityRegistryHash: hash(input.entityRegistry),
+  aliasDictionaryHash: hash(input.aliasDictionary),
+  historicalEvidenceHashes: input.historicalEvidence.map((pointer) => hash(pointer)).sort(),
+  resumeNode: input.resumeNode,
+  failureReason: input.failureReason,
+  recoveryStrategy: input.recoveryStrategy,
+  ownerGateReason: input.ownerGateReason,
+});
 const signingSecret = () => {
   const secret = process.env.SESSION_SECRET;
   if (!secret || secret.length < 32) throw new Error("CONTINUITY-001 signing authority is unavailable");
@@ -127,11 +275,252 @@ export class AiceoContinuityLayer {
       const current = (await tx.select().from(aiceoContinuityStateTable)
         .where(eq(aiceoContinuityStateTable.projectId, project.id)).for("update"))[0];
       if (!current) throw new Error("不能：持久 Continuity 状态不存在");
+      const allowedCurrentStateKeys = new Set([
+        "activeTask",
+        "completedTask",
+        "memoryPolicy",
+        "strictSerial",
+        "implementation",
+        "verification",
+        "closure",
+        "acceptedRevision",
+        "closureIntegrityAudit",
+        "closureIntegrityAuditedRevision",
+      ]);
+      if (
+        Object.keys(input.currentState).some((key) => !allowedCurrentStateKeys.has(key))
+        || input.currentState.memoryPolicy !== "Memory is context, Persistent State is truth"
+        || input.currentState.strictSerial !== true
+        || !["RUNNING", "COMPLETED"].includes(String(input.currentState.implementation))
+        || input.currentState.implementation !== input.state
+        || !["PENDING_INDEPENDENT_READ_ONLY_ACCEPTANCE", "NOT_VERIFIED", "VERIFIED"].includes(String(input.currentState.verification))
+        || !["BLOCKED", "CLOSED", "undefined"].includes(String(input.currentState.closure))
+        || (input.currentState.activeTask != null && typeof input.currentState.activeTask !== "string")
+        || (input.currentState.completedTask != null && typeof input.currentState.completedTask !== "string")
+        || (input.currentState.acceptedRevision != null && !Number.isInteger(input.currentState.acceptedRevision))
+      ) {
+        throw new Error("不能：currentState 必须符合受保护机器 schema，不能携带未声明权限或状态字段");
+      }
+      const allowedResumeNodeKeys = new Set(["node", "action", "status", "ownerGate", "closureIntegrityAudit"]);
+      if (
+        Object.keys(input.resumeNode).some((key) => !allowedResumeNodeKeys.has(key))
+        || typeof input.resumeNode.node !== "string"
+        || !input.resumeNode.node.trim()
+        || typeof input.resumeNode.action !== "string"
+        || typeof input.resumeNode.ownerGate !== "boolean"
+        || !["BLOCKED", "CLOSED", "undefined"].includes(String(input.resumeNode.status))
+      ) {
+        throw new Error("不能：Resume Node 必须符合受保护机器 schema，不能携带未声明权限或状态字段");
+      }
+      const inputRules = new Map(input.decisionRuleRegistry.map((rule) => [rule.id, rule]));
+      const inputEntities = new Map(input.entityRegistry.map((entity) => [entity.id, entity]));
+      if (
+        inputRules.size !== input.decisionRuleRegistry.length
+        || inputEntities.size !== input.entityRegistry.length
+        || input.decisionRuleRegistry.some((rule) => typeof rule.id !== "string" || !rule.id.trim())
+        || input.entityRegistry.some((entity) => typeof entity.id !== "string" || !entity.id.trim())
+      ) {
+        throw new Error("不能：Continuity registries require unique, non-empty machine IDs");
+      }
+      for (const [id, baseline] of Object.entries(PROTECTED_RULE_BASELINES)) {
+        if (JSON.stringify(canonical(inputRules.get(id))) !== JSON.stringify(canonical(baseline))) {
+          throw new Error(`不能：受保护的机器规则 ${id} 不可删除、改写或绕过`);
+        }
+      }
+      for (const [id, baseline] of Object.entries(PROTECTED_ENTITY_BASELINES)) {
+        if (JSON.stringify(canonical(inputEntities.get(id))) !== JSON.stringify(canonical(baseline))) {
+          throw new Error(`不能：受保护的治理实体 ${id} 不可删除、改写或绕过`);
+        }
+      }
+      const continuityEntity = inputEntities.get("continuity-001");
+      const continuityEntityKeys = continuityEntity ? Object.keys(continuityEntity) : [];
+      const continuityEntityAllowedKeys = new Set(["id", "type", "status", "verification", "closure"]);
+      if (
+        !continuityEntity
+        || continuityEntity.type !== "implementation"
+        || continuityEntityKeys.some((key) => !continuityEntityAllowedKeys.has(key))
+        || !["RUNNING", "PAUSED", "FAILED", "COMPLETED", "OWNER_GATE"].includes(String(continuityEntity.status))
+        || !["PENDING_INDEPENDENT_READ_ONLY_ACCEPTANCE", "NOT_VERIFIED", "VERIFIED"].includes(String(continuityEntity.verification))
+        || !["BLOCKED", "CLOSED", "undefined"].includes(String(continuityEntity.closure))
+        || continuityEntity.status !== input.state
+        || continuityEntity.verification !== input.currentState.verification
+        || String(continuityEntity.closure) !== String(input.currentState.closure)
+      ) {
+        throw new Error("不能：continuity-001 只能携带受限 implementation 状态字段，不能携带任何权限或能力");
+      }
+      for (const [alias, target] of Object.entries(PROTECTED_ALIASES)) {
+        if (input.aliasDictionary[alias] !== target) throw new Error(`不能：受保护的 Continuity Alias ${alias} 不可改写`);
+      }
+      for (const rule of input.decisionRuleRegistry) {
+        if (!PROTECTED_RULE_BASELINES[rule.id as string]) {
+          throw new Error(`不能：未知机器规则 ${String(rule.id)} 未经过代码基线化与 Closure Integrity Audit`);
+        }
+      }
+      for (const entity of input.entityRegistry) {
+        if (PROTECTED_ENTITY_BASELINES[entity.id as string] || entity.id === "continuity-001") continue;
+        throw new Error(`不能：未知治理实体 ${String(entity.id)} 未经过代码基线化与 Closure Integrity Audit`);
+      }
+      for (const [alias, target] of Object.entries(input.aliasDictionary)) {
+        if (!(alias in PROTECTED_ALIASES) && target !== "resume") {
+          throw new Error(`不能：未知 Continuity Alias ${alias} 只能作为无权限恢复别名`);
+        }
+      }
+      const retainedEvidenceOnEveryUpdate = new Set(input.evidencePointers.map((pointer) => hash(pointer)));
+      if (current.evidencePointers.some((pointer: Record<string, unknown>) => !retainedEvidenceOnEveryUpdate.has(hash(pointer)))) {
+        throw new Error("不能：Continuity evidence is append-only across every revision");
+      }
+      const existingEvidence = new Set(current.evidencePointers.map((pointer: Record<string, unknown>) => hash(pointer)));
+      const invalidNewEvidence = input.evidencePointers
+        .filter((pointer) => !existingEvidence.has(hash(pointer)))
+        .some((pointer) => evidenceClaimsAuthority(pointer));
+      if (invalidNewEvidence) throw new Error("不能：Continuity evidence 不能声明或授予新权限");
       if (input.state !== current.state && !TRANSITIONS[current.state as AiceoContinuityState].includes(input.state)) {
         throw new Error(`不能：非法 Continuity 状态转换 ${current.state}->${input.state}`);
       }
       if (input.state === "FAILED" && !input.failureReason) throw new Error("不能：FAILED 必须记录真实失败原因");
       if (input.state === "OWNER_GATE" && !input.ownerGateReason) throw new Error("不能：OWNER_GATE 必须记录不可代理的 Owner 原因");
+      const requestsVerifiedClosure = input.currentState.verification === "VERIFIED"
+        || input.currentState.closure === "CLOSED"
+        || input.resumeNode.status === "CLOSED";
+      if (requestsVerifiedClosure) {
+        const rule = current.decisionRuleRegistry.find((candidate: Record<string, unknown>) => candidate.id === "closure-integrity-audit");
+        const audit = input.evidencePointers.find((pointer) =>
+          pointer.type === "closure_integrity_audit"
+          && pointer.auditedRevision === current.revision
+          && pointer.result === "VERIFIED");
+        const report = audit?.regressionReport as Record<string, unknown> | undefined;
+        const reportHmac = audit?.regressionReportHmac;
+        const reportCommands = Array.isArray(report?.commands) ? report.commands as Record<string, unknown>[] : [];
+        const reportNames = new Set(reportCommands
+          .filter((command) => command.exitCode === 0 && /^[a-f0-9]{64}$/.test(String(command.outputSha256)))
+          .map((command) => command.name));
+        if (
+          !rule
+          || JSON.stringify(canonical(rule)) !== JSON.stringify(canonical(CLOSURE_INTEGRITY_RULE))
+          || !audit
+          || !report
+          || report.auditedRevision !== current.revision
+          || report.allPassed !== true
+          || typeof reportHmac !== "string"
+          || eventHash(report) !== reportHmac
+          || !CLOSURE_REGRESSION_CHECKS.every((name) => reportNames.has(name))
+        ) {
+          throw new Error("不能：VERIFIED/CLOSED requires a complete Closure Integrity Audit bound to the current revision");
+        }
+        if (
+          input.state !== "COMPLETED"
+          || input.currentState.verification !== "VERIFIED"
+          || input.currentState.closure !== "CLOSED"
+          || input.currentState.closureIntegrityAudit !== "VERIFIED"
+          || input.currentState.closureIntegrityAuditedRevision !== current.revision
+          || input.resumeNode.status !== "CLOSED"
+          || input.resumeNode.ownerGate !== false
+          || typeof input.resumeNode.node !== "string"
+          || !input.resumeNode.node.trim()
+          || input.failureReason != null
+          || input.ownerGateReason != null
+        ) {
+          throw new Error("不能：Closure Integrity Audit detected contradictory closure metadata or Resume Node");
+        }
+        const expectedClosureIntent = closureIntentDigest({
+          auditedRevision: current.revision,
+          state: input.state,
+          currentState: input.currentState,
+          decisionRuleRegistry: input.decisionRuleRegistry,
+          entityRegistry: input.entityRegistry,
+          aliasDictionary: input.aliasDictionary,
+          historicalEvidence: current.evidencePointers,
+          resumeNode: input.resumeNode,
+          failureReason: input.failureReason ?? null,
+          recoveryStrategy: input.recoveryStrategy ?? null,
+          ownerGateReason: input.ownerGateReason ?? null,
+        });
+        if (report.closureIntentHash !== expectedClosureIntent) {
+          throw new Error("不能：signed regression evidence is not bound to the complete closure intent");
+        }
+        const closureEntityIdentity = (entities: Record<string, unknown>[]) => entities.map((entity) =>
+          entity.id === "continuity-001" ? { id: entity.id, type: entity.type } : entity);
+        if (
+          JSON.stringify(canonical(input.decisionRuleRegistry)) !== JSON.stringify(canonical(current.decisionRuleRegistry))
+          || JSON.stringify(canonical(closureEntityIdentity(input.entityRegistry))) !== JSON.stringify(canonical(closureEntityIdentity(current.entityRegistry)))
+          || JSON.stringify(canonical(input.aliasDictionary)) !== JSON.stringify(canonical(current.aliasDictionary))
+        ) {
+          throw new Error("不能：Closure Integrity Audit cannot certify a request that mutates rules, entities, or aliases");
+        }
+        for (const [key, value] of Object.entries(current.currentState)) {
+          if (!PROTECTED_CURRENT_STATE_FIELDS_EXCLUDED_AT_CLOSURE.has(key)
+            && JSON.stringify(canonical(input.currentState[key])) !== JSON.stringify(canonical(value))) {
+            throw new Error("不能：Closure Integrity Audit detected protected Persistent State mutation");
+          }
+        }
+        const retainedEvidence = new Set(input.evidencePointers.map((pointer) => hash(pointer)));
+        if (current.evidencePointers.some((pointer: Record<string, unknown>) => !retainedEvidence.has(hash(pointer)))) {
+          throw new Error("不能：Closure Integrity Audit cannot remove or rewrite historical evidence");
+        }
+        const owner = current.entityRegistry.find((entity: Record<string, unknown>) => entity.id === "owner");
+        const brain = current.entityRegistry.find((entity: Record<string, unknown>) => entity.id === "brain");
+        const agent = current.entityRegistry.find((entity: Record<string, unknown>) => entity.id === "agent");
+        const authorityRule = current.decisionRuleRegistry.find((candidate: Record<string, unknown>) => candidate.id === "authority-boundary");
+        const ownerGateRule = current.decisionRuleRegistry.find((candidate: Record<string, unknown>) => candidate.id === "owner-only-gates");
+        const agentRule = current.decisionRuleRegistry.find((candidate: Record<string, unknown>) => candidate.id === "brain-agent-execution-protocol");
+        const intentGateRule = current.decisionRuleRegistry.find((candidate: Record<string, unknown>) => candidate.id === "intent-uncertainty-confirmation-gate");
+        const intentGateEntity = current.entityRegistry.find((entity: Record<string, unknown>) => entity.id === "intent-gate-001");
+        const governanceText = JSON.stringify({ authorityRule, ownerGateRule, agentRule }).toLowerCase();
+        if (
+          owner?.authority !== "ultimate_human_governance_authority"
+          || !String(brain?.authority).includes("maximum_technical_sovereignty_below_owner_red_lines")
+          || agent?.authority !== "delegated_technical_authority"
+          || !["production", "trading", "databento", "alert"].every((term) => governanceText.includes(term))
+          || !governanceText.includes("owner")
+          || !governanceText.includes("self-verify")
+          || JSON.stringify(canonical(intentGateRule)) !== JSON.stringify(canonical(INTENT_UNCERTAINTY_CONFIRMATION_RULE))
+          || intentGateEntity?.version !== "INTENT-GATE-001"
+          || intentGateEntity?.productionAuthority !== false
+        ) {
+          throw new Error("不能：Closure Integrity Audit detected governance hierarchy or authority-boundary drift");
+        }
+        const intentConfirmations = await tx.select().from(aiceoIntentConfirmationsTable)
+          .where(eq(aiceoIntentConfirmationsTable.projectId, project.id))
+          .orderBy(asc(aiceoIntentConfirmationsTable.createdAt), asc(aiceoIntentConfirmationsTable.id));
+        if (
+          intentConfirmations.some((confirmation: any) =>
+            confirmation.status !== "CONFIRMED"
+            || confirmation.productionAuthority
+            || !/^[a-f0-9]{64}$/.test(String(confirmation.intentHash))
+            || !/^[a-f0-9]{64}$/.test(String(confirmation.contextHash)))
+          || report.intentConfirmationsHash !== hash(intentConfirmations)
+        ) {
+          throw new Error("不能：Closure Integrity Audit detected invalid or unbound Intent Confirmation evidence");
+        }
+        const foundations = await tx.select().from(aiceoPolicyRegistryTable);
+        if (foundations.length !== 13 || foundations.some((foundation: any) => !foundation.frozen)) {
+          throw new Error("不能：Closure Integrity Audit detected Foundation 001–013 drift");
+        }
+        const active = Number((await tx.select({ value: count() }).from(aiceoTasksTable)
+          .where(inArray(aiceoTasksTable.state, ["RUNNING", "VALIDATING"])))[0].value);
+        if (active !== 0 || control.killSwitch || !control.queueActive || control.circuitState !== "CLOSED") {
+          throw new Error("不能：Closure Integrity Audit detected Queue or safety-control drift");
+        }
+        const events = await tx.select().from(aiceoContinuityEventsTable)
+          .where(eq(aiceoContinuityEventsTable.projectId, project.id))
+          .orderBy(asc(aiceoContinuityEventsTable.serverTimestamp), asc(aiceoContinuityEventsTable.id));
+        let previous: string | null = null;
+        for (const event of events) {
+          if (event.previousHash !== previous) throw new Error("不能：Closure Integrity Audit detected a broken evidence chain");
+          const expected = eventHash({
+            id: event.id,
+            projectId: event.projectId,
+            state: event.state,
+            actorId: event.actorId,
+            eventType: event.eventType,
+            payload: event.payload,
+            previousHash: event.previousHash,
+            serverTimestamp: event.serverTimestamp,
+          });
+          if (event.eventHash !== expected) throw new Error("不能：Closure Integrity Audit detected invalid HMAC evidence");
+          previous = event.eventHash;
+        }
+      }
       const now = new Date();
       const revision = current.revision + 1;
       const intent = {

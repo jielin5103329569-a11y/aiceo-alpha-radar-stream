@@ -30,3 +30,4 @@
 - [AICEO Clerk role authority](aiceo-clerk-role-authority.md) — Resolve current roles server-side; Development session JWTs may omit public metadata.
 - [Owner–Brain execution protocol](owner-brain-execution-protocol.md) — Future capability responses are binary: execute safely when able; otherwise say “不能” and give only the real blocker.
 - [API operational script bundles](api-operational-script-bundles.md) — Bundle DB-backed TypeScript scripts as CommonJS with async main; native TS/ESM paths conflict with workspace and `pg`.
+- [Closure integrity gates](closure-integrity-gates.md) — Validate every mutable surface across intermediate revisions and bind signed regression outputs to the complete closure intent.

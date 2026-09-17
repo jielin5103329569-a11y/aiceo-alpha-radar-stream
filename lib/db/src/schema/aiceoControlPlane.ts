@@ -248,6 +248,28 @@ export const aiceoCollaborationRulesTable = pgTable("aiceo_collaboration_rules",
   index("aiceo_collaboration_rule_status_idx").on(table.status, table.createdAt),
 ]);
 
+export const aiceoIntentConfirmationsTable = pgTable("aiceo_intent_confirmations", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  projectId: uuid("project_id").notNull(),
+  confirmationKey: varchar("confirmation_key", { length: 180 }).notNull(),
+  ownerActorId: varchar("owner_actor_id", { length: 180 }).notNull(),
+  continuityRevision: integer("continuity_revision").notNull(),
+  ownerExpression: text("owner_expression").notNull(),
+  interpretedIntent: text("interpreted_intent").notNull(),
+  actionTarget: text("action_target").notNull(),
+  contextHash: varchar("context_hash", { length: 128 }).notNull(),
+  intentHash: varchar("intent_hash", { length: 128 }).notNull(),
+  executionBindingHash: varchar("execution_binding_hash", { length: 128 }).notNull(),
+  riskLevel: varchar("risk_level", { length: 24 }).notNull(),
+  reasonableInterpretations: jsonb("reasonable_interpretations").$type<Record<string, unknown>[]>().notNull(),
+  status: varchar("status", { length: 24 }).notNull().default("CONFIRMED"),
+  productionAuthority: boolean("production_authority").notNull().default(false),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex("aiceo_intent_confirmation_key_unique").on(table.projectId, table.confirmationKey),
+  index("aiceo_intent_confirmation_revision_idx").on(table.projectId, table.continuityRevision, table.createdAt),
+]);
+
 export const aiceoExecutionContractsTable = pgTable("aiceo_execution_contracts", {
   id: uuid("id").primaryKey().defaultRandom(),
   projectId: uuid("project_id").notNull(),
@@ -268,6 +290,7 @@ export const aiceoExecutionContractsTable = pgTable("aiceo_execution_contracts",
   resumeNode: jsonb("resume_node").$type<Record<string, unknown>>().notNull(),
   escalationConditions: jsonb("escalation_conditions").$type<Record<string, unknown>[]>().notNull(),
   ownerAttentionBudget: jsonb("owner_attention_budget").$type<Record<string, unknown>>().notNull(),
+  intentConfirmationId: uuid("intent_confirmation_id"),
   maxDelegationDepth: integer("max_delegation_depth").notNull().default(1),
   status: varchar("status", { length: 32 }).notNull().default("ISSUED"),
   contractVersion: varchar("contract_version", { length: 80 }).notNull().default("BRAIN-AGENT-001"),
@@ -276,6 +299,7 @@ export const aiceoExecutionContractsTable = pgTable("aiceo_execution_contracts",
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [
   uniqueIndex("aiceo_execution_contract_idempotency_unique").on(table.projectId, table.idempotencyKey),
+  uniqueIndex("aiceo_execution_contract_intent_confirmation_unique").on(table.intentConfirmationId),
   index("aiceo_execution_contract_status_idx").on(table.status, table.createdAt),
 ]);
 
@@ -295,6 +319,7 @@ export const aiceoAgentRunsTable = pgTable("aiceo_agent_runs", {
   result: jsonb("result").$type<Record<string, unknown>>(),
   evidence: jsonb("evidence").$type<Record<string, unknown>[]>(),
   blocker: text("blocker"),
+  intentResolutionConfirmationId: uuid("intent_resolution_confirmation_id"),
   retryCount: integer("retry_count").notNull().default(0),
   usedCalls: integer("used_calls").notNull().default(0),
   usedCostMicrousd: integer("used_cost_microusd").notNull().default(0),
@@ -304,6 +329,7 @@ export const aiceoAgentRunsTable = pgTable("aiceo_agent_runs", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [
   uniqueIndex("aiceo_agent_run_idempotency_unique").on(table.contractId, table.idempotencyKey),
+  uniqueIndex("aiceo_agent_run_intent_resolution_confirmation_unique").on(table.intentResolutionConfirmationId),
   uniqueIndex("aiceo_agent_one_running_unique").on(sql`(true)`).where(sql`${table.state} = 'RUNNING'`),
   index("aiceo_agent_run_deadline_idx").on(table.state, table.deadlineAt),
 ]);
