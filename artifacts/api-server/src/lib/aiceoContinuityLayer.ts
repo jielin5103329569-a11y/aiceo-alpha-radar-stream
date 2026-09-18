@@ -247,6 +247,12 @@ const RETRIEVAL_ROUTER_ENTITY_IDENTITY = {
   version: "G1-002-RTR-1",
   productionAuthority: false,
 };
+export const EXTERNAL_AGENT_CONTRACT_V1_ENTITY_IDENTITY = {
+  id: "external-agent-contract-v1",
+  type: "external_agent_contract",
+  version: "AICEO-EXTERNAL-AGENT-CONTRACT-V1",
+  productionAuthority: false,
+};
 const PROTECTED_ALIASES: Record<string, unknown> = {
   "AI CEO继续": "resume",
   "AICEO继续": "resume",
@@ -705,6 +711,7 @@ export class AiceoContinuityLayer {
         Object.keys(MEMORY_ENTITY_IDENTITY).map((key) => [key, memoryEntity[key]]),
       );
       const retrievalEntity = inputEntities.get(RETRIEVAL_ROUTER_ENTITY_IDENTITY.id);
+      const externalAgentContractV1Entity = inputEntities.get(EXTERNAL_AGENT_CONTRACT_V1_ENTITY_IDENTITY.id);
       const expectedMemoryStatus = retrievalEntity || current.currentState.verification === "VERIFIED"
         ? { status: "COMPLETED", verification: "VERIFIED", closure: "CLOSED" }
         : { status: "COMPLETED", verification: "NOT_VERIFIED", closure: "BLOCKED" };
@@ -730,14 +737,38 @@ export class AiceoContinuityLayer {
         const identity = Object.fromEntries(
           Object.keys(RETRIEVAL_ROUTER_ENTITY_IDENTITY).map((key) => [key, retrievalEntity[key]]),
         );
+        const expectedStatus = externalAgentContractV1Entity
+          ? { status: "COMPLETED", verification: "VERIFIED", closure: "CLOSED" }
+          : {
+            status: input.state,
+            verification: input.currentState.verification,
+            closure: input.currentState.closure,
+          };
         if (
           Object.keys(retrievalEntity).some((key) => !allowedKeys.has(key))
           || JSON.stringify(canonical(identity)) !== JSON.stringify(canonical(RETRIEVAL_ROUTER_ENTITY_IDENTITY))
-          || retrievalEntity.status !== input.state
-          || retrievalEntity.verification !== input.currentState.verification
-          || retrievalEntity.closure !== input.currentState.closure
+          || retrievalEntity.status !== expectedStatus.status
+          || retrievalEntity.verification !== expectedStatus.verification
+          || retrievalEntity.closure !== expectedStatus.closure
         ) {
           throw new Error("不能：G1-002 Retrieval Router 身份、状态或零生产权限边界无效");
+        }
+      }
+      if (externalAgentContractV1Entity) {
+        const allowedKeys = new Set(["id", "type", "version", "productionAuthority", "status", "verification", "closure"]);
+        const identity = Object.fromEntries(
+          Object.keys(EXTERNAL_AGENT_CONTRACT_V1_ENTITY_IDENTITY)
+            .map((key) => [key, externalAgentContractV1Entity[key]]),
+        );
+        if (
+          Object.keys(externalAgentContractV1Entity).some((key) => !allowedKeys.has(key))
+          || JSON.stringify(canonical(identity))
+            !== JSON.stringify(canonical(EXTERNAL_AGENT_CONTRACT_V1_ENTITY_IDENTITY))
+          || externalAgentContractV1Entity.status !== input.state
+          || externalAgentContractV1Entity.verification !== input.currentState.verification
+          || externalAgentContractV1Entity.closure !== input.currentState.closure
+        ) {
+          throw new Error("不能：External Agent Contract V1 身份、状态或零生产权限边界无效");
         }
       }
       const continuityEntity = inputEntities.get("continuity-001");
@@ -766,7 +797,8 @@ export class AiceoContinuityLayer {
       }
       for (const entity of input.entityRegistry) {
         if (PROTECTED_ENTITY_BASELINES[entity.id as string] || entity.id === "continuity-001"
-          || entity.id === "memory-g1-001" || entity.id === RETRIEVAL_ROUTER_ENTITY_IDENTITY.id) continue;
+          || entity.id === "memory-g1-001" || entity.id === RETRIEVAL_ROUTER_ENTITY_IDENTITY.id
+          || entity.id === EXTERNAL_AGENT_CONTRACT_V1_ENTITY_IDENTITY.id) continue;
         throw new Error(`不能：未知治理实体 ${String(entity.id)} 未经过代码基线化与 Closure Integrity Audit`);
       }
       for (const [alias, target] of Object.entries(input.aliasDictionary)) {
@@ -891,6 +923,7 @@ export class AiceoContinuityLayer {
         const closureEntityIdentity = (entities: Record<string, unknown>[]) => entities.map((entity) =>
           entity.id === "continuity-001" || entity.id === "memory-g1-001"
             || entity.id === RETRIEVAL_ROUTER_ENTITY_IDENTITY.id
+            || entity.id === EXTERNAL_AGENT_CONTRACT_V1_ENTITY_IDENTITY.id
             ? { id: entity.id, type: entity.type, version: entity.version, productionAuthority: entity.productionAuthority }
             : entity);
         if (

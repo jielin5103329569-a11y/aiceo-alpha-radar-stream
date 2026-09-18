@@ -67,6 +67,7 @@
     ,"test:aiceo-credential-persistence-firewall": "pnpm --filter @workspace/api-server exec esbuild ../../scripts/test-aiceo-credential-persistence-firewall.ts --bundle --platform=node --format=cjs --outfile=/tmp/test-aiceo-credential-persistence-firewall.cjs && node /tmp/test-aiceo-credential-persistence-firewall.cjs"
     ,"test:aiceo-external-agent-contract-v1": "pnpm --filter @workspace/api-server exec esbuild ../../scripts/test-aiceo-external-agent-contract-v1.ts --bundle --platform=node --format=cjs --outfile=/tmp/test-aiceo-external-agent-contract-v1.cjs && node /tmp/test-aiceo-external-agent-contract-v1.cjs"
     ,"audit:aiceo-g1-002-closure": "pnpm --filter @workspace/api-server exec esbuild ../../scripts/audit-aiceo-g1-002-closure.ts --bundle --platform=node --format=cjs --outfile=/tmp/audit-aiceo-g1-002-closure.cjs && node /tmp/audit-aiceo-g1-002-closure.cjs"
+    ,"record:aiceo-external-agent-contract-v1": "pnpm --filter @workspace/api-server exec esbuild ../../scripts/record-aiceo-external-agent-contract-v1.ts --bundle --platform=node --format=cjs --outfile=/tmp/record-aiceo-external-agent-contract-v1.cjs && node /tmp/record-aiceo-external-agent-contract-v1.cjs"
   },
   "private": true,
   "dependencies": {

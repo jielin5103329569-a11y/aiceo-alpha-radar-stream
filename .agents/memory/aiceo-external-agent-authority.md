@@ -24,3 +24,9 @@ Provider-neutral external contracts must be assembled from server-owned task, ex
 **Why:** Individually valid records can otherwise be combined into a false canonical contract, and an unkeyed manifest hash cannot prove that the records were related or lifecycle-coherent.
 
 **How to apply:** Require a persisted task-to-contract link, bind task intent and allowed capability, enforce the task/contract/run state matrix, derive governance digests server-side, and make current-record reconstruction the authoritative verification path.
+
+Control-plane audit append sequences are application-owned and must be assigned while holding one transaction-scoped advisory lock; do not rely on a database default.
+
+**Why:** The audit table requires a non-null sequence but intentionally has no default. A writer that omits it fails both the operation audit and the fail-closed rejection audit.
+
+**How to apply:** Lock the audit stream, read the highest sequence, append exactly one, and derive the previous hash from that same last event in the same transaction.

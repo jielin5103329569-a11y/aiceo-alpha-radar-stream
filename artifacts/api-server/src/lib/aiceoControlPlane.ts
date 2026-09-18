@@ -245,8 +245,12 @@ export class AiceoControlPlane {
   async history(limit = 100) { return db.select().from(aiceoAuditEventsTable).orderBy(desc(aiceoAuditEventsTable.serverTimestamp), desc(aiceoAuditEventsTable.id)).limit(Math.min(Math.max(limit, 1), 100)); }
 
   private async audit(tx: any, input: { taskId?: string; correlationId: string; runId?: string; type: string; state?: AiceoState; actorId: string; details?: Record<string, unknown> }) {
-    await tx.select({ id: aiceoControlStateTable.id }).from(aiceoControlStateTable).limit(1).for("update");
-    const prior = await tx.select({ hash: aiceoAuditEventsTable.eventHash }).from(aiceoAuditEventsTable).orderBy(desc(aiceoAuditEventsTable.serverTimestamp), desc(aiceoAuditEventsTable.id)).limit(1);
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtext('aiceo:audit-events'))`);
+    const prior = await tx.select({
+      hash: aiceoAuditEventsTable.eventHash,
+      appendSequence: aiceoAuditEventsTable.appendSequence,
+    }).from(aiceoAuditEventsTable).orderBy(desc(aiceoAuditEventsTable.appendSequence)).limit(1);
+    const appendSequence = Number(prior[0]?.appendSequence ?? 0) + 1;
     const id = randomUUID();
     const serverTimestamp = new Date();
     const actorId = safe(input.actorId, 180);
@@ -254,7 +258,7 @@ export class AiceoControlPlane {
     assertCredentialPersistenceSafe(payload, "audit-event");
     const values = { id, taskId: input.taskId ?? null, correlationId: input.correlationId, runId: input.runId ?? null, eventType: input.type, state: input.state ?? null, actorId, payload, previousHash: prior[0]?.hash ?? null, serverTimestamp };
     const eventHash = auditHash({ ...values, eventType: input.type });
-    const [event] = await tx.insert(aiceoAuditEventsTable).values({ ...values, eventHash }).returning();
+    const [event] = await tx.insert(aiceoAuditEventsTable).values({ ...values, appendSequence, eventHash }).returning();
     return event;
   }
 
