@@ -13,8 +13,8 @@ import {
 } from "@workspace/db/schema";
 import { assertCredentialPersistenceSafe } from "./aiceoCredentialPersistenceFirewall";
 
-const INTENT_GATE_VERSION = "INTENT-GATE-001";
-const CONTRACT_VERSION = "BRAIN-AGENT-002";
+export const AICEO_INTENT_GATE_VERSION = "INTENT-GATE-001";
+export const AICEO_AGENT_EXECUTION_PROTOCOL_VERSION = "BRAIN-AGENT-002";
 const DENIES = ["production", "trading", "databento", "alert", "shell", "workflow", "network", "database"];
 const normalize = (value: string) => value.trim().replace(/\s+/g, " ");
 const normalizeCapability = (value: string) => normalize(value).toLowerCase();
@@ -37,7 +37,7 @@ type IntentUnderstanding = {
   riskLevel: IntentRisk;
 };
 
-const contextDigest = (state: any) => digest({
+export const aiceoPersistentStateContextDigest = (state: any) => digest({
   revision: state.revision,
   state: state.currentState,
   rules: state.decisionRuleRegistry,
@@ -175,7 +175,7 @@ export class AiceoAgentExecutionProtocol {
         throw new Error("不能：Owner intent confirmation input is invalid");
       }
       const understanding = parseIntentUnderstanding(input.understanding);
-      const contextHash = contextDigest(state);
+      const contextHash = aiceoPersistentStateContextDigest(state);
       const executionBindingHash = executionBindingDigest(input.executionBinding);
       const intentHash = intentBindingDigest({
         ownerExpression: input.ownerExpression,
@@ -264,7 +264,7 @@ export class AiceoAgentExecutionProtocol {
       ) {
         throw new Error("不能：allowed and denied capabilities must be disjoint; protected capabilities remain denied");
       }
-      const contextHash = contextDigest(state);
+      const contextHash = aiceoPersistentStateContextDigest(state);
       const executionBindingHash = executionBindingDigest({
         scope: input.scope,
         objective: input.objective,
@@ -313,7 +313,7 @@ export class AiceoAgentExecutionProtocol {
       }
       const gateEvidence = {
         id: "intent-uncertainty-confirmation-gate",
-        version: INTENT_GATE_VERSION,
+        version: AICEO_INTENT_GATE_VERSION,
         certainty: understanding.certainty,
         riskLevel: understanding.riskLevel,
         confirmationRequired,
@@ -347,7 +347,7 @@ export class AiceoAgentExecutionProtocol {
           { target: "brain", condition: "semantic_ambiguity" },
         ],
         intentConfirmationId: confirmation?.id ?? null,
-        contractVersion: CONTRACT_VERSION,
+        contractVersion: AICEO_AGENT_EXECUTION_PROTOCOL_VERSION,
         productionAuthority: false,
       };
       const contractHash = digest(body);
@@ -389,7 +389,7 @@ export class AiceoAgentExecutionProtocol {
       const intentGate = (contract.frozenRules as Record<string, unknown>[]).find(
         (rule) => rule.id === "intent-uncertainty-confirmation-gate",
       );
-      if (!intentGate || intentGate.version !== INTENT_GATE_VERSION || intentGate.intentConfirmationIsNotAuthorization !== true) {
+      if (!intentGate || intentGate.version !== AICEO_INTENT_GATE_VERSION || intentGate.intentConfirmationIsNotAuthorization !== true) {
         throw new Error("不能：Agent contract lacks the protected Intent Uncertainty Confirmation Gate");
       }
       if (

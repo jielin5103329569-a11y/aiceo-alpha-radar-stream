@@ -156,6 +156,60 @@ function auditHashIsValid(event: typeof aiceoAuditEventsTable.$inferSelect): boo
   });
 }
 
+export async function assertAiceoTaskGovernanceAuthorized(
+  tx: any,
+  task: typeof aiceoTasksTable.$inferSelect,
+): Promise<void> {
+  if (task.governanceClassification === "owner_protection") {
+    if (!isGovernanceAcceptanceTask(task)) throw new Error("IMPL-001 fixed governance acceptance intent is required");
+    if (!task.ownerProtectionRedLines.length || !task.ownerGovernanceApprovedAt || !task.ownerGovernanceApprovedBy || !task.ownerGovernanceApprovalHash) {
+      throw new Error("IMPL-001 independent Owner Governance Approval is required");
+    }
+    const submissions = await tx.select().from(aiceoAuditEventsTable).where(and(
+      eq(aiceoAuditEventsTable.taskId, task.id),
+      eq(aiceoAuditEventsTable.eventType, "SUBMITTED"),
+    ));
+    const submitted = submissions[0];
+    if (
+      submissions.length !== 1
+      || !submitted
+      || !auditHashIsValid(submitted)
+      || submitted.payload.taskIntentHash !== digest(taskIntent(task))
+      || submitted.actorId === task.ownerGovernanceApprovedBy
+    ) throw new Error("IMPL-001 submission audit provenance is invalid; execution fails closed");
+    const expectedHash = ownerGovernanceApprovalHash({
+      taskId: task.id,
+      taskIntent: taskIntent(task),
+      classification: "owner_protection",
+      redLines: task.ownerProtectionRedLines,
+      submission: { eventId: submitted.id, eventHash: submitted.eventHash, actorId: submitted.actorId ?? "" },
+      ownerId: task.ownerGovernanceApprovedBy,
+      approvedAt: task.ownerGovernanceApprovedAt,
+    }, ownerApprovalSecret());
+    if (expectedHash !== task.ownerGovernanceApprovalHash) {
+      throw new Error("IMPL-001 Owner Governance Approval integrity conflict; execution fails closed");
+    }
+    const approvalEvents = await tx.select().from(aiceoAuditEventsTable).where(and(
+      eq(aiceoAuditEventsTable.taskId, task.id),
+      eq(aiceoAuditEventsTable.eventType, "OWNER_GOVERNANCE_APPROVED"),
+    ));
+    if (
+      approvalEvents.length !== 1
+      || !auditHashIsValid(approvalEvents[0])
+      || approvalEvents[0].actorId !== task.ownerGovernanceApprovedBy
+      || approvalEvents[0].payload.approvalHash !== task.ownerGovernanceApprovalHash
+    ) throw new Error("IMPL-001 Owner Governance Approval audit provenance is missing; execution fails closed");
+  } else if (
+    task.governanceClassification !== "ordinary_technical"
+    || task.ownerProtectionRedLines.length
+    || task.ownerGovernanceApprovedAt
+    || task.ownerGovernanceApprovedBy
+    || task.ownerGovernanceApprovalHash
+  ) {
+    throw new Error("IMPL-001 governance classification or authority conflict; execution fails closed");
+  }
+}
+
 /** PostgreSQL is the sole state authority; this class intentionally has no process-owned state. */
 export class AiceoControlPlane {
   async selfCheck() {
@@ -413,46 +467,7 @@ export class AiceoControlPlane {
       if (!control || !control.queueActive || control.killSwitch || control.circuitState === "OPEN") throw new Error("ARCH-001 provider gate is closed");
       if (!source?.tested || !source.model) throw new Error("ARCH-001 verified Grok source is unavailable");
       if (task.environment !== "development" || task.authority !== FIXED_AUTHORITY || !APPROVED_GROK_DEVELOPMENT_ACTIONS.includes(task.action as ApprovedGrokDevelopmentAction)) throw new Error("ARCH-001 execution authority denied");
-      if (task.governanceClassification === "owner_protection") {
-        if (!isGovernanceAcceptanceTask(task)) throw new Error("IMPL-001 fixed governance acceptance intent is required");
-        if (!task.ownerProtectionRedLines.length || !task.ownerGovernanceApprovedAt || !task.ownerGovernanceApprovedBy || !task.ownerGovernanceApprovalHash) {
-          throw new Error("IMPL-001 independent Owner Governance Approval is required");
-        }
-        const submissions = await tx.select().from(aiceoAuditEventsTable).where(and(
-          eq(aiceoAuditEventsTable.taskId, id),
-          eq(aiceoAuditEventsTable.eventType, "SUBMITTED"),
-        ));
-        const submitted = submissions[0];
-        if (
-          submissions.length !== 1
-          || !submitted
-          || !auditHashIsValid(submitted)
-          || submitted.payload.taskIntentHash !== digest(taskIntent(task))
-          || submitted.actorId === task.ownerGovernanceApprovedBy
-        ) throw new Error("IMPL-001 submission audit provenance is invalid; execution fails closed");
-        const expectedHash = ownerGovernanceApprovalHash({
-          taskId: task.id,
-          taskIntent: taskIntent(task),
-          classification: "owner_protection",
-          redLines: task.ownerProtectionRedLines,
-          submission: { eventId: submitted.id, eventHash: submitted.eventHash, actorId: submitted.actorId ?? "" },
-          ownerId: task.ownerGovernanceApprovedBy,
-          approvedAt: task.ownerGovernanceApprovedAt,
-        }, ownerApprovalSecret());
-        if (expectedHash !== task.ownerGovernanceApprovalHash) throw new Error("IMPL-001 Owner Governance Approval integrity conflict; execution fails closed");
-        const approvalEvents = await tx.select().from(aiceoAuditEventsTable).where(and(
-          eq(aiceoAuditEventsTable.taskId, id),
-          eq(aiceoAuditEventsTable.eventType, "OWNER_GOVERNANCE_APPROVED"),
-        ));
-        if (
-          approvalEvents.length !== 1
-          || !auditHashIsValid(approvalEvents[0])
-          || approvalEvents[0].actorId !== task.ownerGovernanceApprovedBy
-          || approvalEvents[0].payload.approvalHash !== task.ownerGovernanceApprovalHash
-        ) throw new Error("IMPL-001 Owner Governance Approval audit provenance is missing; execution fails closed");
-      } else if (task.governanceClassification !== "ordinary_technical" || task.ownerProtectionRedLines.length || task.ownerGovernanceApprovedAt || task.ownerGovernanceApprovedBy || task.ownerGovernanceApprovalHash) {
-        throw new Error("IMPL-001 governance classification or authority conflict; execution fails closed");
-      }
+      await assertAiceoTaskGovernanceAuthorized(tx, task);
       if (allowQueuedStart && task.state !== "QUEUED") throw new Error("ARCH-001 task has already started");
       if (task.state === "QUEUED" && allowQueuedStart) {
         const submitted = (await tx.select({ actorId: aiceoAuditEventsTable.actorId }).from(aiceoAuditEventsTable).where(and(eq(aiceoAuditEventsTable.taskId, id), eq(aiceoAuditEventsTable.eventType, "SUBMITTED"))).limit(1))[0];

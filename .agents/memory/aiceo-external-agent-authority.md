@@ -18,3 +18,9 @@ Owner is the ultimate human governance authority. Financial and physical assets,
 **Why:** Ordinary task approval, client-declared classification, unkeyed approval hashes, or stale session roles can otherwise impersonate Owner authority or weaken protection without independent consent.
 
 **How to apply:** Keep legacy work explicitly unclassified and non-runnable. Treat current server-fetched identity metadata as authoritative, authenticate Owner approval evidence with a server-held key, freeze approved intent at the database boundary, and never let task execution or validation mint Owner authority.
+
+Provider-neutral external contracts must be assembled from server-owned task, execution-contract, run, governance, and Persistent State records rather than caller-supplied authority facts. Cross-record provenance and the exact lifecycle combination must be verified before a manifest can be issued.
+
+**Why:** Individually valid records can otherwise be combined into a false canonical contract, and an unkeyed manifest hash cannot prove that the records were related or lifecycle-coherent.
+
+**How to apply:** Require a persisted task-to-contract link, bind task intent and allowed capability, enforce the task/contract/run state matrix, derive governance digests server-side, and make current-record reconstruction the authoritative verification path.
