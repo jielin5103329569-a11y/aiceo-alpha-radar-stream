@@ -101,6 +101,172 @@ export const ResumeAiceoContinuityResponse = zod.object({
 })
 
 
+export const retrieveAiceoMemoryCandidatesBodyProjectIdRegExp = new RegExp('^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$');
+export const retrieveAiceoMemoryCandidatesBodyIdempotencyKeyMax = 180;
+
+export const retrieveAiceoMemoryCandidatesBodyTaskMax = 1000;
+
+export const retrieveAiceoMemoryCandidatesBodyIntentMax = 2000;
+
+export const retrieveAiceoMemoryCandidatesBodyEntitiesItemMax = 180;
+
+export const retrieveAiceoMemoryCandidatesBodyEntitiesMax = 50;
+
+export const retrieveAiceoMemoryCandidatesBodyQueryMax = 2000;
+
+export const retrieveAiceoMemoryCandidatesBodyRequestedLayersMax = 4;
+
+export const retrieveAiceoMemoryCandidatesBodyRequestedTypesMax = 3;
+
+export const retrieveAiceoMemoryCandidatesBodyMaxItemsMax = 20;
+export const retrieveAiceoMemoryCandidatesBodyMaxItemsMultipleOf = 1;
+
+export const retrieveAiceoMemoryCandidatesBodyMaxBytesMax = 65536;
+export const retrieveAiceoMemoryCandidatesBodyMaxBytesMultipleOf = 1;
+
+export const retrieveAiceoMemoryCandidatesBodyScanLimitMax = 100;
+export const retrieveAiceoMemoryCandidatesBodyScanLimitMultipleOf = 1;
+
+export const retrieveAiceoMemoryCandidatesBodyClaimedPersistentRevisionMultipleOf = 1;
+
+export const retrieveAiceoMemoryCandidatesBodyClaimedResumeNodeMax = 180;
+
+
+
+export const RetrieveAiceoMemoryCandidatesBody = zod.object({
+  "projectId": zod.string().regex(retrieveAiceoMemoryCandidatesBodyProjectIdRegExp),
+  "idempotencyKey": zod.string().min(1).max(retrieveAiceoMemoryCandidatesBodyIdempotencyKeyMax),
+  "purpose": zod.literal("why_history_context"),
+  "task": zod.string().min(1).max(retrieveAiceoMemoryCandidatesBodyTaskMax),
+  "intent": zod.string().min(1).max(retrieveAiceoMemoryCandidatesBodyIntentMax),
+  "entities": zod.array(zod.string().min(1).max(retrieveAiceoMemoryCandidatesBodyEntitiesItemMax)).max(retrieveAiceoMemoryCandidatesBodyEntitiesMax),
+  "query": zod.string().min(1).max(retrieveAiceoMemoryCandidatesBodyQueryMax),
+  "requestedLayers": zod.array(zod.enum(['working', 'episodic', 'semantic', 'procedural'])).max(retrieveAiceoMemoryCandidatesBodyRequestedLayersMax).optional(),
+  "requestedTypes": zod.array(zod.enum(['observation', 'interpretation', 'hypothesis'])).max(retrieveAiceoMemoryCandidatesBodyRequestedTypesMax).optional(),
+  "maxItems": zod.number().min(1).max(retrieveAiceoMemoryCandidatesBodyMaxItemsMax).multipleOf(retrieveAiceoMemoryCandidatesBodyMaxItemsMultipleOf),
+  "maxBytes": zod.number().min(1).max(retrieveAiceoMemoryCandidatesBodyMaxBytesMax).multipleOf(retrieveAiceoMemoryCandidatesBodyMaxBytesMultipleOf),
+  "scanLimit": zod.number().min(1).max(retrieveAiceoMemoryCandidatesBodyScanLimitMax).multipleOf(retrieveAiceoMemoryCandidatesBodyScanLimitMultipleOf),
+  "claimedPersistentRevision": zod.number().min(1).multipleOf(retrieveAiceoMemoryCandidatesBodyClaimedPersistentRevisionMultipleOf).optional(),
+  "claimedResumeNode": zod.string().min(1).max(retrieveAiceoMemoryCandidatesBodyClaimedResumeNodeMax).optional()
+})
+
+export const retrieveAiceoMemoryCandidatesResponseItemsItemCandidateIdRegExp = new RegExp('^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$');
+export const retrieveAiceoMemoryCandidatesResponseItemsItemScoreMultipleOf = 1;
+
+export const retrieveAiceoMemoryCandidatesResponseItemsItemRankMultipleOf = 1;
+
+export const retrieveAiceoMemoryCandidatesResponseResultHashRegExp = new RegExp('^[a-f0-9]{64}$');
+export const retrieveAiceoMemoryCandidatesResponseResponseHmacRegExp = new RegExp('^[a-f0-9]{64}$');
+
+
+export const RetrieveAiceoMemoryCandidatesResponse = zod.object({
+  "version": zod.literal("G1-002-RTR-1"),
+  "truthSource": zod.literal("persistent_state"),
+  "request": zod.record(zod.string(), zod.unknown()),
+  "items": zod.array(zod.object({
+  "candidateId": zod.string().regex(retrieveAiceoMemoryCandidatesResponseItemsItemCandidateIdRegExp),
+  "content": zod.string(),
+  "memoryLayer": zod.string(),
+  "memoryType": zod.string(),
+  "cognitiveState": zod.string(),
+  "truthLevel": zod.string(),
+  "authorityLevel": zod.string(),
+  "evidenceLineage": zod.array(zod.record(zod.string(), zod.unknown())),
+  "score": zod.number().multipleOf(retrieveAiceoMemoryCandidatesResponseItemsItemScoreMultipleOf),
+  "rank": zod.number().min(1).multipleOf(retrieveAiceoMemoryCandidatesResponseItemsItemRankMultipleOf),
+  "candidateOnly": zod.literal(true),
+  "operationalInput": zod.literal(false),
+  "grantsAuthority": zod.literal(false),
+  "productionAuthority": zod.literal(false)
+})),
+  "explain": zod.array(zod.record(zod.string(), zod.unknown())),
+  "budget": zod.record(zod.string(), zod.number()),
+  "status": zod.enum(['completed', 'blocked', 'failed_closed']),
+  "contextCompiler": zod.object({
+  "status": zod.literal("DEFERRED"),
+  "receivesRouterItemsOnly": zod.literal(true),
+  "mutatesPersistentState": zod.literal(false),
+  "grantsAuthority": zod.literal(false),
+  "productionAuthority": zod.literal(false)
+}),
+  "stateOverrideAccepted": zod.literal(false),
+  "grantsAuthority": zod.literal(false),
+  "productionAuthority": zod.literal(false),
+  "resultHash": zod.string().regex(retrieveAiceoMemoryCandidatesResponseResultHashRegExp),
+  "responseHmac": zod.string().regex(retrieveAiceoMemoryCandidatesResponseResponseHmacRegExp)
+})
+
+
+export const SelfCheckAiceoMemoryRetrievalResponse = zod.record(zod.string(), zod.unknown())
+
+
+export const attestAiceoMemoryRetrievalValidationBodyAcceptedRevisionMultipleOf = 1;
+
+export const attestAiceoMemoryRetrievalValidationBodyEvidenceDigestRegExp = new RegExp('^[a-f0-9]{64}$');
+
+
+export const AttestAiceoMemoryRetrievalValidationBody = zod.object({
+  "acceptedRevision": zod.number().min(1).multipleOf(attestAiceoMemoryRetrievalValidationBodyAcceptedRevisionMultipleOf),
+  "evidenceDigest": zod.string().regex(attestAiceoMemoryRetrievalValidationBodyEvidenceDigestRegExp)
+})
+
+export const AttestAiceoMemoryRetrievalValidationResponse = zod.record(zod.string(), zod.unknown())
+
+
+export const getAiceoMemoryRetrievalPathRequestIdRegExp = new RegExp('^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$');
+
+
+export const GetAiceoMemoryRetrievalParams = zod.object({
+  "requestId": zod.coerce.string().regex(getAiceoMemoryRetrievalPathRequestIdRegExp)
+})
+
+export const getAiceoMemoryRetrievalResponseItemsItemCandidateIdRegExp = new RegExp('^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$');
+export const getAiceoMemoryRetrievalResponseItemsItemScoreMultipleOf = 1;
+
+export const getAiceoMemoryRetrievalResponseItemsItemRankMultipleOf = 1;
+
+export const getAiceoMemoryRetrievalResponseResultHashRegExp = new RegExp('^[a-f0-9]{64}$');
+export const getAiceoMemoryRetrievalResponseResponseHmacRegExp = new RegExp('^[a-f0-9]{64}$');
+
+
+export const GetAiceoMemoryRetrievalResponse = zod.object({
+  "version": zod.literal("G1-002-RTR-1"),
+  "truthSource": zod.literal("persistent_state"),
+  "request": zod.record(zod.string(), zod.unknown()),
+  "items": zod.array(zod.object({
+  "candidateId": zod.string().regex(getAiceoMemoryRetrievalResponseItemsItemCandidateIdRegExp),
+  "content": zod.string(),
+  "memoryLayer": zod.string(),
+  "memoryType": zod.string(),
+  "cognitiveState": zod.string(),
+  "truthLevel": zod.string(),
+  "authorityLevel": zod.string(),
+  "evidenceLineage": zod.array(zod.record(zod.string(), zod.unknown())),
+  "score": zod.number().multipleOf(getAiceoMemoryRetrievalResponseItemsItemScoreMultipleOf),
+  "rank": zod.number().min(1).multipleOf(getAiceoMemoryRetrievalResponseItemsItemRankMultipleOf),
+  "candidateOnly": zod.literal(true),
+  "operationalInput": zod.literal(false),
+  "grantsAuthority": zod.literal(false),
+  "productionAuthority": zod.literal(false)
+})),
+  "explain": zod.array(zod.record(zod.string(), zod.unknown())),
+  "budget": zod.record(zod.string(), zod.number()),
+  "status": zod.enum(['completed', 'blocked', 'failed_closed']),
+  "contextCompiler": zod.object({
+  "status": zod.literal("DEFERRED"),
+  "receivesRouterItemsOnly": zod.literal(true),
+  "mutatesPersistentState": zod.literal(false),
+  "grantsAuthority": zod.literal(false),
+  "productionAuthority": zod.literal(false)
+}),
+  "stateOverrideAccepted": zod.literal(false),
+  "grantsAuthority": zod.literal(false),
+  "productionAuthority": zod.literal(false),
+  "resultHash": zod.string().regex(getAiceoMemoryRetrievalResponseResultHashRegExp),
+  "responseHmac": zod.string().regex(getAiceoMemoryRetrievalResponseResponseHmacRegExp)
+})
+
+
 export const RecordAiceoContinuityStateBody = zod.object({
   "state": zod.enum(['RUNNING', 'PAUSED', 'FAILED', 'COMPLETED', 'OWNER_GATE']),
   "currentState": zod.record(zod.string(), zod.unknown()),

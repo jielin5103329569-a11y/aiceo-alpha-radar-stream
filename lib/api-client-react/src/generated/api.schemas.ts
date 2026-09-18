@@ -100,6 +100,153 @@ export interface AiceoContinuityResumeInput {
   externalContext?: AiceoContinuityResumeInputExternalContext;
 }
 
+export type AiceoRetrievalInputRequestedLayersItem = typeof AiceoRetrievalInputRequestedLayersItem[keyof typeof AiceoRetrievalInputRequestedLayersItem];
+
+
+export const AiceoRetrievalInputRequestedLayersItem = {
+  working: 'working',
+  episodic: 'episodic',
+  semantic: 'semantic',
+  procedural: 'procedural',
+} as const;
+
+export type AiceoRetrievalInputRequestedTypesItem = typeof AiceoRetrievalInputRequestedTypesItem[keyof typeof AiceoRetrievalInputRequestedTypesItem];
+
+
+export const AiceoRetrievalInputRequestedTypesItem = {
+  observation: 'observation',
+  interpretation: 'interpretation',
+  hypothesis: 'hypothesis',
+} as const;
+
+export interface AiceoRetrievalInput {
+  /** @pattern ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$ */
+  projectId: string;
+  /**
+     * @minLength 1
+     * @maxLength 180
+     */
+  idempotencyKey: string;
+  purpose: 'why_history_context';
+  /**
+     * @minLength 1
+     * @maxLength 1000
+     */
+  task: string;
+  /**
+     * @minLength 1
+     * @maxLength 2000
+     */
+  intent: string;
+  /**
+     * @maxItems 50
+     * @items.minLength 1
+     * @items.maxLength 180
+     */
+  entities: string[];
+  /**
+     * @minLength 1
+     * @maxLength 2000
+     */
+  query: string;
+  /** @maxItems 4 */
+  requestedLayers?: AiceoRetrievalInputRequestedLayersItem[];
+  /** @maxItems 3 */
+  requestedTypes?: AiceoRetrievalInputRequestedTypesItem[];
+  /**
+     * @minimum 1
+     * @maximum 20
+     */
+  maxItems: number;
+  /**
+     * @minimum 1
+     * @maximum 65536
+     */
+  maxBytes: number;
+  /**
+     * @minimum 1
+     * @maximum 100
+     */
+  scanLimit: number;
+  /** @minimum 1 */
+  claimedPersistentRevision?: number;
+  /**
+     * @minLength 1
+     * @maxLength 180
+     */
+  claimedResumeNode?: string;
+}
+
+export interface AiceoRetrievalValidatorAttestationInput {
+  /** @minimum 1 */
+  acceptedRevision: number;
+  /** @pattern ^[a-f0-9]{64}$ */
+  evidenceDigest: string;
+}
+
+export type AiceoRetrievalResponseRequest = { [key: string]: unknown };
+
+export type AiceoRetrievalResponseItemsItemEvidenceLineageItem = { [key: string]: unknown };
+
+export type AiceoRetrievalResponseItemsItem = {
+  /** @pattern ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$ */
+  candidateId: string;
+  content: string;
+  memoryLayer: string;
+  memoryType: string;
+  cognitiveState: string;
+  truthLevel: string;
+  authorityLevel: string;
+  evidenceLineage: AiceoRetrievalResponseItemsItemEvidenceLineageItem[];
+  score: number;
+  /** @minimum 1 */
+  rank: number;
+  candidateOnly: true;
+  operationalInput: false;
+  grantsAuthority: false;
+  productionAuthority: false;
+  [key: string]: unknown;
+ };
+
+export type AiceoRetrievalResponseExplainItem = { [key: string]: unknown };
+
+export type AiceoRetrievalResponseBudget = {[key: string]: number};
+
+export type AiceoRetrievalResponseStatus = typeof AiceoRetrievalResponseStatus[keyof typeof AiceoRetrievalResponseStatus];
+
+
+export const AiceoRetrievalResponseStatus = {
+  completed: 'completed',
+  blocked: 'blocked',
+  failed_closed: 'failed_closed',
+} as const;
+
+export type AiceoRetrievalResponseContextCompiler = {
+  status: 'DEFERRED';
+  receivesRouterItemsOnly: true;
+  mutatesPersistentState: false;
+  grantsAuthority: false;
+  productionAuthority: false;
+};
+
+export interface AiceoRetrievalResponse {
+  version: 'G1-002-RTR-1';
+  truthSource: 'persistent_state';
+  request: AiceoRetrievalResponseRequest;
+  items: AiceoRetrievalResponseItemsItem[];
+  explain: AiceoRetrievalResponseExplainItem[];
+  budget: AiceoRetrievalResponseBudget;
+  status: AiceoRetrievalResponseStatus;
+  contextCompiler: AiceoRetrievalResponseContextCompiler;
+  stateOverrideAccepted: false;
+  grantsAuthority: false;
+  productionAuthority: false;
+  /** @pattern ^[a-f0-9]{64}$ */
+  resultHash: string;
+  /** @pattern ^[a-f0-9]{64}$ */
+  responseHmac: string;
+}
+
 export type AiceoContinuityStateInputState = typeof AiceoContinuityStateInputState[keyof typeof AiceoContinuityStateInputState];
 
 
@@ -4730,6 +4877,10 @@ export interface ResearchSidecarHistory {
   resonances: ResearchResonance[];
   reason: string;
 }
+
+export type SelfCheckAiceoMemoryRetrieval200 = { [key: string]: unknown };
+
+export type AttestAiceoMemoryRetrievalValidation200 = { [key: string]: unknown };
 
 export type GetResearchSidecarHistoryParams = {
 /**

@@ -4,6 +4,7 @@ import { z } from "zod";
 import { aiceoControlPlane } from "../lib/aiceoControlPlane";
 import { aiceoContinuityLayer } from "../lib/aiceoContinuityLayer";
 import { aiceoAgentExecutionProtocol } from "../lib/aiceoAgentExecutionProtocol";
+import { aiceoRetrievalRouter, type RetrievalGrant } from "../lib/aiceoRetrievalRouter";
 import { authorizeAiceoRole, authorizeAnyAiceoRole, type AiceoRole } from "../lib/aiceoAuthorization";
 
 const router = Router();
@@ -30,6 +31,37 @@ const continuityUpdate = z.object({
   recoveryStrategy: z.string().max(1000).nullable().optional(),
   ownerGateReason: z.string().max(1000).nullable().optional(),
 }).strict();
+const retrievalInput = z.object({
+  projectId: z.string().uuid(),
+  idempotencyKey: z.string().min(1).max(180),
+  purpose: z.literal("why_history_context"),
+  task: z.string().min(1).max(1000),
+  intent: z.string().min(1).max(2000),
+  entities: z.array(z.string().min(1).max(180)).max(50),
+  query: z.string().min(1).max(2000),
+  requestedLayers: z.array(z.enum(["working", "episodic", "semantic", "procedural"])).max(4).optional(),
+  requestedTypes: z.array(z.enum(["observation", "interpretation", "hypothesis"])).max(3).optional(),
+  maxItems: z.number().int().min(1).max(20),
+  maxBytes: z.number().int().min(1).max(65_536),
+  scanLimit: z.number().int().min(1).max(100),
+  claimedPersistentRevision: z.number().int().positive().optional(),
+  claimedResumeNode: z.string().min(1).max(180).optional(),
+}).strict();
+const retrievalGrantMetadata = z.array(z.object({
+  projectId: z.string().uuid(),
+  task: z.string().min(1).max(1000),
+  entities: z.array(z.string().min(1).max(180)).min(1).max(50),
+  revision: z.number().int().positive(),
+}).strict()).max(20);
+const authenticatedRetrievalGrants = (
+  publicMetadata: Record<string, unknown>,
+  userId: string,
+): RetrievalGrant[] => {
+  const parsed = retrievalGrantMetadata.safeParse(publicMetadata.aiceoRetrievalGrants);
+  return parsed.success
+    ? parsed.data.map((grant) => ({ ...grant, subjectId: userId }))
+    : [];
+};
 const collaborationCategory = z.enum([
   "communication_bottleneck", "execution_friction", "repeated_error", "capability_gap",
   "owner_time_waste", "incorrect_pause", "continuity_problem", "other",
@@ -165,7 +197,13 @@ const privileged = (role: AiceoRole, handler: (req: Request, res: Response, user
   }
   await handler(req, res, authorization.userId);
 };
-const anyAiceoRole = (handler: (req: Request, res: Response, userId: string, role: AiceoRole) => Promise<void>) => async (req: Request, res: Response): Promise<void> => {
+const anyAiceoRole = (handler: (
+  req: Request,
+  res: Response,
+  userId: string,
+  role: AiceoRole,
+  publicMetadata: Record<string, unknown>,
+) => Promise<void>) => async (req: Request, res: Response): Promise<void> => {
   const auth = getAuth(req);
   if (!auth.userId) {
     await aiceoControlPlane.rejectAccess("anonymous", "exclusive AICEO role", "Authentication required.").catch(() => undefined);
@@ -190,7 +228,7 @@ const anyAiceoRole = (handler: (req: Request, res: Response, userId: string, rol
     res.status(authorization.status).json({ error: authorization.error });
     return;
   }
-  await handler(req, res, authorization.userId, authorization.role);
+  await handler(req, res, authorization.userId, authorization.role, publicMetadata);
 };
 const run = async (fn: () => Promise<unknown>, res: Response): Promise<void> => {
   try { res.json(await fn()); } catch (error) { const message = error instanceof Error ? error.message : String(error); res.status(/storage|database|connection/i.test(message) ? 503 : 409).json({ error: message }); }
@@ -221,6 +259,36 @@ router.post("/aiceo/continuity/resume", anyAiceoRole(async (req, res, _userId, r
   }).strict().safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
   await run(() => aiceoContinuityLayer.resume(parsed.data.alias, role, parsed.data.externalContext), res);
+}));
+router.post("/aiceo/retrieval", anyAiceoRole(async (req, res, userId, role, publicMetadata) => {
+  const parsed = retrievalInput.safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
+  await run(() => aiceoRetrievalRouter.retrieve(
+    parsed.data,
+    userId,
+    role,
+    authenticatedRetrievalGrants(publicMetadata, userId),
+  ), res);
+}));
+router.get("/aiceo/retrieval/self-check", anyAiceoRole(async (_req, res, _userId, role) => {
+  await run(() => aiceoRetrievalRouter.selfCheck(role), res);
+}));
+router.post("/aiceo/retrieval/validator-attestation", privileged("aiceo_validator", async (req, res, userId) => {
+  const parsed = z.object({
+    acceptedRevision: z.number().int().positive(),
+    evidenceDigest: z.string().regex(/^[a-f0-9]{64}$/),
+  }).strict().safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
+  await run(() => aiceoContinuityLayer.attestRetrievalValidation(
+    parsed.data,
+    userId,
+    "aiceo_validator",
+  ), res);
+}));
+router.get("/aiceo/retrieval/:requestId", anyAiceoRole(async (req, res, userId, role) => {
+  const parsed = z.string().uuid().safeParse(req.params.requestId);
+  if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
+  await run(() => aiceoRetrievalRouter.get(parsed.data, userId, role), res);
 }));
 router.put("/aiceo/continuity/state", privileged("aiceo_operator", async (req, res, userId) => {
   const parsed = continuityUpdate.safeParse(req.body);

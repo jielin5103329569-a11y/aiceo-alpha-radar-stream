@@ -35,12 +35,16 @@ import type {
   AiceoGovernanceAcceptance,
   AiceoKillSwitchInput,
   AiceoOwnerGovernanceApprovalResult,
+  AiceoRetrievalInput,
+  AiceoRetrievalResponse,
+  AiceoRetrievalValidatorAttestationInput,
   AiceoSelfCheck,
   AiceoStatus,
   AiceoTask,
   AiceoTaskInput,
   AlertSettings,
   AlertsListResponse,
+  AttestAiceoMemoryRetrievalValidation200,
   BackendLifelineSnapshot,
   CatalystRadarSnapshot,
   DiagnosticsSnapshot,
@@ -68,6 +72,7 @@ import type {
   RuntimeSupervisorError,
   RuntimeSupervisorIncidentRecord,
   RuntimeSupervisorSnapshot,
+  SelfCheckAiceoMemoryRetrieval200,
   ShadowLearningDashboard,
   SignalValidationAudit,
   SignalValidationDashboard,
@@ -450,6 +455,278 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
       > => {
       return useMutation(getResumeAiceoContinuityMutationOptions(options));
     }
+
+export const getRetrieveAiceoMemoryCandidatesUrl = () => {
+
+
+
+
+  return `/api/aiceo/retrieval`
+}
+
+export const retrieveAiceoMemoryCandidates = async (aiceoRetrievalInput: AiceoRetrievalInput, options?: Parameters<typeof customFetch>[1]): Promise<AiceoRetrievalResponse> => {
+
+  return customFetch<AiceoRetrievalResponse>(getRetrieveAiceoMemoryCandidatesUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(aiceoRetrievalInput)
+  }
+);}
+
+
+
+
+
+export const getRetrieveAiceoMemoryCandidatesMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof retrieveAiceoMemoryCandidates>>, TError,{data: BodyType<AiceoRetrievalInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof retrieveAiceoMemoryCandidates>>, TError,{data: BodyType<AiceoRetrievalInput>}, TContext> => {
+
+const mutationKey = ['retrieveAiceoMemoryCandidates'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof retrieveAiceoMemoryCandidates>>, {data: BodyType<AiceoRetrievalInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  retrieveAiceoMemoryCandidates(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RetrieveAiceoMemoryCandidatesMutationResult = NonNullable<Awaited<ReturnType<typeof retrieveAiceoMemoryCandidates>>>
+    export type RetrieveAiceoMemoryCandidatesMutationBody = BodyType<AiceoRetrievalInput>
+    export type RetrieveAiceoMemoryCandidatesMutationError = ErrorType<void>
+
+    export const useRetrieveAiceoMemoryCandidates = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof retrieveAiceoMemoryCandidates>>, TError,{data: BodyType<AiceoRetrievalInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof retrieveAiceoMemoryCandidates>>,
+        TError,
+        {data: BodyType<AiceoRetrievalInput>},
+        TContext
+      > => {
+      return useMutation(getRetrieveAiceoMemoryCandidatesMutationOptions(options));
+    }
+
+export const getSelfCheckAiceoMemoryRetrievalUrl = () => {
+
+
+
+
+  return `/api/aiceo/retrieval/self-check`
+}
+
+export const selfCheckAiceoMemoryRetrieval = async ( options?: Parameters<typeof customFetch>[1]): Promise<SelfCheckAiceoMemoryRetrieval200> => {
+
+  return customFetch<SelfCheckAiceoMemoryRetrieval200>(getSelfCheckAiceoMemoryRetrievalUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getSelfCheckAiceoMemoryRetrievalQueryKey = () => {
+    return [
+    `/api/aiceo/retrieval/self-check`
+    ] as const;
+    }
+
+
+export const getSelfCheckAiceoMemoryRetrievalQueryOptions = <TData = Awaited<ReturnType<typeof selfCheckAiceoMemoryRetrieval>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof selfCheckAiceoMemoryRetrieval>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getSelfCheckAiceoMemoryRetrievalQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof selfCheckAiceoMemoryRetrieval>>> = ({ signal }) => selfCheckAiceoMemoryRetrieval({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof selfCheckAiceoMemoryRetrieval>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type SelfCheckAiceoMemoryRetrievalQueryResult = NonNullable<Awaited<ReturnType<typeof selfCheckAiceoMemoryRetrieval>>>
+export type SelfCheckAiceoMemoryRetrievalQueryError = ErrorType<void>
+
+
+
+export function useSelfCheckAiceoMemoryRetrieval<TData = Awaited<ReturnType<typeof selfCheckAiceoMemoryRetrieval>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof selfCheckAiceoMemoryRetrieval>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getSelfCheckAiceoMemoryRetrievalQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getAttestAiceoMemoryRetrievalValidationUrl = () => {
+
+
+
+
+  return `/api/aiceo/retrieval/validator-attestation`
+}
+
+export const attestAiceoMemoryRetrievalValidation = async (aiceoRetrievalValidatorAttestationInput: AiceoRetrievalValidatorAttestationInput, options?: Parameters<typeof customFetch>[1]): Promise<AttestAiceoMemoryRetrievalValidation200> => {
+
+  return customFetch<AttestAiceoMemoryRetrievalValidation200>(getAttestAiceoMemoryRetrievalValidationUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(aiceoRetrievalValidatorAttestationInput)
+  }
+);}
+
+
+
+
+
+export const getAttestAiceoMemoryRetrievalValidationMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof attestAiceoMemoryRetrievalValidation>>, TError,{data: BodyType<AiceoRetrievalValidatorAttestationInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof attestAiceoMemoryRetrievalValidation>>, TError,{data: BodyType<AiceoRetrievalValidatorAttestationInput>}, TContext> => {
+
+const mutationKey = ['attestAiceoMemoryRetrievalValidation'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof attestAiceoMemoryRetrievalValidation>>, {data: BodyType<AiceoRetrievalValidatorAttestationInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  attestAiceoMemoryRetrievalValidation(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AttestAiceoMemoryRetrievalValidationMutationResult = NonNullable<Awaited<ReturnType<typeof attestAiceoMemoryRetrievalValidation>>>
+    export type AttestAiceoMemoryRetrievalValidationMutationBody = BodyType<AiceoRetrievalValidatorAttestationInput>
+    export type AttestAiceoMemoryRetrievalValidationMutationError = ErrorType<void>
+
+    export const useAttestAiceoMemoryRetrievalValidation = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof attestAiceoMemoryRetrievalValidation>>, TError,{data: BodyType<AiceoRetrievalValidatorAttestationInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof attestAiceoMemoryRetrievalValidation>>,
+        TError,
+        {data: BodyType<AiceoRetrievalValidatorAttestationInput>},
+        TContext
+      > => {
+      return useMutation(getAttestAiceoMemoryRetrievalValidationMutationOptions(options));
+    }
+
+export const getGetAiceoMemoryRetrievalUrl = (requestId: string,) => {
+
+
+
+
+  return `/api/aiceo/retrieval/${requestId}`
+}
+
+export const getAiceoMemoryRetrieval = async (requestId: string, options?: Parameters<typeof customFetch>[1]): Promise<AiceoRetrievalResponse> => {
+
+  return customFetch<AiceoRetrievalResponse>(getGetAiceoMemoryRetrievalUrl(requestId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetAiceoMemoryRetrievalQueryKey = (requestId: string,) => {
+    return [
+    `/api/aiceo/retrieval/${requestId}`
+    ] as const;
+    }
+
+
+export const getGetAiceoMemoryRetrievalQueryOptions = <TData = Awaited<ReturnType<typeof getAiceoMemoryRetrieval>>, TError = ErrorType<void>>(requestId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAiceoMemoryRetrieval>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetAiceoMemoryRetrievalQueryKey(requestId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getAiceoMemoryRetrieval>>> = ({ signal }) => getAiceoMemoryRetrieval(requestId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: requestId !== null && requestId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getAiceoMemoryRetrieval>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetAiceoMemoryRetrievalQueryResult = NonNullable<Awaited<ReturnType<typeof getAiceoMemoryRetrieval>>>
+export type GetAiceoMemoryRetrievalQueryError = ErrorType<void>
+
+
+
+export function useGetAiceoMemoryRetrieval<TData = Awaited<ReturnType<typeof getAiceoMemoryRetrieval>>, TError = ErrorType<void>>(
+ requestId: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getAiceoMemoryRetrieval>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetAiceoMemoryRetrievalQueryOptions(requestId,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
 export const getRecordAiceoContinuityStateUrl = () => {
 

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { createHash, createHmac } from "node:crypto";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { db } from "@workspace/db";
 import {
   aiceoContinuityProjectsTable,
@@ -31,8 +31,17 @@ async function main() {
   await db.transaction(async (tx) => {
     const project = (await tx.select().from(aiceoContinuityProjectsTable)
       .where(eq(aiceoContinuityProjectsTable.projectKey, "aiceo")).limit(1))[0];
-    const state = (await tx.select().from(aiceoContinuityStateTable)
+    const initialState = (await tx.select().from(aiceoContinuityStateTable)
       .where(eq(aiceoContinuityStateTable.projectId, project.id)).limit(1))[0];
+    await tx.execute(sql`SAVEPOINT closure_integrity_fixture`);
+    const acceptedCurrentState = {
+      ...initialState.currentState,
+      implementation: "COMPLETED",
+      acceptedRevision: 46,
+    };
+    await tx.update(aiceoContinuityStateTable).set({ currentState: acceptedCurrentState })
+      .where(eq(aiceoContinuityStateTable.projectId, project.id));
+    const state = { ...initialState, currentState: acceptedCurrentState };
     const layer = new AiceoContinuityLayer(tx, true);
     const closingState = {
       ...state.currentState,
@@ -41,16 +50,22 @@ async function main() {
       closureIntegrityAudit: "VERIFIED",
       closureIntegrityAuditedRevision: state.revision,
     };
+    const blockedState = {
+      ...state.currentState,
+      verification: "NOT_VERIFIED",
+      closure: "BLOCKED",
+    };
     const closingResume = { node: "test-closed", action: "test closure", status: "CLOSED", ownerGate: false };
     const recoveryStrategy = "test";
     const closingEntities = state.entityRegistry.map((entity: any) => {
       if (entity.id === "continuity-001") return { id: "continuity-001", type: "implementation", status: "COMPLETED", verification: "VERIFIED", closure: "CLOSED" };
       if (entity.id === "memory-g1-001") return { ...entity, status: "COMPLETED", verification: "VERIFIED", closure: "CLOSED" };
+      if (entity.id === "memory-g1-002-retrieval-router") return { ...entity, status: "COMPLETED", verification: "VERIFIED", closure: "CLOSED" };
       return entity;
     });
     const blockedEntities = state.entityRegistry.map((entity: any) => {
       if (entity.id === "continuity-001") return { id: "continuity-001", type: "implementation", status: "COMPLETED", verification: "NOT_VERIFIED", closure: "BLOCKED" };
-      if (entity.id === "memory-g1-001") return { ...entity, status: "COMPLETED", verification: "NOT_VERIFIED", closure: "BLOCKED" };
+      if (entity.id === "memory-g1-002-retrieval-router") return { ...entity, status: "COMPLETED", verification: "NOT_VERIFIED", closure: "BLOCKED" };
       return entity;
     });
     const base = {
@@ -98,6 +113,7 @@ async function main() {
       "test:aiceo-layered-self-checks",
       "test:aiceo-preclassification-inbox",
       "test:aiceo-context-drift",
+      "test:aiceo-memory-retrieval-router",
     ];
     const intentConfirmations = await tx.select().from(aiceoIntentConfirmationsTable);
     const report = {
@@ -129,6 +145,18 @@ async function main() {
         .update(JSON.stringify(canonical(report)))
         .digest("hex"),
     };
+    await assert.rejects(
+      () => layer.update({
+        ...base,
+        evidencePointers: [...state.evidencePointers, signedAudit],
+      }, "forged-operator"),
+      /independent Validator attestation/,
+    );
+    await layer.attestRetrievalValidation(
+      { acceptedRevision: 46, evidenceDigest: "d".repeat(64) },
+      "closure-test-independent-validator",
+      "aiceo_validator",
+    );
     const mutatedRules = state.decisionRuleRegistry.map((rule: any) =>
       rule.id === "authority-boundary" ? { ...rule, rule: "authority removed" } : rule);
     await assert.rejects(
@@ -187,7 +215,7 @@ async function main() {
     await assert.rejects(
       () => layer.update({
         ...base,
-        currentState: { ...state.currentState, verification: "NOT_VERIFIED", closure: "BLOCKED" },
+        currentState: blockedState,
         decisionRuleRegistry: mutatedRules,
         resumeNode: { node: "intermediate", action: "blocked", status: "BLOCKED", ownerGate: false },
       }, "forged-operator"),
@@ -196,7 +224,7 @@ async function main() {
     await assert.rejects(
       () => layer.update({
         ...base,
-        currentState: { ...state.currentState, verification: "NOT_VERIFIED", closure: "BLOCKED" },
+        currentState: blockedState,
         entityRegistry: blockedEntities,
         evidencePointers: state.evidencePointers.slice(1),
         resumeNode: { node: "intermediate", action: "blocked", status: "BLOCKED", ownerGate: false },
@@ -206,7 +234,7 @@ async function main() {
     await assert.rejects(
       () => layer.update({
         ...base,
-        currentState: { ...state.currentState, verification: "NOT_VERIFIED", closure: "BLOCKED" },
+        currentState: blockedState,
         entityRegistry: blockedEntities,
         decisionRuleRegistry: [...state.decisionRuleRegistry, {
           id: "production-unrestricted",
@@ -221,7 +249,7 @@ async function main() {
     await assert.rejects(
       () => layer.update({
         ...base,
-        currentState: { ...state.currentState, verification: "NOT_VERIFIED", closure: "BLOCKED" },
+        currentState: blockedState,
         entityRegistry: blockedEntities,
         decisionRuleRegistry: [...state.decisionRuleRegistry, state.decisionRuleRegistry[0]],
         resumeNode: { node: "intermediate", action: "blocked", status: "BLOCKED", ownerGate: false },
@@ -231,7 +259,7 @@ async function main() {
     await assert.rejects(
       () => layer.update({
         ...base,
-        currentState: { ...state.currentState, verification: "NOT_VERIFIED", closure: "BLOCKED" },
+        currentState: blockedState,
         entityRegistry: [...blockedEntities, {
           id: "production-agent",
           type: "executor",
@@ -244,7 +272,7 @@ async function main() {
     await assert.rejects(
       () => layer.update({
         ...base,
-        currentState: { ...state.currentState, verification: "NOT_VERIFIED", closure: "BLOCKED" },
+        currentState: blockedState,
         entityRegistry: blockedEntities.map((entity: any) =>
           entity.id === "continuity-001"
             ? { id: "continuity-001", type: "implementation", status: "COMPLETED", authority: "production_authority" }
@@ -261,7 +289,7 @@ async function main() {
       await assert.rejects(
         () => layer.update({
           ...base,
-          currentState: { ...state.currentState, verification: "NOT_VERIFIED", closure: "BLOCKED" },
+          currentState: blockedState,
           entityRegistry: blockedEntities,
           decisionRuleRegistry: [...state.decisionRuleRegistry, {
             ...rule,
@@ -276,7 +304,7 @@ async function main() {
     await assert.rejects(
       () => layer.update({
         ...base,
-        currentState: { ...state.currentState, verification: "VERIFIED", closure: "CLOSED" },
+        currentState: closingState,
         entityRegistry: closingEntities.map((entity: any) =>
           entity.id === "continuity-001"
             ? { id: "continuity-001", type: "implementation", status: "COMPLETED", verification: "NOT_VERIFIED", closure: "BLOCKED" }
@@ -288,9 +316,7 @@ async function main() {
       () => layer.update({
         ...base,
         currentState: {
-          ...state.currentState,
-          verification: "NOT_VERIFIED",
-          closure: "BLOCKED",
+          ...blockedState,
           productionAuthority: true,
         },
         entityRegistry: blockedEntities,
@@ -301,7 +327,7 @@ async function main() {
     await assert.rejects(
       () => layer.update({
         ...base,
-        currentState: { ...state.currentState, verification: "NOT_VERIFIED", closure: "BLOCKED" },
+        currentState: blockedState,
         entityRegistry: blockedEntities,
         resumeNode: {
           node: "intermediate",
@@ -317,10 +343,8 @@ async function main() {
       () => layer.update({
         ...base,
         currentState: {
-          ...state.currentState,
+          ...blockedState,
           implementation: "RUNNING",
-          verification: "NOT_VERIFIED",
-          closure: "BLOCKED",
         },
         entityRegistry: blockedEntities,
         resumeNode: { node: "intermediate", action: "blocked", status: "BLOCKED", ownerGate: false },
@@ -330,7 +354,7 @@ async function main() {
     await assert.rejects(
       () => layer.update({
         ...base,
-        currentState: { ...state.currentState, verification: "NOT_VERIFIED", closure: "BLOCKED" },
+        currentState: blockedState,
         entityRegistry: blockedEntities,
         evidencePointers: [...state.evidencePointers, {
           id: "authority-evidence",
@@ -341,6 +365,7 @@ async function main() {
       }, "forged-operator"),
       /Continuity evidence 不能声明或授予新权限/,
     );
+    await tx.execute(sql`ROLLBACK TO SAVEPOINT closure_integrity_fixture`);
   });
   console.log(JSON.stringify({
     forgedAuditRejected: true,
@@ -361,6 +386,7 @@ async function main() {
     resumeNodeAuthorityInjectionRejected: true,
     implementationStateContradictionRejected: true,
     evidenceAuthorityClaimRejected: true,
+    retrievalClosureWithoutIndependentAttestationRejected: true,
     persistentWrites: false,
     productionAuthority: false,
   }));

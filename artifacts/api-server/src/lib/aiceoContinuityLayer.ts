@@ -1,4 +1,4 @@
-import { createHash, createHmac, randomUUID } from "node:crypto";
+import { createHash, createHmac, randomUUID, timingSafeEqual } from "node:crypto";
 import { and, asc, count, desc, eq, inArray, max, sql } from "drizzle-orm";
 import { db } from "@workspace/db";
 import {
@@ -11,6 +11,7 @@ import {
   aiceoControlStateTable,
   aiceoIntentConfirmationsTable,
   aiceoPolicyRegistryTable,
+  aiceoRetrievalValidatorAttestationsTable,
   aiceoTasksTable,
   type AiceoContinuityState,
 } from "@workspace/db/schema";
@@ -37,6 +38,7 @@ const CLOSURE_REGRESSION_CHECKS = [
   "test:aiceo-layered-self-checks",
   "test:aiceo-preclassification-inbox",
   "test:aiceo-context-drift",
+  "test:aiceo-memory-retrieval-router",
 ];
 const PROTECTED_CURRENT_STATE_FIELDS_EXCLUDED_AT_CLOSURE = new Set([
   "verification",
@@ -164,6 +166,29 @@ export const CONTEXT_AUTHORITY_CONTINUITY_RULE = {
   grantsAuthority: false,
   productionAuthority: false,
 };
+export const MEMORY_RETRIEVAL_ROUTER_RULE = {
+  id: "memory-retrieval-router",
+  version: "G1-002-RTR-1",
+  classification: "memory_governance_retrieval",
+  rule: "Retrieval is a read-only, project-isolated, need-to-know selection of the minimum sufficient candidate memory set for a later Context Compiler. Persistent State, current revision, protected rules, and Resume Node remain engineering truth and can never be selected from or overwritten by memory. Routing considers AICEO identity, project, task, intent, entity, time validity, authority, epistemic state, relevance, freshness, provenance, conflict, poisoning risk, dedupe/supersession, and request budget. Every inclusion and exclusion is explainable and append-only logged, but retrieval logs are non-operational evidence and grant no truth, governance, or production authority. Pre-Classification Inbox, stale, conflicting, unverified-for-purpose, unauthorized, cross-project, and over-budget memory fail closed. Context Compiler, Agent Memory Distribution, Learning Promotion, Temporal Replay, and all Trading, Databento, Alert, and Production expansion remain deferred.",
+  persistentStateIsEngineeringTruth: true,
+  minimumSufficientCandidatesOnly: true,
+  preclassificationInboxExcluded: true,
+  projectIsolationRequired: true,
+  needToKnowRequired: true,
+  provenanceAndTemporalValidityRequired: true,
+  conflictAndPoisoningFailClosed: true,
+  budgetBounded: true,
+  explainableIncludeExcludeLog: true,
+  retrievalLogIsNonAuthoritative: true,
+  deferredModules: ["context_compiler", "agent_memory_distribution", "learning_promotion", "temporal_replay"],
+  ownerSovereigntyUnchanged: true,
+  ownerProtectionTriadUnchanged: true,
+  independentValidationRequired: true,
+  closureIntegrityAuditRequired: true,
+  grantsAuthority: false,
+  productionAuthority: false,
+};
 const PROTECTED_RULE_BASELINES: Record<string, Record<string, unknown>> = {
   "owner-zero-trial-error": {
     id: "owner-zero-trial-error",
@@ -198,6 +223,7 @@ const PROTECTED_RULE_BASELINES: Record<string, Record<string, unknown>> = {
   "layered-self-check-integrity": LAYERED_SELF_CHECK_RULE,
   "preclassification-memory-inbox": PRECLASSIFICATION_MEMORY_INBOX_RULE,
   "context-authority-continuity": CONTEXT_AUTHORITY_CONTINUITY_RULE,
+  "memory-retrieval-router": MEMORY_RETRIEVAL_ROUTER_RULE,
 };
 const PROTECTED_ENTITY_BASELINES: Record<string, Record<string, unknown>> = {
   owner: { id: "owner", type: "human_authority", authority: "ultimate_human_governance_authority" },
@@ -212,6 +238,12 @@ const MEMORY_ENTITY_IDENTITY = {
   id: "memory-g1-001",
   type: "memory_operating_system_foundation",
   version: "G1-001",
+  productionAuthority: false,
+};
+const RETRIEVAL_ROUTER_ENTITY_IDENTITY = {
+  id: "memory-g1-002-retrieval-router",
+  type: "memory_retrieval_router",
+  version: "G1-002-RTR-1",
   productionAuthority: false,
 };
 const PROTECTED_ALIASES: Record<string, unknown> = {
@@ -293,6 +325,30 @@ const signingSecret = () => {
   return secret;
 };
 const eventHash = (value: unknown) => createHmac("sha256", signingSecret()).update(JSON.stringify(canonical(value))).digest("hex");
+const secureHmacEqual = (actual: string, expected: string) => {
+  const left = Buffer.from(actual, "hex");
+  const right = Buffer.from(expected, "hex");
+  return left.length === 32 && right.length === 32 && timingSafeEqual(left, right);
+};
+const retrievalAttestationPayload = (value: {
+  projectId: string;
+  validatorId: string;
+  implementationActorId: string;
+  acceptedRevision: number;
+  result: string;
+  evidenceDigest: string;
+}) => ({
+  projectId: value.projectId,
+  validatorId: value.validatorId,
+  validatorRole: "aiceo_validator",
+  implementationActorId: value.implementationActorId,
+  acceptedRevision: value.acceptedRevision,
+  result: value.result,
+  evidenceDigest: value.evidenceDigest,
+  operationalInput: false,
+  grantsAuthority: false,
+  productionAuthority: false,
+});
 
 export type ContinuityUpdate = {
   state: AiceoContinuityState;
@@ -404,6 +460,48 @@ export class AiceoContinuityLayer {
 
   async snapshot(role: AiceoRole) {
     return this.transact((tx) => this.snapshotFrom(tx, role, true));
+  }
+
+  async attestRetrievalValidation(
+    input: { acceptedRevision: number; evidenceDigest: string },
+    validatorId: string,
+    role: AiceoRole,
+  ) {
+    if (role !== "aiceo_validator") throw new Error("G1-002 attestation requires exclusive aiceo_validator");
+    if (!/^[a-f0-9]{64}$/.test(input.evidenceDigest)) {
+      throw new Error("G1-002 attestation requires a verified evidence digest");
+    }
+    return this.transact(async (tx) => {
+      const project = await this.project(tx);
+      const [state] = await tx.select().from(aiceoContinuityStateTable)
+        .where(eq(aiceoContinuityStateTable.projectId, project.id)).limit(1).for("share");
+      if (!state || state.currentState.acceptedRevision !== input.acceptedRevision
+        || input.acceptedRevision !== 46) {
+        throw new Error("G1-002 attestation is not bound to the independently accepted implementation revision");
+      }
+      const [implementationEvent] = await tx.select().from(aiceoContinuityEventsTable)
+        .where(and(
+          eq(aiceoContinuityEventsTable.projectId, project.id),
+          sql`${aiceoContinuityEventsTable.payload}->>'revision' = ${String(input.acceptedRevision)}`,
+        ))
+        .orderBy(desc(aiceoContinuityEventsTable.appendSequence)).limit(1);
+      if (!implementationEvent?.actorId || implementationEvent.actorId === validatorId) {
+        throw new Error("Independent validator must differ from the immutable implementation actor");
+      }
+      const payload = retrievalAttestationPayload({
+        projectId: project.id,
+        validatorId,
+        implementationActorId: implementationEvent.actorId,
+        acceptedRevision: input.acceptedRevision,
+        result: "VERIFIED",
+        evidenceDigest: input.evidenceDigest,
+      });
+      const [attestation] = await tx.insert(aiceoRetrievalValidatorAttestationsTable).values({
+        ...payload,
+        attestationHmac: eventHash(payload),
+      }).returning();
+      return { ...attestation, selfAttestation: false, grantsAuthority: false, productionAuthority: false };
+    });
   }
 
   private resumeDirective(snapshot: any) {
@@ -602,7 +700,8 @@ export class AiceoContinuityLayer {
       const memoryIdentity = memoryEntity && Object.fromEntries(
         Object.keys(MEMORY_ENTITY_IDENTITY).map((key) => [key, memoryEntity[key]]),
       );
-      const expectedMemoryStatus = input.currentState.verification === "VERIFIED"
+      const retrievalEntity = inputEntities.get(RETRIEVAL_ROUTER_ENTITY_IDENTITY.id);
+      const expectedMemoryStatus = retrievalEntity || current.currentState.verification === "VERIFIED"
         ? { status: "COMPLETED", verification: "VERIFIED", closure: "CLOSED" }
         : { status: "COMPLETED", verification: "NOT_VERIFIED", closure: "BLOCKED" };
       const starterMemoryStatus = memoryEntity?.status === "NOT_VERIFIED"
@@ -621,6 +720,21 @@ export class AiceoContinuityLayer {
         ))
       ) {
         throw new Error("不能：memory-g1-001 身份不可改写，且状态必须与受保护 verification/closure 一致");
+      }
+      if (retrievalEntity) {
+        const allowedKeys = new Set(["id", "type", "version", "productionAuthority", "status", "verification", "closure"]);
+        const identity = Object.fromEntries(
+          Object.keys(RETRIEVAL_ROUTER_ENTITY_IDENTITY).map((key) => [key, retrievalEntity[key]]),
+        );
+        if (
+          Object.keys(retrievalEntity).some((key) => !allowedKeys.has(key))
+          || JSON.stringify(canonical(identity)) !== JSON.stringify(canonical(RETRIEVAL_ROUTER_ENTITY_IDENTITY))
+          || retrievalEntity.status !== input.state
+          || retrievalEntity.verification !== input.currentState.verification
+          || retrievalEntity.closure !== input.currentState.closure
+        ) {
+          throw new Error("不能：G1-002 Retrieval Router 身份、状态或零生产权限边界无效");
+        }
       }
       const continuityEntity = inputEntities.get("continuity-001");
       const continuityEntityKeys = continuityEntity ? Object.keys(continuityEntity) : [];
@@ -647,7 +761,8 @@ export class AiceoContinuityLayer {
         }
       }
       for (const entity of input.entityRegistry) {
-        if (PROTECTED_ENTITY_BASELINES[entity.id as string] || entity.id === "continuity-001" || entity.id === "memory-g1-001") continue;
+        if (PROTECTED_ENTITY_BASELINES[entity.id as string] || entity.id === "continuity-001"
+          || entity.id === "memory-g1-001" || entity.id === RETRIEVAL_ROUTER_ENTITY_IDENTITY.id) continue;
         throw new Error(`不能：未知治理实体 ${String(entity.id)} 未经过代码基线化与 Closure Integrity Audit`);
       }
       for (const [alias, target] of Object.entries(input.aliasDictionary)) {
@@ -664,7 +779,16 @@ export class AiceoContinuityLayer {
         .filter((pointer) => !existingEvidence.has(hash(pointer)))
         .some((pointer) => evidenceClaimsAuthority(pointer));
       if (invalidNewEvidence) throw new Error("不能：Continuity evidence 不能声明或授予新权限");
-      if (input.state !== current.state && !TRANSITIONS[current.state as AiceoContinuityState].includes(input.state)) {
+      const startsExactG1002ResumeNode = current.state === "COMPLETED"
+        && input.state === "RUNNING"
+        && current.currentState.verification === "VERIFIED"
+        && current.currentState.closure === "CLOSED"
+        && current.resumeNode.node === "g1-002-memory-retrieval-router"
+        && current.resumeNode.status === "CLOSED"
+        && retrievalEntity?.status === "RUNNING";
+      if (input.state !== current.state
+        && !TRANSITIONS[current.state as AiceoContinuityState].includes(input.state)
+        && !startsExactG1002ResumeNode) {
         throw new Error(`不能：非法 Continuity 状态转换 ${current.state}->${input.state}`);
       }
       if (input.state === "FAILED" && !input.failureReason) throw new Error("不能：FAILED 必须记录真实失败原因");
@@ -696,6 +820,38 @@ export class AiceoContinuityLayer {
           || !CLOSURE_REGRESSION_CHECKS.every((name) => reportNames.has(name))
         ) {
           throw new Error("不能：VERIFIED/CLOSED requires a complete Closure Integrity Audit bound to the current revision");
+        }
+        const closesRetrievalRouter = current.entityRegistry.some((entity: Record<string, unknown>) =>
+          entity.id === RETRIEVAL_ROUTER_ENTITY_IDENTITY.id);
+        const [independentValidation] = closesRetrievalRouter
+          ? await tx.select().from(aiceoRetrievalValidatorAttestationsTable)
+            .where(and(
+              eq(aiceoRetrievalValidatorAttestationsTable.projectId, project.id),
+              eq(
+                aiceoRetrievalValidatorAttestationsTable.acceptedRevision,
+                Number(current.currentState.acceptedRevision),
+              ),
+            )).limit(1)
+          : [];
+        const independentValidationPayload = independentValidation
+          ? retrievalAttestationPayload(independentValidation)
+          : null;
+        if (closesRetrievalRouter && (
+          !independentValidation
+          || independentValidation.result !== "VERIFIED"
+          || independentValidation.validatorRole !== "aiceo_validator"
+          || !independentValidation.validatorId
+          || !independentValidation.implementationActorId
+          || independentValidation.validatorId === independentValidation.implementationActorId
+          || independentValidation.acceptedRevision !== current.currentState.acceptedRevision
+          || !/^[a-f0-9]{64}$/.test(independentValidation.evidenceDigest)
+          || !independentValidationPayload
+          || !secureHmacEqual(
+            independentValidation.attestationHmac,
+            eventHash(independentValidationPayload),
+          )
+        )) {
+          throw new Error("不能：G1-002 Closure requires independent Validator attestation separated from implementation");
         }
         if (
           input.state !== "COMPLETED"
@@ -730,6 +886,7 @@ export class AiceoContinuityLayer {
         }
         const closureEntityIdentity = (entities: Record<string, unknown>[]) => entities.map((entity) =>
           entity.id === "continuity-001" || entity.id === "memory-g1-001"
+            || entity.id === RETRIEVAL_ROUTER_ENTITY_IDENTITY.id
             ? { id: entity.id, type: entity.type, version: entity.version, productionAuthority: entity.productionAuthority }
             : entity);
         if (

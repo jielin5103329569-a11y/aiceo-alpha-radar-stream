@@ -54,6 +54,55 @@ paths:
       requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/AiceoContinuityResumeInput" } } } }
       responses:
         "200": { description: Resume directive derived from persistent state, content: { application/json: { schema: { $ref: "#/components/schemas/AiceoContinuitySnapshot" } } } }
+  /aiceo/retrieval:
+    post:
+      operationId: retrieveAiceoMemoryCandidates
+      tags: [aiceo]
+      security: [{ clerk: [] }]
+      requestBody: { required: true, content: { application/json: { schema: { $ref: "#/components/schemas/AiceoRetrievalInput" } } } }
+      responses:
+        "200": { description: "Minimum sufficient non-authoritative candidate memory set bound to Persistent State", content: { application/json: { schema: { $ref: "#/components/schemas/AiceoRetrievalResponse" } } } }
+        "400": { description: Invalid bounded retrieval request }
+        "403": { description: Exactly one current AICEO role required }
+        "409": { description: "Project, task, revision, Resume Node, authority, evidence, or control gate failed closed" }
+  /aiceo/retrieval/self-check:
+    get:
+      operationId: selfCheckAiceoMemoryRetrieval
+      tags: [aiceo]
+      security: [{ clerk: [] }]
+      responses:
+        "200":
+          description: "Read-only local dimensions; diagnostic evidence only and never independent validation"
+          content: { application/json: { schema: { type: object, additionalProperties: true } } }
+        "403": { description: Exactly one current AICEO role required }
+        "409": { description: Retrieval integrity failed closed }
+  /aiceo/retrieval/validator-attestation:
+    post:
+      operationId: attestAiceoMemoryRetrievalValidation
+      tags: [aiceo]
+      security: [{ clerk: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AiceoRetrievalValidatorAttestationInput" }
+      responses:
+        "200":
+          description: "Immutable independent validator attestation bound to the accepted implementation revision"
+          content: { application/json: { schema: { type: object, additionalProperties: true } } }
+        "403": { description: Exclusive current aiceo_validator role required }
+        "409": { description: "Validator identity, implementation provenance, revision, or evidence failed closed" }
+  /aiceo/retrieval/{requestId}:
+    get:
+      operationId: getAiceoMemoryRetrieval
+      tags: [aiceo]
+      security: [{ clerk: [] }]
+      parameters:
+        - { name: requestId, in: path, required: true, schema: { type: string, pattern: "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$" } }
+      responses:
+        "200": { description: "Immutable retrieval request, decisions, run summary, and candidate output", content: { application/json: { schema: { $ref: "#/components/schemas/AiceoRetrievalResponse" } } } }
+        "403": { description: Request is outside the current identity need-to-know boundary }
+        "409": { description: Retrieval evidence or Persistent State binding failed closed }
   /aiceo/continuity/state:
     put:
       operationId: recordAiceoContinuityState
@@ -911,6 +960,79 @@ components:
             claimedNextStep: { type: string }
             claimedRevision: { type: number, minimum: 1, multipleOf: 1 }
             observedAt: { type: string, format: date-time }
+    AiceoRetrievalInput:
+      type: object
+      additionalProperties: false
+      required: [projectId, idempotencyKey, purpose, task, intent, entities, query, maxItems, maxBytes, scanLimit]
+      properties:
+        projectId: { type: string, pattern: "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$" }
+        idempotencyKey: { type: string, minLength: 1, maxLength: 180 }
+        purpose: { type: string, const: why_history_context }
+        task: { type: string, minLength: 1, maxLength: 1000 }
+        intent: { type: string, minLength: 1, maxLength: 2000 }
+        entities: { type: array, maxItems: 50, items: { type: string, minLength: 1, maxLength: 180 } }
+        query: { type: string, minLength: 1, maxLength: 2000 }
+        requestedLayers: { type: array, maxItems: 4, items: { type: string, enum: [working, episodic, semantic, procedural] } }
+        requestedTypes: { type: array, maxItems: 3, items: { type: string, enum: [observation, interpretation, hypothesis] } }
+        maxItems: { type: number, minimum: 1, maximum: 20, multipleOf: 1 }
+        maxBytes: { type: number, minimum: 1, maximum: 65536, multipleOf: 1 }
+        scanLimit: { type: number, minimum: 1, maximum: 100, multipleOf: 1 }
+        claimedPersistentRevision: { type: number, minimum: 1, multipleOf: 1 }
+        claimedResumeNode: { type: string, minLength: 1, maxLength: 180 }
+    AiceoRetrievalValidatorAttestationInput:
+      type: object
+      additionalProperties: false
+      required: [acceptedRevision, evidenceDigest]
+      properties:
+        acceptedRevision: { type: number, minimum: 1, multipleOf: 1 }
+        evidenceDigest: { type: string, pattern: "^[a-f0-9]{64}$" }
+    AiceoRetrievalResponse:
+      type: object
+      additionalProperties: false
+      required: [version, truthSource, request, items, explain, budget, status, contextCompiler, stateOverrideAccepted, grantsAuthority, productionAuthority, resultHash, responseHmac]
+      properties:
+        version: { type: string, const: G1-002-RTR-1 }
+        truthSource: { type: string, const: persistent_state }
+        request: { type: object, additionalProperties: true }
+        items:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+            required: [candidateId, content, memoryLayer, memoryType, cognitiveState, truthLevel, authorityLevel, evidenceLineage, score, rank, candidateOnly, operationalInput, grantsAuthority, productionAuthority]
+            properties:
+              candidateId: { type: string, pattern: "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$" }
+              content: { type: string }
+              memoryLayer: { type: string }
+              memoryType: { type: string }
+              cognitiveState: { type: string }
+              truthLevel: { type: string }
+              authorityLevel: { type: string }
+              evidenceLineage: { type: array, items: { type: object, additionalProperties: true } }
+              score: { type: number, multipleOf: 1 }
+              rank: { type: number, minimum: 1, multipleOf: 1 }
+              candidateOnly: { type: boolean, const: true }
+              operationalInput: { type: boolean, const: false }
+              grantsAuthority: { type: boolean, const: false }
+              productionAuthority: { type: boolean, const: false }
+        explain: { type: array, items: { type: object, additionalProperties: true } }
+        budget: { type: object, additionalProperties: { type: number } }
+        status: { type: string, enum: [completed, blocked, failed_closed] }
+        contextCompiler:
+          type: object
+          additionalProperties: false
+          required: [status, receivesRouterItemsOnly, mutatesPersistentState, grantsAuthority, productionAuthority]
+          properties:
+            status: { type: string, const: DEFERRED }
+            receivesRouterItemsOnly: { type: boolean, const: true }
+            mutatesPersistentState: { type: boolean, const: false }
+            grantsAuthority: { type: boolean, const: false }
+            productionAuthority: { type: boolean, const: false }
+        stateOverrideAccepted: { type: boolean, const: false }
+        grantsAuthority: { type: boolean, const: false }
+        productionAuthority: { type: boolean, const: false }
+        resultHash: { type: string, pattern: "^[a-f0-9]{64}$" }
+        responseHmac: { type: string, pattern: "^[a-f0-9]{64}$" }
     AiceoContinuityStateInput:
       type: object
       additionalProperties: false

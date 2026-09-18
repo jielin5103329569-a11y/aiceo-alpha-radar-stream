@@ -288,6 +288,20 @@
       "when": 1789640600000,
       "tag": "0040_aiceo_continuity_chain_resequence",
       "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1789696800000,
+      "tag": "0041_aiceo_memory_retrieval_router",
+      "breakpoints": true
+    },
+    {
+      "idx": 42,
+      "version": "7",
+      "when": 1789696900000,
+      "tag": "0042_aiceo_retrieval_router_hardening",
+      "breakpoints": true
     }
   ]
 }

@@ -45,7 +45,10 @@ async function main() {
   assert.equal(drifted.persistentEvidenceVerified, true);
   assert.equal(drifted.state.revision, before.revision);
   assert.equal(drifted.state.resumeNode.node, before.resumeNode.node);
-  assert.match(String(drifted.state.currentState.activeTask ?? drifted.state.currentState.completedTask), /G1-001/);
+  const currentTask = String(before.currentState.activeTask ?? before.currentState.completedTask);
+  assert.equal(String(drifted.state.currentState.activeTask ?? drifted.state.currentState.completedTask), currentTask);
+  assert.match(currentTask, /G1-002/);
+  assert.notEqual(currentTask, "Grok Agent Integration Contract");
   assert.notEqual(drifted.state.currentState.activeTask, "Architecture Phase");
   assert.notEqual(drifted.resume.node.node, "next Grok Agent Integration Contract");
   assert.equal(drifted.contextAuthority.disposition, "context_drift_rejected");
@@ -117,7 +120,7 @@ async function main() {
   assert.deepEqual(after.decisionRuleRegistry.find((rule: any) =>
     rule.id === CONTEXT_AUTHORITY_CONTINUITY_RULE.id), CONTEXT_AUTHORITY_CONTINUITY_RULE);
   await pool.end();
-  console.log("AICEO G1-001 context drift: PASS (external context candidate-only, Persistent State restored)");
+  console.log("AICEO G1-002 context drift: PASS (external context candidate-only, Persistent State restored)");
 }
 
 main().catch((error) => { console.error(error); process.exitCode = 1; });

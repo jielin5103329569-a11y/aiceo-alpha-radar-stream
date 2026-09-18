@@ -1,5 +1,5 @@
 - [Databento live bridge](databento-live-bridge.md) — The official Python client begins streaming on iteration; do not call `start()` before consuming records.
-- [Development schema reconciliation](development-schema-reconciliation.md) — Post-merge setup must diff the dev schema rather than replay a journal that may predate existing tables.
+- [Development schema reconciliation](development-schema-reconciliation.md) — Diff dev schema; declare dependency-bearing constraints and reject CLI error text even with exit 0.
 - [Market data recovery](market-data-recovery.md) — Keep feed heartbeats separate from market-event freshness and use bounded retry backoff for provider recovery.
 - [Protected scan health](protected-scan-health.md) — Scheduler activity and market-data evidence are separate; only an armed fresh verified window can reach alert handoff.
 - [Signal integrity](signal-integrity.md) — Never preserve directional scores or setup labels when a live feed is interrupted, stale, or materially incomplete.
