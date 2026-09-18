@@ -11,6 +11,7 @@ import {
   aiceoExecutionContractsTable,
   aiceoIntentConfirmationsTable,
 } from "@workspace/db/schema";
+import { assertCredentialPersistenceSafe } from "./aiceoCredentialPersistenceFirewall";
 
 const INTENT_GATE_VERSION = "INTENT-GATE-001";
 const CONTRACT_VERSION = "BRAIN-AGENT-002";
@@ -158,6 +159,7 @@ export class AiceoAgentExecutionProtocol {
   }
 
   async confirmIntent(input: any, ownerActorId: string) {
+    assertCredentialPersistenceSafe({ input, ownerActorId }, "intent-confirmation");
     return this.transact(async (tx) => {
       const project = (await tx.select().from(aiceoContinuityProjectsTable).limit(1))[0];
       const state = (await tx.select().from(aiceoContinuityStateTable).limit(1).for("update"))[0];
@@ -215,6 +217,7 @@ export class AiceoAgentExecutionProtocol {
   }
 
   async issue(input: any, actorId: string) {
+    assertCredentialPersistenceSafe({ input, actorId }, "execution-contract");
     return this.transact(async (tx) => {
       const project = (await tx.select().from(aiceoContinuityProjectsTable).limit(1))[0];
       const state = (await tx.select().from(aiceoContinuityStateTable).limit(1).for("update"))[0];
@@ -371,6 +374,7 @@ export class AiceoAgentExecutionProtocol {
   }
 
   async start(contractId: string, input: any) {
+    assertCredentialPersistenceSafe(input, "agent-run-start");
     return this.transact(async (tx) => {
       const control = (await tx.select().from(aiceoControlStateTable).limit(1).for("update"))[0];
       const contract = (await tx.select().from(aiceoExecutionContractsTable)
@@ -418,6 +422,7 @@ export class AiceoAgentExecutionProtocol {
   }
 
   async checkpoint(runId: string, input: any) {
+    assertCredentialPersistenceSafe(input, "agent-run-checkpoint");
     return this.transact(async (tx) => {
       const run = (await tx.select().from(aiceoAgentRunsTable)
         .where(eq(aiceoAgentRunsTable.id, runId)).for("update"))[0];
@@ -464,6 +469,7 @@ export class AiceoAgentExecutionProtocol {
   }
 
   async resume(runId: string, input: any, brainActorId: string) {
+    assertCredentialPersistenceSafe({ input, brainActorId }, "agent-run-resume");
     return this.transact(async (tx) => {
       const control = (await tx.select().from(aiceoControlStateTable).limit(1).for("update"))[0];
       const run = (await tx.select().from(aiceoAgentRunsTable)
@@ -579,6 +585,7 @@ export class AiceoAgentExecutionProtocol {
       ) {
         throw new Error("不能：scope drift, secret, or missing evidence");
       }
+      assertCredentialPersistenceSafe(input, "agent-run-result");
       await tx.update(aiceoAgentRunsTable).set({
         ...input,
         state: "AWAITING_VERIFICATION",
@@ -591,6 +598,7 @@ export class AiceoAgentExecutionProtocol {
   }
 
   async verify(runId: string, input: any, validator: string) {
+    assertCredentialPersistenceSafe({ input, validator }, "agent-verification");
     return this.transact(async (tx) => {
       const run = (await tx.select().from(aiceoAgentRunsTable)
         .where(eq(aiceoAgentRunsTable.id, runId)).for("update"))[0];

@@ -2,6 +2,7 @@ import { and, asc, eq, sql } from "drizzle-orm";
 import {
   aiceoControlStateTable, aiceoPreclassificationMemoryInboxTable, db, type AiceoFutureMemorySpace,
 } from "@workspace/db";
+import { assertCredentialPersistenceSafe } from "./aiceoCredentialPersistenceFirewall";
 
 export const PRECLASSIFICATION_MIGRATION_REQUIREMENTS = {
   scientificClassificationRequired: true,
@@ -26,6 +27,8 @@ const canonical = (value: unknown): unknown => Array.isArray(value) ? value.map(
 
 export const aiceoPreclassificationInbox = {
   async append(input: PreclassificationInboxInput) {
+    const { transaction: _transaction, ...persistentInput } = input;
+    assertCredentialPersistenceSafe(persistentInput, "preclassification-inbox");
     const operation = async (tx: any) => {
       const [control] = await tx.select().from(aiceoControlStateTable).limit(1).for("update");
       if (!control?.queueActive || control.killSwitch || control.circuitState !== "CLOSED") {

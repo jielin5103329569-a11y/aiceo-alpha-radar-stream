@@ -3,6 +3,7 @@ import {
   aiceoSelfCheckReportsTable, db,
   type AiceoSelfCheckScope, type AiceoSelfCheckStatus,
 } from "@workspace/db";
+import { assertCredentialPersistenceSafe } from "./aiceoCredentialPersistenceFirewall";
 
 export type SelfCheckReportInput = {
   projectId: string;
@@ -28,6 +29,8 @@ export type SelfCheckReportInput = {
 
 export const aiceoSelfChecks = {
   async createReport(input: SelfCheckReportInput) {
+    const { transaction: _transaction, ...persistentInput } = input;
+    assertCredentialPersistenceSafe(persistentInput, "self-check-report");
     const operation = async (tx: any) => {
       const [report] = await tx.insert(aiceoSelfCheckReportsTable).values({
         projectId: input.projectId,

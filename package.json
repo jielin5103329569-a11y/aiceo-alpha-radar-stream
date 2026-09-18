@@ -64,6 +64,7 @@
     ,"reopen:aiceo-g1-001-generated-contract": "pnpm --filter @workspace/api-server exec esbuild ../../scripts/reopen-aiceo-g1-001-generated-contract.ts --bundle --platform=node --format=cjs --outfile=/tmp/reopen-aiceo-g1-001-generated-contract.cjs && node /tmp/reopen-aiceo-g1-001-generated-contract.cjs"
     ,"start:aiceo-g1-002": "pnpm --filter @workspace/api-server exec esbuild ../../scripts/start-aiceo-g1-002.ts --bundle --platform=node --format=cjs --outfile=/tmp/start-aiceo-g1-002.cjs && node /tmp/start-aiceo-g1-002.cjs"
     ,"test:aiceo-memory-retrieval-router": "pnpm --filter @workspace/api-server exec esbuild ../../scripts/test-aiceo-memory-retrieval-router.ts --bundle --platform=node --format=cjs --outfile=/tmp/test-aiceo-memory-retrieval-router.cjs && node /tmp/test-aiceo-memory-retrieval-router.cjs"
+    ,"test:aiceo-credential-persistence-firewall": "pnpm --filter @workspace/api-server exec esbuild ../../scripts/test-aiceo-credential-persistence-firewall.ts --bundle --platform=node --format=cjs --outfile=/tmp/test-aiceo-credential-persistence-firewall.cjs && node /tmp/test-aiceo-credential-persistence-firewall.cjs"
     ,"audit:aiceo-g1-002-closure": "pnpm --filter @workspace/api-server exec esbuild ../../scripts/audit-aiceo-g1-002-closure.ts --bundle --platform=node --format=cjs --outfile=/tmp/audit-aiceo-g1-002-closure.cjs && node /tmp/audit-aiceo-g1-002-closure.cjs"
   },
   "private": true,

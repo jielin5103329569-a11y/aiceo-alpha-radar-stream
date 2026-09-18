@@ -16,6 +16,7 @@ import {
   type AiceoContinuityState,
 } from "@workspace/db/schema";
 import type { AiceoRole } from "./aiceoAuthorization";
+import { assertCredentialPersistenceSafe } from "./aiceoCredentialPersistenceFirewall";
 
 const VERSION = "CONTINUITY-001";
 const AUTHORITY = "grok_restricted_development";
@@ -467,6 +468,7 @@ export class AiceoContinuityLayer {
     validatorId: string,
     role: AiceoRole,
   ) {
+    assertCredentialPersistenceSafe({ input, validatorId }, "retrieval-validator-attestation");
     if (role !== "aiceo_validator") throw new Error("G1-002 attestation requires exclusive aiceo_validator");
     if (!/^[a-f0-9]{64}$/.test(input.evidenceDigest)) {
       throw new Error("G1-002 attestation requires a verified evidence digest");
@@ -523,6 +525,7 @@ export class AiceoContinuityLayer {
   }
 
   async resume(alias: string, role: AiceoRole, externalContext?: ExternalContinuityContext) {
+    assertCredentialPersistenceSafe({ alias, externalContext }, "continuity-resume");
     const normalized = alias.trim().toLowerCase().replace(/\s+/g, " ");
     if (!RESUME_ALIASES.has(normalized)) throw new Error("不能：未识别恢复别名");
     if (!externalContext) {
@@ -629,6 +632,7 @@ export class AiceoContinuityLayer {
   }
 
   async update(input: ContinuityUpdate, actorId: string) {
+    assertCredentialPersistenceSafe({ input, actorId }, "continuity-state");
     return this.transact(async (tx) => {
       const control = (await tx.select().from(aiceoControlStateTable).limit(1).for("update"))[0];
       if (!control || control.killSwitch || !control.queueActive || control.circuitState === "OPEN") {
@@ -1030,6 +1034,7 @@ export class AiceoContinuityLayer {
     evidence: Record<string, unknown>[];
     context: Record<string, unknown>;
   }, actorId: string) {
+    assertCredentialPersistenceSafe({ input, actorId }, "collaboration-issue");
     if (!input.evidence.length) throw new Error("不能：合作问题必须包含证据，不能用临时情绪直接生成长期规则");
     return this.transact(async (tx) => {
       const project = await this.project(tx);
@@ -1058,6 +1063,7 @@ export class AiceoContinuityLayer {
     additionalEvidence: Record<string, unknown>[];
     protectedImpacts: string[];
   }, actorId: string) {
+    assertCredentialPersistenceSafe({ input, actorId }, "collaboration-rule");
     return this.transact(async (tx) => {
       const control = (await tx.select().from(aiceoControlStateTable).limit(1).for("update"))[0];
       if (!control || control.killSwitch || !control.queueActive || control.circuitState === "OPEN") {
@@ -1143,6 +1149,7 @@ export class AiceoContinuityLayer {
   }
 
   async validateRule(ruleId: string, input: { improved: boolean; evidence: Record<string, unknown>[]; summary: string }, actorId: string) {
+    assertCredentialPersistenceSafe({ input, actorId }, "collaboration-rule-validation");
     if (!input.evidence.length) throw new Error("不能：规则改善验证必须包含实际证据");
     return this.transact(async (tx) => {
       const rule = (await tx.select().from(aiceoCollaborationRulesTable).where(eq(aiceoCollaborationRulesTable.id, ruleId)).for("update"))[0];
@@ -1158,6 +1165,7 @@ export class AiceoContinuityLayer {
   }
 
   async rollbackRule(ruleId: string, reason: string, actorId: string) {
+    assertCredentialPersistenceSafe({ reason, actorId }, "collaboration-rule-rollback");
     return this.transact(async (tx) => {
       const rule = (await tx.select().from(aiceoCollaborationRulesTable).where(eq(aiceoCollaborationRulesTable.id, ruleId)).for("update"))[0];
       if (!rule || rule.classification !== "ordinary_collaboration" || !["ACTIVE", "IMPROVED"].includes(rule.status)) {

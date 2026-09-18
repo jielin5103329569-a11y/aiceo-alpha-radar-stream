@@ -9,6 +9,7 @@ import {
 import type { AiceoRole } from "./aiceoAuthorization";
 import { AiceoContinuityLayer } from "./aiceoContinuityLayer";
 import { assertEvidenceValid } from "./aiceoMemory";
+import { assertCredentialPersistenceSafe } from "./aiceoCredentialPersistenceFirewall";
 
 const VERSION = "G1-002-RTR-1";
 const ALLOWED_LAYERS = new Set(["working", "episodic", "semantic", "procedural"]);
@@ -269,6 +270,7 @@ export class AiceoRetrievalRouter {
   }
 
   async retrieve(input: RetrievalInput, requestedBy: string, role: AiceoRole, grants: RetrievalGrant[]) {
+    assertCredentialPersistenceSafe({ input, requestedBy, grants }, "retrieval-request");
     return this.transact(async (tx) => {
       const [existing] = await tx.select().from(aiceoRetrievalRequestsTable)
         .where(and(eq(aiceoRetrievalRequestsTable.projectId, input.projectId),
@@ -504,6 +506,7 @@ export class AiceoRetrievalRouter {
       });
       const inserted = [];
       for (const draft of drafts) {
+        assertCredentialPersistenceSafe(draft, "retrieval-decision");
         const [decision] = await tx.insert(aiceoRetrievalDecisionsTable).values({
           requestId: request.id, projectId: input.projectId,
           candidateId: draft.candidateId, thoughtNodeId: draft.thoughtNodeId,

@@ -4,6 +4,7 @@ import {
   aiceoThoughtNodesTable, db, type AiceoEvidenceLineage, type AiceoThoughtNodeKind,
 } from "@workspace/db";
 import { eq, sql } from "drizzle-orm";
+import { assertCredentialPersistenceSafe } from "./aiceoCredentialPersistenceFirewall";
 
 export type MemoryActor = "ordinary_agent" | "external_source" | "brain" | "owner" | "governance";
 export const PROTECTED_CAPABILITIES = ["production", "trading", "alerts", "governance", "database"];
@@ -80,6 +81,8 @@ export const aiceoMemory = {
     cognitiveState: string; sourceActorId: string; authorityLevel: MemoryActor; truthLevel?: string;
     evidenceLineage?: AiceoEvidenceLineage[]; validFrom?: Date; validUntil?: Date; transaction?: any;
   }) {
+    const { transaction: _transaction, ...persistentInput } = input;
+    assertCredentialPersistenceSafe(persistentInput, "memory-candidate");
     if (!["ordinary_agent", "external_source"].includes(input.authorityLevel)
       || !["observation", "interpretation", "hypothesis"].includes(input.memoryType)
       || input.memoryType !== input.cognitiveState) {
@@ -103,7 +106,7 @@ export const aiceoMemory = {
         throw new Error("Candidate writes require the canonical restricted AICEO project");
       }
       const [candidate] = await tx.insert(aiceoMemoryCandidatesTable).values({
-        ...input, authorityLevel: input.authorityLevel,
+        ...persistentInput, authorityLevel: input.authorityLevel,
         evidenceLineage: input.evidenceLineage ?? [], lifecycle: "candidate",
       }).returning();
       return candidate;
@@ -124,6 +127,8 @@ export const aiceoMemory = {
     outcomeValidation?: Record<string, unknown>; counterfactuals?: Record<string, unknown>[];
     transaction?: any;
   }) {
+    const { transaction: _transaction, ...persistentInput } = input;
+    assertCredentialPersistenceSafe(persistentInput, "thought-node");
     const memoryType = ["motivation", "context", "observation", "action", "outcome"].includes(input.nodeKind)
       ? "observation"
       : ["interpretation", "reflection"].includes(input.nodeKind) ? "interpretation" : "hypothesis";

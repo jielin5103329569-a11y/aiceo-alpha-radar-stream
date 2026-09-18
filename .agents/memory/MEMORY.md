@@ -35,3 +35,4 @@
 - [Layered self-check integrity](layered-self-check-integrity.md) — Local, chain, and global checks escalate progressively but never replace independent validation or closure.
 - [Pre-classification memory inbox](preclassification-memory-inbox.md) — Preserve high-value raw ideas as sealed non-authoritative provenance roots until scientific classification is ready.
 - [Context authority continuity](context-authority-continuity.md) — External ingress is candidate evidence only; verified Persistent State and Resume Node decide recovery.
+- [Credential persistence boundary](credential-persistence-boundary.md) — Reject credential-bearing inputs, redact provider data, and keep an independent database guard on every AICEO table.

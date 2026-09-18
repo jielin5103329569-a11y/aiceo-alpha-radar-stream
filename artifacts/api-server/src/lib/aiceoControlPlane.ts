@@ -15,6 +15,11 @@ import {
   type GrokAttemptResult,
 } from "./grokProviderAdapter";
 import {
+  assertCredentialPersistenceSafe,
+  safeCredentialErrorMessage,
+  sanitizeProviderOutputForPersistence,
+} from "./aiceoCredentialPersistenceFirewall";
+import {
   AICEO_AGENT_AUTHORITY,
   AICEO_BRAIN_AUTHORITY,
   AICEO_GOVERNANCE_ROOT_VERSION,
@@ -192,6 +197,7 @@ export class AiceoControlPlane {
     const serverTimestamp = new Date();
     const actorId = safe(input.actorId, 180);
     const payload = { ...input.details, actorId, type: input.type, state: input.state ?? null, integrityVersion: "hmac-sha256-v1" };
+    assertCredentialPersistenceSafe(payload, "audit-event");
     const values = { id, taskId: input.taskId ?? null, correlationId: input.correlationId, runId: input.runId ?? null, eventType: input.type, state: input.state ?? null, actorId, payload, previousHash: prior[0]?.hash ?? null, serverTimestamp };
     const eventHash = auditHash({ ...values, eventType: input.type });
     const [event] = await tx.insert(aiceoAuditEventsTable).values({ ...values, eventHash }).returning();
@@ -210,7 +216,7 @@ export class AiceoControlPlane {
         type: input.type,
         state: task?.state as AiceoState | undefined,
         actorId: input.actorId,
-        details: { reason: fail(input.error).message, failClosed: true, productionAuthority: false },
+        details: { reason: safeCredentialErrorMessage(input.error), failClosed: true, productionAuthority: false },
       });
     });
   }
@@ -295,6 +301,7 @@ export class AiceoControlPlane {
 
   async submit(input: { action: string; resource: string; governance?: GovernanceDeclaration; environment?: "development" | "staging" | "production"; budget?: { estimatedTokens?: number; estimatedCalls?: number; estimatedUsd?: number }; timeoutMs?: number; maxRetries?: number; clientTimestamp?: string }, actorId: string, submissionMode: "generic" | "governance_acceptance" = "generic") {
     try {
+      assertCredentialPersistenceSafe({ input, actorId }, "grok-task-submit");
       return await db.transaction(async (tx) => {
       const source = (await tx.select().from(aiceoSourceRegistryTable).where(eq(aiceoSourceRegistryTable.catalogId, "connector_catalog:xai")))[0];
       const policies = await tx.select().from(aiceoPolicyRegistryTable);
@@ -510,7 +517,7 @@ export class AiceoControlPlane {
       if (actualTokens > Number(task.budget.reservedTokens) || actualCalls > Number(task.budget.reservedCalls) || Number(actualUsd) > Number(task.budget.reservedUsd)) throw new Error("ARCH-001 retry would exceed reserved budget");
       const nextRetryAt = new Date(Date.now() + 250 * (2 ** (attempt - 1)));
       await tx.update(aiceoTasksTable).set({ retryCount: attempt, nextRetryAt, providerAttemptId: null, providerAttemptDeadlineAt: null, budget: { ...task.budget, actualTokens, actualCalls, actualUsd }, updatedAt: new Date() }).where(eq(aiceoTasksTable.id, id));
-      await this.audit(tx, { taskId: id, correlationId: task.correlationId, runId: task.runId ?? undefined, type: "PROVIDER_RETRY_SCHEDULED", state: "RUNNING", actorId, details: { attempt, nextRetryAt: nextRetryAt.toISOString(), reason: result.reason, settled: result.settled } });
+      await this.audit(tx, { taskId: id, correlationId: task.correlationId, runId: task.runId ?? undefined, type: "PROVIDER_RETRY_SCHEDULED", state: "RUNNING", actorId, details: { attempt, nextRetryAt: nextRetryAt.toISOString(), reason: safeCredentialErrorMessage(result.reason), settled: result.settled } });
     });
   }
 
@@ -522,9 +529,33 @@ export class AiceoControlPlane {
       const actualUsd = (actualTokens * TOKEN_USD_RATE).toFixed(6);
       const overBudget = actualTokens > Number(task.budget.reservedTokens) || actualCalls > Number(task.budget.reservedCalls) || Number(actualUsd) > Number(task.budget.reservedUsd);
       const state: AiceoState = result.ok && !overBudget ? "VALIDATING" : result.ok ? "FAILED" : result.state;
+      const providerOutput = result.ok
+        ? sanitizeProviderOutputForPersistence(result.text, "grok-provider-output")
+        : null;
+      const providerResponseId = result.ok
+        ? sanitizeProviderOutputForPersistence(result.responseId, "grok-provider-response-id")
+        : null;
+      const providerDetections = [
+        ...(providerOutput?.detections ?? []),
+        ...(providerResponseId?.detections ?? []),
+      ];
       const evidence = result.ok && !overBudget
-        ? { provider: "xAI", modelAuthority: "registry", responseId: safe(result.responseId, 180), providerTimestamp: result.providerTimestamp.toISOString(), output: safe(result.text, 4000), outputHash: digest(result.text), attempts: actualCalls, usage: { tokens: actualTokens, usd: actualUsd }, tools: "disabled", productionAuthority: false }
-        : { provider: "xAI", reason: overBudget ? "Actual usage exceeded reserved budget" : result.ok ? "Budget settlement failed" : result.reason, settled: result.settled, attempts: actualCalls, usage: { tokens: actualTokens, usd: actualUsd }, productionAuthority: false };
+        ? {
+            provider: "xAI", modelAuthority: "registry", responseId: safe(providerResponseId!.value, 180),
+            providerTimestamp: result.providerTimestamp.toISOString(),
+            output: safe(providerOutput!.value, 4000), outputHash: digest(providerOutput!.value),
+            sourceOutputDigest: providerOutput!.originalDigest,
+            credentialFirewall: {
+              version: "AICEO-CREDENTIAL-FIREWALL-1",
+              redacted: providerOutput!.redacted || providerResponseId!.redacted,
+              classifications: [...new Set(providerDetections.map((item) => item.classification))],
+              detectionDigests: providerDetections.map((item) => item.contentDigest),
+              productionAuthority: false,
+            },
+            attempts: actualCalls, usage: { tokens: actualTokens, usd: actualUsd },
+            tools: "disabled", productionAuthority: false,
+          }
+        : { provider: "xAI", reason: overBudget ? "Actual usage exceeded reserved budget" : result.ok ? "Budget settlement failed" : safeCredentialErrorMessage(result.reason), settled: result.settled, attempts: actualCalls, usage: { tokens: actualTokens, usd: actualUsd }, productionAuthority: false };
       await tx.update(aiceoTasksTable).set({ state, evidence, providerTimestamp: result.providerTimestamp ?? null, nextRetryAt: null, providerAttemptId: null, providerAttemptDeadlineAt: null, budget: { ...task.budget, actualTokens, actualCalls, actualUsd }, updatedAt: new Date() }).where(eq(aiceoTasksTable.id, id));
       if (INCIDENTS.includes(state as (typeof INCIDENTS)[number])) {
         await tx.update(aiceoControlStateTable).set({ queueActive: false, circuitFailureCount: sql`${aiceoControlStateTable.circuitFailureCount} + 1`, circuitHalfOpenAt: sql`CASE WHEN ${aiceoControlStateTable.circuitFailureCount} + 1 >= ${aiceoControlStateTable.circuitThreshold} THEN now() + (${aiceoControlStateTable.circuitCooldownMs} * interval '1 millisecond') ELSE ${aiceoControlStateTable.circuitHalfOpenAt} END`, circuitState: sql`CASE WHEN ${aiceoControlStateTable.circuitFailureCount} + 1 >= ${aiceoControlStateTable.circuitThreshold} THEN 'OPEN' ELSE ${aiceoControlStateTable.circuitState} END`, updatedAt: new Date() }).where(eq(aiceoControlStateTable.id, control.id));
@@ -549,7 +580,7 @@ export class AiceoControlPlane {
           await this.auditRejection({ taskId: id, type: "EXECUTION_REJECTED", actorId, error });
           throw fail(error);
         }
-        return this.transition(id, "FAILED", actorId, { reason: fail(error).message, settled: true, productionAuthority: false });
+        return this.transition(id, "FAILED", actorId, { reason: safeCredentialErrorMessage(error), settled: true, productionAuthority: false });
       }
       const result = await executeGrokDevelopmentAttempt({ action: context.task.action as ApprovedGrokDevelopmentAction, resource: context.task.resource, model: context.model, timeoutMs: context.task.timeoutMs });
       actualTokens += result.tokens;
@@ -561,6 +592,7 @@ export class AiceoControlPlane {
   }
 
   async transition(id: string, state: Exclude<AiceoState, "COMPLETED">, actorId: string, evidence?: Record<string, unknown>) {
+    assertCredentialPersistenceSafe({ actorId, evidence }, "task-transition");
     return db.transaction(async (tx) => {
       const task = (await tx.select().from(aiceoTasksTable).where(eq(aiceoTasksTable.id, id)).for("update"))[0];
       if (!task) throw new Error("Task not found");
@@ -586,6 +618,7 @@ export class AiceoControlPlane {
   }
 
   async validate(id: string, passed: boolean, validatorId: string, evidence: Record<string, unknown>) {
+    assertCredentialPersistenceSafe({ validatorId, evidence }, "task-validation");
     if (!passed || !validatorId || !evidence) throw new Error("Independent validation evidence is required");
     return db.transaction(async (tx) => {
       const task = (await tx.select().from(aiceoTasksTable).where(eq(aiceoTasksTable.id, id)).for("update"))[0];
@@ -599,6 +632,7 @@ export class AiceoControlPlane {
     }).catch((error) => { throw fail(error); });
   }
   async cancel(id: string, actorId: string) {
+    assertCredentialPersistenceSafe(actorId, "task-cancellation");
     const task = (await db.select({ state: aiceoTasksTable.state }).from(aiceoTasksTable).where(eq(aiceoTasksTable.id, id)).limit(1))[0];
     if (!task || task.state !== "QUEUED") throw new Error("Only a queued task may be cancelled; in-flight attempts must settle");
     const submitted = (await db.select({ actorId: aiceoAuditEventsTable.actorId }).from(aiceoAuditEventsTable).where(and(eq(aiceoAuditEventsTable.taskId, id), eq(aiceoAuditEventsTable.eventType, "SUBMITTED"))).limit(1))[0];
@@ -607,12 +641,15 @@ export class AiceoControlPlane {
   }
 
   async setKillSwitch(enabled: boolean, actorId: string) {
+    assertCredentialPersistenceSafe(actorId, "control-kill-switch");
     return db.transaction(async (tx) => { const control = (await tx.select().from(aiceoControlStateTable).limit(1).for("update"))[0]; if (!control) throw new Error("AICEO control row is missing"); await tx.update(aiceoControlStateTable).set({ killSwitch: enabled, queueActive: enabled ? false : control.queueActive, updatedAt: new Date() }).where(eq(aiceoControlStateTable.id, control.id)); await this.audit(tx, { correlationId: randomUUID(), type: enabled ? "KILL_SWITCH_ON" : "KILL_SWITCH_OFF", actorId }); return { ...control, killSwitch: enabled, queueActive: enabled ? false : control.queueActive }; });
   }
   async acknowledgeRecovery(actorId: string) {
+    assertCredentialPersistenceSafe(actorId, "control-recovery");
     return db.transaction(async (tx) => { const control = (await tx.select().from(aiceoControlStateTable).limit(1).for("update"))[0]; const incidents = await tx.select({ id: aiceoTasksTable.id }).from(aiceoTasksTable).where(inArray(aiceoTasksTable.state, INCIDENTS)); if (!control || control.killSwitch || incidents.length || control.circuitState === "OPEN") throw new Error("Recovery acknowledgment requires resolved incidents, kill switch off, and circuit permission"); await tx.update(aiceoControlStateTable).set({ queueActive: true, acknowledgedAt: new Date(), acknowledgedBy: safe(actorId, 180), updatedAt: new Date() }).where(eq(aiceoControlStateTable.id, control.id)); await this.audit(tx, { correlationId: randomUUID(), type: "RECOVERY_ACKNOWLEDGED", actorId }); return { ...control, queueActive: true }; });
   }
   async resetCircuit(actorId: string) {
+    assertCredentialPersistenceSafe(actorId, "control-circuit");
     return db.transaction(async (tx) => {
       const control = (await tx.select().from(aiceoControlStateTable).limit(1).for("update"))[0];
       if (!control || control.circuitState !== "OPEN" || !control.circuitHalfOpenAt || control.circuitHalfOpenAt > new Date()) throw new Error("Circuit cooldown has not elapsed");
