@@ -54,6 +54,7 @@ export const aiceoGovHomePage = () => page(
     <div class="actions">
       <a id="sign-in" href="/gov/login">Sign in with Clerk</a>
       <a id="open-task" class="secondary" href="/gov/tasks/73" hidden>Open Task 73</a>
+      <a id="open-role-profile" class="secondary" href="/gov/role-profile" hidden>View Grok role profile</a>
     </div>
   </main>`,
   `
@@ -65,11 +66,69 @@ export const aiceoGovHomePage = () => page(
         document.getElementById("status").className = "status success";
         document.getElementById("sign-in").hidden = true;
         document.getElementById("open-task").hidden = false;
+        document.getElementById("open-role-profile").hidden = false;
       })
       .catch((error) => {
         document.getElementById("status").textContent = error.message;
         document.getElementById("status").className = "status info";
       });
+  `,
+);
+
+export const aiceoGovRoleProfilePage = () => page(
+  "AICEO Governance — Grok Role Profile",
+  `<main>
+    <span class="label">RP-001 Read-only Contract</span>
+    <h1>Grok technical brain</h1>
+    <p>This view is read-only. Execution capability does not create governance or production authority.</p>
+    <div id="status" class="status info">Loading protected role profile…</div>
+    <section id="profile" hidden>
+      <div class="card">
+        <h2>Contract</h2>
+        <div class="grid">
+          <div class="field"><span class="label">Contract ID</span><span id="contract-id" class="value"></span></div>
+          <div class="field"><span class="label">Revision</span><span id="revision" class="value"></span></div>
+          <div class="field"><span class="label">Status</span><span id="contract-status" class="value"></span></div>
+          <div class="field"><span class="label">Role</span><span id="role" class="value"></span></div>
+          <div class="field"><span class="label">Identity</span><span id="identity" class="value"></span></div>
+          <div class="field"><span class="label">Independent Owner validator</span><span id="owner-validator" class="value"></span></div>
+        </div>
+      </div>
+      <div class="card">
+        <h2>Authority boundaries</h2>
+        <pre id="boundaries"></pre>
+      </div>
+    </section>
+    <div id="auth-action" class="actions" hidden>
+      <a href="/gov/login">Go to governance sign in</a>
+    </div>
+  </main>`,
+  `
+    fetch("/gov/role-profile", {
+      headers: { Accept: "application/json" },
+      credentials: "same-origin",
+    }).then(async (response) => {
+      const body = await response.json().catch(() => ({ error: "Unexpected server response." }));
+      if (!response.ok) throw new Error(body.error || ("Request failed with " + response.status));
+      document.getElementById("contract-id").textContent = body.contractId;
+      document.getElementById("revision").textContent = body.revision;
+      document.getElementById("contract-status").textContent = body.status;
+      document.getElementById("role").textContent = body.role;
+      document.getElementById("identity").textContent = body.identity;
+      document.getElementById("owner-validator").textContent =
+        body.independentOwnerValidator.clerkUserId;
+      document.getElementById("boundaries").textContent = JSON.stringify({
+        capabilities: body.capabilities,
+        executionIsVerification: body.executionIsVerification,
+      }, null, 2);
+      document.getElementById("profile").hidden = false;
+      document.getElementById("status").textContent = "Protected RP-001 contract loaded.";
+      document.getElementById("status").className = "status success";
+    }).catch((error) => {
+      document.getElementById("auth-action").hidden = false;
+      document.getElementById("status").textContent = error.message;
+      document.getElementById("status").className = "status error";
+    });
   `,
 );
 

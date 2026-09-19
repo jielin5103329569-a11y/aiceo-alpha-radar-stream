@@ -24,6 +24,7 @@ import {
 import {
   aiceoGovHomePage,
   aiceoGovLoginPage,
+  aiceoGovRoleProfilePage,
   aiceoGovSsoCallbackPage,
   aiceoGovTask73Page,
 } from "./aiceoGovPages";
@@ -34,6 +35,7 @@ const GOV_TASK_ID = "73";
 const GOV_REVISION = 49;
 export const GOV_TASK_73_CONTRACT_KEY = "aiceo-gov-task-73-role-handoff";
 export const GOV_TASK_73_SCOPE_KEY = "aiceoGovernanceTaskId";
+export const GOV_RP_001_CONTRACT_KEY = "aiceo-grok-role-profile-rp-001";
 const DEFAULT_OWNER_EVIDENCE = [
   { source: "owner-review", finding: "MGS-001 live" },
 ];
@@ -228,6 +230,19 @@ async function loadTask73(tx: any = db, lock = false) {
   return { continuity, contract, run, verification, lifecycle };
 }
 
+async function loadRoleProfile() {
+  const contract = (await db.select().from(aiceoExecutionContractsTable)
+    .where(eq(aiceoExecutionContractsTable.idempotencyKey, GOV_RP_001_CONTRACT_KEY))
+    .limit(1))[0] ?? null;
+  const roleProfile = contract?.frozenRules.find(
+    (rule) => rule.id === AICEO_ROLE_GOVERNANCE_RULE_ID,
+  ) ?? null;
+  const ownerBinding = contract?.frozenRules.find(
+    (rule) => rule.id === "rp-001-independent-owner-binding",
+  ) ?? null;
+  return { contract, roleProfile, ownerBinding };
+}
+
 function taskView(snapshot: Awaited<ReturnType<typeof loadTask73>>) {
   const { continuity, contract, run, verification, lifecycle } = snapshot;
   return {
@@ -312,6 +327,14 @@ aiceoGovPublicRouter.get("/tasks/73", (req, res, next) => {
   res.type("html").send(aiceoGovTask73Page());
 });
 
+aiceoGovPublicRouter.get("/role-profile", (req, res, next) => {
+  if (req.accepts(["html", "json"]) !== "html") {
+    next();
+    return;
+  }
+  res.type("html").send(aiceoGovRoleProfilePage());
+});
+
 router.get("/me", async (req, res) => {
   const principal = await authorizeOwnerValidator(req, res);
   if (!principal) return;
@@ -322,6 +345,31 @@ router.get("/tasks/73", async (req, res) => {
   const principal = await authorizeOwnerValidator(req, res);
   if (!principal) return;
   res.json(taskView(await loadTask73()));
+});
+
+router.get("/role-profile", async (req, res) => {
+  const principal = await authorizeOwnerValidator(req, res);
+  if (!principal) return;
+  const { contract, roleProfile, ownerBinding } = await loadRoleProfile();
+  if (!contract || !roleProfile || !ownerBinding) {
+    res.status(404).json({ error: "RP-001 role profile contract is not issued." });
+    return;
+  }
+  res.json({
+    contractId: contract.id,
+    revision: contract.continuityRevision,
+    status: contract.status,
+    role: "AICEO Primary Technical Lead / Technical Brain",
+    identity: contract.brainActorId,
+    capabilities: {
+      governance: false,
+      triadMutation: false,
+      productionAuthority: contract.productionAuthority,
+    },
+    executionIsVerification: false,
+    independentOwnerValidator: ownerBinding,
+    profile: roleProfile,
+  });
 });
 
 router.post("/tasks/73/verify", async (req, res) => {
