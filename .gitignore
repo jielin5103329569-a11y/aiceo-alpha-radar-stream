@@ -47,6 +47,16 @@ Thumbs.db
 # Replit
 .cache/
 .local/
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+secrets
+secrets.*
+**/secrets/
+.replit/secrets
+.replit/secrets/**
 
 # Runtime-generated market scan logs
 artifacts/logs/*.jsonl
