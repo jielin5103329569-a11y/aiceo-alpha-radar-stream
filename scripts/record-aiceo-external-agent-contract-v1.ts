@@ -30,11 +30,13 @@ import { assertCredentialPersistenceSafe } from "../artifacts/api-server/src/lib
 const ACTOR = "aiceo:external-agent-contract-v1-implementation-recorder";
 const TASK_RESOURCE = "External Agent Contract V1 implementation recorder binding only";
 const IDEMPOTENCY_KEY = "external-agent-contract-v1-implementation-recorder";
+const EXPECTED_TASK_ID = "ad5a806c-2166-4a72-a026-da55365f72f5";
+const EXPECTED_EXECUTION_CONTRACT_ID = "10fe7faa-33aa-4b08-a3b8-ebff75cc3213";
 
 async function getOrCreateRecorderTask() {
   const existing = (await db.select().from(aiceoTasksTable).where(and(
     eq(aiceoTasksTable.resource, TASK_RESOURCE),
-    inArray(aiceoTasksTable.state, ["QUEUED", "COMPLETED"]),
+    inArray(aiceoTasksTable.state, ["QUEUED", "VALIDATING", "COMPLETED"]),
   )).limit(1))[0];
   if (existing) return existing;
   return aiceoControlPlane.submit({
@@ -55,6 +57,7 @@ async function main() {
     const currentTask = (await tx.select().from(aiceoTasksTable)
       .where(eq(aiceoTasksTable.id, task.id)).limit(1).for("update"))[0];
     assert.ok(project && state && currentTask, "server-owned recorder roots are missing");
+    assert.equal(currentTask.id, EXPECTED_TASK_ID, "unexpected recorder task");
     await assertAiceoTaskGovernanceAuthorized(tx, currentTask);
 
     const existingEvidence = currentTask.evidence?.externalAgentContractV1Implementation as
@@ -268,7 +271,8 @@ async function main() {
   const storedTask = (await db.select().from(aiceoTasksTable)
     .where(eq(aiceoTasksTable.id, result.taskId)).limit(1))[0];
   const evidence = storedTask.evidence?.externalAgentContractV1Implementation as any;
-  assert.equal(storedTask.state, "QUEUED");
+  assert.equal(result.executionContractId, EXPECTED_EXECUTION_CONTRACT_ID, "unexpected recorder execution contract");
+  assert.ok(["QUEUED", "VALIDATING"].includes(storedTask.state));
   assert.equal(evidence.validationStatus, "READY_FOR_INDEPENDENT_VALIDATION");
   assert.equal(evidence.finalClosurePerformed, false);
   assert.equal(evidence.capabilityRegistryGap3Started, false);
@@ -284,7 +288,26 @@ async function main() {
   });
   assert.equal(current.manifestHash, result.manifestHash);
   assert.equal(current.canonicalManifest, evidence.canonicalManifest);
-  console.log(JSON.stringify({ ...result, validationStatus: "READY_FOR_INDEPENDENT_VALIDATION", runId: null }));
+  const finalized = await aiceoControlPlane.finalizeExternalAgentContractV1Recorder({
+    taskId: result.taskId,
+    executionContractId: result.executionContractId,
+    persistentRevision: result.revision,
+    manifestHash: result.manifestHash,
+    governanceDigest: result.governanceDigest ?? evidence.governanceDigest,
+    actorId: ACTOR,
+  });
+  const finalizedContract = await new AiceoExternalAgentContractV1Service().issue({
+    taskId: result.taskId,
+    executionContractId: result.executionContractId,
+    providerAdapter: {
+      adapterId: "implementation-recorder",
+      providerKind: "provider_neutral",
+      declaredCapabilities: ["contract.echo"],
+    },
+  });
+  assert.equal(finalizedContract.manifestHash, result.manifestHash);
+  assert.equal(finalizedContract.canonicalManifest, evidence.canonicalManifest);
+  console.log(JSON.stringify({ ...result, ...finalized, validationStatus: "READY_FOR_INDEPENDENT_VALIDATION", runId: null }));
 }
 
 main().catch((error) => {

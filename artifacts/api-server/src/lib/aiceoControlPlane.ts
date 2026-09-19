@@ -1,8 +1,12 @@
 import { createHash, createHmac, randomUUID } from "node:crypto";
 import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
 import {
+  aiceoAgentRunsTable,
   aiceoAuditEventsTable,
+  aiceoContinuityProjectsTable,
+  aiceoContinuityStateTable,
   aiceoControlStateTable,
+  aiceoExecutionContractsTable,
   aiceoPolicyRegistryTable,
   aiceoSourceRegistryTable,
   aiceoTasksTable,
@@ -39,6 +43,7 @@ const FIXED_VERSION = "ARCH-001";
 const FIXED_AUTHORITY = "grok_restricted_development";
 const TOKEN_USD_RATE = 0.00005;
 const MAX_ATTEMPT_TOKENS = 1024;
+const EXTERNAL_AGENT_CONTRACT_V1_MANIFEST_HASH_DOMAIN = "AICEO_EXTERNAL_AGENT_CONTRACT_V1_MANIFEST\0";
 const FIXED_PERMISSIONS = {
   actions: [...APPROVED_GROK_DEVELOPMENT_ACTIONS],
   resources: ["synthetic", "development-text"],
@@ -51,8 +56,9 @@ const GOVERNANCE_ACCEPTANCE_RED_LINES = [
   "legal_liability",
   "aiceo_system_integrity",
 ] as const;
-export const allowedAiceoTransition = (from: AiceoState, to: AiceoState, diagnosed = false): boolean => (
+export const allowedAiceoTransition = (from: AiceoState, to: AiceoState, diagnosed = false, recorderFinalization = false): boolean => (
   (from === "QUEUED" && ["RUNNING", "CANCELLED"].includes(to))
+  || (from === "QUEUED" && to === "VALIDATING" && recorderFinalization)
   || (from === "RUNNING" && ["VALIDATING", "FAILED", "UNKNOWN", "STALE", "CANCELLED"].includes(to))
   || (from === "VALIDATING" && ["FAILED", "UNKNOWN", "STALE", "CANCELLED"].includes(to))
   || (["FAILED", "UNKNOWN", "STALE"].includes(from) && ["BLOCKED", "CANCELLED"].includes(to) && diagnosed)
@@ -212,6 +218,156 @@ export async function assertAiceoTaskGovernanceAuthorized(
 
 /** PostgreSQL is the sole state authority; this class intentionally has no process-owned state. */
 export class AiceoControlPlane {
+  async finalizeExternalAgentContractV1Recorder(input: {
+    taskId: string;
+    executionContractId: string;
+    persistentRevision: number;
+    manifestHash: string;
+    governanceDigest: string;
+    actorId: string;
+  }) {
+    assertCredentialPersistenceSafe(input, "external-agent-contract-v1-recorder-finalization");
+    return db.transaction(async (tx) => {
+      const task = (await tx.select().from(aiceoTasksTable)
+        .where(eq(aiceoTasksTable.id, input.taskId)).for("update"))[0];
+      const contract = (await tx.select().from(aiceoExecutionContractsTable)
+        .where(eq(aiceoExecutionContractsTable.id, input.executionContractId)).for("update"))[0];
+      const state = contract
+        ? (await tx.select().from(aiceoContinuityStateTable)
+          .where(eq(aiceoContinuityStateTable.projectId, contract.projectId)).for("update"))[0]
+        : null;
+      const project = contract
+        ? (await tx.select().from(aiceoContinuityProjectsTable)
+          .where(eq(aiceoContinuityProjectsTable.id, contract.projectId)).for("update"))[0]
+        : null;
+      const control = (await tx.select().from(aiceoControlStateTable).limit(1).for("update"))[0];
+      const policies = await tx.select().from(aiceoPolicyRegistryTable).orderBy(asc(aiceoPolicyRegistryTable.foundationId));
+      if (!task || !contract || !state || !project || !control) {
+        throw new Error("External Agent Contract V1 recorder finalization binding is missing");
+      }
+      await assertAiceoTaskGovernanceAuthorized(tx, task);
+      const exactFoundations = policies.length === FOUNDATION_COUNT
+        && policies.every((policy, index) =>
+          policy.foundationId === String(index + 1).padStart(3, "0")
+          && policy.frozen
+          && policy.version.trim()
+          && policy.policyHash.trim());
+      if (!exactFoundations) throw new Error("Foundation 001-013 must remain frozen");
+      if (control.killSwitch || control.circuitState !== "CLOSED") {
+        throw new Error("Recorder finalization requires Kill Switch off and Circuit Breaker closed");
+      }
+      if (
+        project.productionAuthority
+        || contract.productionAuthority
+        || task.environment !== "development"
+        || project.environment !== "development"
+        || contract.scope.controlPlaneTaskId !== task.id
+        || contract.scope.operation !== "record_existing_v1_implementation_binding"
+        || contract.continuityRevision !== input.persistentRevision
+        || state.revision !== input.persistentRevision
+        || input.persistentRevision !== 49
+        || contract.status !== "ISSUED"
+        || task.runId
+        || task.providerAttemptId
+        || task.providerAttemptDeadlineAt
+      ) throw new Error("External Agent Contract V1 recorder finalization authority or lifecycle mismatch");
+
+      const evidence = task.evidence?.externalAgentContractV1Implementation as Record<string, unknown> | undefined;
+      if (
+        !evidence
+        || evidence.taskId !== task.id
+        || evidence.executionContractId !== contract.id
+        || evidence.persistentRevision !== input.persistentRevision
+        || evidence.manifestHash !== input.manifestHash
+        || evidence.governanceDigest !== input.governanceDigest
+        || evidence.executionContractStatus !== "ISSUED"
+        || evidence.runId !== null
+        || evidence.validationStatus !== "READY_FOR_INDEPENDENT_VALIDATION"
+        || evidence.finalClosurePerformed !== false
+        || evidence.capabilityRegistryGap3Started !== false
+        || evidence.productionAuthority !== false
+        || typeof evidence.canonicalManifest !== "string"
+        || createHash("sha256")
+          .update(EXTERNAL_AGENT_CONTRACT_V1_MANIFEST_HASH_DOMAIN)
+          .update(evidence.canonicalManifest)
+          .digest("hex") !== input.manifestHash
+      ) throw new Error("External Agent Contract V1 recorder evidence integrity mismatch");
+      const manifest = JSON.parse(evidence.canonicalManifest);
+      if (
+        manifest.productionAuthority !== false
+        || manifest.bindings?.task?.id !== task.id
+        || manifest.bindings?.executionContract?.id !== contract.id
+        || manifest.bindings?.executionContract?.contractHash !== contract.contractHash
+        || manifest.bindings?.run !== null
+        || manifest.bindings?.persistentState?.revision !== input.persistentRevision
+        || manifest.interfaces?.governanceEnvelope?.governanceDigest !== input.governanceDigest
+        || manifest.interfaces?.governanceEnvelope?.ownerProtectionTriadPreserved !== true
+        || manifest.interfaces?.governanceEnvelope?.productionAuthority !== false
+      ) throw new Error("External Agent Contract V1 recorder manifest binding mismatch");
+      const runs = await tx.select({ id: aiceoAgentRunsTable.id }).from(aiceoAgentRunsTable)
+        .where(eq(aiceoAgentRunsTable.contractId, contract.id));
+      if (runs.length) throw new Error("Recorder finalization forbids agent runs");
+      const providerEvents = await tx.select({ id: aiceoAuditEventsTable.id }).from(aiceoAuditEventsTable)
+        .where(and(
+          eq(aiceoAuditEventsTable.taskId, task.id),
+          inArray(aiceoAuditEventsTable.eventType, [
+            "APPROVED", "STARTED", "PROVIDER_ATTEMPT_STARTED", "PROVIDER_RETRY_SCHEDULED",
+            "PROVIDER_SETTLED", "PROVIDER_INCIDENT",
+          ]),
+        ));
+      if (providerEvents.length) throw new Error("Recorder finalization forbids provider execution audit");
+      const finalized = await tx.select().from(aiceoAuditEventsTable).where(and(
+        eq(aiceoAuditEventsTable.taskId, task.id),
+        eq(aiceoAuditEventsTable.eventType, "RECORDER_FINALIZED"),
+      ));
+      if (task.state === "VALIDATING") {
+        if (
+          finalized.length !== 1
+          || !auditHashIsValid(finalized[0])
+          || finalized[0].actorId !== safe(input.actorId, 180)
+          || finalized[0].payload.manifestHash !== input.manifestHash
+          || finalized[0].payload.governanceDigest !== input.governanceDigest
+        ) throw new Error("Recorder finalization audit provenance is invalid");
+        return { taskId: task.id, state: "VALIDATING" as const, alreadyFinalized: true };
+      }
+      if (
+        task.state !== "QUEUED"
+        || finalized.length
+        || !allowedAiceoTransition(task.state as AiceoState, "VALIDATING", false, true)
+      ) throw new Error("Recorder task is not eligible for finalization");
+      const active = await tx.select({ id: aiceoTasksTable.id }).from(aiceoTasksTable)
+        .where(inArray(aiceoTasksTable.state, ["RUNNING", "VALIDATING"]));
+      if (active.length) throw new Error("Another AICEO task is active");
+      const timestamp = new Date();
+      await tx.update(aiceoTasksTable).set({ state: "VALIDATING", updatedAt: timestamp })
+        .where(eq(aiceoTasksTable.id, task.id));
+      const auditEvent = await this.audit(tx, {
+        taskId: task.id,
+        correlationId: task.correlationId,
+        type: "RECORDER_FINALIZED",
+        state: "VALIDATING",
+        actorId: input.actorId,
+        details: {
+          persistentRevision: input.persistentRevision,
+          executionContractId: contract.id,
+          manifestHash: input.manifestHash,
+          governanceDigest: input.governanceDigest,
+          validationStatus: "READY_FOR_INDEPENDENT_VALIDATION",
+          providerExecution: false,
+          finalClosurePerformed: false,
+          capabilityRegistryGap3Started: false,
+          productionAuthority: false,
+        },
+      });
+      return {
+        taskId: task.id,
+        state: "VALIDATING" as const,
+        alreadyFinalized: false,
+        auditEventHash: auditEvent.eventHash,
+      };
+    }).catch((error) => { throw fail(error); });
+  }
+
   async selfCheck() {
     const [source, policies, controls] = await Promise.all([
       db.select().from(aiceoSourceRegistryTable).where(eq(aiceoSourceRegistryTable.catalogId, "connector_catalog:xai")),

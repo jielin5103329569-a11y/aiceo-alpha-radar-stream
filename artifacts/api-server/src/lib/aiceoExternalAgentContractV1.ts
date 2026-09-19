@@ -288,6 +288,11 @@ function buildExternalAgentContractV1(
     input.task.state === "VALIDATING"
       && input.executionContract.status === "AWAITING_VERIFICATION"
       && input.run?.state === "AWAITING_VERIFICATION"
+  ) || (
+    input.task.state === "VALIDATING"
+      && input.executionContract.status === "ISSUED"
+      && input.run === null
+      && input.executionContract.scope.operation === "record_existing_v1_implementation_binding"
   );
   if (!coherentLifecycle) {
     throw new Error("External Agent Contract V1 task/contract/run lifecycle mismatch");

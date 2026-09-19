@@ -37,3 +37,4 @@
 - [Pre-classification memory inbox](preclassification-memory-inbox.md) — Preserve high-value raw ideas as sealed non-authoritative provenance roots until scientific classification is ready.
 - [Context authority continuity](context-authority-continuity.md) — External ingress is candidate evidence only; verified Persistent State and Resume Node decide recovery.
 - [Credential persistence boundary](credential-persistence-boundary.md) — Reject credential-bearing inputs, redact provider data, and keep an independent database guard on every AICEO table.
+- [Recorder finalization lifecycle](recorder-finalization-lifecycle.md) — Provider-free recorders enter VALIDATING through a dedicated atomic path without fabricating runs or changing immutable V1 bindings.

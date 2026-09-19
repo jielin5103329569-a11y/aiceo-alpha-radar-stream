@@ -142,6 +142,27 @@ async function main() {
     }) as any,
   });
   await assert.rejects(lifecycleMismatch.issue(request), /lifecycle mismatch/);
+  const recorderAwaitingValidation = new AiceoExternalAgentContractV1Service({
+    load: async () => ({
+      ...structuredClone(serverState),
+      task: { ...serverState.task, state: "VALIDATING" },
+      executionContract: {
+        ...serverState.executionContract,
+        status: "ISSUED",
+        scope: {
+          controlPlaneTaskId: "task-1",
+          operation: "record_existing_v1_implementation_binding",
+        },
+      },
+      run: null,
+    }) as any,
+  });
+  const recorderContract = await recorderAwaitingValidation.issue({
+    ...request,
+    runId: undefined,
+  });
+  assert.equal(recorderContract.validationStatus, "READY_FOR_INDEPENDENT_VALIDATION");
+  assert.equal(recorderContract.manifest.bindings.run, null);
   await assert.rejects(
     service.issue({
       ...request,
