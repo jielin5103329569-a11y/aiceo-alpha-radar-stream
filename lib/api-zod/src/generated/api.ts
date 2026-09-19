@@ -71,7 +71,6 @@ export const resumeAiceoContinuityBodyAliasMax = 120;
 export const resumeAiceoContinuityBodyExternalContextClaimedRevisionMultipleOf = 1;
 
 
-
 export const ResumeAiceoContinuityBody = zod.object({
   "alias": zod.string().min(1).max(resumeAiceoContinuityBodyAliasMax),
   "externalContext": zod.object({
@@ -130,7 +129,6 @@ export const retrieveAiceoMemoryCandidatesBodyScanLimitMultipleOf = 1;
 export const retrieveAiceoMemoryCandidatesBodyClaimedPersistentRevisionMultipleOf = 1;
 
 export const retrieveAiceoMemoryCandidatesBodyClaimedResumeNodeMax = 180;
-
 
 
 export const RetrieveAiceoMemoryCandidatesBody = zod.object({
@@ -286,9 +284,6 @@ export const RecordAiceoContinuityStateResponse = zod.unknown()
 export const GetAiceoCollaborationLoopResponse = zod.unknown()
 
 
-
-
-
 export const CaptureAiceoCollaborationIssueBody = zod.object({
   "category": zod.enum(['communication_bottleneck', 'execution_friction', 'repeated_error', 'capability_gap', 'owner_time_waste', 'incorrect_pause', 'continuity_problem', 'other']),
   "summary": zod.string(),
@@ -297,9 +292,6 @@ export const CaptureAiceoCollaborationIssueBody = zod.object({
 })
 
 export const CaptureAiceoCollaborationIssueResponse = zod.unknown()
-
-
-
 
 
 export const ProposeAiceoCollaborationRuleBody = zod.object({
@@ -321,8 +313,6 @@ export const ProposeAiceoCollaborationRuleResponse = zod.unknown()
 export const ValidateAiceoCollaborationRuleParams = zod.object({
   "id": zod.coerce.string()
 })
-
-
 
 
 export const ValidateAiceoCollaborationRuleBody = zod.object({
@@ -407,7 +397,6 @@ export const submitAiceoTaskBodyMaxRetriesMin = 0;
 export const submitAiceoTaskBodyMaxRetriesMax = 2;
 
 
-
 export const SubmitAiceoTaskBody = zod.object({
   "action": zod.string().min(1).max(submitAiceoTaskBodyActionMax),
   "resource": zod.string().min(1).max(submitAiceoTaskBodyResourceMax),
@@ -436,6 +425,14 @@ export const SubmitAiceoTaskResponse = zod.object({
   "ownerGovernanceApprovedAt": zod.coerce.date().nullish(),
   "ownerGovernanceApprovedBy": zod.string().nullish(),
   "ownerGovernanceApprovalHash": zod.string().nullish()
+})
+
+export const ValidateAiceoCollaborationRuleParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const ValidateAiceoCollaborationRuleParams = zod.object({
+  "id": zod.coerce.string()
 })
 
 
@@ -816,7 +813,6 @@ export const getRadarStatusResponseSectorPriorityCoverageClassifiedLiveSymbolsMi
 export const getRadarStatusResponseSectorPriorityCoverageRankedSectorCountMin = 0;
 
 
-
 export const getRadarStatusResponseSectorPrioritySectorsItemStrengthMin = 0;
 export const getRadarStatusResponseSectorPrioritySectorsItemStrengthMax = 100;
 
@@ -923,7 +919,6 @@ export const getRadarStatusResponseSectorPriorityWithheldCandidatesItemLatentSco
 
 export const getRadarStatusResponseSectorPriorityWithheldCandidatesItemBreakoutCriticalScoreMin = 0;
 export const getRadarStatusResponseSectorPriorityWithheldCandidatesItemBreakoutCriticalScoreMax = 100;
-
 
 
 export const GetRadarStatusResponse = zod.object({
@@ -2133,7 +2128,6 @@ export const getResearchSidecarResponseResonancesItemSourceLanesMin = 2;
 export const getResearchSidecarResponseResonancesItemSourceLanesMax = 2;
 
 
-
 export const GetResearchSidecarResponse = zod.object({
   "status": zod.enum(['ready', 'degraded']),
   "generatedAt": zod.coerce.date(),
@@ -2201,7 +2195,6 @@ export const getResearchSidecarSnapshotResponseResonancesItemSourceLanesMin = 2;
 export const getResearchSidecarSnapshotResponseResonancesItemSourceLanesMax = 2;
 
 
-
 export const GetResearchSidecarSnapshotResponse = zod.object({
   "status": zod.enum(['ready', 'degraded']),
   "generatedAt": zod.coerce.date(),
@@ -2267,16 +2260,13 @@ export const getResearchSidecarHistoryQueryLimitDefault = 50;
 export const getResearchSidecarHistoryQueryLimitMax = 100;
 
 
-
 export const GetResearchSidecarHistoryQueryParams = zod.object({
   "limit": zod.coerce.number().int().min(1).max(getResearchSidecarHistoryQueryLimitMax).default(getResearchSidecarHistoryQueryLimitDefault)
 })
 
 
-
 export const getResearchSidecarHistoryResponseResonancesItemSourceLanesMin = 2;
 export const getResearchSidecarHistoryResponseResonancesItemSourceLanesMax = 2;
-
 
 
 export const GetResearchSidecarHistoryResponse = zod.object({
@@ -2342,11 +2332,6 @@ export const GetResearchSidecarHistoryResponse = zod.object({
  */
 
 
-
-
-
-
-
 export const AppendResearchObservationBody = zod.object({
   "sourceLane": zod.enum(['alex_moonvest', 'serenity']),
   "source": zod.string().min(1),
@@ -2375,10 +2360,8 @@ export const AppendResearchObservationBody = zod.object({
 })
 
 
-
 export const appendResearchObservationResponseResonancesItemSourceLanesMin = 2;
 export const appendResearchObservationResponseResonancesItemSourceLanesMax = 2;
-
 
 
 export const AppendResearchObservationResponse = zod.object({
@@ -2446,7 +2429,6 @@ export const getEngineeringGovernanceResponseHealthScoreMax = 100;
 export const getEngineeringGovernanceResponseTaskQueueActiveSlotsMin = 0;
 
 
-
 export const getEngineeringGovernanceResponseTaskExecutionRegisteredCountMin = 0;
 
 export const getEngineeringGovernanceResponseTaskExecutionPlannedCountMin = 0;
@@ -2488,7 +2470,6 @@ export const getEngineeringGovernanceResponseRuntimeProtectedScannerCountMin = 0
 export const getEngineeringGovernanceResponseRuntimeDelayedScannerCountMin = 0;
 
 export const getEngineeringGovernanceResponseRuntimeDuplicateSymbolCountMin = 0;
-
 
 
 export const GetEngineeringGovernanceResponse = zod.object({
@@ -2687,7 +2668,6 @@ export const getBackendLifelineResponseSymbolsItemHeartbeatAgeMsMin = 0;
 export const getBackendLifelineResponseSymbolsItemMarketEventAgeMsMin = 0;
 
 
-
 export const GetBackendLifelineResponse = zod.object({
   "schemaVersion": zod.literal(2),
   "observedAt": zod.coerce.date(),
@@ -2874,7 +2854,6 @@ export const getRuntimeSupervisorResponseRecoveryActiveAttemptsMin = 0;
 export const getRuntimeSupervisorResponseIncidentsItemRecoveryAttemptsMin = 0;
 
 
-
 export const GetRuntimeSupervisorResponse = zod.object({
   "schemaVersion": zod.literal(1),
   "observedAt": zod.coerce.date(),
@@ -2933,12 +2912,9 @@ export const getRuntimeSupervisorIncidentsQueryLimitDefault = 20;
 export const getRuntimeSupervisorIncidentsQueryLimitMax = 100;
 
 
-
 export const GetRuntimeSupervisorIncidentsQueryParams = zod.object({
   "limit": zod.coerce.number().min(1).max(getRuntimeSupervisorIncidentsQueryLimitMax).default(getRuntimeSupervisorIncidentsQueryLimitDefault)
 })
-
-
 
 
 export const GetRuntimeSupervisorIncidentsResponseItem = zod.object({
@@ -3194,7 +3170,6 @@ export const getMarketUniverseQueryOffsetDefault = 0;
 export const getMarketUniverseQueryOffsetMin = 0;
 
 
-
 export const GetMarketUniverseQueryParams = zod.object({
   "search": zod.coerce.string().max(getMarketUniverseQuerySearchMax).optional(),
   "eligibility": zod.enum(['eligible', 'ineligible', 'all']).default(getMarketUniverseQueryEligibilityDefault),
@@ -3227,7 +3202,6 @@ export const getMarketUniverseResponseTotalMin = 0;
 
 
 export const getMarketUniverseResponseOffsetMin = 0;
-
 
 
 export const GetMarketUniverseResponse = zod.object({
@@ -3308,7 +3282,6 @@ export const getAiIndustryPoolResponseRemainingEstimateMin = 0;
 export const getAiIndustryPoolResponseMembersMax = 40;
 
 
-
 export const GetAiIndustryPoolResponse = zod.object({
   "strategyVersion": zod.string(),
   "generatedAt": zod.coerce.date(),
@@ -3364,7 +3337,6 @@ export const getFocusedScanStatusResponseActiveScansItemIndependentEvidenceCount
 export const getFocusedScanStatusResponseCandidatesItemIndependentEvidenceCountMin = 0;
 
 
-
 export const GetFocusedScanStatusResponse = zod.object({
   "state": zod.enum(['unavailable', 'blocked', 'ready', 'scanning']),
   "reason": zod.string(),
@@ -3418,7 +3390,6 @@ export const getCatalystRadarResponseSourceCountMin = 0;
 export const getCatalystRadarResponseAvailableSourceCountMin = 0;
 
 
-
 export const GetCatalystRadarResponse = zod.object({
   "generatedAt": zod.coerce.date(),
   "eventState": zod.enum(['unavailable', 'observed']),
@@ -3464,7 +3435,6 @@ export const GetCatalystRadarResponse = zod.object({
 export const getOpportunityCenterResponseOpportunitiesItemEvidenceCountMin = 0;
 
 export const getOpportunityCenterResponseOpportunitiesItemSectorConfirmationFreshEligiblePeerCountMin = 0;
-
 
 
 export const GetOpportunityCenterResponse = zod.object({
@@ -3533,7 +3503,6 @@ export const getSignalValidationQueryLimitDefault = 20;
 export const getSignalValidationQueryLimitMax = 100;
 
 
-
 export const GetSignalValidationQueryParams = zod.object({
   "state": zod.enum(['watch', 'latent', 'breakout_critical', 'confirmed']).optional(),
   "sector": zod.coerce.string().max(getSignalValidationQuerySectorMax).optional(),
@@ -3549,7 +3518,6 @@ export const getSignalValidationResponseTotalSignalsMin = 0;
 
 
 export const getSignalValidationResponseSignalsItemEvidenceCountMin = 0;
-
 
 
 export const GetSignalValidationResponse = zod.object({
@@ -3644,14 +3612,12 @@ export const GetSignalValidationResponse = zod.object({
  */
 
 
-
 export const GetSignalValidationAuditParams = zod.object({
   "signalId": zod.coerce.string().min(1)
 })
 
 
 export const getSignalValidationAuditResponseSignalEvidenceCountMin = 0;
-
 
 
 export const GetSignalValidationAuditResponse = zod.object({
@@ -3755,7 +3721,6 @@ export const getShadowLearningValidationResponseLearningEvolutionActivitiesItemS
 export const getShadowLearningValidationResponseLearningEvolutionStageScoresItemSampleSizeMin = 0;
 
 export const getShadowLearningValidationResponseLearningEvolutionStageScoresItemFeatureCountMin = 0;
-
 
 
 export const GetShadowLearningValidationResponse = zod.object({
@@ -3921,7 +3886,6 @@ export const getAlertsQueryLimitDefault = 50;
 export const getAlertsQueryLimitMax = 100;
 
 
-
 export const GetAlertsQueryParams = zod.object({
   "limit": zod.coerce.number().int().min(1).max(getAlertsQueryLimitMax).default(getAlertsQueryLimitDefault)
 })
@@ -3929,7 +3893,6 @@ export const GetAlertsQueryParams = zod.object({
 export const getAlertsResponseAlertsItemSectorLeaderContextOneLeadersItemRankMax = 5;
 
 export const getAlertsResponseAlertsItemSectorLeaderContextOneLeadersMax = 5;
-
 
 
 export const GetAlertsResponse = zod.object({
@@ -4046,7 +4009,6 @@ export const GetPushCapabilityResponse = zod.union([zod.object({
 export const getPushSubscriptionStatusResponseActiveSubscriptionCountMin = 0;
 
 
-
 export const GetPushSubscriptionStatusResponse = zod.object({
   "capability": zod.union([zod.object({
   "available": zod.literal(true),
@@ -4069,7 +4031,6 @@ export const GetPushSubscriptionStatusResponse = zod.object({
 export const createPushSubscriptionBodyDeviceLabelMax = 120;
 
 
-
 export const CreatePushSubscriptionBody = zod.object({
   "endpoint": zod.string(),
   "keys": zod.object({
@@ -4085,7 +4046,6 @@ export const CreatePushSubscriptionResponse = zod.void()
 /**
  * @summary Deactivate the current browser subscription by its endpoint
  */
-
 
 
 export const DeleteCurrentPushSubscriptionBody = zod.object({
@@ -4114,3 +4074,22 @@ export const SendAlertTestNotificationResponse = zod.object({
 })
 
 
+export const ExecuteAiceoTaskResponse = zod.object({
+  "id": zod.string(),
+  "correlationId": zod.string(),
+  "state": zod.enum(['QUEUED', 'RUNNING', 'VALIDATING', 'COMPLETED', 'FAILED', 'UNKNOWN', 'STALE', 'BLOCKED', 'CANCELLED']),
+  "action": zod.string(),
+  "resource": zod.string(),
+  "authority": zod.string(),
+  "environment": zod.string(),
+  "contractVersion": zod.string(),
+  "contractHash": zod.string()
+})
+
+export const RecordAiceoContinuityStateResponse = zod.unknown()
+
+export const ExecuteAiceoTaskParams = zod.object({
+  "id": zod.coerce.string()
+})
+
+export const RecordAiceoContinuityStateResponse = zod.unknown()

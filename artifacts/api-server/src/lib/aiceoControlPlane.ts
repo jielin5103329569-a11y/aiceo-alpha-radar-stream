@@ -1,5 +1,5 @@
 import { createHash, createHmac, randomUUID } from "node:crypto";
-import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, sql } from "drizzle-orm";
 import {
   aiceoAgentRunsTable,
   aiceoAuditEventsTable,
@@ -60,7 +60,7 @@ const GOVERNANCE_ACCEPTANCE_RED_LINES = [
 export const allowedAiceoTransition = (from: AiceoState, to: AiceoState, diagnosed = false, recorderFinalization = false): boolean => (
   (from === "QUEUED" && ["RUNNING", "CANCELLED"].includes(to))
   || (from === "QUEUED" && to === "VALIDATING" && recorderFinalization)
-  || (from === "RUNNING" && ["VALIDATING", "FAILED", "UNKNOWN", "STALE", "CANCELLED"].includes(to))
+  || (from === "RUNNING" && ["VALIDATING", "FAILED", "UNKNOWN", "STALE"].includes(to))
   || (from === "VALIDATING" && ["FAILED", "UNKNOWN", "STALE", "CANCELLED"].includes(to))
   || (["FAILED", "UNKNOWN", "STALE"].includes(from) && ["BLOCKED", "CANCELLED"].includes(to) && diagnosed)
 );
@@ -544,9 +544,22 @@ export class AiceoControlPlane {
       const estimatedTokens = input.budget?.estimatedTokens ?? defaultTokens, estimatedCalls = input.budget?.estimatedCalls ?? requiredCalls, estimatedUsd = input.budget?.estimatedUsd ?? requiredUsd;
       if (estimatedTokens < defaultTokens || estimatedCalls < requiredCalls || estimatedUsd < requiredUsd) throw new Error("ARCH-001 reservation must cover the maximum usage of all attempts");
       if (estimatedTokens > 4096 || estimatedCalls > 4 || estimatedUsd > 0.25) throw new Error("ARCH-001 per-task development budget exceeded");
-      const totals = await tx.select({ budget: aiceoTasksTable.budget }).from(aiceoTasksTable).where(inArray(aiceoTasksTable.state, ["QUEUED", "RUNNING", "VALIDATING"]));
-      const totalTokens = totals.reduce((sum, item) => sum + Number(item.budget.reservedTokens ?? 0), 0);
+      const [activeTotals, rollingTotals] = await Promise.all([
+        tx.select({ budget: aiceoTasksTable.budget }).from(aiceoTasksTable).where(inArray(aiceoTasksTable.state, ["QUEUED", "RUNNING", "VALIDATING"])),
+        tx.select({ budget: aiceoTasksTable.budget }).from(aiceoTasksTable).where(gte(aiceoTasksTable.createdAt, new Date(Date.now() - ROLLING_RESERVATION_WINDOW_MS))),
+      ]);
+      const totalTokens = activeTotals.reduce((sum, item) => sum + Number(item.budget.reservedTokens ?? 0), 0);
       if (totalTokens + estimatedTokens > 8192) throw new Error("ARCH-001 aggregate token budget exceeded");
+      const rolling = rollingTotals.reduce((sum, item) => ({
+        tokens: sum.tokens + Number(item.budget.reservedTokens ?? 0),
+        calls: sum.calls + Number(item.budget.reservedCalls ?? 0),
+        usd: sum.usd + Number(item.budget.reservedUsd ?? 0),
+      }), { tokens: 0, calls: 0, usd: 0 });
+      if (
+        rolling.tokens + estimatedTokens > ROLLING_TOKEN_CAP
+        || rolling.calls + estimatedCalls > ROLLING_CALL_CAP
+        || rolling.usd + estimatedUsd > ROLLING_USD_CAP
+      ) throw new Error("ARCH-001 rolling 24-hour reservation budget exceeded");
       const id = randomUUID(), correlationId = randomUUID(), timestamp = new Date();
       const task = { id, correlationId, runId: null, sourceId: source.id, policyId: policies[0].id, state: "QUEUED" as const, action: safe(input.action, 120), resource: safe(input.resource, 180), permissions: FIXED_PERMISSIONS, contractVersion: FIXED_VERSION, contractHash: expectedContractHash(), environment, authority: FIXED_AUTHORITY, governanceClassification: governance.classification, ownerProtectionRedLines: governance.redLines, ownerGovernanceApprovedAt: null, ownerGovernanceApprovedBy: null, ownerGovernanceApprovalHash: null, evidence: null, budget: { estimatedTokens, reservedTokens: 0, actualTokens: 0, estimatedCalls, reservedCalls: 0, actualCalls: 0, estimatedUsd: String(estimatedUsd), reservedUsd: "0", actualUsd: "0" }, timeoutMs: Math.min(input.timeoutMs ?? 10_000, 30_000), maxRetries, retryCount: 0, serverTimestamp: timestamp, clientTimestamp: input.clientTimestamp ? new Date(input.clientTimestamp) : null, createdAt: timestamp, updatedAt: timestamp };
       await tx.insert(aiceoTasksTable).values(task);
@@ -781,6 +794,17 @@ export class AiceoControlPlane {
         const active = await tx.select({ budget: aiceoTasksTable.budget }).from(aiceoTasksTable).where(inArray(aiceoTasksTable.state, ["RUNNING", "VALIDATING"]));
         const sums = active.reduce((total, row) => ({ tokens: total.tokens + Number(row.budget.reservedTokens ?? 0), calls: total.calls + Number(row.budget.reservedCalls ?? 0), usd: total.usd + Number(row.budget.reservedUsd ?? 0) }), { tokens: 0, calls: 0, usd: 0 });
         if (sums.tokens + Number(task.budget.estimatedTokens) > control.aggregateTokenCap || sums.calls + Number(task.budget.estimatedCalls) > control.aggregateCallCap || sums.usd + Number(task.budget.estimatedUsd) > Number(control.aggregateUsdCap)) throw new Error("ARCH-001 aggregate reservation budget exceeded");
+        const recent = await tx.select({ budget: aiceoTasksTable.budget }).from(aiceoTasksTable).where(gte(aiceoTasksTable.createdAt, new Date(Date.now() - ROLLING_RESERVATION_WINDOW_MS)));
+        const rolling = recent.reduce((total, row) => ({
+          tokens: total.tokens + Number(row.budget.reservedTokens ?? 0),
+          calls: total.calls + Number(row.budget.reservedCalls ?? 0),
+          usd: total.usd + Number(row.budget.reservedUsd ?? 0),
+        }), { tokens: 0, calls: 0, usd: 0 });
+        if (
+          rolling.tokens + Number(task.budget.estimatedTokens) > ROLLING_TOKEN_CAP
+          || rolling.calls + Number(task.budget.estimatedCalls) > ROLLING_CALL_CAP
+          || rolling.usd + Number(task.budget.estimatedUsd) > ROLLING_USD_CAP
+        ) throw new Error("ARCH-001 rolling 24-hour run reservation budget exceeded");
         const runId = randomUUID();
         await tx.update(aiceoTasksTable).set({ state, runId, budget: sql`jsonb_set(jsonb_set(jsonb_set(${aiceoTasksTable.budget}, '{reservedTokens}', to_jsonb((${aiceoTasksTable.budget}->>'estimatedTokens')::int)), '{reservedCalls}', to_jsonb((${aiceoTasksTable.budget}->>'estimatedCalls')::int)), '{reservedUsd}', to_jsonb((${aiceoTasksTable.budget}->>'estimatedUsd')::numeric))`, updatedAt: new Date() }).where(eq(aiceoTasksTable.id, id));
         await this.audit(tx, { taskId: id, correlationId: task.correlationId, runId, type: "STARTED", state, actorId }); return { ...task, state, runId };
@@ -838,3 +862,11 @@ export class AiceoControlPlane {
   async diagnose(id: string, resolution: "BLOCKED" | "CANCELLED", actorId: string, evidence: Record<string, unknown>) { return this.transition(id, resolution, actorId, { ...evidence, diagnosis: true }); }
 }
 export const aiceoControlPlane = new AiceoControlPlane();
+
+const ROLLING_RESERVATION_WINDOW_MS = 24 * 60 * 60_000;
+
+const ROLLING_TOKEN_CAP = 32_768;
+
+const ROLLING_USD_CAP = 1;
+
+const ROLLING_CALL_CAP = 32;
