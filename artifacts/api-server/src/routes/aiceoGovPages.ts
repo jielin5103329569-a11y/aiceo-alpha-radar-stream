@@ -52,11 +52,13 @@ export const aiceoGovLoginPage = () => page(
     <p>This isolated page uses the project's existing Clerk session. Governance data remains unavailable without an authenticated user holding only the <strong>aiceo_validator</strong> role.</p>
     <div id="status" class="status info">Checking Clerk session…</div>
     <div class="actions">
-      <a id="sign-in" href="/sign-in?redirect_url=%2Fgov%2Ftasks%2F73">Sign in with Clerk</a>
+      <a id="sign-in" href="/sign-in">Sign in with Clerk</a>
       <a id="open-task" class="secondary" href="/gov/tasks/73" hidden>Open Task 73</a>
     </div>
   </main>`,
   `
+    document.getElementById("sign-in").href = "/sign-in?redirect_url="
+      + encodeURIComponent(window.location.origin + "/gov/sso-callback");
     fetch("/gov/me", { headers: { Accept: "application/json" }, credentials: "same-origin" })
       .then(async (response) => {
         if (!response.ok) throw new Error("Sign in with an exclusive aiceo_validator role to continue.");

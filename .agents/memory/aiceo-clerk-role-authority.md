@@ -26,3 +26,9 @@ For Development-only identity acceptance, Replit-managed Clerk's `+clerk_test` e
 **Why:** A real mailbox verification was blocked by delivery, while the official test identity completed verification without weakening user separation or consuming Development email quota.
 
 **How to apply:** Reserve it for Development. The human still controls the password/session and final Owner approval; assign exactly one role only after verifying the new Clerk user is distinct from operator and validator.
+
+Public governance HTML and Clerk's final return route may need to run before Express Clerk middleware, while every identity/data/mutation request remains behind it.
+
+**Why:** On Replit Development domains, middleware can start a dev-browser handshake redirect loop before public HTML loads. Relative post-sign-in return targets can also fall into the wrong client router.
+
+**How to apply:** Serve only inert HTML shells and an explicit same-origin callback before Clerk middleware. Build the callback URL from `window.location.origin`; redirect it to the governance page, whose JSON and mutation calls remain Clerk-protected.

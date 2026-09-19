@@ -272,6 +272,10 @@ aiceoGovPublicRouter.get("/login", (_req, res) => {
   res.type("html").send(aiceoGovLoginPage());
 });
 
+aiceoGovPublicRouter.get("/sso-callback", (_req, res) => {
+  res.redirect(303, "/gov/tasks/73");
+});
+
 aiceoGovPublicRouter.get("/tasks/73", (req, res, next) => {
   if (req.accepts(["html", "json"]) !== "html") {
     next();
