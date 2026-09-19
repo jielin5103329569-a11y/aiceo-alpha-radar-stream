@@ -212,6 +212,12 @@ try {
   const lifecycleSource = readFileSync(resolve("artifacts/api-server/src/lib/serverLifecycle.ts"), "utf8");
   assert.match(indexSource, /backendLifeline\.owner\.claim\(port\)/);
   assert.match(indexSource, /EADDRINUSE/);
+  assert.match(indexSource, /probeExistingApiSingleton\(port\)/);
+  assert.match(indexSource, /8080 already claimed by healthy singleton; skip bind/);
+  assert.match(indexSource, /API listener port is occupied by an unverified process; refusing to bind or terminate it/);
+  assert.match(lifecycleSource, /health\.ownerPid === ownerPid/);
+  assert.match(lifecycleSource, /health\.singleton === true/);
+  assert.match(lifecycleSource, /occupants\.length !== 1/);
   assert.match(indexSource, /process\.once\("SIGTERM"/);
   assert.match(indexSource, /createGracefulShutdown/);
   assert.match(indexSource, /closeEventStreams: \(reason\) => radarSseConnections\.closeAll\(reason\)/);

@@ -7,4 +7,4 @@ A workflow reported as failed can still retain ownership of a live incumbent pro
 
 **Why:** Stopping a failed API workflow terminated the healthy incumbent listener that had caused a duplicate restart attempt to fail with EADDRINUSE.
 
-**How to apply:** Before stopping a failed workflow, inspect its process and port ownership. If the incumbent is healthy, preserve it or plan an immediate managed restart rather than treating the failed status as detached.
+**How to apply:** Before stopping a failed workflow, inspect its process and port ownership. If the incumbent is healthy, preserve it. API boot must treat exactly one listener with a matching singleton health identity and owner PID as an idempotent success; foreign, ambiguous, or unhealthy ownership fails closed without binding or termination.

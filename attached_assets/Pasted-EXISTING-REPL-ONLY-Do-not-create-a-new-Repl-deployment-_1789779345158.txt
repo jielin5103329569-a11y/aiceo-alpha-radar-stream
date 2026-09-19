@@ -1,0 +1,45 @@
+EXISTING REPL ONLY. Do not create a new Repl, deployment, or host. Keep the healthy API on port 8080. Do not kill the incumbent listener unless you have first proven it is NOT our API.
+
+FACTS (do not re-investigate Recorder / AICEO lifecycle — already PASS):
+- Real API is healthy on 8080. Listener count = 1. Owner PID recently 2889.
+- Replit Workflow Control Plane shows "API Server Workflow: FAILED" with EADDRINUSE.
+- Log meaning: "Backend lifeline could not claim its managed listener port port:8080 incumbentPid:<api-pid>"
+- Cause: Managed Workflow Launcher started a SECOND API process after 8080 was already bound by the first. Second process exited. First process kept serving.
+- Also RUNNING (Replit-managed, NOT spawned by AICEO app code): "Alpha Radar Stream" (~18520) and "Mockup Sandbox" (~8081). Do not treat them as children of the API. Do not add startWorkflow/restartWorkflow/child_process launches for them.
+
+GOAL:
+Make the API workflow idempotent so Control Plane matches reality:
+  already-healthy singleton on 8080 = SUCCESS, not FAILED.
+Never bind 8080 twice. Never start a second API.
+
+DO THIS IN ORDER:
+
+1) Inspect only: .replit, replit.toml if present, .replit-related workflow config, package scripts that start the API. Find the exact command the "API Server" managed workflow runs.
+
+2) Add / tighten a pre-listen claim gate in the API boot path (same existing 8080 process, no new service):
+   - Before listen(8080): check who owns 8080.
+   - If 8080 has exactly one listener AND healthz on that listener returns healthy AND it is our API singleton: print "8080 already claimed by healthy singleton; skip bind" and exit 0 (or skip listen and keep the existing process — do NOT throw EADDRINUSE).
+   - If 8080 is empty: bind once, record ownerPid, healthz must pass.
+   - If 8080 is owned by a foreign process: fail closed, do not kill it blindly, log owner pid/cmd.
+   Keep productionAuthority=false. No new workflows.
+
+3) Control-plane hygiene (same Repl):
+   - Do NOT kill the healthy 8080 owner to "clear" FAILED.
+   - Stop/cancel only the FAILED duplicate API workflow launch if it is a zombie control-plane entry.
+   - Leave "Alpha Radar Stream" and "Mockup Sandbox" running unless they are also trying to bind 8080 (they must not).
+   - Disable any "on preview / on recover / on agent" auto-relaunch of API Server if the config allows a one-line guard. If the platform cannot disable the trigger, the exit-0-when-already-healthy gate is the fix.
+
+4) Tests on existing 8080 only:
+   - ss/lsof: exactly 1 listener on 8080.
+   - GET /healthz (or existing health endpoint) 200 from that process.
+   - singleton/ownerPid consistent with current listener.
+   - Simulate second boot: second invocation must NOT EADDRINUSE-crash; must report already-claimed and leave listener=1.
+   - Confirm Stream stays on its own port, Mockup on 8081, neither binds 8080.
+
+5) Output only:
+   - files changed
+   - current 8080 ownerPid + listener count
+   - healthz result
+   - second-boot result (must be skip/success, not FAILED bind)
+   - whether Control Plane still says FAILED after the idempotent boot (platform limit vs our gate)
+Do not emit Task plan cards. Do not add Alerts/V2/catalyst. Do not change ports. Do not start a new workflow or host.

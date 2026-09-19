@@ -15,7 +15,7 @@ import { autonomousOperationsCoordinator } from "./lib/autonomousOperationsRunti
 import { aiIndustryStockPool } from "./lib/aiIndustryStockPool";
 import type { AutonomousWorkDefinition } from "./lib/autonomousOperationsCoordinator";
 import { buildEngineeringGovernanceSnapshot } from "./lib/engineeringGovernance";
-import { createGracefulShutdown, inspectListeningPort } from "./lib/serverLifecycle";
+import { createGracefulShutdown, inspectListeningPort, probeExistingApiSingleton } from "./lib/serverLifecycle";
 import { secEdgarCatalyst } from "./lib/secEdgarCatalyst";
 import { scanRecorder } from "./lib/scanRecorder";
 import { aiceoControlPlane } from "./lib/aiceoControlPlane";
@@ -32,6 +32,26 @@ const port = Number(rawPort);
 
 if (!Number.isInteger(port) || port <= 0 || port > 65_535) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
+}
+
+const existingApi = await probeExistingApiSingleton(port);
+if (existingApi.state === "healthy-singleton") {
+  logger.info(
+    { port, ownerPid: existingApi.ownerPid, command: existingApi.occupant.command },
+    "8080 already claimed by healthy singleton; skip bind",
+  );
+  process.exit(0);
+}
+if (existingApi.state === "occupied") {
+  logger.error(
+    {
+      port,
+      reason: existingApi.reason,
+      occupants: existingApi.occupants.map(({ pid, command, raw }) => ({ pid, command, raw })),
+    },
+    "API listener port is occupied by an unverified process; refusing to bind or terminate it",
+  );
+  process.exit(1);
 }
 
 let server: Server | null = null;

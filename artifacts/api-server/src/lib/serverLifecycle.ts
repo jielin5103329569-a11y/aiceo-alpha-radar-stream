@@ -1,4 +1,5 @@
 import type { Server } from "node:http";
+import { request } from "node:http";
 import type { Socket } from "node:net";
 import { spawnSync } from "node:child_process";
 
@@ -8,28 +9,102 @@ export type ListeningPortOccupant = {
   readonly raw: string;
 };
 
-/**
- * Best-effort diagnostics for an incumbent listener. This never attempts to
- * stop the incumbent or retry the bind; it only provides context before the
- * duplicate process exits.
- */
-export function inspectListeningPort(port: number): ListeningPortOccupant {
+export type ExistingApiSingletonProbe =
+  | { readonly state: "empty" }
+  | { readonly state: "healthy-singleton"; readonly occupant: ListeningPortOccupant; readonly ownerPid: number }
+  | { readonly state: "occupied"; readonly occupants: readonly ListeningPortOccupant[]; readonly reason: string };
+
+export function inspectListeningPorts(port: number): readonly ListeningPortOccupant[] {
   const result = spawnSync(
     "lsof",
     ["-nP", `-iTCP:${port}`, "-sTCP:LISTEN", "-Fpct"],
     { encoding: "utf8" },
   );
   const raw = `${result.stdout ?? ""}${result.stderr ?? ""}`.trim();
-  const lines = raw.split(/\r?\n/);
-  const pidLine = lines.find((line) => line.startsWith("p"));
-  const commandLine = lines.find((line) => line.startsWith("c"));
-  const parsedPid = pidLine ? Number(pidLine.slice(1)) : Number.NaN;
+  if (!raw) return [];
+  const occupants: ListeningPortOccupant[] = [];
+  let current: { pid: number | null; command: string | null; lines: string[] } | null = null;
+  for (const line of raw.split(/\r?\n/)) {
+    if (line.startsWith("p")) {
+      if (current) occupants.push({ ...current, raw: current.lines.join("\n") });
+      const pid = Number(line.slice(1));
+      current = {
+        pid: Number.isInteger(pid) && pid > 0 ? pid : null,
+        command: null,
+        lines: [line],
+      };
+    } else if (current) {
+      current.lines.push(line);
+      if (line.startsWith("c")) current.command = line.slice(1) || null;
+    }
+  }
+  if (current) occupants.push({ ...current, raw: current.lines.join("\n") });
+  return occupants;
+}
 
-  return {
-    pid: Number.isInteger(parsedPid) && parsedPid > 0 ? parsedPid : null,
-    command: commandLine?.slice(1) || null,
-    raw,
-  };
+/**
+ * Best-effort diagnostics for an incumbent listener. This never attempts to
+ * stop the incumbent or retry the bind; it only provides context before the
+ * duplicate process exits.
+ */
+export function inspectListeningPort(port: number): ListeningPortOccupant {
+  return inspectListeningPorts(port)[0] ?? { pid: null, command: null, raw: "" };
+}
+
+export async function probeExistingApiSingleton(
+  port: number,
+  timeoutMs = 1_500,
+): Promise<ExistingApiSingletonProbe> {
+  const occupants = inspectListeningPorts(port);
+  if (occupants.length === 0) return { state: "empty" };
+  if (occupants.length !== 1 || !occupants[0].pid) {
+    return { state: "occupied", occupants, reason: "listener count is not exactly one or its PID is unavailable" };
+  }
+  const occupant = occupants[0];
+  const ownerPid = occupants[0].pid!;
+  try {
+    const health = await new Promise<Record<string, unknown>>((resolve, reject) => {
+      const probe = request({
+        hostname: "127.0.0.1",
+        port,
+        path: "/api/healthz",
+        method: "GET",
+        timeout: timeoutMs,
+      }, (response) => {
+        const chunks: Buffer[] = [];
+        response.on("data", (chunk) => chunks.push(Buffer.from(chunk)));
+        response.once("end", () => {
+          if (response.statusCode !== 200) {
+            reject(new Error(`health endpoint returned ${response.statusCode ?? "no status"}`));
+            return;
+          }
+          try {
+            resolve(JSON.parse(Buffer.concat(chunks).toString("utf8")));
+          } catch {
+            reject(new Error("health endpoint did not return JSON"));
+          }
+        });
+      });
+      probe.once("timeout", () => probe.destroy(new Error("health endpoint timed out")));
+      probe.once("error", reject);
+      probe.end();
+    });
+    if (
+      health.status === "ok"
+      && health.singleton === true
+      && health.port === port
+      && health.ownerPid === ownerPid
+    ) {
+      return { state: "healthy-singleton", occupant, ownerPid };
+    }
+    return { state: "occupied", occupants, reason: "listener health identity does not match the API singleton contract" };
+  } catch (error) {
+    return {
+      state: "occupied",
+      occupants,
+      reason: error instanceof Error ? error.message : "health probe failed",
+    };
+  }
 }
 
 type LifecycleOwner = {
