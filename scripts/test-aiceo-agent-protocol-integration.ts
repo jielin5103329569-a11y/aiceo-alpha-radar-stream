@@ -17,8 +17,8 @@ async function main(){
   const contract=await protocol.issue(input,"brain");
   assert.equal((await protocol.issue(input,"brain")).id,contract.id);
   await assert.rejects(()=>protocol.issue({...input,idempotencyKey:"stale",continuityRevision:revision-1},"brain"),/stale/);
-  const run=await protocol.start(contract.id,{idempotencyKey:"run-1",agentType:"coding",agentActorId:"agent-1",parentRunId:null,delegationDepth:0,inheritedAuthority:"delegated_technical_authority",contextHash:contract.contextHash});
-  assert.equal((await protocol.start(contract.id,{idempotencyKey:"run-1",agentType:"coding",agentActorId:"agent-1",parentRunId:null,delegationDepth:0,inheritedAuthority:"delegated_technical_authority",contextHash:contract.contextHash})).id,run.id);
+  const run=await protocol.start(contract.id,{idempotencyKey:"run-1",agentType:"coding",agentActorId:"agent-1",parentRunId:null,delegationDepth:0,inheritedAuthority:"delegated_technical_authority",contextHash:contract.contextHash,rootCauseDiagnosis:"Inspect the bounded execution objective.",minimalEffectiveAction:"Perform the smallest evidence-backed action."});
+  assert.equal((await protocol.start(contract.id,{idempotencyKey:"run-1",agentType:"coding",agentActorId:"agent-1",parentRunId:null,delegationDepth:0,inheritedAuthority:"delegated_technical_authority",contextHash:contract.contextHash,rootCauseDiagnosis:"Inspect the bounded execution objective.",minimalEffectiveAction:"Perform the smallest evidence-backed action."})).id,run.id);
    await assert.rejects(()=>protocol.submit(run.id,{understandingStatus:"CLEAR",observedScope:["trading"],result:{ok:true},evidence:[{x:1}],usedCalls:1,usedCostMicrousd:1}),/scope drift/);
    const submitted=await protocol.submit(run.id,{understandingStatus:"CLEAR",observedScope:["code.inspect"],result:{ok:true},evidence:[{fact:"checked"}],usedCalls:1,usedCostMicrousd:1,checkpoint:{node:"done",partialSuccess:false}});
   assert.equal(submitted.verified,false);
@@ -65,7 +65,7 @@ async function main(){
   await tx.update(aiceoControlStateTable).set({killSwitch:false,circuitState:"OPEN"});
   await assert.rejects(()=>protocol.start(bounded.id,{idempotencyKey:"circuit-blocked",agentType:"coding",agentActorId:"agent-2",parentRunId:null,delegationDepth:1,inheritedAuthority:"delegated_technical_authority",contextHash:bounded.contextHash}),/control gate/);
   await tx.update(aiceoControlStateTable).set({circuitState:"CLOSED"});
-  const boundedRun=await protocol.start(bounded.id,{idempotencyKey:"bounded-run",agentType:"coding",agentActorId:"agent-2",parentRunId:null,delegationDepth:1,inheritedAuthority:"delegated_technical_authority",contextHash:bounded.contextHash});
+  const boundedRun=await protocol.start(bounded.id,{idempotencyKey:"bounded-run",agentType:"coding",agentActorId:"agent-2",parentRunId:null,delegationDepth:1,inheritedAuthority:"delegated_technical_authority",contextHash:bounded.contextHash,rootCauseDiagnosis:"Inspect bounded capability evidence.",minimalEffectiveAction:"Read the smallest allowed scope."});
    await assert.rejects(()=>protocol.submit(boundedRun.id,{understandingStatus:"CLEAR",observedScope:["code.inspect"],result:{apiKey:"secret"},evidence:[{fact:true}],usedCalls:1,usedCostMicrousd:1}),/scope drift, secret/);
    await assert.rejects(()=>protocol.submit(boundedRun.id,{understandingStatus:"CLEAR",observedScope:["code.inspect"],result:{ok:true},evidence:[{fact:true}],usedCalls:3,usedCostMicrousd:1}),/call, or cost budget/);
    await assert.rejects(()=>protocol.checkpoint(boundedRun.id,{state:"PAUSED",understandingStatus:"CLEAR",checkpoint:{node:"x"},retryCount:2,usedCalls:1,usedCostMicrousd:1}),/retry, call, or cost budget/);
@@ -90,7 +90,7 @@ async function main(){
   await tx.update(aiceoControlStateTable).set({circuitState:"OPEN"});
   await assert.rejects(()=>protocol.start(behavior.id,{idempotencyKey:"behavior-run",agentType:"research",agentActorId:"agent-3",parentRunId:null,delegationDepth:0,inheritedAuthority:"delegated_technical_authority",contextHash:behavior.contextHash}),/control gate/);
   await tx.update(aiceoControlStateTable).set({circuitState:"CLOSED"});
-  const behaviorRun=await protocol.start(behavior.id,{idempotencyKey:"behavior-run",agentType:"research",agentActorId:"agent-3",parentRunId:null,delegationDepth:0,inheritedAuthority:"delegated_technical_authority",contextHash:behavior.contextHash});
+  const behaviorRun=await protocol.start(behavior.id,{idempotencyKey:"behavior-run",agentType:"research",agentActorId:"agent-3",parentRunId:null,delegationDepth:0,inheritedAuthority:"delegated_technical_authority",contextHash:behavior.contextHash,rootCauseDiagnosis:"Inspect behavior failure evidence.",minimalEffectiveAction:"Use the smallest allowed research check."});
    await protocol.checkpoint(behaviorRun.id,{state:"PAUSED",understandingStatus:"AMBIGUOUS",semanticAmbiguity:true,checkpoint:{node:"reuse-check"},retryCount:0,usedCalls:0,usedCostMicrousd:0,blocker:"Semantic ambiguity"});
    await assert.rejects(()=>protocol.resume(behaviorRun.id,{contextHash:behavior.contextHash,brainResolution:{resolvedByBrain:true,certainty:"UNCERTAIN",interpretedIntent:resolutionUnderstanding.interpretedIntent,actionTarget:resolutionUnderstanding.actionTarget,ownerConfirmationId:resolutionConfirmation.id}},"brain"),/missing, stale, or mismatched/);
    await protocol.resume(behaviorRun.id,{contextHash:behavior.contextHash,brainResolution:{resolvedByBrain:true,certainty:"HIGH",interpretedIntent:"Complete a safe development check",actionTarget:"development check"}},"brain");

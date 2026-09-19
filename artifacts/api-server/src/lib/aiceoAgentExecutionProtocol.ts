@@ -4,6 +4,7 @@ import { db } from "@workspace/db";
 import {
   aiceoAgentRunsTable,
   aiceoAgentVerificationsTable,
+  aiceoCapabilityRoutingDecisionsTable,
   aiceoCollaborationIssuesTable,
   aiceoContinuityProjectsTable,
   aiceoContinuityStateTable,
@@ -12,6 +13,7 @@ import {
   aiceoIntentConfirmationsTable,
 } from "@workspace/db/schema";
 import { assertCredentialPersistenceSafe } from "./aiceoCredentialPersistenceFirewall";
+import { AiceoExecutionGovernanceV1 } from "./aiceoExecutionGovernanceV1";
 
 export const AICEO_INTENT_GATE_VERSION = "INTENT-GATE-001";
 export const AICEO_AGENT_EXECUTION_PROTOCOL_VERSION = "BRAIN-AGENT-002";
@@ -408,9 +410,20 @@ export class AiceoAgentExecutionProtocol {
         )).limit(1))[0];
       if (old) return old;
       if (contract.status !== "ISSUED") throw new Error("不能：terminal or active contract replay");
+      if (typeof input.rootCauseDiagnosis !== "string" || !input.rootCauseDiagnosis.trim()
+        || typeof input.minimalEffectiveAction !== "string" || !input.minimalEffectiveAction.trim()) {
+        throw new Error("EG-001 First-Resolution requires rootCauseDiagnosis and minimalEffectiveAction at admission");
+      }
+      if (typeof contract.ownerAttentionBudget?.maxOwnerInterruptions !== "number"
+        || contract.ownerAttentionBudget.maxOwnerInterruptions < 0
+        || contract.ownerAttentionBudget.maxOwnerInterruptions > 1
+        || contract.ownerAttentionBudget?.mergeHumanActions !== true
+        || contract.ownerAttentionBudget?.noScreenshotWhenAutoVerifiable !== true) {
+        throw new Error("EG-001 owner action budget is missing or exceeds the protected budget");
+      }
       await tx.update(aiceoExecutionContractsTable).set({ status: "RUNNING" })
         .where(eq(aiceoExecutionContractsTable.id, contract.id));
-      return (await tx.insert(aiceoAgentRunsTable).values({
+      const run = (await tx.insert(aiceoAgentRunsTable).values({
         ...input,
         contractId,
         state: "RUNNING",
@@ -418,6 +431,38 @@ export class AiceoAgentExecutionProtocol {
         observedScope: [],
         deadlineAt: new Date(Date.now() + Number(contract.executionPolicy.timeoutMs)),
       }).returning())[0];
+      const governance = new AiceoExecutionGovernanceV1(tx);
+      const capability = String(input.routingCapability ?? contract.allowedCapabilities[0] ?? "execution");
+      const routing = await governance.route({
+        contractId,
+        runId: run.id,
+        capability,
+        candidates: input.routingCandidates,
+        policyHash: input.policyHash,
+        idempotencyKey: `route:${run.id}`,
+      });
+      await governance.obligation({
+        contractId,
+        runId: run.id,
+        rootCauseDiagnosis: input.rootCauseDiagnosis,
+        minimalEffectiveAction: input.minimalEffectiveAction,
+        ownerActionBudget: contract.ownerAttentionBudget,
+      });
+      await governance.recordPerformance({
+        contractId,
+        runId: run.id,
+        routingDecisionId: routing.id,
+        eventType: "STARTED",
+        capability,
+        adapter: routing.selectedAdapter,
+        adapterVersion: routing.adapterVersion,
+        retryCount: 0,
+        costMicrousd: 0,
+        outcome: "RUNNING",
+        outcomeAttribution: { source: "agent-run-start", agentType: input.agentType, governanceVersion: "EG-001" },
+        idempotencyKey: `performance:${run.id}:STARTED`,
+      });
+      return run;
     });
   }
 
@@ -448,6 +493,29 @@ export class AiceoAgentExecutionProtocol {
       }
       if (["FAILED", "OWNER_GATE"].includes(input.state) && !input.blocker) {
         throw new Error("不能：真实 capability blocker required");
+      }
+      if (input.state === "FAILED") {
+        await new AiceoExecutionGovernanceV1(tx).markUnresolved(run.id, input.blocker);
+      }
+      if (input.retryCount > 0) {
+        const routing = (await tx.select().from(aiceoCapabilityRoutingDecisionsTable)
+          .where(eq(aiceoCapabilityRoutingDecisionsTable.runId, run.id)).limit(1))[0];
+        if (routing) {
+          await new AiceoExecutionGovernanceV1(tx).recordPerformance({
+            contractId: contract.id,
+            runId: run.id,
+            routingDecisionId: routing.id,
+            eventType: "RETRY",
+            capability: routing.capability,
+            adapter: routing.selectedAdapter,
+            adapterVersion: routing.adapterVersion,
+            retryCount: input.retryCount,
+            costMicrousd: input.usedCostMicrousd,
+            outcome: "RETRY",
+            outcomeAttribution: { source: "agent-checkpoint", checkpointState: input.state, governanceVersion: "EG-001" },
+            idempotencyKey: `performance:${run.id}:RETRY:${input.retryCount}`,
+          });
+        }
       }
       await tx.update(aiceoAgentRunsTable).set({
         ...input,
@@ -561,31 +629,54 @@ export class AiceoAgentExecutionProtocol {
     });
   }
 
-  async submit(runId: string, input: any) {
-    return this.transact(async (tx) => {
+  async submit(runId: string, input: any, callerId?: string) {
+    try {
+      return await this.transact(async (tx) => {
       const run = (await tx.select().from(aiceoAgentRunsTable)
         .where(eq(aiceoAgentRunsTable.id, runId)).for("update"))[0];
       const contract = run && (await tx.select().from(aiceoExecutionContractsTable)
         .where(eq(aiceoExecutionContractsTable.id, run.contractId)).limit(1))[0];
       if (!run || !contract) throw new Error("不能：run missing");
-      if (
-        new Date() > run.deadlineAt
-        || input.usedCalls > Number(contract.executionPolicy.maxCalls)
-        || input.usedCostMicrousd > Number(contract.executionPolicy.maxCostMicrousd)
-      ) {
-        throw new Error("不能：timeout, call, or cost budget exceeded");
-      }
+      const routing = (await tx.select().from(aiceoCapabilityRoutingDecisionsTable)
+        .where(eq(aiceoCapabilityRoutingDecisionsTable.runId, run.id)).limit(1))[0];
+      if (!routing) throw new Error("EG-001 capability routing decision is missing");
+      const governance = new AiceoExecutionGovernanceV1(tx);
+      if (new Date() > run.deadlineAt) throw new Error("不能：timeout, call, or cost budget exceeded (timeout)");
+      if (input.usedCalls > Number(contract.executionPolicy.maxCalls)) throw new Error("不能：timeout, call, or cost budget exceeded (call)");
+      if (input.usedCostMicrousd > Number(contract.executionPolicy.maxCostMicrousd)) throw new Error("不能：timeout, call, or cost budget exceeded (cost)");
+      const scopeDrift = input.observedScope.map(normalizeCapability).some((capability: string) =>
+        capabilityDenied(capability) || contract.deniedCapabilities.includes(capability)
+        || !contract.allowedCapabilities.includes(capability));
       if (
         forbidden(input)
         || input.understandingStatus !== "CLEAR"
-        || input.observedScope.map(normalizeCapability).some((capability: string) =>
-          capabilityDenied(capability) || contract.deniedCapabilities.includes(capability))
-        || input.observedScope.map(normalizeCapability).some((capability: string) => !contract.allowedCapabilities.includes(capability))
+        || scopeDrift
         || !input.evidence.length
       ) {
         throw new Error("不能：scope drift, secret, or missing evidence");
       }
       assertCredentialPersistenceSafe(input, "agent-run-result");
+      await governance.recordPerformance({
+        contractId: contract.id,
+        runId: run.id,
+        routingDecisionId: routing.id,
+        eventType: "SUBMITTED",
+        capability: routing.capability,
+        adapter: routing.selectedAdapter,
+        adapterVersion: routing.adapterVersion,
+        retryCount: Number(input.retryCount ?? run.retryCount),
+        timeoutCount: 0,
+        scopeDriftCount: 0,
+        costMicrousd: Number(input.usedCostMicrousd),
+        outcome: "SUBMITTED",
+        outcomeAttribution: { source: "agent-run-submit", observedScope: input.observedScope, governanceVersion: "EG-001" },
+        idempotencyKey: `performance:${run.id}:SUBMITTED`,
+      });
+      await governance.markSubmitted(run.id);
+      await governance.accept({
+        contractId: contract.id, runId: run.id, contextHash: contract.contextHash,
+        actorId: callerId || run.agentActorId, evidence: input.evidence,
+      });
       await tx.update(aiceoAgentRunsTable).set({
         ...input,
         state: "AWAITING_VERIFICATION",
@@ -594,6 +685,37 @@ export class AiceoAgentExecutionProtocol {
       await tx.update(aiceoExecutionContractsTable).set({ status: "AWAITING_VERIFICATION" })
         .where(eq(aiceoExecutionContractsTable.id, contract.id));
       return { state: "AWAITING_VERIFICATION", verified: false, productionAuthority: false };
+      });
+    } catch (error) {
+      if (!this.existingTransaction && /timeout, call, or cost budget|scope drift/i.test(error instanceof Error ? error.message : String(error))) {
+        await this.persistRejectedGovernanceEvidence(runId, input, error instanceof Error ? error.message : String(error));
+      }
+      throw error;
+    }
+  }
+
+  private async persistRejectedGovernanceEvidence(runId: string, input: any, reason: string) {
+    await db.transaction(async (tx) => {
+      const run = (await tx.select().from(aiceoAgentRunsTable).where(eq(aiceoAgentRunsTable.id, runId)).limit(1))[0];
+      const contract = run && (await tx.select().from(aiceoExecutionContractsTable)
+        .where(eq(aiceoExecutionContractsTable.id, run.contractId)).limit(1))[0];
+      const routing = run && (await tx.select().from(aiceoCapabilityRoutingDecisionsTable)
+        .where(eq(aiceoCapabilityRoutingDecisionsTable.runId, run.id)).limit(1))[0];
+      if (!run || !contract || !routing) throw new Error("EG-001 cannot persist rejected outcome evidence");
+      const governance = new AiceoExecutionGovernanceV1(tx);
+      const timeout = /\(timeout\)/i.test(reason);
+      const scopeDrift = /scope drift/i.test(reason);
+      const eventType = timeout ? "TIMEOUT" : scopeDrift ? "SCOPE_DRIFT" : "BUDGET_EXCEEDED";
+      await governance.recordPerformance({
+        contractId: contract.id, runId, routingDecisionId: routing.id,
+        eventType,
+        capability: routing.capability, adapter: routing.selectedAdapter, adapterVersion: routing.adapterVersion,
+        timeoutCount: timeout ? 1 : 0, scopeDriftCount: scopeDrift ? 1 : 0,
+        costMicrousd: Number(input.usedCostMicrousd ?? 0), outcome: eventType,
+        outcomeAttribution: { source: "agent-run-submit-rejected", reason, observedScope: input.observedScope, governanceVersion: "EG-001" },
+        idempotencyKey: `performance:${runId}:${eventType}`,
+      });
+      await governance.markUnresolved(runId, reason);
     });
   }
 
@@ -640,7 +762,77 @@ export class AiceoAgentExecutionProtocol {
           createdBy: validator,
         });
       }
+      const contract = (await tx.select().from(aiceoExecutionContractsTable)
+        .where(eq(aiceoExecutionContractsTable.id, run.contractId)).limit(1))[0];
+      const routing = (await tx.select().from(aiceoCapabilityRoutingDecisionsTable)
+        .where(eq(aiceoCapabilityRoutingDecisionsTable.runId, run.id)).limit(1))[0];
+      if (!contract || !routing) throw new Error("EG-001 verification binding is missing");
+      const governance = new AiceoExecutionGovernanceV1(tx);
+      const firstResolution = passed ? await governance.isFirstResolution(run.id) : false;
+      await governance.recordPerformance({
+        contractId: contract.id,
+        runId: run.id,
+        routingDecisionId: routing.id,
+        eventType: passed ? "VERIFIED" : "REJECTED",
+        capability: routing.capability,
+        adapter: routing.selectedAdapter,
+        adapterVersion: routing.adapterVersion,
+        firstResolution,
+        independentlyVerified: passed,
+        retryCount: run.retryCount,
+        timeoutCount: 0,
+        scopeDriftCount: input.compliance?.scope === false ? 1 : 0,
+        costMicrousd: run.usedCostMicrousd,
+        outcome: passed ? "VERIFIED" : "REJECTED",
+        outcomeAttribution: { source: "independent-verification", validator, governanceVersion: "EG-001" },
+        idempotencyKey: `performance:${run.id}:${passed ? "VERIFIED" : "REJECTED"}`,
+      });
+      if (passed) {
+        await governance.markVerified({
+          contractId: contract.id,
+          runId: run.id,
+          contextHash: contract.contextHash,
+          actorId: validator,
+          passed,
+          evidence: input.evidence,
+        });
+      } else {
+        await governance.markUnresolved(run.id, "Independent verification rejected the result.");
+      }
       return { finalStatus: passed ? "VERIFIED" : "REJECTED", productionAuthority: false };
+    });
+  }
+
+  async close(runId: string, actorId: string, reason: string, evidence: Record<string, unknown>[] = []) {
+    return this.transact(async (tx) => {
+      const run = (await tx.select().from(aiceoAgentRunsTable).where(eq(aiceoAgentRunsTable.id, runId)).limit(1))[0];
+      const contract = run && (await tx.select().from(aiceoExecutionContractsTable).where(eq(aiceoExecutionContractsTable.id, run.contractId)).limit(1))[0];
+      if (!run || !contract) throw new Error("EG-001 close binding is missing");
+      return new AiceoExecutionGovernanceV1(tx).close({
+        contractId: contract.id, runId, contextHash: contract.contextHash, actorId, evidence, reason,
+      });
+    });
+  }
+
+  async rollback(runId: string, actorId: string, reason: string, evidence: Record<string, unknown>[] = []) {
+    return this.transact(async (tx) => {
+      const run = (await tx.select().from(aiceoAgentRunsTable).where(eq(aiceoAgentRunsTable.id, runId)).limit(1))[0];
+      const contract = run && (await tx.select().from(aiceoExecutionContractsTable).where(eq(aiceoExecutionContractsTable.id, run.contractId)).limit(1))[0];
+      if (!run || !contract) throw new Error("EG-001 rollback binding is missing");
+      return new AiceoExecutionGovernanceV1(tx).rollback({
+        contractId: contract.id, runId, contextHash: contract.contextHash, actorId, reason, evidence,
+      });
+    });
+  }
+
+  async reopen(runId: string, actorId: string, reason: string, evidence: Record<string, unknown>[] = []) {
+    return this.transact(async (tx) => {
+      const run = (await tx.select().from(aiceoAgentRunsTable).where(eq(aiceoAgentRunsTable.id, runId)).limit(1))[0];
+      const contract = run && (await tx.select().from(aiceoExecutionContractsTable).where(eq(aiceoExecutionContractsTable.id, run.contractId)).limit(1))[0];
+      if (!run || !contract) throw new Error("EG-001 reopen binding is missing");
+      return new AiceoExecutionGovernanceV1(tx).reopen({
+        contractId: contract.id, runId, contextHash: contract.contextHash, actorId, reason, evidence,
+      });
     });
   }
 }

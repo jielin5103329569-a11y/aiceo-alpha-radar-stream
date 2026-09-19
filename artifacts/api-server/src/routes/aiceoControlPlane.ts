@@ -126,6 +126,15 @@ const agentRunStart = z.object({
   delegationDepth: z.number().int().min(0).max(3),
   inheritedAuthority: z.literal("delegated_technical_authority"),
   contextHash: z.string().regex(/^[a-f0-9]{64}$/),
+  routingCapability: z.string().min(1).max(120).optional(),
+  routingCandidates: z.array(z.object({
+    adapter: z.string().min(1).max(180),
+    version: z.string().min(1).max(80),
+    capability: z.string().min(1).max(120).optional(),
+  }).strict()).max(20).optional(),
+  policyHash: z.string().regex(/^[a-f0-9]{64}$/).optional(),
+  rootCauseDiagnosis: z.string().trim().min(1).max(2000),
+  minimalEffectiveAction: z.string().trim().min(1).max(2000),
 }).strict();
 const agentCheckpoint = z.object({
   state: z.enum(["PAUSED", "FAILED", "OWNER_GATE"]),
@@ -168,6 +177,10 @@ const agentVerification = z.object({
     evidence: z.boolean(),
   }).strict(),
   evidence: z.array(z.record(z.string(), z.unknown())).min(1),
+}).strict();
+const governanceLifecycleEvidence = z.object({
+  reason: z.string().min(1).max(2000),
+  evidence: z.array(z.record(z.string(), z.unknown())).max(50).optional(),
 }).strict();
 const privileged = (role: AiceoRole, handler: (req: Request, res: Response, userId: string) => Promise<void>) => async (req: Request, res: Response): Promise<void> => {
   const auth = getAuth(req);
@@ -359,10 +372,10 @@ router.post("/aiceo/continuity/contracts/:id/runs", privileged("aiceo_operator",
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
   await run(() => aiceoAgentExecutionProtocol.start(String(req.params.id), parsed.data), res);
 }));
-router.post("/aiceo/continuity/runs/:id/result", privileged("aiceo_operator", async (req, res) => {
+router.post("/aiceo/continuity/runs/:id/result", privileged("aiceo_operator", async (req, res, userId) => {
   const parsed = agentResult.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
-  await run(() => aiceoAgentExecutionProtocol.submit(String(req.params.id), parsed.data), res);
+  await run(() => aiceoAgentExecutionProtocol.submit(String(req.params.id), parsed.data, userId), res);
 }));
 router.post("/aiceo/continuity/runs/:id/checkpoint", privileged("aiceo_operator", async (req, res) => {
   const parsed = agentCheckpoint.safeParse(req.body);
@@ -378,6 +391,21 @@ router.post("/aiceo/continuity/runs/:id/verify", privileged("aiceo_validator", a
   const parsed = agentVerification.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
   await run(() => aiceoAgentExecutionProtocol.verify(String(req.params.id), parsed.data, userId), res);
+}));
+router.post("/aiceo/continuity/runs/:id/close", privileged("aiceo_validator", async (req, res, userId) => {
+  const parsed = governanceLifecycleEvidence.safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
+  await run(() => aiceoAgentExecutionProtocol.close(String(req.params.id), userId, parsed.data.reason, parsed.data.evidence ?? []), res);
+}));
+router.post("/aiceo/continuity/runs/:id/rollback", privileged("aiceo_operator", async (req, res, userId) => {
+  const parsed = governanceLifecycleEvidence.safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
+  await run(() => aiceoAgentExecutionProtocol.rollback(String(req.params.id), userId, parsed.data.reason, parsed.data.evidence ?? []), res);
+}));
+router.post("/aiceo/continuity/runs/:id/reopen", privileged("aiceo_operator", async (req, res, userId) => {
+  const parsed = governanceLifecycleEvidence.safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
+  await run(() => aiceoAgentExecutionProtocol.reopen(String(req.params.id), userId, parsed.data.reason, parsed.data.evidence ?? []), res);
 }));
 router.post("/aiceo/tasks", privileged("aiceo_operator", async (req, res, userId) => {
   const parsed = submission.safeParse(req.body); if (!parsed.success) {
