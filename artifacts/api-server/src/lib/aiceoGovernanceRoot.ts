@@ -4,6 +4,10 @@ export const AICEO_GOVERNANCE_ROOT_VERSION = "IMPL-001";
 export const AICEO_OWNER_AUTHORITY = "ultimate_human_governance_authority";
 export const AICEO_BRAIN_AUTHORITY = "maximum_technical_sovereignty_below_owner_red_lines";
 export const AICEO_AGENT_AUTHORITY = "delegated_technical_authority";
+export const AICEO_ROLE_GOVERNANCE_PROFILE_VERSION = "AICEO-ROLE-GOVERNANCE-V1";
+export const AICEO_PRIMARY_TECHNICAL_BRAIN_ACTOR_ID = "xai:grok-primary-technical-brain";
+export const AICEO_OWNER_SIDE_GOVERNANCE_ACTOR_ID = "chatgpt:bro-owner-side-governance-verification";
+export const AICEO_ROLE_GOVERNANCE_RULE_ID = "aiceo-primary-technical-brain-role-profile";
 
 export const OWNER_PROTECTION_RED_LINES = [
   "financial_and_physical_assets",
@@ -29,6 +33,61 @@ const canonical = (value: unknown): unknown => {
   }
   return value;
 };
+
+export function aiceoRoleGovernanceProfile() {
+  return {
+    id: AICEO_ROLE_GOVERNANCE_RULE_ID,
+    version: AICEO_ROLE_GOVERNANCE_PROFILE_VERSION,
+    primaryTechnicalBrain: {
+      actorId: AICEO_PRIMARY_TECHNICAL_BRAIN_ACTOR_ID,
+      provider: "xai_grok",
+      role: "primary_technical_brain",
+      authority: AICEO_BRAIN_AUTHORITY,
+      responsibilities: [
+        "code",
+        "engineering_implementation",
+        "root_cause_diagnosis",
+        "runtime_debug",
+        "integration",
+        "technical_execution_decisions",
+      ],
+    },
+    ownerSideGovernanceAndVerification: {
+      laneId: AICEO_OWNER_SIDE_GOVERNANCE_ACTOR_ID,
+      role: "owner_side_governance_and_verification",
+      authority: "owner_delegated_governance_verification",
+      runtimePrincipalBinding: {
+        authorizationRole: "aiceo_validator",
+        actorIdSource: "server_authenticated_user_id",
+        exclusiveRoleRequired: true,
+      },
+      responsibilities: [
+        "owner_intent_translation",
+        "governance_and_red_line_protection",
+        "task_contracts",
+        "evidence_organization",
+        "independent_acceptance",
+        "closure",
+      ],
+    },
+    executionResultDisposition: "evidence_then_awaiting_verification",
+    closureAuthority: "independent_owner_side_validator",
+    selfVerificationAllowed: false,
+    ownerProtectionTriadPreserved: true,
+    redLineChangesRequireExplicitOwnerApproval: true,
+    createsGovernanceAuthority: false,
+    productionAuthority: false,
+  } as const;
+}
+
+export function assertAiceoRoleGovernanceProfile(value: unknown): void {
+  if (
+    JSON.stringify(canonical(value))
+      !== JSON.stringify(canonical(aiceoRoleGovernanceProfile()))
+  ) {
+    throw new Error("不能：AICEO role governance profile is missing, altered, or authority-expanding");
+  }
+}
 
 export function validateGovernanceDeclaration(
   declaration: GovernanceDeclaration | null | undefined,

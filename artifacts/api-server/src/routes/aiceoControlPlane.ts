@@ -351,10 +351,10 @@ router.post("/aiceo/continuity/collaboration-loop/rules/:id/rollback", privilege
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
   await run(() => aiceoContinuityLayer.rollbackRule(String(req.params.id), parsed.data.reason, userId), res);
 }));
-router.post("/aiceo/continuity/contracts", privileged("aiceo_operator", async (req, res, userId) => {
+router.post("/aiceo/continuity/contracts", privileged("aiceo_validator", async (req, res, userId) => {
   const parsed = executionContract.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
-  await run(() => aiceoAgentExecutionProtocol.issue(parsed.data, userId), res);
+  await run(() => aiceoAgentExecutionProtocol.issue(parsed.data, userId, "aiceo_validator"), res);
 }));
 router.post("/aiceo/continuity/intent-confirmations", privileged("aiceo_owner", async (req, res, userId) => {
   const parsed = z.object({
@@ -390,12 +390,23 @@ router.post("/aiceo/continuity/runs/:id/resume", privileged("aiceo_operator", as
 router.post("/aiceo/continuity/runs/:id/verify", privileged("aiceo_validator", async (req, res, userId) => {
   const parsed = agentVerification.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
-  await run(() => aiceoAgentExecutionProtocol.verify(String(req.params.id), parsed.data, userId), res);
+  await run(() => aiceoAgentExecutionProtocol.verify(
+    String(req.params.id),
+    parsed.data,
+    userId,
+    "aiceo_validator",
+  ), res);
 }));
 router.post("/aiceo/continuity/runs/:id/close", privileged("aiceo_validator", async (req, res, userId) => {
   const parsed = governanceLifecycleEvidence.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
-  await run(() => aiceoAgentExecutionProtocol.close(String(req.params.id), userId, parsed.data.reason, parsed.data.evidence ?? []), res);
+  await run(() => aiceoAgentExecutionProtocol.close(
+    String(req.params.id),
+    userId,
+    "aiceo_validator",
+    parsed.data.reason,
+    parsed.data.evidence ?? [],
+  ), res);
 }));
 router.post("/aiceo/continuity/runs/:id/rollback", privileged("aiceo_operator", async (req, res, userId) => {
   const parsed = governanceLifecycleEvidence.safeParse(req.body);

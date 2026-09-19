@@ -9,6 +9,12 @@ AICEO authorization must resolve the current authenticated Clerk user's public r
 
 **How to apply:** Treat Clerk user ID authentication and current server-side role lookup as separate checks. If role authority is unavailable, fail closed; retain exclusive operator/validator enforcement and never infer a role from email or client state.
 
+Internal scripts and service labels cannot self-assert an exclusive Clerk role or persist themselves as an authenticated governance principal.
+
+**Why:** A caller-supplied role literal can make recorder or migration provenance falsely appear to come from the independent Owner-side validator lane.
+
+**How to apply:** Route governance issuance through the authenticated control-plane boundary. Offline recorders may consume validator-issued records, but must fail closed rather than minting them.
+
 Owner governance acceptance must use one server-owned fingerprint covering the full execution envelope, not only action and resource. Bind the unique authenticated submission event, submitter, budget, timeout, retries, permissions, contract, environment, and red lines into approval evidence.
 
 **Why:** A generic submission that copies visible task text but changes retries or budget can otherwise impersonate a fixed safety check, and mutable or fabricated provenance could defeat independent-Owner enforcement.

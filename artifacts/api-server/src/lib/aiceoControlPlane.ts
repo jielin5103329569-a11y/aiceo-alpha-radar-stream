@@ -28,6 +28,7 @@ import {
   AICEO_BRAIN_AUTHORITY,
   AICEO_GOVERNANCE_ROOT_VERSION,
   AICEO_OWNER_AUTHORITY,
+  aiceoRoleGovernanceProfile,
   ownerGovernanceApprovalHash,
   validateGovernanceDeclaration,
   type GovernanceDeclaration,
@@ -483,6 +484,7 @@ export class AiceoControlPlane {
       ownerAuthority: AICEO_OWNER_AUTHORITY,
       brainAuthority: AICEO_BRAIN_AUTHORITY,
       agentAuthority: AICEO_AGENT_AUTHORITY,
+      roleGovernanceProfile: aiceoRoleGovernanceProfile(),
       productionAuthority: false,
       tasks: acceptanceTasks.map((task) => ({
         id: task.id,

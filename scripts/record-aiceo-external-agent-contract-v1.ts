@@ -10,7 +10,6 @@ import {
   aiceoTasksTable,
 } from "@workspace/db/schema";
 import {
-  AiceoAgentExecutionProtocol,
   aiceoPersistentStateContextDigest,
 } from "../artifacts/api-server/src/lib/aiceoAgentExecutionProtocol";
 import {
@@ -138,55 +137,14 @@ async function main() {
     const recorded = await new AiceoContinuityLayer(tx, true).update(update, ACTOR);
     assert.equal(recorded.revision, 49);
 
-    const protocol = new AiceoAgentExecutionProtocol(tx, true);
-    const executionContract = await protocol.issue({
-      idempotencyKey: IDEMPOTENCY_KEY,
-      ownerIntent: "Bro，继续",
-      intentUnderstanding: {
-        certainty: "HIGH",
-        interpretedIntent: "Resume",
-        actionTarget: "resume",
-        confirmationSummary: "Resume the verified Persistent State breakpoint",
-        reasonableInterpretations: [{
-          meaning: "Resume from the verified Persistent State breakpoint",
-          actionTarget: "resume",
-        }],
-        materiallyDifferentActions: false,
-        contextHighlyClear: true,
-        stableAlias: true,
-        verifiedExpressionPattern: true,
-        riskLevel: "LOW",
-      },
-      continuityRevision: recorded.revision,
-      scope: { controlPlaneTaskId: currentTask.id, operation: "record_existing_v1_implementation_binding" },
-      objective: "Create a server-owned V1 manifest binding for later independent validation without starting a run",
-      allowedCapabilities: ["contract.echo"],
-      deniedCapabilities: [],
-      frozenRules: [{ id: "001-013", frozen: true }],
-      completionDefinition: {
-        validationStatus: "READY_FOR_INDEPENDENT_VALIDATION",
-        taskState: "QUEUED",
-        executionContractState: "ISSUED",
-        runId: null,
-        finalClosurePerformed: false,
-      },
-      evidenceRequirements: [{ type: "canonical_manifest_and_hash" }],
-      executionPolicy: {
-        timeoutMs: 10_000,
-        maxRetries: 0,
-        maxCalls: 0,
-        maxCostMicrousd: 0,
-        checkpointRequired: false,
-      },
-      resumeNode: { node: "external-agent-contract-v1-ready-for-independent-validation" },
-      escalationConditions: [{ target: "brain", condition: "binding_or_context_drift" }],
-      ownerAttentionBudget: {
-        maxOwnerInterruptions: 0,
-        mergeHumanActions: true,
-        noScreenshotWhenAutoVerifiable: true,
-      },
-      maxDelegationDepth: 0,
-    }, ACTOR);
+    const executionContract = (await tx.select().from(aiceoExecutionContractsTable)
+      .where(eq(aiceoExecutionContractsTable.idempotencyKey, IDEMPOTENCY_KEY)).limit(1))[0];
+    if (!executionContract) {
+      throw new Error(
+        "External Agent Contract V1 recorder cannot issue governance contracts directly; "
+        + "an authenticated aiceo_validator must issue the contract through the control-plane route first",
+      );
+    }
     assert.equal(executionContract.status, "ISSUED");
 
     const service = new AiceoExternalAgentContractV1Service({

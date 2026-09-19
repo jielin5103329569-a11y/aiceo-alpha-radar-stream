@@ -10,6 +10,10 @@ import {
 } from "@workspace/db/schema";
 import { AiceoAgentExecutionProtocol } from "../artifacts/api-server/src/lib/aiceoAgentExecutionProtocol";
 import { AiceoExecutionGovernanceV1 } from "../artifacts/api-server/src/lib/aiceoExecutionGovernanceV1";
+import {
+  AICEO_PRIMARY_TECHNICAL_BRAIN_ACTOR_ID,
+  AICEO_ROLE_GOVERNANCE_RULE_ID,
+} from "../artifacts/api-server/src/lib/aiceoGovernanceRoot";
 
 const ROLLBACK = Symbol("rollback");
 
@@ -48,10 +52,19 @@ async function main() {
         ownerAttentionBudget: { maxOwnerInterruptions: 1, mergeHumanActions: true, noScreenshotWhenAutoVerifiable: true },
         maxDelegationDepth: 1,
       };
-      const contract = await protocol.issue(input, "eg001-brain");
+      await assert.rejects(
+        () => protocol.issue(input, "eg001-operator", "aiceo_operator" as any),
+        /Owner-side governance validator lane/,
+      );
+      const contract = await protocol.issue(input, "eg001-validator", "aiceo_validator");
+      assert.equal(contract.brainActorId, AICEO_PRIMARY_TECHNICAL_BRAIN_ACTOR_ID);
+      assert.equal(
+        contract.frozenRules.some((rule: any) => rule.id === AICEO_ROLE_GOVERNANCE_RULE_ID),
+        true,
+      );
       await assert.rejects(
         () => protocol.start(contract.id, {
-          idempotencyKey: "eg001-missing-fro", agentType: "coding", agentActorId: "eg001-agent",
+          idempotencyKey: "eg001-missing-fro", agentType: "coding", agentActorId: AICEO_PRIMARY_TECHNICAL_BRAIN_ACTOR_ID,
           parentRunId: null, delegationDepth: 0, inheritedAuthority: "delegated_technical_authority",
           contextHash: contract.contextHash,
         }),
@@ -60,7 +73,7 @@ async function main() {
       const run = await protocol.start(contract.id, {
         idempotencyKey: "eg001-test-run",
         agentType: "coding",
-        agentActorId: "eg001-agent",
+        agentActorId: AICEO_PRIMARY_TECHNICAL_BRAIN_ACTOR_ID,
         parentRunId: null,
         delegationDepth: 0,
         inheritedAuthority: "delegated_technical_authority",
@@ -95,8 +108,8 @@ async function main() {
       assert.equal(Number((await tx.select({ n: count() }).from(aiceoCapabilityPerformanceLedgerTable)
         .where(eq(aiceoCapabilityPerformanceLedgerTable.runId, run.id)))[0].n), 1);
       await assert.rejects(
-        () => protocol.close(run.id, "eg001-validator", "Premature close must remain blocked"),
-        /requires a resolved First-Resolution Obligation/,
+        () => protocol.close(run.id, "eg001-validator", "aiceo_validator", "Premature close must remain blocked"),
+        /requires the persisted independent Owner-side verification/,
       );
       await assert.rejects(
         () => new AiceoExecutionGovernanceV1(tx).transition({
@@ -122,6 +135,17 @@ async function main() {
         }),
         /idempotency conflict/,
       );
+      await assert.rejects(
+        () => protocol.verify(run.id, {
+          passed: true,
+          compliance: {
+            authority: true, scope: true, understanding: true, intentGate: true,
+            noDuplicate: true, noOwnerInterruption: true, evidence: true,
+          },
+          evidence: [{ validator: "wrong-role" }],
+        }, "eg001-operator", "aiceo_operator" as any),
+        /independent verification required/,
+      );
       const verified = await protocol.verify(run.id, {
         passed: true,
         compliance: {
@@ -129,9 +153,18 @@ async function main() {
           noDuplicate: true, noOwnerInterruption: true, evidence: true,
         },
         evidence: [{ validator: "independent" }],
-      }, "eg001-validator");
+      }, "eg001-validator", "aiceo_validator");
       assert.equal(verified.finalStatus, "VERIFIED");
-      await protocol.close(run.id, "eg001-validator", "Verified objective is complete", [{ closed: true }]);
+      await assert.rejects(
+        () => protocol.close(
+          run.id,
+          "eg001-validator",
+          "aiceo_operator" as any,
+          "Wrong role cannot close",
+        ),
+        /requires the persisted independent Owner-side verification/,
+      );
+      await protocol.close(run.id, "eg001-validator", "aiceo_validator", "Verified objective is complete", [{ closed: true }]);
       await protocol.rollback(run.id, "eg001-operator", "Backtrace required", [{ rollback: true }]);
       await protocol.reopen(run.id, "eg001-operator", "Root cause corrected", [{ reopened: true }]);
       const reopened = await tx.select().from(aiceoExecutionGovernanceLifecycleTable)

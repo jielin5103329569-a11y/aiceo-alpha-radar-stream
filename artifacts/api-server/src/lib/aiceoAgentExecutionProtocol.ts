@@ -14,6 +14,14 @@ import {
 } from "@workspace/db/schema";
 import { assertCredentialPersistenceSafe } from "./aiceoCredentialPersistenceFirewall";
 import { AiceoExecutionGovernanceV1 } from "./aiceoExecutionGovernanceV1";
+import {
+  AICEO_OWNER_SIDE_GOVERNANCE_ACTOR_ID,
+  AICEO_PRIMARY_TECHNICAL_BRAIN_ACTOR_ID,
+  AICEO_ROLE_GOVERNANCE_PROFILE_VERSION,
+  AICEO_ROLE_GOVERNANCE_RULE_ID,
+  aiceoRoleGovernanceProfile,
+  assertAiceoRoleGovernanceProfile,
+} from "./aiceoGovernanceRoot";
 
 export const AICEO_INTENT_GATE_VERSION = "INTENT-GATE-001";
 export const AICEO_AGENT_EXECUTION_PROTOCOL_VERSION = "BRAIN-AGENT-002";
@@ -218,9 +226,12 @@ export class AiceoAgentExecutionProtocol {
     });
   }
 
-  async issue(input: any, actorId: string) {
-    assertCredentialPersistenceSafe({ input, actorId }, "execution-contract");
+  async issue(input: any, actorId: string, actorRole: "aiceo_validator") {
+    assertCredentialPersistenceSafe({ input, actorId, actorRole }, "execution-contract");
     return this.transact(async (tx) => {
+      if (actorRole !== "aiceo_validator") {
+        throw new Error("不能：execution contracts require the Owner-side governance validator lane");
+      }
       const project = (await tx.select().from(aiceoContinuityProjectsTable).limit(1))[0];
       const state = (await tx.select().from(aiceoContinuityStateTable).limit(1).for("update"))[0];
       if (!project || !state || input.continuityRevision !== state.revision) {
@@ -328,10 +339,11 @@ export class AiceoAgentExecutionProtocol {
         ownerGovernanceGateStillRequired: false,
         productionAuthority: false,
       };
+      const roleGovernanceProfile = aiceoRoleGovernanceProfile();
       const body = {
         ...input,
         projectId: project.id,
-        brainActorId: actorId,
+        brainActorId: AICEO_PRIMARY_TECHNICAL_BRAIN_ACTOR_ID,
         contextHash,
         allowedCapabilities,
         deniedCapabilities,
@@ -339,11 +351,19 @@ export class AiceoAgentExecutionProtocol {
           ownerSovereignty: true,
           ownerProtectionTriad: true,
           authority: "delegated_technical_authority",
+          roleGovernanceProfileVersion: AICEO_ROLE_GOVERNANCE_PROFILE_VERSION,
+          primaryTechnicalBrainActorId: AICEO_PRIMARY_TECHNICAL_BRAIN_ACTOR_ID,
+          ownerSideGovernanceLaneId: AICEO_OWNER_SIDE_GOVERNANCE_ACTOR_ID,
+          ownerSideGovernanceAuthorizationRole: "aiceo_validator",
+          contractIssuedByGovernanceActorId: actorId.slice(0, 180),
+          contractIssuedByGovernanceRole: actorRole,
+          executionResultsRequireIndependentVerification: true,
+          createsGovernanceAuthority: false,
           intentConfirmationIsNotAuthorization: true,
           ownerGovernanceGateStillRequired: false,
           productionAuthority: false,
         },
-        frozenRules: [...(input.frozenRules ?? []), gateEvidence],
+        frozenRules: [...(input.frozenRules ?? []), gateEvidence, roleGovernanceProfile],
         escalationConditions: [
           ...(input.escalationConditions ?? []),
           { target: "brain", condition: "semantic_ambiguity" },
@@ -391,8 +411,18 @@ export class AiceoAgentExecutionProtocol {
       const intentGate = (contract.frozenRules as Record<string, unknown>[]).find(
         (rule) => rule.id === "intent-uncertainty-confirmation-gate",
       );
+      const roleGovernanceProfile = (contract.frozenRules as Record<string, unknown>[]).find(
+        (rule) => rule.id === AICEO_ROLE_GOVERNANCE_RULE_ID,
+      );
       if (!intentGate || intentGate.version !== AICEO_INTENT_GATE_VERSION || intentGate.intentConfirmationIsNotAuthorization !== true) {
         throw new Error("不能：Agent contract lacks the protected Intent Uncertainty Confirmation Gate");
+      }
+      assertAiceoRoleGovernanceProfile(roleGovernanceProfile);
+      if (
+        contract.brainActorId !== AICEO_PRIMARY_TECHNICAL_BRAIN_ACTOR_ID
+        || input.agentActorId !== AICEO_PRIMARY_TECHNICAL_BRAIN_ACTOR_ID
+      ) {
+        throw new Error("不能：technical execution must remain bound to the Grok Primary Technical Brain");
       }
       if (
         contract.allowedCapabilities.some((capability: string) => contract.deniedCapabilities.includes(capability))
@@ -675,7 +705,7 @@ export class AiceoAgentExecutionProtocol {
       await governance.markSubmitted(run.id);
       await governance.accept({
         contractId: contract.id, runId: run.id, contextHash: contract.contextHash,
-        actorId: callerId || run.agentActorId, evidence: input.evidence,
+        actorId: run.agentActorId, evidence: input.evidence,
       });
       await tx.update(aiceoAgentRunsTable).set({
         ...input,
@@ -719,14 +749,32 @@ export class AiceoAgentExecutionProtocol {
     });
   }
 
-  async verify(runId: string, input: any, validator: string) {
-    assertCredentialPersistenceSafe({ input, validator }, "agent-verification");
+  async verify(runId: string, input: any, validator: string, validatorRole: "aiceo_validator") {
+    assertCredentialPersistenceSafe({ input, validator, validatorRole }, "agent-verification");
     return this.transact(async (tx) => {
       const run = (await tx.select().from(aiceoAgentRunsTable)
         .where(eq(aiceoAgentRunsTable.id, runId)).for("update"))[0];
-      if (!run || run.agentActorId === validator || run.state !== "AWAITING_VERIFICATION") {
+      if (
+        validatorRole !== "aiceo_validator"
+        || !run
+        || run.agentActorId === validator
+        || run.state !== "AWAITING_VERIFICATION"
+      ) {
         throw new Error("不能：independent verification required");
       }
+      const contract = (await tx.select().from(aiceoExecutionContractsTable)
+        .where(eq(aiceoExecutionContractsTable.id, run.contractId)).limit(1))[0];
+      const roleGovernanceProfile = (contract?.frozenRules as Record<string, unknown>[] | undefined)?.find(
+        (rule) => rule.id === AICEO_ROLE_GOVERNANCE_RULE_ID,
+      );
+      if (
+        !contract
+        || contract.brainActorId !== AICEO_PRIMARY_TECHNICAL_BRAIN_ACTOR_ID
+        || run.agentActorId !== AICEO_PRIMARY_TECHNICAL_BRAIN_ACTOR_ID
+      ) {
+        throw new Error("不能：independent verification is not bound to the Grok technical execution role");
+      }
+      assertAiceoRoleGovernanceProfile(roleGovernanceProfile);
       const required = [
         "authority",
         "scope",
@@ -762,8 +810,6 @@ export class AiceoAgentExecutionProtocol {
           createdBy: validator,
         });
       }
-      const contract = (await tx.select().from(aiceoExecutionContractsTable)
-        .where(eq(aiceoExecutionContractsTable.id, run.contractId)).limit(1))[0];
       const routing = (await tx.select().from(aiceoCapabilityRoutingDecisionsTable)
         .where(eq(aiceoCapabilityRoutingDecisionsTable.runId, run.id)).limit(1))[0];
       if (!contract || !routing) throw new Error("EG-001 verification binding is missing");
@@ -803,11 +849,34 @@ export class AiceoAgentExecutionProtocol {
     });
   }
 
-  async close(runId: string, actorId: string, reason: string, evidence: Record<string, unknown>[] = []) {
+  async close(
+    runId: string,
+    actorId: string,
+    actorRole: "aiceo_validator",
+    reason: string,
+    evidence: Record<string, unknown>[] = [],
+  ) {
     return this.transact(async (tx) => {
       const run = (await tx.select().from(aiceoAgentRunsTable).where(eq(aiceoAgentRunsTable.id, runId)).limit(1))[0];
       const contract = run && (await tx.select().from(aiceoExecutionContractsTable).where(eq(aiceoExecutionContractsTable.id, run.contractId)).limit(1))[0];
       if (!run || !contract) throw new Error("EG-001 close binding is missing");
+      const verification = (await tx.select().from(aiceoAgentVerificationsTable)
+        .where(eq(aiceoAgentVerificationsTable.runId, runId)).limit(1))[0];
+      const roleGovernanceProfile = (contract.frozenRules as Record<string, unknown>[]).find(
+        (rule) => rule.id === AICEO_ROLE_GOVERNANCE_RULE_ID,
+      );
+      assertAiceoRoleGovernanceProfile(roleGovernanceProfile);
+      if (
+        actorRole !== "aiceo_validator"
+        || run.agentActorId !== AICEO_PRIMARY_TECHNICAL_BRAIN_ACTOR_ID
+        || run.state !== "VERIFIED"
+        || contract.status !== "VERIFIED"
+        || !verification?.passed
+        || verification.validatorActorId !== actorId
+        || verification.validatorActorId === run.agentActorId
+      ) {
+        throw new Error("不能：closure requires the persisted independent Owner-side verification");
+      }
       return new AiceoExecutionGovernanceV1(tx).close({
         contractId: contract.id, runId, contextHash: contract.contextHash, actorId, evidence, reason,
       });
