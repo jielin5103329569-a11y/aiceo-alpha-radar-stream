@@ -24,6 +24,7 @@ import {
 import {
   aiceoGovHomePage,
   aiceoGovLoginPage,
+  aiceoGovSsoCallbackPage,
   aiceoGovTask73Page,
 } from "./aiceoGovPages";
 
@@ -278,7 +279,7 @@ aiceoGovPublicRouter.get("/", (_req, res) => {
 });
 
 aiceoGovPublicRouter.get("/sso-callback", (_req, res) => {
-  res.redirect(303, "/gov/tasks/73");
+  res.type("html").send(aiceoGovSsoCallbackPage());
 });
 
 aiceoGovPublicRouter.get("/tasks/73", (req, res, next) => {

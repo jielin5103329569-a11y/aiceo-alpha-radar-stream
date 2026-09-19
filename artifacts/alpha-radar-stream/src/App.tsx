@@ -58,9 +58,19 @@ function stripBase(path: string): string {
 }
 
 function SignInPage() {
+  const requestedRedirect = new URLSearchParams(window.location.search).get('redirect_url');
+  const govCallbackUrl = `${window.location.origin}/gov/sso-callback`;
+  const governanceRedirect = requestedRedirect === govCallbackUrl ? govCallbackUrl : undefined;
+
   return (
     <div className="flex min-h-[100dvh] items-center justify-center bg-background px-4">
-      <SignIn routing="path" path={`${basePath}/sign-in`} signUpUrl={`${basePath}/sign-up`} />
+      <SignIn
+        routing="path"
+        path={`${basePath}/sign-in`}
+        signUpUrl={`${basePath}/sign-up`}
+        forceRedirectUrl={governanceRedirect}
+        fallbackRedirectUrl={governanceRedirect}
+      />
     </div>
   );
 }
@@ -108,6 +118,18 @@ function Router() {
 
 function ClerkProviderWithRoutes() {
   const [, setLocation] = useLocation();
+  const routeWithServerHandoff = (to: string, replace: boolean) => {
+    const destination = new URL(to, window.location.origin);
+    if (
+      destination.origin === window.location.origin
+      && destination.pathname.startsWith('/gov/')
+    ) {
+      if (replace) window.location.replace(destination.href);
+      else window.location.assign(destination.href);
+      return;
+    }
+    setLocation(stripBase(to), replace ? { replace: true } : undefined);
+  };
 
   return (
     <ClerkProvider
@@ -116,8 +138,8 @@ function ClerkProviderWithRoutes() {
       appearance={clerkAppearance}
       signInUrl={`${basePath}/sign-in`}
       signUpUrl={`${basePath}/sign-up`}
-      routerPush={(to) => setLocation(stripBase(to))}
-      routerReplace={(to) => setLocation(stripBase(to), { replace: true })}
+      routerPush={(to) => routeWithServerHandoff(to, false)}
+      routerReplace={(to) => routeWithServerHandoff(to, true)}
     >
       <QueryClientProvider client={queryClient}>
         <ClerkQueryClientCacheInvalidator />

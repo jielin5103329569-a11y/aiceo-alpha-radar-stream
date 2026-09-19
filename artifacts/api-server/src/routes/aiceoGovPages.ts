@@ -104,6 +104,19 @@ export const aiceoGovLoginPage = () => page(
   `,
 );
 
+export const aiceoGovSsoCallbackPage = () => page(
+  "AICEO Governance — Sign In Complete",
+  `<main>
+    <span class="label">AICEO Minimum Governance Surface</span>
+    <h1>Sign-in complete</h1>
+    <p>Opening the isolated Task 73 governance record.</p>
+    <div class="actions">
+      <a href="/gov/tasks/73">Continue to Task 73</a>
+    </div>
+  </main>`,
+  `window.location.replace("/gov/tasks/73");`,
+);
+
 export const aiceoGovTask73Page = () => page(
   "AICEO Governance — Task 73",
   `<main>
