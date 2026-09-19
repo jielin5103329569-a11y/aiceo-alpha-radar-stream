@@ -44,12 +44,41 @@ ${body}
 </body>
 </html>`;
 
+export const aiceoGovHomePage = () => page(
+  "AICEO Governance",
+  `<main>
+    <span class="label">AICEO Minimum Governance Surface</span>
+    <h1>Owner governance</h1>
+    <p>This isolated surface exposes only the persisted Task 73 governance record. It does not reuse IMPL-001 approval evidence.</p>
+    <div id="status" class="status info">Checking Clerk role…</div>
+    <div class="actions">
+      <a id="sign-in" href="/gov/login">Sign in with Clerk</a>
+      <a id="open-task" class="secondary" href="/gov/tasks/73" hidden>Open Task 73</a>
+    </div>
+  </main>`,
+  `
+    fetch("/gov/me", { headers: { Accept: "application/json" }, credentials: "same-origin" })
+      .then(async (response) => {
+        if (!response.ok) throw new Error("Sign in as the exclusive OWNER or aiceo_validator.");
+        const me = await response.json();
+        document.getElementById("status").textContent = "Signed in as " + me.userId;
+        document.getElementById("status").className = "status success";
+        document.getElementById("sign-in").hidden = true;
+        document.getElementById("open-task").hidden = false;
+      })
+      .catch((error) => {
+        document.getElementById("status").textContent = error.message;
+        document.getElementById("status").className = "status info";
+      });
+  `,
+);
+
 export const aiceoGovLoginPage = () => page(
   "AICEO Governance Sign In",
   `<main>
     <span class="label">AICEO Minimum Governance Surface</span>
     <h1>Owner governance access</h1>
-    <p>This isolated page uses the project's existing Clerk session. Governance data remains unavailable without an authenticated user holding only the <strong>aiceo_validator</strong> role.</p>
+    <p>This isolated page uses the project's existing Clerk session. Governance data remains unavailable without an authenticated user holding only the <strong>OWNER</strong> or <strong>aiceo_validator</strong> role.</p>
     <div id="status" class="status info">Checking Clerk session…</div>
     <div class="actions">
       <a id="sign-in" href="/sign-in">Sign in with Clerk</a>
@@ -61,7 +90,7 @@ export const aiceoGovLoginPage = () => page(
       + encodeURIComponent(window.location.origin + "/gov/sso-callback");
     fetch("/gov/me", { headers: { Accept: "application/json" }, credentials: "same-origin" })
       .then(async (response) => {
-        if (!response.ok) throw new Error("Sign in with an exclusive aiceo_validator role to continue.");
+        if (!response.ok) throw new Error("Sign in with an exclusive OWNER or aiceo_validator role to continue.");
         const me = await response.json();
         document.getElementById("status").textContent = "Signed in as " + me.userId;
         document.getElementById("status").className = "status success";

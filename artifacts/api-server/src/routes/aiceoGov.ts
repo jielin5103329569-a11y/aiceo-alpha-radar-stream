@@ -14,7 +14,6 @@ import {
 } from "@workspace/db/schema";
 import { AiceoAgentExecutionProtocol } from "../lib/aiceoAgentExecutionProtocol";
 import {
-  authorizeAiceoRole,
   aiceoRolesFromPublicMetadata,
 } from "../lib/aiceoAuthorization";
 import { assertCredentialPersistenceSafe } from "../lib/aiceoCredentialPersistenceFirewall";
@@ -23,6 +22,7 @@ import {
   AICEO_ROLE_GOVERNANCE_RULE_ID,
 } from "../lib/aiceoGovernanceRoot";
 import {
+  aiceoGovHomePage,
   aiceoGovLoginPage,
   aiceoGovTask73Page,
 } from "./aiceoGovPages";
@@ -124,7 +124,7 @@ async function appendAudit(
   }).returning())[0];
 }
 
-async function authorizeValidator(req: Request, res: Response): Promise<{
+async function authorizeOwnerValidator(req: Request, res: Response): Promise<{
   userId: string;
   roles: string[];
 } | null> {
@@ -140,18 +140,19 @@ async function authorizeValidator(req: Request, res: Response): Promise<{
     res.status(403).json({ error: "Current Clerk role authority is unavailable." });
     return null;
   }
-  const authorization = authorizeAiceoRole({
-    userId: auth.userId,
-    sessionClaims: auth.sessionClaims as Record<string, unknown> | null | undefined,
-    publicMetadata,
-  }, "aiceo_validator");
-  if (!authorization.allowed) {
-    res.status(403).json({ error: authorization.error });
+  const roles = aiceoRolesFromPublicMetadata(publicMetadata);
+  if (
+    roles.size !== 1
+    || (!roles.has("aiceo_owner") && !roles.has("aiceo_validator"))
+  ) {
+    res.status(403).json({
+      error: "Exclusive aiceo_owner or aiceo_validator role required.",
+    });
     return null;
   }
   return {
-    userId: authorization.userId,
-    roles: [...aiceoRolesFromPublicMetadata(publicMetadata)],
+    userId: auth.userId,
+    roles: [...roles],
   };
 }
 
@@ -273,13 +274,7 @@ aiceoGovPublicRouter.get("/login", (_req, res) => {
 });
 
 aiceoGovPublicRouter.get("/", (_req, res) => {
-  res.json({
-    status: "ok",
-    ownerPid: process.pid,
-    port: Number(process.env.PORT),
-    singleton: true,
-    surface: "aiceo-governance",
-  });
+  res.type("html").send(aiceoGovHomePage());
 });
 
 aiceoGovPublicRouter.get("/sso-callback", (_req, res) => {
@@ -295,19 +290,19 @@ aiceoGovPublicRouter.get("/tasks/73", (req, res, next) => {
 });
 
 router.get("/me", async (req, res) => {
-  const principal = await authorizeValidator(req, res);
+  const principal = await authorizeOwnerValidator(req, res);
   if (!principal) return;
   res.json({ userId: principal.userId, roles: principal.roles });
 });
 
 router.get("/tasks/73", async (req, res) => {
-  const principal = await authorizeValidator(req, res);
+  const principal = await authorizeOwnerValidator(req, res);
   if (!principal) return;
   res.json(taskView(await loadTask73()));
 });
 
 router.post("/tasks/73/verify", async (req, res) => {
-  const principal = await authorizeValidator(req, res);
+  const principal = await authorizeOwnerValidator(req, res);
   if (!principal) return;
   const parsed = verificationInput.safeParse(req.body);
   if (!parsed.success) {
@@ -343,7 +338,7 @@ router.post("/tasks/73/verify", async (req, res) => {
 });
 
 router.post("/tasks/73/close", async (req, res) => {
-  const principal = await authorizeValidator(req, res);
+  const principal = await authorizeOwnerValidator(req, res);
   if (!principal) return;
   const parsed = closureInput.safeParse(req.body);
   if (!parsed.success) {
