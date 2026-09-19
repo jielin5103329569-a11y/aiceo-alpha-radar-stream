@@ -22,8 +22,13 @@ import {
   AICEO_PRIMARY_TECHNICAL_BRAIN_ACTOR_ID,
   AICEO_ROLE_GOVERNANCE_RULE_ID,
 } from "../lib/aiceoGovernanceRoot";
+import {
+  aiceoGovLoginPage,
+  aiceoGovTask73Page,
+} from "./aiceoGovPages";
 
 const router = Router();
+export const aiceoGovPublicRouter = Router();
 const GOV_TASK_ID = "73";
 const GOV_REVISION = 49;
 export const GOV_TASK_73_CONTRACT_KEY = "aiceo-gov-task-73-role-handoff";
@@ -263,13 +268,16 @@ function assertLegalGrokRun(
   return snapshot.run;
 }
 
-router.get("/login", async (req, res) => {
-  const auth = getAuth(req);
-  if (auth.userId) {
-    res.redirect(302, "/gov/tasks/73");
+aiceoGovPublicRouter.get("/login", (_req, res) => {
+  res.type("html").send(aiceoGovLoginPage());
+});
+
+aiceoGovPublicRouter.get("/tasks/73", (req, res, next) => {
+  if (req.accepts(["html", "json"]) !== "html") {
+    next();
     return;
   }
-  res.redirect(302, `/sign-in?redirect_url=${encodeURIComponent("/gov/tasks/73")}`);
+  res.type("html").send(aiceoGovTask73Page());
 });
 
 router.get("/me", async (req, res) => {

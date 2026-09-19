@@ -4,7 +4,7 @@ import pinoHttp from "pino-http";
 import { clerkMiddleware } from "@clerk/express";
 import { publishableKeyFromHost } from "@clerk/shared/keys";
 import router from "./routes";
-import aiceoGovRouter from "./routes/aiceoGov";
+import aiceoGovRouter, { aiceoGovPublicRouter } from "./routes/aiceoGov";
 import { logger } from "./lib/logger";
 import {
   CLERK_PROXY_PATH,
@@ -37,6 +37,7 @@ app.use(CLERK_PROXY_PATH, clerkProxyMiddleware());
 app.use(cors({ credentials: true, origin: true }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use("/gov", aiceoGovPublicRouter);
 app.use(
   clerkMiddleware((req) => ({
     publishableKey: publishableKeyFromHost(
