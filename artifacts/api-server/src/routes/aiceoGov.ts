@@ -130,7 +130,7 @@ async function authorizeValidator(req: Request, res: Response): Promise<{
 } | null> {
   const auth = getAuth(req);
   if (!auth.userId) {
-    res.status(403).json({ error: "Real Clerk session and exclusive aiceo_validator role required." });
+    res.status(401).json({ error: "Real Clerk session required." });
     return null;
   }
   let publicMetadata: Record<string, unknown>;
@@ -270,6 +270,16 @@ function assertLegalGrokRun(
 
 aiceoGovPublicRouter.get("/login", (_req, res) => {
   res.type("html").send(aiceoGovLoginPage());
+});
+
+aiceoGovPublicRouter.get("/", (_req, res) => {
+  res.json({
+    status: "ok",
+    ownerPid: process.pid,
+    port: Number(process.env.PORT),
+    singleton: true,
+    surface: "aiceo-governance",
+  });
 });
 
 aiceoGovPublicRouter.get("/sso-callback", (_req, res) => {
