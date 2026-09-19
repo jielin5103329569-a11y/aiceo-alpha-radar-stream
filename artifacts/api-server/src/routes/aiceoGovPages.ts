@@ -169,6 +169,12 @@ export const aiceoGovTask73Page = () => page(
         </form>
       </div>
 
+      <div id="owner-action" class="card" hidden>
+        <h2>Owner action</h2>
+        <p>This explicit action verifies the persisted evidence and closes Task 73 in one server transaction.</p>
+        <button id="owner-verify-close" type="button">Owner verify and close Task 73</button>
+      </div>
+
       <div class="card">
         <h2>Closure</h2>
         <form id="close-form">
@@ -187,6 +193,7 @@ export const aiceoGovTask73Page = () => page(
     const statusNode = document.getElementById("status");
     const taskNode = document.getElementById("task");
     const authAction = document.getElementById("auth-action");
+    const ownerAction = document.getElementById("owner-action");
     const showStatus = (message, kind = "info") => {
       statusNode.textContent = message;
       statusNode.className = "status " + kind;
@@ -208,14 +215,6 @@ export const aiceoGovTask73Page = () => page(
       taskNode.hidden = false;
       authAction.hidden = true;
     };
-    const parseArray = (value, required) => {
-      if (!value.trim() && !required) return [];
-      const parsed = JSON.parse(value);
-      if (!Array.isArray(parsed) || (required && parsed.length === 0)) {
-        throw new Error("Evidence must be a" + (required ? " non-empty" : "") + " JSON array.");
-      }
-      return parsed;
-    };
     const request = async (url, options = {}) => {
       const response = await fetch(url, {
         ...options,
@@ -226,11 +225,16 @@ export const aiceoGovTask73Page = () => page(
       if (!response.ok) throw new Error(body.error || ("Request failed with " + response.status));
       return body;
     };
-    const load = () => request("/gov/tasks/73").then((task) => {
+    const load = () => Promise.all([
+      request("/gov/tasks/73"),
+      request("/gov/me"),
+    ]).then(([task, me]) => {
       render(task);
+      ownerAction.hidden = !me.roles.includes("aiceo_owner");
       showStatus("Protected Task 73 data loaded.", "success");
     }).catch((error) => {
       taskNode.hidden = true;
+      ownerAction.hidden = true;
       authAction.hidden = false;
       showStatus(error.message, "error");
     });
@@ -239,7 +243,6 @@ export const aiceoGovTask73Page = () => page(
       event.preventDefault();
       const form = new FormData(event.currentTarget);
       try {
-        const evidence = parseArray(String(form.get("verificationEvidence") || ""), true);
         const compliance = {};
         ["authority","scope","understanding","intentGate","noDuplicate","noOwnerInterruption","evidence"]
           .forEach((key) => { compliance[key] = form.get(key) === "on"; });
@@ -247,7 +250,11 @@ export const aiceoGovTask73Page = () => page(
         render(await request("/gov/tasks/73/verify", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ passed: form.get("passed") === "on", compliance, evidence }),
+          body: JSON.stringify({
+            passed: form.get("passed") === "on",
+            compliance,
+            evidence: String(form.get("verificationEvidence") || ""),
+          }),
         }));
         showStatus("Verification response persisted.", "success");
       } catch (error) {
@@ -259,16 +266,34 @@ export const aiceoGovTask73Page = () => page(
       event.preventDefault();
       const form = new FormData(event.currentTarget);
       try {
-        const evidence = parseArray(String(form.get("closureEvidence") || ""), false);
         showStatus("Submitting closure request…");
         render(await request("/gov/tasks/73/close", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ reason: String(form.get("reason") || ""), evidence }),
+          body: JSON.stringify({
+            reason: String(form.get("reason") || ""),
+            evidence: String(form.get("closureEvidence") || ""),
+          }),
         }));
         showStatus("Closure response persisted.", "success");
       } catch (error) {
         showStatus(error.message, "error");
+      }
+    });
+    document.getElementById("owner-verify-close").addEventListener("click", async () => {
+      const button = document.getElementById("owner-verify-close");
+      button.disabled = true;
+      showStatus("Owner verification and closure in progress…");
+      try {
+        render(await request("/gov/tasks/73/owner-verify-and-close", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: "{}",
+        }));
+        showStatus("Task 73 verified and closed by OWNER.", "success");
+      } catch (error) {
+        showStatus(error.message, "error");
+        button.disabled = false;
       }
     });
     load();

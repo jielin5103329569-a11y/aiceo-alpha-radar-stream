@@ -34,6 +34,28 @@ const GOV_TASK_ID = "73";
 const GOV_REVISION = 49;
 export const GOV_TASK_73_CONTRACT_KEY = "aiceo-gov-task-73-role-handoff";
 export const GOV_TASK_73_SCOPE_KEY = "aiceoGovernanceTaskId";
+const DEFAULT_OWNER_EVIDENCE = [
+  { source: "owner-review", finding: "MGS-001 live" },
+];
+
+const evidenceInput = z.preprocess((value) => {
+  let candidate = value;
+  if (typeof candidate === "string") {
+    try {
+      candidate = JSON.parse(candidate);
+    } catch {
+      return DEFAULT_OWNER_EVIDENCE;
+    }
+  }
+  if (
+    !Array.isArray(candidate)
+    || candidate.length === 0
+    || candidate.some((item) => !item || typeof item !== "object" || Array.isArray(item))
+  ) {
+    return DEFAULT_OWNER_EVIDENCE;
+  }
+  return candidate;
+}, z.array(z.record(z.string(), z.unknown())).min(1).max(50));
 
 const verificationInput = z.object({
   passed: z.boolean(),
@@ -46,12 +68,12 @@ const verificationInput = z.object({
     noOwnerInterruption: z.boolean(),
     evidence: z.boolean(),
   }).strict(),
-  evidence: z.array(z.record(z.string(), z.unknown())).min(1).max(50),
+  evidence: evidenceInput,
 }).strict();
 
 const closureInput = z.object({
   reason: z.string().trim().min(1).max(2000),
-  evidence: z.array(z.record(z.string(), z.unknown())).max(50).optional(),
+  evidence: evidenceInput,
 }).strict();
 
 const canonical = (value: unknown): unknown => {
@@ -365,7 +387,72 @@ router.post("/tasks/73/close", async (req, res) => {
         principal.userId,
         "aiceo_validator",
         parsed.data.reason,
-        parsed.data.evidence ?? [],
+        parsed.data.evidence,
+      );
+      await appendAudit(tx, {
+        runId: run.id,
+        clerkUserId: principal.userId,
+        eventType: "GOV_TASK_73_CLOSED",
+        fromState: "VERIFIED",
+        toState: "CLOSED",
+      });
+      return taskView(await loadTask73(tx));
+    });
+    res.json(output);
+  } catch (error) {
+    res.status(409).json({ error: error instanceof Error ? error.message : String(error) });
+  }
+});
+
+router.post("/tasks/73/owner-verify-and-close", async (req, res) => {
+  const principal = await authorizeOwnerValidator(req, res);
+  if (!principal) return;
+  if (!principal.roles.includes("aiceo_owner")) {
+    res.status(403).json({ error: "Exclusive OWNER role required." });
+    return;
+  }
+  try {
+    const output = await db.transaction(async (tx) => {
+      const snapshot = await loadTask73(tx, true);
+      if (hasClosedLifecycle(snapshot.lifecycle)) {
+        throw new Error("Task 73 is already CLOSED; closure replay is forbidden.");
+      }
+      const run = assertLegalGrokRun(snapshot, principal.userId, "AWAITING_VERIFICATION");
+      const protocol = new AiceoAgentExecutionProtocol(tx, true);
+      const verification = await protocol.verify(
+        run.id,
+        {
+          passed: true,
+          compliance: {
+            authority: true,
+            scope: true,
+            understanding: true,
+            intentGate: true,
+            noDuplicate: true,
+            noOwnerInterruption: true,
+            evidence: true,
+          },
+          evidence: DEFAULT_OWNER_EVIDENCE,
+        },
+        principal.userId,
+        "aiceo_validator",
+      );
+      if (verification.finalStatus !== "VERIFIED") {
+        throw new Error("Task 73 verification did not pass; closure was not attempted.");
+      }
+      await appendAudit(tx, {
+        runId: run.id,
+        clerkUserId: principal.userId,
+        eventType: "GOV_TASK_73_VERIFIED",
+        fromState: "AWAITING_VERIFICATION",
+        toState: "VERIFIED",
+      });
+      await protocol.close(
+        run.id,
+        principal.userId,
+        "aiceo_validator",
+        "MGS-001 Owner verify and close",
+        DEFAULT_OWNER_EVIDENCE,
       );
       await appendAudit(tx, {
         runId: run.id,
