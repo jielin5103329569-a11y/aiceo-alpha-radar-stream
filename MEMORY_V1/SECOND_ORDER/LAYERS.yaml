@@ -1,3 +1,13 @@
 version: second-order/v0
 policy: append-only
-layers: []
+layers:
+  - id: L-POWER-PATH
+    after: compute-gpu
+    well: WELL-POWER-PATH-COMP
+    state: research
+    note: First-order GPU often priced. Power path may be next constraint. Not confirmed.
+  - id: L-POWER-COST
+    after: time-to-power
+    well: WELL-POWER-COST-INT
+    state: research
+    note: Cost allocation may change architecture choice. Not confirmed regime.
