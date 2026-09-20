@@ -6,4 +6,5 @@
 - Unknown task: do not load all memory. Load default only. Missing map = STOP or Owner-specified ids.
 - Never compress execution/governance source text.
 - Missing reference = STOP. Persistent State wins conflicts.
-- AICEO / Alpha / owner-mode: after default load, open docs/OWNER_COLLABORATION_CONTRACT.md + AICEO_EXEC_CHAIN.md; Alpha also opens docs/ALPHA_MASTER_ROADMAP.md. Do not dump full .agents/memory.
+- AICEO / owner-mode: after default load, open docs/OWNER_COLLABORATION_CONTRACT.md + AICEO_EXEC_CHAIN.md.
+- Alpha / 阿尔法 / ticker-under-Alpha: default + STATE/alpha.pointers.yaml + task_maps.alpha + MEMORY_V1/CARDS/alpha/* + GOV-ALPHA-ROADMAP. Do not load full AICEO继续 map or all .agents/memory.
