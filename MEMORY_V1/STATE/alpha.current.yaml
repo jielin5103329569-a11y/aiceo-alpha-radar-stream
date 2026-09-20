@@ -1,0 +1,9 @@
+as_of: 2026-09-20
+production_truth: false
+live5: unchanged
+tightest_named:
+  - WELL-AMKR-ADV-PKG
+  - WELL-INP-NPO
+  - WELL-VICR-VPD
+next_unpriced_well: UNKNOWN
+note: Re-verify before any capital language. Chat is not truth.
