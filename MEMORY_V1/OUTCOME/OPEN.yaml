@@ -1,0 +1,9 @@
+version: outcome/v0
+policy: append-only
+open:
+  - well: WELL-POWER-PATH-COMP
+    snapshot: MEMORY_V1/SNAPSHOT/2026-09-20_power-path.md
+    status: waiting-reality
+  - well: WELL-POWER-COST-INT
+    snapshot: MEMORY_V1/SNAPSHOT/2026-09-20_power-cost.md
+    status: waiting-reality
