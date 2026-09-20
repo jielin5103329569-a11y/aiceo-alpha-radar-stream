@@ -1,7 +1,11 @@
-- Persistent State is truth; Memory is context
+- Persistent State is truth; Memory is context; Chat is temporary
 - productionAuthority stays false
 - current resume (read, do not write): external-agent-contract-v1-ready-for-independent-validation
 - current activeTask (read, do not write): null
 - Fail-Closed if INDEX path missing or STATE conflicts with Persistent State
 - Do not load all of .agents/memory on every task
 - Agents read INDEX then only needed files
+- Roles + dead commands: docs/OWNER_COLLABORATION_CONTRACT.md
+- Execution slot rules: AICEO_EXEC_CHAIN.md
+- Alpha master roadmap (not a queue): docs/ALPHA_MASTER_ROADMAP.md
+- On AICEO / Alpha task: read those three after this BOOT + INDEX + STATE pointer
