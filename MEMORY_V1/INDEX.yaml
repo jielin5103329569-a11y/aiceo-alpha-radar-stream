@@ -3,6 +3,21 @@
   domain: aiceo
   state: active
   ref: .agents/memory/MEMORY.md
+- id: GOV-OWNER-MODE
+  type: governance
+  domain: aiceo
+  state: active
+  ref: docs/OWNER_COLLABORATION_CONTRACT.md
+- id: GOV-EXEC-CHAIN
+  type: governance
+  domain: aiceo
+  state: active
+  ref: AICEO_EXEC_CHAIN.md
+- id: GOV-ALPHA-ROADMAP
+  type: governance
+  domain: aiceo
+  state: active
+  ref: docs/ALPHA_MASTER_ROADMAP.md
 - id: MEM-ai-pool-live-source-isolation
   type: memory
   domain: aiceo
@@ -211,6 +226,8 @@
 ---
 task_maps:
   AICEO继续:
+    - GOV-OWNER-MODE
+    - GOV-EXEC-CHAIN
     - MEM-memory
     - MEM-context-authority-continuity
     - MEM-owner-brain-execution-protocol
@@ -219,6 +236,8 @@ task_maps:
     - MEM-closure-integrity-gates
     - MEM-memory-foundation-scope
   alpha-radar:
+    - GOV-OWNER-MODE
+    - GOV-ALPHA-ROADMAP
     - MEM-sector-first-priority
     - MEM-shared-universe-cycle
     - MEM-signal-integrity
@@ -226,6 +245,10 @@ task_maps:
     - MEM-databento-live-bridge
     - MEM-protected-scan-health
     - MEM-radar-status-contract-propagation
+  owner-mode:
+    - GOV-OWNER-MODE
+    - GOV-EXEC-CHAIN
+    - GOV-ALPHA-ROADMAP
   readonly-dump:
     - MEM-memory
     - MEM-memory-foundation-scope
