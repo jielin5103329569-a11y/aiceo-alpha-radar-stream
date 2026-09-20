@@ -1,10 +1,14 @@
-implemented: read-only-scripts
+implemented: research-status-route
 live_wired: false
 productionAuthority: false
+route: GET /research/status
+curl: 200
+route_attack: HOLD
 scripts:
   - scripts/read_wells.py
   - scripts/read_packs.py
   - scripts/alpha_status.py
+  - scripts/research_sidecar.py
+  - scripts/outcome_check.py
 wells: 8
 packs: 2
-next_slice: Owner-authorized live wire only
