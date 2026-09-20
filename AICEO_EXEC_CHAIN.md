@@ -8,6 +8,9 @@ Resume 协议：MEMORY_V1/BOOT.md + MEMORY_V1/STATE/aiceo.pointers.yaml
 ## 分工
 Owner=方向。Grok=出令/技术裁决。Agent=按合同改仓。GPT=治理/独立验收/外部 Radar。
 
+## Owner 粘贴
+一次一个技术极限的大段。禁止拆成单文件/单脚本/单微步让 Owner 连贴。Grok 先在 GitHub 写完整段，再出一条 Agent 令。
+
 ## 调仓
 动手前必须读取 Persistent State：Revision、Resume Node、activeTask、closure、verification、productionAuthority
 对不上 Resume Node 或 activeTask=null 且任务不是「只写本文件/治理文档」：停。
@@ -15,7 +18,7 @@ Owner=方向。Grok=出令/技术裁决。Agent=按合同改仓。GPT=治理/独
 ## 写代码
 - 单槽。BUSY 停。冷却 60–120s。
 - 最小 diff。不准顺手重构。
-- 不准自验当 PASS。不准动 8080。不准新 Repl/Workflow。
+- 不准自验当 PASS。不准新 Repl/Workflow。
 - 不准跳 Resume Node。不准 Promotion。不准把聊天当真相。
 
 ## 存仓
