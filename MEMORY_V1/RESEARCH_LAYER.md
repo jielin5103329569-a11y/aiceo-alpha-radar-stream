@@ -1,12 +1,11 @@
 # Research layer (not live)
-Wells: MEMORY_V1/BOTTLENECK/WELLS.yaml (8)
-Current: MEMORY_V1/STATE/alpha.current.yaml
-Packs: EXTERNAL_EYES/PACKS/2026-09-20_09h.md + 12h.md
-Snapshots: MEMORY_V1/SNAPSHOT/2026-09-20_power-*.md
-Capture: MEMORY_V1/CAPTURE/INBOX.yaml
-Self-attack: MEMORY_V1/SELF_ATTACK/2026-09-20_power.md
-Outcomes waiting: MEMORY_V1/OUTCOME/OPEN.yaml
-Missed: MEMORY_V1/MISSED/OPEN.yaml
-Sidecar: scripts/research_sidecar.py
-Live wired: false
+Wells: 8 including WELL-POWER-PATH-COMP WELL-POWER-COST-INT
+Packs: 2026-09-20_09h + 12h frozen
+Route: GET /research/status 200 live=false attack HOLD
+Old gates: radar GET 200, alerts 401, POST 404, auth fake 401, files not rewritten HOLD
+Outcomes: 2 open waiting reality
+Missed: empty
+Eyes internal read: not authorized
 Buy: false
+Landing: not complete
+Beneficial remaining: next frozen PACK, later Outcome fill, full-system attack after more gates change, independent validation.
