@@ -1,5 +1,10 @@
-implemented: false
+implemented: read-only-scripts
 live_wired: false
 productionAuthority: false
-next_slice: research-sidecar-reader
-blocked_until: Owner says wire
+scripts:
+  - scripts/read_wells.py
+  - scripts/read_packs.py
+  - scripts/alpha_status.py
+wells: 8
+packs: 2
+next_slice: Owner-authorized live wire only
