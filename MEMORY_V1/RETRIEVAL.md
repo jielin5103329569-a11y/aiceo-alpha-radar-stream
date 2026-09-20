@@ -1,4 +1,8 @@
 # Retrieval
 
-Read `BOOT.md`, `SCHEMA.yaml`, `STATE/aiceo.pointers.yaml`, and `INDEX.yaml`. Select only entries needed for the task, read their matching pointer cards, then read only those referenced memory files. Stop on missing references or conflicts with Persistent State.
-AICEO继续 loads mapped SOURCE files, not all memory files.
+- All sources stay on disk.
+- Default load = `BOOT.md` + `INDEX.yaml` + `SCHEMA.yaml` + `STATE/aiceo.pointers.yaml` only.
+- For a mapped task, load only its mapped SOURCE files.
+- Unknown task: do not load all memory. Load default only. Missing map = STOP or Owner-specified ids.
+- Never compress execution/governance source text.
+- Missing reference = STOP. Persistent State wins conflicts.

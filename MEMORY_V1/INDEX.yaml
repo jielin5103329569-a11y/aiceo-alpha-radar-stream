@@ -218,3 +218,14 @@ task_maps:
     - MEM-execution-governance-routing
     - MEM-closure-integrity-gates
     - MEM-memory-foundation-scope
+  alpha-radar:
+    - MEM-sector-first-priority
+    - MEM-shared-universe-cycle
+    - MEM-signal-integrity
+    - MEM-signal-quality-mechanisms
+    - MEM-databento-live-bridge
+    - MEM-protected-scan-health
+    - MEM-radar-status-contract-propagation
+  readonly-dump:
+    - MEM-memory
+    - MEM-memory-foundation-scope
