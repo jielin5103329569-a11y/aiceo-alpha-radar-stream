@@ -1,4 +1,45 @@
 version: bottleneck/v0
 policy: append-only
 live_scoring: untouched
-wells: []
+production_truth: false
+wells:
+  - id: WELL-AMKR-ADV-PKG
+    layer: advanced-packaging-HBM-heterogeneous
+    shell: AMKR
+    state: research-historical-locked-bottleneck
+    class: H
+    live5: no
+    note: Re-verify before use. Not production truth.
+  - id: WELL-INP-NPO
+    layer: InP-optics
+    shell: null
+    state: permanent-radar
+    class: U
+    live5: no
+    note: Binding constraint historically export-permit plus six-inch yield. No clean unpriced US must-pass assumed.
+  - id: WELL-VICR-VPD
+    layer: modular-power-royalty
+    shell: VICR
+    state: research-rent
+    class: H
+    live5: no
+    note: VPD / third-party manufacturing / royalty. Re-verify.
+  - id: WELL-POWER-GRID
+    layer: power-grid
+    shell: null
+    state: reality-branch
+    class: U
+    live5: no
+    note: No forced ticker.
+  - id: WELL-ALIS-DEMAND
+    layer: demand-side
+    shell: ALIS
+    state: demand-validation-only
+    class: H
+    live5: no
+  - id: WELL-AMCI-OBS
+    layer: observation
+    shell: AMCI
+    state: research-only
+    class: U
+    live5: no
