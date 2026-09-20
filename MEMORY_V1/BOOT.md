@@ -1,0 +1,7 @@
+- Persistent State is truth; Memory is context
+- productionAuthority stays false
+- current resume (read, do not write): external-agent-contract-v1-ready-for-independent-validation
+- current activeTask (read, do not write): null
+- Fail-Closed if INDEX path missing or STATE conflicts with Persistent State
+- Do not load all of .agents/memory on every task
+- Agents read INDEX then only needed files
