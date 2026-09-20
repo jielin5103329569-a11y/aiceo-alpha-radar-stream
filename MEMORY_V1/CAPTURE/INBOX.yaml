@@ -1,3 +1,15 @@
 version: capture/v0
 policy: append-only
-candidates: []
+candidates:
+  - id: CAP-20260920-09h
+    class: H
+    admitted: true
+    well: WELL-POWER-PATH-COMP
+    source: EXTERNAL_EYES/PACKS/2026-09-20_09h.md
+    note: Discovery only. Not live. Not buy.
+  - id: CAP-20260920-12h
+    class: H
+    admitted: true
+    well: WELL-POWER-COST-INT
+    source: EXTERNAL_EYES/PACKS/2026-09-20_12h.md
+    note: Discovery only. Not live. Not buy.
