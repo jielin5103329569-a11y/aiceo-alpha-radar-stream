@@ -208,3 +208,13 @@
   domain: aiceo
   state: active
   ref: .agents/memory/validation-persistence-isolation.md
+---
+task_maps:
+  AICEO继续:
+    - MEM-memory
+    - MEM-context-authority-continuity
+    - MEM-owner-brain-execution-protocol
+    - MEM-aiceo-external-agent-authority
+    - MEM-execution-governance-routing
+    - MEM-closure-integrity-gates
+    - MEM-memory-foundation-scope
