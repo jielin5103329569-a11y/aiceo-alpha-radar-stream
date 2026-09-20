@@ -6,3 +6,4 @@ write_policy: append-index-only
 forbidden: overwrite-.agents/memory, write-resume, write-activeTask, write-productionAuthority
 retrieval: BOOT -> INDEX -> listed refs only
 fail_closed: missing-ref, schema-mismatch, state-conflict-with-persistent-state
+alpha_objects: MEMORY_V1/OBJECTS/SCHEMA.md
