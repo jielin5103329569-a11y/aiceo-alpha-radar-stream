@@ -17,3 +17,18 @@ records:
     well: WELL-VICR-VPD
     class: H
     note: Rent / royalty research. Not a buy signal.
+  - id: AI-20260920-amkr
+    type: AI
+    links: [AR-20260920-amkr-pkg]
+    class: H
+    note: Last paper state PARTIAL. NVIDIA prepaid public 2026-07-23 so catalyst late two beats. Not live-5.
+  - id: AI-20260920-inp
+    type: AI
+    links: [AR-20260920-inp]
+    class: U
+    note: HOLD. Constraint named as China export permit plus six-inch crystal yield, not a fresh demand shock. No clean unpriced US must-pass shell assumed.
+  - id: AI-20260920-vicr
+    type: AI
+    links: [AR-20260920-vicr]
+    class: H
+    note: Side branch of packaging well. Rent path research. Not buy.
