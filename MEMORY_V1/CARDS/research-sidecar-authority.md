@@ -1,0 +1,1 @@
+ref: .agents/memory/research-sidecar-authority.md

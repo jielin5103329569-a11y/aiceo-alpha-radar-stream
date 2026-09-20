@@ -1,0 +1,8 @@
+version: memory-repo/v1
+mode: additive-sidecar
+source: .agents/memory
+source_files: 42
+cards: 42
+old_memory: frozen_except_top_hook
+promotion: false
+productionAuthority: false

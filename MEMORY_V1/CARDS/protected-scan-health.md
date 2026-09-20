@@ -1,0 +1,1 @@
+ref: .agents/memory/protected-scan-health.md

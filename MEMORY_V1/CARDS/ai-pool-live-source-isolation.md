@@ -1,0 +1,1 @@
+ref: .agents/memory/ai-pool-live-source-isolation.md

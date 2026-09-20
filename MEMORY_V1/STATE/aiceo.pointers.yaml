@@ -1,0 +1,7 @@
+truth_source: persistent_state
+project_key: aiceo
+continuity_state: aiceo_continuity_state
+resume_node: external-agent-contract-v1-ready-for-independent-validation
+active_task: read_from_persistent_state
+productionAuthority: false
+conflict_policy: persistent_state_wins

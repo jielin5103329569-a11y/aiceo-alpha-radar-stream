@@ -1,0 +1,1 @@
+ref: .agents/memory/closure-integrity-gates.md

@@ -1,3 +1,10 @@
+<!-- MEMORY_V1_HOOK -->
+Default read: MEMORY_V1/BOOT.md + MEMORY_V1/INDEX.yaml + MEMORY_V1/SCHEMA.yaml + MEMORY_V1/STATE/aiceo.pointers.yaml.
+Then load only INDEX/CARD refs required by this task.
+Do not load all .agents/memory/*.md.
+Missing ref = STOP. Persistent State wins conflicts.
+<!-- /MEMORY_V1_HOOK -->
+
 - [Databento live bridge](databento-live-bridge.md) — The official Python client begins streaming on iteration; do not call `start()` before consuming records.
 - [Development schema reconciliation](development-schema-reconciliation.md) — Diff dev schema; declare dependency-bearing constraints and reject CLI error text even with exit 0.
 - [Market data recovery](market-data-recovery.md) — Keep feed heartbeats separate from market-event freshness and use bounded retry backoff for provider recovery.

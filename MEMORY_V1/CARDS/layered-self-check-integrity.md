@@ -1,0 +1,1 @@
+ref: .agents/memory/layered-self-check-integrity.md

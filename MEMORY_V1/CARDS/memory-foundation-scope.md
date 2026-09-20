@@ -1,0 +1,1 @@
+ref: .agents/memory/memory-foundation-scope.md

@@ -1,0 +1,1 @@
+ref: .agents/memory/validation-persistence-isolation.md

@@ -1,0 +1,1 @@
+ref: .agents/memory/sector-first-priority.md

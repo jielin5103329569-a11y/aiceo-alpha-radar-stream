@@ -1,0 +1,1 @@
+ref: .agents/memory/signal-integrity.md
