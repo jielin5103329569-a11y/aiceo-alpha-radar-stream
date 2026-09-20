@@ -1,3 +1,19 @@
 version: alpha-objects/v0
 policy: append-only
-records: []
+production_truth: false
+records:
+  - id: AR-20260920-amkr-pkg
+    type: AR
+    well: WELL-AMKR-ADV-PKG
+    class: H
+    note: Historical primary packaging bottleneck candidate. Re-verify reality.
+  - id: AR-20260920-inp
+    type: AR
+    well: WELL-INP-NPO
+    class: U
+    note: Permanent optics radar. Constraint may be permit and yield not fresh demand.
+  - id: AR-20260920-vicr
+    type: AR
+    well: WELL-VICR-VPD
+    class: H
+    note: Rent / royalty research. Not a buy signal.
