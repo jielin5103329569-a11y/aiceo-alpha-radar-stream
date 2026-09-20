@@ -1,0 +1,7 @@
+knowledge_ns: alpha
+task_map: alpha
+retrieval: BOOT > INDEX > alpha.pointers > task_maps.alpha > CARDS/alpha > source refs
+productionAuthority: false
+live_scoring: untouched
+resume_node_unchanged: true
+next_authorized_only_by_owner: knowledge-object-model
