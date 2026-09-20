@@ -1,0 +1,8 @@
+version: memory-repo/v1
+truth: persistent_state
+memory: context
+productionAuthority: false
+write_policy: append-index-only
+forbidden: overwrite-.agents/memory, write-resume, write-activeTask, write-productionAuthority
+retrieval: BOOT -> INDEX -> listed refs only
+fail_closed: missing-ref, schema-mismatch, state-conflict-with-persistent-state
