@@ -18,6 +18,11 @@
   domain: aiceo
   state: active
   ref: docs/ALPHA_MASTER_ROADMAP.md
+- id: ALPHA-CORE
+  type: alpha-core
+  domain: alpha
+  state: active
+  ref: MEMORY_V1/CARDS/alpha/CORE.md
 - id: MEM-ai-pool-live-source-isolation
   type: memory
   domain: aiceo
@@ -235,6 +240,19 @@ task_maps:
     - MEM-execution-governance-routing
     - MEM-closure-integrity-gates
     - MEM-memory-foundation-scope
+  alpha:
+    - ALPHA-CORE
+    - GOV-ALPHA-ROADMAP
+    - MEM-research-sidecar-authority
+    - MEM-shadow-learning-isolation
+    - MEM-three-stage-core-learning
+    - MEM-sector-first-priority
+    - MEM-shared-universe-cycle
+    - MEM-signal-integrity
+    - MEM-signal-quality-mechanisms
+    - MEM-databento-live-bridge
+    - MEM-protected-scan-health
+    - MEM-radar-status-contract-propagation
   alpha-radar:
     - GOV-OWNER-MODE
     - GOV-ALPHA-ROADMAP
