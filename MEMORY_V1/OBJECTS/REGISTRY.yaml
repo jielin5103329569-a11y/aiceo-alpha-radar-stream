@@ -32,3 +32,15 @@ records:
     links: [AR-20260920-vicr]
     class: H
     note: Side branch of packaging well. Rent path research. Not buy.
+  - id: AR-20260920-power-path
+    type: AR
+    well: WELL-POWER-PATH-COMP
+    class: H
+    source_pack: EXTERNAL_EYES/PACKS/2026-09-20_09h.md
+    note: Hidden X Power-Path Compression. Not confirmed. Mapping BE/NVDA/GOOGL/GEV is not a buy list.
+  - id: AR-20260920-power-cost
+    type: AR
+    well: WELL-POWER-COST-INT
+    class: H
+    source_pack: EXTERNAL_EYES/PACKS/2026-09-20_12h.md
+    note: Hidden X Power Cost Internalization. Not confirmed regime. Mapping GNRC/AMZN/NEE/NVDA is not a buy list.
