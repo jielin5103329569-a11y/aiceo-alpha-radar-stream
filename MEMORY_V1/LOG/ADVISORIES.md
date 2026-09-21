@@ -9,3 +9,4 @@ Owner accepted unless noted.
 - 8-K only onto a named well row.
 - Auto memory: files+route landed; Memory Agent / Promotion still open.
 - Do not sell ticker lists or treat NO CLEAN U.S. EXPRESSION as a buy shell.
+- Panic-dip screen draft: MEMORY_V1/INTRADAY/PANIC_SCREENS.md (pending Owner add/cut).
