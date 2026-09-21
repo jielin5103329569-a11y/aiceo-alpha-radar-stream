@@ -11,6 +11,9 @@ Owner=方向。Grok=出令/技术裁决。Agent=按合同改仓。GPT=治理/独
 ## Owner 粘贴
 一次一个技术极限的大段。禁止拆成单文件/单脚本/单微步让 Owner 连贴。Grok 先在 GitHub 写完整段，再出一条 Agent 令。
 
+## 存真相
+执行项 / 未完成 / 以后要接的钩子：只写仓库 MEMORY_V1/OPEN_TASKS.md 或对应合同文件。聊天记忆不是存档。禁止只写 memory.md 就算记住。
+
 ## 调仓
 动手前必须读取 Persistent State：Revision、Resume Node、activeTask、closure、verification、productionAuthority
 对不上 Resume Node 或 activeTask=null 且任务不是「只写本文件/治理文档」：停。
