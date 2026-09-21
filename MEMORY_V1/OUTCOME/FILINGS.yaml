@@ -1,0 +1,51 @@
+purpose: later-filing slot for pack-to-8K gap
+live: false
+alertReady: false
+buy: false
+rule: 8-K only as evidence on already-named wells or mirror names. No full-market stream.
+
+slots:
+  - ticker: BE
+    cik: "0001664703"
+    last_8k: UNKNOWN
+    hit: waiting
+  - ticker: NVDA
+    cik: "0001045810"
+    last_8k: UNKNOWN
+    hit: waiting
+  - ticker: GOOGL
+    cik: "0001652044"
+    last_8k: UNKNOWN
+    hit: waiting
+  - ticker: GEV
+    cik: "0001996810"
+    last_8k: UNKNOWN
+    hit: waiting
+  - ticker: GNRC
+    cik: "0001474735"
+    last_8k: UNKNOWN
+    hit: waiting
+  - ticker: AMZN
+    cik: "0001018724"
+    last_8k: UNKNOWN
+    hit: waiting
+  - ticker: NEE
+    cik: "0000753308"
+    last_8k: UNKNOWN
+    hit: waiting
+  - ticker: META
+    cik: "0001326801"
+    last_8k: UNKNOWN
+    hit: waiting
+  - ticker: SEDG
+    cik: "0001419612"
+    last_8k: UNKNOWN
+    hit: waiting
+  - ticker: MRVL
+    cik: "0001835632"
+    last_8k: UNKNOWN
+    hit: waiting
+  - ticker: COHR
+    cik: "0000021510"
+    last_8k: UNKNOWN
+    hit: waiting
