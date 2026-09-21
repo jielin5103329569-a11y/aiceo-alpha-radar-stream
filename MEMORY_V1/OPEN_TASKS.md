@@ -20,3 +20,8 @@ Route GET /research/hitrate exists. Cells are empty.
 - Not alertReady
 - Not realtime
 When that 8-K appears, attach read-only to that well row only.
+
+## Auto memory library unfinished
+Done: four slots, classifier rules, BOOT read, GET /research/memory 200.
+Open: Memory Agent / Promotion that classifies Owner speech without a reminder.
+Until then Grok writes the four files on each durable Owner line.
