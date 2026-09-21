@@ -1,10 +1,14 @@
 # Assigned
 Date: 2026-09-20
 
+Now:
 - Main line: stock-market bottleneck radar on AI-infra physical constraints. Land this first.
-- External Eyes: 6H, mother name AI Infrastructure Full Physical-Constraint Radar. Full stack in parallel. Local tighten only. Owner forwards PACK. Grok stores verbatim.
-- Hit-rate three cells: well_hit / shell_hit / pollution. Checkpoint prices only.
-- Mirror universe sample only: BE NVDA GOOGL GEV GNRC AMZN NEE. Not live-5.
-- Isolate live Databento monitor from bottleneck compare.
-- Project memory only in repo slots.
-- Grok writes durable Owner lines into these files until Memory Agent exists.
+- External Eyes 6H full physical-constraint packs. Verbatim store.
+- Three-cell hit-rate. Checkpoint prices only.
+- Isolate live monitor from bottleneck compare.
+- Project memory only in repo.
+
+Next (not started):
+- Intraday live-tape model. Panic / fear selloff strategy. Real-account trading.
+- Own track on existing realtime stack. Not three-cell. Not bottleneck wells.
+- Money is Triad. Do not implement until Owner says start on this task.
