@@ -24,6 +24,13 @@ Levels
 - 5-minute 9/20: hold-after-reclaim only. Not a cross signal.
 - Do not use 1-minute MA as a signal.
 
+Indicators (5-minute trading timeframe)
+Owner: three only.
+1) Volume-price: flush needs a volume spike then stall. Quiet new low fails.
+2) Oversold on the trading timeframe (5-minute RSI). Oversold alone is not an entry.
+3) MACD on 5-minute (Owner said CDMA). Histogram turning after the flush is confirmation of reclaim, not a cross-to-buy.
+These sit under VWAP. They do not replace Layers 2-3.
+
 Kill: panic inside a downtrend
 - If the name is already in a daily downtrend (below daily 20/50, series of lower highs), do not treat a new flush as this setup.
 - This strategy wants a shock flush in an otherwise tradeable tape, not the next leg of a slide.
