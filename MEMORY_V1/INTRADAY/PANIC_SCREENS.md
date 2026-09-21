@@ -18,6 +18,16 @@ Daily run order:
 4) Layer 4 tape keeps 1-3 names max
 Do not scan the whole market tick-by-tick. Rank losers first, then apply layers.
 
+Levels
+- Daily 20/50: context only. Harder if already in a daily downtrend.
+- Session VWAP: main ruler for extension and reclaim.
+- 5-minute 9/20: hold-after-reclaim only. Not a cross signal.
+- Do not use 1-minute MA as a signal.
+
+Kill: TV panic
+- If the fear is national-TV / whole-market narrative, skip.
+- This strategy is stock-specific flush, not headline-index panic.
+
 Layer 1 Liquidity
 - US listed. Price and average dollar volume high enough to enter and exit same day.
 - Spread tight vs expected bounce.
