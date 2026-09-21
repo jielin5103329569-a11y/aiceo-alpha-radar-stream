@@ -30,8 +30,11 @@ Kill: panic inside a downtrend
 
 News
 - Veto layer only. Not an entry trigger.
-- Use a headline to pass or kill Layer 3.
-- Do not wait for a full news cycle. Do not buy because a headline is loud.
+- Headline is a claim. Truth is SEC / company wire / halt notice.
+- Fast clock: 30-60 seconds to classify pass / kill / unknown.
+- Unknown or cannot verify in that window = skip. Lag is a skip rule, not a reason to wait then chase.
+- If the tape already reclaimed while you were reading, the entry is gone.
+- After the close, verify the headline for the journal. That is not part of the fill.
 
 Layer 1 Liquidity
 - US listed. Price and average dollar volume high enough to enter and exit same day.
