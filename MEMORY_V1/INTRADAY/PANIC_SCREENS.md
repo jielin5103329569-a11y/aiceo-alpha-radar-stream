@@ -1,6 +1,23 @@
 # Panic-dip intraday screens (draft)
 Owner asked 2026-09-20. Not implemented. Not live-5. Not bottleneck wells.
 
+Universe (scope before layers)
+Start wide on liquid US common stock only, then shrink.
+In:
+- NYSE / Nasdaq common shares in regular session
+- Enough 20-day dollar volume to trade in and out same day without becoming the print
+- Price high enough that a normal spread does not eat the bounce
+Out of the starting bag:
+- OTC, warrants, most 1-dollar names, new IPO week ones
+- Bottleneck well list and the 7 mirror names are not the bag
+- live-5 is not the bag
+Daily run order:
+1) liquid universe
+2) today losers vs prior close / open (percent and speed)
+3) Layers 2-3 kill the terminal names
+4) Layer 4 tape keeps 1-3 names max
+Do not scan the whole market tick-by-tick. Rank losers first, then apply layers.
+
 Layer 1 Liquidity
 - US listed. Price and average dollar volume high enough to enter and exit same day.
 - Spread tight vs expected bounce.
