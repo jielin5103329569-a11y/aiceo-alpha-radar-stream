@@ -1,18 +1,19 @@
 # Owner watch 2026-09-21
-Owner handed External Eyes + Internal research frame to Grok.
-Owner does not operate either frame day to day.
+Owner handed both frames to Grok. Owner will not operate or remind.
 
-Grok watch:
-- Store every inbound 6H PACK verbatim
-- Write mapping table without reminder
-- Reality / Missed on weekly + hardware filings
-- Internal sidecar stays paper / read-only
-- No live-5, no alertReady, no buy, no PA change
+1) Market-mirror / 石盘: BE NVDA GOOGL GEV GNRC AMZN NEE pairings + later tape. Not live-5.
+2) Latent / 潜伏: well discovery, External Eyes packs, mapping tables, four gates. Paper only.
 
-Ping Owner only when a next step is actually ready:
-- new physical well with US shell
-- four gates can be answered
-- frame needs a tap only Owner can do
-- Triad
+Grok cadence:
+- inbound 6H PACK store + mapping
+- weekly Reality / Missed
+- hardware filings same day
+- pairings stay research
 
-Do not ping for routine pack save or empty weeks.
+Ping Owner only when a result exists:
+- four-gate answer on a well
+- mirror对照 shows a real hit or miss
+- Owner-only tap or Triad
+
+No ping for empty weeks or routine saves.
+No buy. No alertReady. No PA change.
