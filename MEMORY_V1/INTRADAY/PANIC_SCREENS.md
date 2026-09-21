@@ -28,6 +28,11 @@ Kill: panic inside a downtrend
 - If the name is already in a daily downtrend (below daily 20/50, series of lower highs), do not treat a new flush as this setup.
 - This strategy wants a shock flush in an otherwise tradeable tape, not the next leg of a slide.
 
+News
+- Veto layer only. Not an entry trigger.
+- Use a headline to pass or kill Layer 3.
+- Do not wait for a full news cycle. Do not buy because a headline is loud.
+
 Layer 1 Liquidity
 - US listed. Price and average dollar volume high enough to enter and exit same day.
 - Spread tight vs expected bounce.
