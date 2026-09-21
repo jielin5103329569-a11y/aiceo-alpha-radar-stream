@@ -1,14 +1,11 @@
 # Assigned
-Date: 2026-09-20
+Date: 2026-09-21
 
 Now:
-- Main line: stock-market bottleneck radar on AI-infra physical constraints. Land this first.
-- External Eyes 6H full physical-constraint packs. Verbatim store.
+- Main line: bottleneck radar. Eyes packs verbatim.
 - Three-cell hit-rate. Checkpoint prices only.
-- Isolate live monitor from bottleneck compare.
-- Project memory only in repo.
+- Panic paper track: machine lists, Grok applies layers, Owner only reads the daily result.
+- Owner does not pick names, does not watch the tape, does not place orders.
 
-Next (not started):
-- Intraday live-tape model. Panic / fear selloff strategy. Real-account trading.
-- Own track on existing realtime stack. Not three-cell. Not bottleneck wells.
-- Money is Triad. Do not implement until Owner says start on this task.
+Next money:
+- Real-account panic trades only after Owner later order. Triad.
