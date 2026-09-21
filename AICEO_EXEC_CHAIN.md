@@ -12,11 +12,12 @@ Owner=方向。Grok=出令/技术裁决。Agent=按合同改仓。GPT=治理/独
 一次一个技术极限的大段。禁止拆成单文件/单脚本/单微步让 Owner 连贴。Grok 先在 GitHub 写完整段，再出一条 Agent 令。
 
 ## 存真相
-Owner 交代的任务、未完成、想法、Grok 建议：写仓库，不写聊天记忆当存档。
+凡与此项目有关的记忆只写仓库。禁止用聊天上下文当存档。禁止用 Grok 长记忆当存档。
 - 任务 MEMORY_V1/LOG/TASKS.md
 - 未完成 MEMORY_V1/OPEN_TASKS.md
 - 想法 MEMORY_V1/LOG/IDEAS.md
 - 建议 MEMORY_V1/LOG/ADVISORIES.md
+- 原则/产品锁 MEMORY_V1 对应合同文件
 
 ## 调仓
 动手前必须读取 Persistent State：Revision、Resume Node、activeTask、closure、verification、productionAuthority
