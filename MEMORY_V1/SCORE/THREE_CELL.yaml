@@ -1,0 +1,31 @@
+version: score/v0
+live5: false
+realtime: false
+buy: false
+cells:
+  well_hit:
+    values: [happened, not_happened, falsified, waiting]
+  shell_hit:
+    values: [up, flat, down, unknown]
+    checkpoints: [T0, plus_1d, plus_5d, plus_20d, milestone]
+  pollution:
+    values: [clean, fake_well_price_up, true_well_beta_only, no_clean_expression, waiting]
+rows:
+  - well: WELL-POWER-PATH-COMP
+    pack: EXTERNAL_EYES/PACKS/2026-09-20_09h.md
+    well_hit: waiting
+    shells: [BE, NVDA, GOOGL, GEV]
+    shell_hit: unknown
+    pollution: no_clean_expression
+  - well: WELL-POWER-COST-INT
+    pack: EXTERNAL_EYES/PACKS/2026-09-20_12h.md
+    well_hit: waiting
+    shells: [GNRC, AMZN, NEE, NVDA]
+    shell_hit: unknown
+    pollution: no_clean_expression
+counts:
+  well_happened: 0
+  well_falsified: 0
+  shell_known: 0
+  clean_hits: 0
+note: Fill only from later frozen packs or primary filings. Do not infer from live ticks.
