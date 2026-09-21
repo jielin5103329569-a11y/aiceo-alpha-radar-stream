@@ -1,18 +1,16 @@
 # Owner watch 2026-09-21
-Owner handed both frames to Grok. Owner will not operate or remind.
-These are two different frames. Do not merge them.
 
-1) 恐慌石盘 FIRST
-Live / RTH stock-screen layer.
-Job: panic vs structural on the trading tape / Owner screenshots.
-Not pack mapping. Not the 7-name research pairings file.
-Not live-5 write. Not alertReady. Not buy.
-Result = a name is emotion-kill or structural enough to report.
+Task 1 LOCKED: 恐慌下杀石盘 paper daily.
+Every US session. Weekends/holidays off.
 
-2) 潜伏对照表 SECOND
-Pack store + mapping tables + well four gates.
-Result = mapping hit/miss or a well that can answer four gates.
+Result cells:
+1) dump exists? no = no ping
+2) emotion vs structure
+3) is it a named-well US shell?
+   not a shell = log only
+   emotion + shell = ping, paper-watch, no buy
+   structure + shell = ping, well downgrade
 
-Ping the first frame that fires. Name which frame.
-No ping for empty weeks or routine pack save.
-No PA change.
+No live-5. No alertReady. No buy. No PA change.
+
+Task 2 潜伏对照表 not confirmed this message.
