@@ -30,6 +30,11 @@ Owner: three only.
 2) Oversold on the trading timeframe (5-minute RSI). Oversold alone is not an entry.
 3) MACD on 5-minute (Owner said CDMA). Histogram turning after the flush is confirmation of reclaim, not a cross-to-buy.
 These sit under VWAP. They do not replace Layers 2-3.
+Notes:
+- Volume is relative to that name's recent 5-minute bars, not a fixed share count.
+- If RSI stays pinned oversold while price keeps making lows, it is trend continuation. Skip.
+- MACD lags. If you wait for a pretty cross, the reclaim is often already gone. Use turn of histogram with VWAP reclaim, not the signal line cross alone.
+- Do not add a fourth indicator.
 
 Kill: panic inside a downtrend
 - If the name is already in a daily downtrend (below daily 20/50, series of lower highs), do not treat a new flush as this setup.
