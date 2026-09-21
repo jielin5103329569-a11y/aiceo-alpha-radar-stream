@@ -1,27 +1,20 @@
 # Open unfinished
-Not authorized to implement trading.
+Date: 2026-09-20
 
-Semi-auto trading distance:
-- productionAuthority still false
-- research wells not attached to live-5 / alertReady
-- independent acceptance not stamped
-- no Owner-approved broker/execution channel
-- no human-confirm step before any order
-- money is Owner Protection Triad; AI cannot self-approve
-Do not start this list without a later Owner order.
+## Do not start
+Semi-auto trading. Realtime well ingest. Intraday strategy design. Virtual-world project. Market-wide 8-K stream.
 
-## Three-cell (hit-rate) unfinished
-Route GET /research/hitrate exists. Cells are empty.
-- well_hit still waiting until later PACK milestone or primary filing
-- shell_hit checkpoints +1d +5d +20d milestone not filled on a schedule
-- pollution has no count yet
-- 8-K hook: ONLY as evidence into well_hit for an already-named well when a PACK cites a verifiable 8-K number
-- Not a market-wide 8-K stream
-- Not alertReady
-- Not realtime
-When that 8-K appears, attach read-only to that well row only.
+## Three-cell
+GET /research/hitrate 200. Rows waiting / unknown / no_clean_expression.
+Still need: milestone fill, +1d +5d +20d checkpoint prices, pollution counts.
+8-K hook only when a PACK cites a verifiable 8-K for an already-named well.
 
-## Auto memory library unfinished
-Done: four slots, classifier rules, BOOT read, GET /research/memory 200.
-Open: Memory Agent / Promotion that classifies Owner speech without a reminder.
-Until then Grok writes the four files on each durable Owner line.
+## Auto memory
+Done: slots, classifier, BOOT, GET /research/memory 200.
+Open: Memory Agent + Promotion so Owner need not remind.
+
+## Other
+Independent acceptance not stamped.
+Replit cannot push to GitHub (auth).
+Next 6H PACK not in drawer yet after 12:00 PT.
+productionAuthority stays false.
