@@ -2,15 +2,12 @@
 
 Task 1 LOCKED: 恐慌下杀石盘 paper daily.
 Every US session. Weekends/holidays off.
+Result cells: dump? emotion vs structure? named-well US shell?
+Empty day = no ping. No live-5. No buy.
 
-Result cells:
-1) dump exists? no = no ping
-2) emotion vs structure
-3) is it a named-well US shell?
-   not a shell = log only
-   emotion + shell = ping, paper-watch, no buy
-   structure + shell = ping, well downgrade
-
+Task 2 LOCKED: 潜伏对照表.
+Inbound 6H PACK stored verbatim.
+Fill then-pack vs later-price / later-filing.
+No pack = no new row.
+Ping only on hit or miss. Name this frame.
 No live-5. No alertReady. No buy. No PA change.
-
-Task 2 潜伏对照表 not confirmed this message.
