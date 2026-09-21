@@ -1,7 +1,10 @@
-# Ideas not ordered
+# Ideas / next
 Date: 2026-09-20
 
-- After main line lands and can revenue: virtual-world money opportunities. Details then with Owner + Grok + GPT.
-- Second project not bound to the same stack. Grok screens Agents and software. May run many AIs. Goal is profit and one-person company growth.
-- Old realtime stack belongs to a future intraday strategy. Strategy content not decided. Do not design it now.
-- Eyes is not an all-commerce or all-internet finder. Method may move later; not now.
+Next task after current bottleneck frame work:
+Intraday live-tape model. Strategy = panic / fear selloff. Real account trading on that strategy.
+Uses the existing realtime stack as its own track. Not the bottleneck three-cell path.
+
+Still later (not this next):
+- Virtual-world project after main radar can revenue.
+- Many-AI agent screening for that second company line.
