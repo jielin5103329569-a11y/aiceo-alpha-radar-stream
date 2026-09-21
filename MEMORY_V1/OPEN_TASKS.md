@@ -1,8 +1,12 @@
 # Open unfinished
 Date: 2026-09-20
 
-## Do not start
-Semi-auto trading. Realtime well ingest. Intraday strategy design. Virtual-world project. Market-wide 8-K stream.
+## Queued next (not started)
+Intraday live-tape model. Panic / fear selloff. Real-account trading.
+Separate track from bottleneck radar. Needs later Owner start. Money is Triad.
+
+## Do not start now
+Semi-auto on bottleneck wells. Realtime ingest into three-cell. Virtual-world project. Market-wide 8-K stream.
 
 ## Three-cell
 GET /research/hitrate 200. Rows waiting / unknown / no_clean_expression.
