@@ -1,10 +1,12 @@
-- Persistent State is truth; Memory is context; Chat is temporary
+- Persistent State is truth; project memory is repo only; Chat is temporary; Grok long memory is not archive
 - productionAuthority stays false
 - current resume (read, do not write): external-agent-contract-v1-ready-for-independent-validation
 - current activeTask (read, do not write): null
 - Fail-Closed if INDEX path missing or STATE conflicts with Persistent State
 - Do not load all of .agents/memory on every task
 - Agents read INDEX then only needed files
+- On Owner-talk recall: read MEMORY_V1/LOG/TASKS.md, MEMORY_V1/OPEN_TASKS.md, MEMORY_V1/LOG/IDEAS.md, MEMORY_V1/LOG/ADVISORIES.md
+- Classifier: MEMORY_V1/LOG/CLASSIFIER.md
 - Roles + dead commands: docs/OWNER_COLLABORATION_CONTRACT.md
 - Execution slot rules: AICEO_EXEC_CHAIN.md
 - Alpha master roadmap (not a queue): docs/ALPHA_MASTER_ROADMAP.md
@@ -13,3 +15,4 @@
 - Frozen Eyes packs: EXTERNAL_EYES/PACKS/ (verbatim, no rewrite)
 - Research sidecar CLI: scripts/research_sidecar.py (no live write)
 - Open outcomes: MEMORY_V1/OUTCOME/OPEN.yaml
+- Hit-rate: MEMORY_V1/SCORE/THREE_CELL.yaml
