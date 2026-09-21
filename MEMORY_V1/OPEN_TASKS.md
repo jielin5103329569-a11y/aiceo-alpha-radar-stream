@@ -1,25 +1,25 @@
 # Open unfinished
-Date: 2026-09-20
+Date: 2026-09-21
 
-## Panic paper track (started, no money)
-GET /research/panic-losers 200 COUNT=0 STATUS=UNKNOWN.
-Cause: market bridge only prices live-5. No liquid universe feed.
-Need: a liquid-name file + read-only Databento snapshot that does not change live subscriptions.
-Then layers cut to 3 and paper tickets.
+## WATCH (Owner handed off, Grok cadence)
+One roster, two columns. Owner does not operate or remind.
+Ping first column that produces a result. Name the column.
+
+### T1 恐慌下杀石盘
+Every US session paper 3-cell.
+Empty day = no ping.
+No live-5. No buy.
+
+### T2 潜伏对照表
+Inbound PACK store + then vs later price/filing.
+No pack = no new row.
+Ping only hit or miss.
 
 ## Do not start now
-Real-account panic trades. Semi-auto on bottleneck wells. Virtual-world project. Market-wide 8-K stream.
+Real-account panic trades. Semi-auto on wells. Virtual-world project. Market-wide 8-K stream. Memory Promotion.
 
-## Three-cell
-GET /research/hitrate 200. Rows waiting / unknown / no_clean_expression.
-Still need: milestone fill, checkpoints, pollution counts.
-8-K hook only when a PACK cites a verifiable 8-K for an already-named well.
-
-## Auto memory
-Done: slots, classifier, BOOT, GET /research/memory 200.
-Open: Memory Agent + Promotion.
-
-## Other
-Independent acceptance not stamped.
-Replit cannot push to GitHub (auth).
-productionAuthority stays false.
+## Still open (not watch)
+GET /research/panic-losers COUNT=0 until liquid-name file exists.
+GET /research/hitrate waiting.
+Replit cannot push to GitHub.
+productionAuthority=false.
