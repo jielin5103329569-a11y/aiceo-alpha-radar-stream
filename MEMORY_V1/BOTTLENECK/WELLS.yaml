@@ -66,6 +66,6 @@ wells:
     state: hidden-x-not-confirmed
     class: H
     live5: no
-    ladder: pending-template
+    ladder: MEMORY_V1/LADDER/WELL-POWER-COST-INT_2026-09-22.md
     source_pack: EXTERNAL_EYES/PACKS/2026-09-20_12h.md
     note: Who pays incremental grid cost. Regime not confirmed. NO CLEAN U.S. EXPRESSION. Not buy.
