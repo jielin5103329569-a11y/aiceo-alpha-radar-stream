@@ -17,8 +17,8 @@ wells:
     state: permanent-radar
     class: U
     live5: no
-    ladder: pending-template
-    note: Binding constraint historically export-permit plus six-inch yield. No clean unpriced US must-pass assumed.
+    ladder: MEMORY_V1/LADDER/WELL-INP-NPO_2026-09-22.md
+    note: Binding constraint export-permit plus six-inch yield. No clean unpriced US must-pass. HOLD. Not buy.
   - id: WELL-VICR-VPD
     layer: modular-power-royalty
     shell: VICR
