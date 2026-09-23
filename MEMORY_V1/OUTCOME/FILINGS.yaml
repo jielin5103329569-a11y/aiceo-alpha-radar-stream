@@ -67,3 +67,9 @@ slots:
     last_8k: UNKNOWN
     hit: demand-validation-only
     note: Paper slot 2026-09-22. Merger/425 is listing-path evidence not scarce-node. Not buy.
+  - ticker: AMCI
+    cik: UNKNOWN
+    well: WELL-AMCI-OBS
+    last_8k: UNKNOWN
+    hit: research-only
+    note: Paper slot 2026-09-22. Observation well. Plant/SEPA headlines do not escalate. Not buy.
