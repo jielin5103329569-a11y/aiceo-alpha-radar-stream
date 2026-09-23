@@ -33,8 +33,8 @@ wells:
     state: reality-branch
     class: U
     live5: no
-    ladder: pending-template
-    note: No forced ticker.
+    ladder: MEMORY_V1/LADDER/WELL-POWER-GRID_2026-09-22.md
+    note: Parent only. No forced ticker. Children PATH-COMP and COST-INT stay separate.
   - id: WELL-ALIS-DEMAND
     layer: demand-side
     shell: ALIS
