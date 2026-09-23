@@ -7,3 +7,8 @@ open:
   - well: WELL-POWER-COST-INT
     snapshot: MEMORY_V1/SNAPSHOT/2026-09-20_power-cost.md
     status: waiting-reality
+  - well: WELL-VICR-VPD
+    snapshot: MEMORY_V1/LADDER/WELL-VICR-VPD_2026-09-22.md
+    status: late-vs-reprice
+    live5: no
+    buy: no

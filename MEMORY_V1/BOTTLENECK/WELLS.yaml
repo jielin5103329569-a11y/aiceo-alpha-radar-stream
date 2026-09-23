@@ -9,6 +9,7 @@ wells:
     state: research-historical-locked-bottleneck
     class: H
     live5: no
+    ladder: pending-template
     note: Re-verify before use. Not production truth.
   - id: WELL-INP-NPO
     layer: InP-optics
@@ -16,20 +17,23 @@ wells:
     state: permanent-radar
     class: U
     live5: no
+    ladder: pending-template
     note: Binding constraint historically export-permit plus six-inch yield. No clean unpriced US must-pass assumed.
   - id: WELL-VICR-VPD
     layer: modular-power-royalty
     shell: VICR
-    state: research-rent
+    state: late-vs-reprice
     class: H
     live5: no
-    note: VPD / third-party manufacturing / royalty. Re-verify.
+    ladder: MEMORY_V1/LADDER/WELL-VICR-VPD_2026-09-22.md
+    note: VPD / third-party manufacturing / royalty. Replay 2026-09-22. Not a buy. Re-verify.
   - id: WELL-POWER-GRID
     layer: power-grid
     shell: null
     state: reality-branch
     class: U
     live5: no
+    ladder: pending-template
     note: No forced ticker.
   - id: WELL-ALIS-DEMAND
     layer: demand-side
@@ -37,18 +41,21 @@ wells:
     state: demand-validation-only
     class: H
     live5: no
+    ladder: pending-template
   - id: WELL-AMCI-OBS
     layer: observation
     shell: AMCI
     state: research-only
     class: U
     live5: no
+    ladder: pending-template
   - id: WELL-POWER-PATH-COMP
     layer: power-path-compression
     shell: null
     state: hidden-x-not-confirmed
     class: H
     live5: no
+    ladder: pending-template
     source_pack: EXTERNAL_EYES/PACKS/2026-09-20_09h.md
     note: Time-to-Power to Time-to-Compute. Persistent vs bypass nodes UNKNOWN. NO CLEAN U.S. EXPRESSION. Not buy.
   - id: WELL-POWER-COST-INT
@@ -57,5 +64,6 @@ wells:
     state: hidden-x-not-confirmed
     class: H
     live5: no
+    ladder: pending-template
     source_pack: EXTERNAL_EYES/PACKS/2026-09-20_12h.md
     note: Who pays incremental grid cost. Regime not confirmed. NO CLEAN U.S. EXPRESSION. Not buy.

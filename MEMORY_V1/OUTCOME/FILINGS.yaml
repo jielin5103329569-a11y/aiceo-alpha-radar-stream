@@ -49,3 +49,9 @@ slots:
     cik: "0000021510"
     last_8k: UNKNOWN
     hit: waiting
+  - ticker: VICR
+    cik: "0000751978"
+    well: WELL-VICR-VPD
+    last_8k: UNKNOWN
+    hit: late-vs-reprice
+    note: Paper slot added 2026-09-22 after Owner-approved replay. Not live. Not a buy.
