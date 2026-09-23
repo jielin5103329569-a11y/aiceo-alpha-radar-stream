@@ -57,7 +57,7 @@ wells:
     state: hidden-x-not-confirmed
     class: H
     live5: no
-    ladder: pending-template
+    ladder: MEMORY_V1/LADDER/WELL-POWER-PATH-COMP_2026-09-22.md
     source_pack: EXTERNAL_EYES/PACKS/2026-09-20_09h.md
     note: Time-to-Power to Time-to-Compute. Persistent vs bypass nodes UNKNOWN. NO CLEAN U.S. EXPRESSION. Not buy.
   - id: WELL-POWER-COST-INT
