@@ -9,8 +9,8 @@ wells:
     state: research-historical-locked-bottleneck
     class: H
     live5: no
-    ladder: pending-template
-    note: Re-verify before use. Not production truth.
+    ladder: MEMORY_V1/LADDER/WELL-AMKR-ADV-PKG_2026-09-22.md
+    note: NVIDIA $1.5B prepay 2026-07-23 already public at paper lock 2026-09-14. Late two beats. Not a buy.
   - id: WELL-INP-NPO
     layer: InP-optics
     shell: null

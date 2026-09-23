@@ -55,3 +55,9 @@ slots:
     last_8k: UNKNOWN
     hit: late-vs-reprice
     note: Paper slot added 2026-09-22 after Owner-approved replay. Not live. Not a buy.
+  - ticker: AMKR
+    cik: "0001047127"
+    well: WELL-AMKR-ADV-PKG
+    last_8k: UNKNOWN
+    hit: late-two-beats-vs-2026-07-23-prepay
+    note: Paper slot added 2026-09-22 ladder fill. Catalyst already public at 09-14 lock. Not live. Not a buy.
