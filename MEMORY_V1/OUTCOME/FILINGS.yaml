@@ -61,3 +61,9 @@ slots:
     last_8k: UNKNOWN
     hit: late-two-beats-vs-2026-07-23-prepay
     note: Paper slot added 2026-09-22 ladder fill. Catalyst already public at 09-14 lock. Not live. Not a buy.
+  - ticker: ALIS
+    cik: UNKNOWN
+    well: WELL-ALIS-DEMAND
+    last_8k: UNKNOWN
+    hit: demand-validation-only
+    note: Paper slot 2026-09-22. Merger/425 is listing-path evidence not scarce-node. Not buy.

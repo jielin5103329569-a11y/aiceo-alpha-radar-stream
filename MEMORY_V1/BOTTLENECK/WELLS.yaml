@@ -41,7 +41,8 @@ wells:
     state: demand-validation-only
     class: H
     live5: no
-    ladder: pending-template
+    ladder: MEMORY_V1/LADDER/WELL-ALIS-DEMAND_2026-09-22.md
+    note: Demand proxy only. SPAC/merger/MW targets do not mint a scarce node. Not buy.
   - id: WELL-AMCI-OBS
     layer: observation
     shell: AMCI
