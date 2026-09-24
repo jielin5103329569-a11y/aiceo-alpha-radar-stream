@@ -1,26 +1,24 @@
-# External Eyes — 催化力度 + 偏好
-Effective: 2026-09-24 16:05 PT next PACK onward.
-Do not rewrite old PACKs.
-No buy. No live-5. No alertReady. No 8080.
+# 外部雷达 — 催化力度、偏好、方向
+生效: 2026-09-24 16:08 PT 起下一个扫描包。不改旧包。不买。不接实盘。
 
 ## 字段
-- catalyst_force 1-10：下一份发行人原件（8-K 或 8-K exhibit PR）还能把预期差推多远。
-- preference：主盯 | 次盯 | 池内 | 观察 | 低
-- glance source of truth: EXTERNAL_EYES/ROSTER_SYNC.md
+- 催化力度 1-10：下一份发行人原件（当期报告或附件公告）还能把预期差推多远。
+- 偏好：主盯 | 次盯 | 池内 | 观察 | 低
+- 方向：利多 | 利空 | 中性
+- 一眼表：EXTERNAL_EYES/ROSTER_SYNC.md
 
-## 力度标尺
-- 8-10：新原件改变束缚本身（许可/产能锁定/预付/量产闭环）
-- 5-7：原件推一步但束缚未死
+## 力度
+- 8-10：新原件改变约束本身（许可/产能锁定/预付/量产闭环）
+- 5-7：原件推一步但约束未死
 - 3-4：同一句重复或只有行业二手
 - 1-2：无发行人事件，只映射
 
-## 偏好锁
-- 主盯：阶段2-3 + 有可核原件钟
-- 次盯：池内且下一里程碑清楚
-- 池内：已映射美股，等原件
-- 观察：缺清洁 must-pass
-- 低：需求代理/周边，仍不出池
+## 方向
+- 利多：原件把预期差往完成/锁定推
+- 利空：原件否定、延期、解约、证伪
+- 中性：无新原件，或只重复旧句
 
-## Next PACK extra lines (optional, after LADDER_CHECK row)
+## 下一个扫描包多写
   catalyst_force: 1-10
   preference: 主盯|次盯|池内|观察|低
+  direction: 利多|利空|中性
