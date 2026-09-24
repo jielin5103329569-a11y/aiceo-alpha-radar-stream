@@ -1,5 +1,5 @@
 # External Eyes PACK header + NAMED + LADDER_CHECK template
-# Patch 2026-09-22. Use from next 6H PACK. Do not rewrite old PACKs.
+# Patch 2026-09-22. Force/pref fields added 2026-09-24. Use from next 6H PACK. Do not rewrite old PACKs.
 # No live-5. Not a buy. No 8080.
 
 pack_generated_at: YYYY-MM-DD HH:mm PT | UNKNOWN
@@ -16,9 +16,12 @@ LADDER_CHECK:
   issuer_event: none | <one official sentence>
   catalyst_public_at: UNKNOWN | YYYY-MM-DD[ HH:mm PT]
   status_if_hit: catalyst-watch | reality-confirmed | late-vs-reprice | HOLD | unchanged
+  catalyst_force: 1-10
+  preference: 主盯 | 次盯 | 池内 | 观察 | 低
   not_a_buy: yes
 
 # Repeat LADDER_CHECK row for every WELLS.yaml id.
+# Glance roster after pack: update EXTERNAL_EYES/ROSTER_SYNC.md only; never rewrite frozen PACK body.
 
 # NAMED only if a ticker is formally named this pack.
 # If named_at or catalyst_public_at lacks clock time: timing_classification cannot be EARLY or SAME_DAY.
@@ -33,6 +36,8 @@ NAMED:
   - <excerpt already in this pack or earlier PACKs>
 - first_verifiable_catalyst_already_public: yes/no/UNKNOWN
 - catalyst_public_at: YYYY-MM-DD HH:mm PT | YYYY-MM-DD | UNKNOWN
+- catalyst_force: 1-10
+- preference: 主盯 | 次盯 | 池内 | 观察 | 低
 - timing_classification: EARLY | SAME_DAY | LATE_VS_8K | DATE_ONLY | UNKNOWN
 - discovery_path: anomaly_to_ticker | ticker_to_story | ladder_hit | UNKNOWN
 - filed_to_owner_handoff: yes

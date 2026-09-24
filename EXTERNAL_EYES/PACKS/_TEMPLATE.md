@@ -12,7 +12,7 @@ pack_integrity: FULL | PACK_PARTIAL
 - next milestone:
 
 ## LADDER_CHECK (mandatory)
-# one row per WELLS.yaml id; see EXTERNAL_EYES/LADDER_CHECK.md
+# one row per WELLS.yaml id; see EXTERNAL_EYES/LADDER_CHECK.md + CATALYST_PREF.md
 - well_id:
   mark: HIT | MISS | NONE | LATE
   visual_node_hit: yes/no
@@ -20,6 +20,8 @@ pack_integrity: FULL | PACK_PARTIAL
   issuer_event: none | <one official sentence>
   catalyst_public_at: UNKNOWN | YYYY-MM-DD[ HH:mm PT]
   status_if_hit: catalyst-watch | reality-confirmed | late-vs-reprice | HOLD | unchanged
+  catalyst_force: 1-10
+  preference: 主盯 | 次盯 | 池内 | 观察 | 低
   not_a_buy: yes
 
 ## B US mapping
