@@ -1,7 +1,8 @@
-# EXTERNAL_EYES
-External discovery camera drawer. Not Alpha production. Not live scoring. Not an API into 8080.
-Packs are append-only under PACKS/. Do not rewrite a pack after it is written.
-Internal radar reads these only when Owner forwards a pack into the well table.
+# 外部雷达
+外部发现镜头。不进内部评分。不接实盘。不买。
+扫描包只追加，写完冻结，禁止改写旧包。
 
-Glance table (阶段/风险/成功率/催化力度/偏好): ROSTER_SYNC.md
-Force+preference rules: CATALYST_PREF.md
+以后一览固定用 GLANCE_MODE.md：
+简体表（票/阶段/风险/成功率/催化力度/偏好/方向/状态）+整池图。
+当前表: ROSTER_SYNC.md
+总览页: roster_board.html
