@@ -1,0 +1,11 @@
+# LADDER DAILY append 2026-09-25_00h
+Source: PACK 2026-09-25_00h only. No live scoring.
+
+WELL-AMKR-ADV-PKG NONE
+WELL-INP-NPO NONE HOLD
+WELL-VICR-VPD HIT catalyst-watch 2026-09-16 not_a_buy
+WELL-POWER-GRID HIT reality-confirmed issuer_event=none 2026-09-24 DATE_ONLY not_a_buy
+WELL-ALIS-DEMAND NONE
+WELL-AMCI-OBS NONE
+WELL-POWER-PATH-COMP HIT reality-confirmed UL2877 2026-09-24 not_a_buy
+WELL-POWER-COST-INT NONE
