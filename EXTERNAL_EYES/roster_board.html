@@ -3,30 +3,44 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>外部雷达 票池总览</title>
+<title>外部雷达 整池大图</title>
 <style>
   :root { color-scheme: dark; }
   * { box-sizing: border-box; }
-  body { margin:0; font-family: "PingFang SC","Noto Sans SC","Microsoft YaHei",sans-serif; background:#07111d; color:#e8eef6; }
-  .wrap { max-width: 1280px; margin: 0 auto; padding: 20px 16px 40px; }
-  h1 { margin:0; font-size: 34px; letter-spacing: .04em; }
-  .meta { color:#9bb0c7; margin: 8px 0 14px; font-size: 14px; }
-  .alert { display:inline-block; background:#b42318; color:#fff; border-radius:8px; padding:8px 12px; font-weight:700; }
-  table { width:100%; border-collapse: collapse; margin-top:16px; font-size:14px; }
-  th, td { padding:9px 8px; border-bottom:1px solid #1d3046; text-align:left; vertical-align:top; }
+  html, body { margin:0; height:100%; }
+  body { font-family: "PingFang SC","Noto Sans SC","Microsoft YaHei",sans-serif; background:#07111d; color:#e8eef6; }
+  .wrap { max-width: 1360px; margin: 0 auto; padding: 16px 14px 28px; }
+  .top { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+  h1 { margin:0; font-size: 30px; letter-spacing: .04em; }
+  .meta { color:#9bb0c7; margin: 6px 0 10px; font-size: 13px; }
+  .alert { display:inline-block; background:#b42318; color:#fff; border-radius:8px; padding:7px 11px; font-weight:700; }
+  .btn { border:0; cursor:pointer; background:#1e4f8a; color:#fff; font-weight:700; border-radius:10px; padding:10px 14px; font-size:15px; }
+  .btn:active { transform: scale(.98); }
+  table { width:100%; border-collapse: collapse; margin-top:12px; font-size:13px; }
+  th, td { padding:7px 7px; border-bottom:1px solid #1d3046; text-align:left; vertical-align:top; }
   th { color:#9bb0c7; font-weight:600; background:#0c1a2a; position:sticky; top:0; }
   .main td:first-child { box-shadow: inset 4px 0 0 #d4a017; }
   .up { color:#3ddc84; font-weight:700; }
   .flat { color:#9bb0c7; }
   .risk { color:#ff6b6b; font-weight:700; }
-  .foot { margin-top:14px; color:#7f96ad; font-size:12px; line-height:1.6; }
+  .foot { margin-top:12px; color:#7f96ad; font-size:12px; line-height:1.55; }
+  body.big { background:#050c14; }
+  body.big .wrap { max-width: none; padding: 10px 12px; }
+  body.big h1 { font-size: 26px; }
+  body.big table { font-size: 13px; }
+  body.big th, body.big td { padding: 6px 6px; }
 </style>
 </head>
 <body>
 <div class="wrap">
-  <h1>外部雷达 票池总览</h1>
-  <div class="meta">2026-09-25 11:28 PT　不买　不接实盘　旧扫描包不改写</div>
-  <div class="alert">本窗口提醒：VICR　COHR　AXTI　AESI</div>
+  <div class="top">
+    <div>
+      <h1>外部雷达 票池总览</h1>
+      <div class="meta">2026-09-25 11:31 PT　不买　不接实盘　一键整池大图已冻</div>
+      <div class="alert">本窗口提醒：VICR　COHR　AXTI　AESI</div>
+    </div>
+    <button class="btn" id="bigBtn" type="button">打开整池大图</button>
+  </div>
   <table>
     <thead>
       <tr><th>票</th><th>阶段</th><th>风险</th><th>成功率</th><th>催化力度</th><th>偏好</th><th>方向</th><th>状态</th></tr>
@@ -51,7 +65,26 @@
       <tr><td>AMCI</td><td>1</td><td class="risk">8</td><td>25%</td><td>2</td><td>低</td><td class="flat">中性</td><td>周边观察</td></tr>
     </tbody>
   </table>
-  <div class="foot">力度=下一份发行人原件还能推预期差多远。方向只看原件对预期的方向。不是买卖信号。总览页：EXTERNAL_EYES/roster_board.html</div>
+  <div class="foot">点右上「打开整池大图」=全屏一屏看全池。力度=下一份发行人原件还能推预期差多远。不是买卖信号。</div>
 </div>
+<script>
+const btn = document.getElementById('bigBtn');
+function sync() {
+  const on = !!document.fullscreenElement;
+  document.body.classList.toggle('big', on);
+  btn.textContent = on ? '退出整池大图' : '打开整池大图';
+}
+btn.addEventListener('click', async () => {
+  try {
+    if (!document.fullscreenElement) await document.documentElement.requestFullscreen();
+    else await document.exitFullscreen();
+  } catch (e) {
+    document.body.classList.toggle('big');
+    const on = document.body.classList.contains('big');
+    btn.textContent = on ? '退出整池大图' : '打开整池大图';
+  }
+});
+document.addEventListener('fullscreenchange', sync);
+</script>
 </body>
 </html>
