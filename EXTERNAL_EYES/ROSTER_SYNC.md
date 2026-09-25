@@ -1,9 +1,9 @@
 # 外部雷达 — 票池一览
-更新: 2026-09-25 11:28 PT
+更新: 2026-09-25 16:00 PT
 模式: GLANCE_MODE.md  3H
-不买。不接实盘。不改旧扫描包。
+不买。不接实盘。不改旧扫描包。最新PACK: 2026-09-25_12h（FROZEN）。本窗无16h无新PACK。
 
-提醒= VICR COHR AXTI AESI AMKR AAOI POET SEI FRMI NUAI ULS ONEN
+提醒= VICR AMKR COHR AXTI AAOI POET AESI SEI FRMI NUAI ULS ONEN
 
 | 票 | 阶段 | 风险 | 成功率 | 催化力度 | 偏好 | 方向 | 状态一句 |
 |---|---|---|---|---|---|---|---|
@@ -15,6 +15,8 @@
 | POET | 2 | 7 | 40% | 5 | 次盯 | 中性 | 光引擎样品订单；尚未证实量产 |
 | AESI | 2 | 6 | 40% | 7 | 次盯 | 利多 | AI客户成本偿付+长交期设备锁定；不是永久电网shell |
 | CAT | 1 | 5 | 35% | 3 | 观察 | 中性 | 发电设备链映射；不证明占租 |
+| ETN | 1 | 5 | 30% | 4 | 观察 | 中性 | COL €810M中压电分布映射；不是WELL-POWER-GRID必经壳 |
+| VRT | 1 | 6 | 30% | 3 | 观察 | 中性 | KES液冷调试服务映射；无WELLS.yaml井不升级 |
 | NRGV | 1 | 8 | 30% | 3 | 池内 | 中性 | 储能旁支 |
 | SEI | 2 | 5 | 50% | 4 | 池内 | 中性 | 能源基建映射 |
 | FRMI | 2 | 7 | 35% | 4 | 池内 | 中性 | 私人电网/运维准备；未energize |
@@ -25,5 +27,5 @@
 | ALIS | 1 | 7 | 35% | 2 | 低 | 中性 | 需求代理；不造稀缺点 |
 | AMCI | 1 | 8 | 25% | 2 | 低 | 中性 | 周边观察 |
 
-AESI 发K简介：8-K 披露与 frontier AI lab 签署成本偿付协议，锁定 BoP 与额夔 283MW 卡特彼勒发电设备。 https://www.sec.gov/Archives/edgar/data/1984060/000119312526401582/aesi-20260925.htm  申报 2026-09-25 04:00 PT。
+AESI 發K简介：8-K 披露与 frontier AI lab 签署成本偿付协议，锁定 BoP 与额外 283MW 卡特彼勒发电设备。 https://www.sec.gov/Archives/edgar/data/1984060/000119312526401582/aesi-20260925.htm  申报 2026-09-25 04:00 PT。
 不混算 283MW 与 328MW。
