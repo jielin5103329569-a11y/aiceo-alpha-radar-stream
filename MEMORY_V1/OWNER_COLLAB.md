@@ -1,5 +1,5 @@
 # Owner collaboration defaults (load first)
-As-of: 2026-09-25 18:17 PT
+As-of: 2026-09-25 18:19 PT
 Purpose: do not forget standing habits; do not increase Owner cost.
 
 ## Delivery
@@ -12,6 +12,12 @@ If Grok is unsure or cannot recall the standing procedure: enter the gate first.
 Gate = MEMORY_V1/BOOT.md + MEMORY_V1/INDEX.yaml task_map + the mapped source file only.
 Do not re-ask Owner to re-explain. Do not rediscover the repo. Owner Total Cost waste is a red line.
 Current maps: 入库/存包 → EYES-INGEST; 3H roster → automation fae98772-058d-4aea-a199-c024152cf1f7 (do not change).
+
+## Honesty on "can you remember"
+If Owner asks whether Grok can remember a standing duty: answer the durability, not the wish.
+This-chat follow-through is not cross-session recall.
+If there is no INDEX/BOOT/automation/skill load gate, the honest answer is: I will not reliably remember next session; use the gate.
+Saying "记住了" with no gate is a token-cost failure.
 
 ## Product isolation
 External Eyes ≠ panic-paper ≠ 潜伏三扫 ≠ 瓶颈全树回扫.
