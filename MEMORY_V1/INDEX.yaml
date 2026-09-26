@@ -23,6 +23,11 @@
   domain: alpha
   state: active
   ref: MEMORY_V1/CARDS/alpha/CORE.md
+- id: EYES-INGEST
+  type: procedure
+  domain: eyes
+  state: active
+  ref: EXTERNAL_EYES/GROK_INGEST.md
 - id: MEM-ai-pool-live-source-isolation
   type: memory
   domain: aiceo
@@ -270,3 +275,9 @@ task_maps:
   readonly-dump:
     - MEM-memory
     - MEM-memory-foundation-scope
+  入库:
+    - EYES-INGEST
+  存包:
+    - EYES-INGEST
+  External-Eyes-PACK:
+    - EYES-INGEST
