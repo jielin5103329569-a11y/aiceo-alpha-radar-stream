@@ -13,6 +13,7 @@
 - On AICEO / Alpha task: read those three after this BOOT + INDEX + STATE pointer
 - On Alpha / well task also load: MEMORY_V1/STATE/alpha.current.yaml, MEMORY_V1/BOTTLENECK/WELLS.yaml, MEMORY_V1/OBJECTS/REGISTRY.yaml, MEMORY_V1/CARDS/alpha/MAP.md
 - Frozen Eyes packs: EXTERNAL_EYES/PACKS/ (verbatim, no rewrite)
+- On 入库 / 存包 / External Eyes PACK forward: load only INDEX id EYES-INGEST = EXTERNAL_EYES/GROK_INGEST.md; write three new files; do not list PACKS; do not load full memory
 - Research sidecar CLI: scripts/research_sidecar.py (no live write)
 - Open outcomes: MEMORY_V1/OUTCOME/OPEN.yaml
 - Hit-rate: MEMORY_V1/SCORE/THREE_CELL.yaml
