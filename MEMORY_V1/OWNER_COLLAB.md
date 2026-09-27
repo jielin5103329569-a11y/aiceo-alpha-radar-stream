@@ -1,11 +1,17 @@
 # Owner collaboration defaults (load first)
-As-of: 2026-09-27 06:36 PT
+As-of: 2026-09-27 16:55 PT
 Purpose: do not forget standing habits; do not increase Owner cost.
 
 ## Delivery
 Anything Owner must hand to GPT/Agent = ONE paste block only. Default auto-paste format. No split steps. No 请Owner丢文件/截图/收盘口令.
 New durable Owner habits go into THIS repo (MEMORY_V1 + EXTERNAL_EYES rules), not only chat.
 Repo write is Grok's job. Do not mint paste-to-GPT-to-write-git instructions.
+
+## Persist gate (Owner 2026-09-27)
+进仓/保存/独立记忆/落盘 is not done until HEAD file exists.
+Same-turn: push → reply repo+path+SHA → re-read HEAD.
+Session artifacts and memory.md pointers are not archive.
+Map: MEMORY_V1/PERSIST_GATE.md. Learning passphrases live in new-company NEW_COMPANY/MEMORY/LEARNING/.
 
 ## Repo authority (Owner 2026-09-27)
 Only Grok has read/write on team repos (aiceo-alpha-radar-stream, new-company, ai-native-venture-lab) for data and code.
@@ -19,7 +25,7 @@ Permanent / daily / repeating tasks are not stored in chat.
 If Grok is unsure or cannot recall the standing procedure: enter the gate first.
 Gate = MEMORY_V1/BOOT.md + MEMORY_V1/INDEX.yaml task_map + the mapped source file only.
 Do not re-ask Owner to re-explain. Do not rediscover the repo. Owner Total Cost waste is a red line.
-Current maps: 入库/存包 → EYES-INGEST; 3H roster → automation fae98772-058d-4aea-a199-c024152cf1f7 (do not change).
+Current maps: 入库/存包 → EYES-INGEST; 3H roster → automation fae98772-058d-4aea-a199-c024152cf1f7 (do not change); 学习资料/口令集 → PERSIST-GATE + new-company LEARNING.
 
 ## Honesty on "can you remember"
 If Owner asks whether Grok can remember a standing duty: answer the durability, not the wish.
