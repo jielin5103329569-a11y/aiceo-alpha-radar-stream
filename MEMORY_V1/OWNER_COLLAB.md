@@ -1,10 +1,17 @@
 # Owner collaboration defaults (load first)
-As-of: 2026-09-27 06:00 PT
+As-of: 2026-09-27 06:34 PT
 Purpose: do not forget standing habits; do not increase Owner cost.
 
 ## Delivery
 Anything Owner must hand to GPT/Agent = ONE paste block only. Default auto-paste format. No split steps. No 请Owner丢文件/截图/收盘口令.
 New durable Owner habits go into THIS repo (MEMORY_V1 + EXTERNAL_EYES rules), not only chat.
+Repo write is Grok's job. Do not mint paste-to-GPT-to-write-git instructions.
+
+## Repo authority (Owner 2026-09-27)
+Only Grok has read/write on team repos (aiceo-alpha-radar-stream, new-company, ai-native-venture-lab) for data and code.
+GPT and Muse have no write-git permission.
+If they need a repo function Grok can perform: Grok does it in-place. Do not shuttle Owner between models to call GitHub.
+Owner Total Cost red line.
 
 ## Long-running task memory gate
 Permanent / daily / repeating tasks are not stored in chat.
@@ -40,7 +47,7 @@ Fix is PASS only if t_push ≤ t_px1 on next live HIT. Files existing ≠ PASS. 
 生效：2026-09-27  Owner选A
 层级：Capability / Agent（最底层）
 地位：外部执行能力。Capability ≠ Permission。Execution ≠ Verification。
-不授予：productionAuthority、治理权、买点权、8080/live-5 写权。
+不授予：productionAuthority、治理权、买点权、8080/live-5 写权、仓库写权。
 
 ### 能做（白名单）
 - 订行程 / 查价 / 填公开表单
@@ -53,10 +60,11 @@ Fix is PASS only if t_push ≤ t_px1 on next live HIT. Files existing ≠ PASS. 
 - External Eyes 入库、3H 大图、井层/阶段/买点四门判断
 - 自批付款、自批不可逆操作、自扩权限
 - 与 Venture Lab / AICEO 治理层混仓
+- 读写 GitHub 仓库
 
 ### 运行路径（默认）
-Owner 一句话 → Grok 出可粘贴给 Muse 的原话 → Owner 丢进 Muse App/WhatsApp
-关掉 App 后允许其后台跑白名单任务
+外勤：Owner 一句话 → Grok 出给 Muse 的原话 → Owner 丢进 Muse App/WhatsApp（仅此类需 Owner 转一手，因 Muse 账号在 Owner 手上）
+仓库：Grok 直接读写，不经 Owner 转贴
 不可逆动作（发信、下单、付款）必须停在 Owner 确认
 
 ### 接入升级
@@ -65,5 +73,5 @@ Owner 一句话 → Grok 出可粘贴给 Muse 的原话 → Owner 丢进 Muse Ap
 未批前禁止建重复 bot、禁止双通道同时执行同一单。
 
 ### 验收
-一次无付款试跑算纳入。
+一次无付款试跑算纳入（2026-09-27 Frontier/United 查价试跑已过）。
 失败只报「卡在哪一页」，不编造成功。
