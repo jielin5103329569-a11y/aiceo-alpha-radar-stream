@@ -1,5 +1,5 @@
 # Owner collaboration defaults (load first)
-As-of: 2026-09-25 18:19 PT
+As-of: 2026-09-27 06:00 PT
 Purpose: do not forget standing habits; do not increase Owner cost.
 
 ## Delivery
@@ -35,3 +35,35 @@ HIT/MISS four lines. NONE one line. No buy language.
 
 ## Acceptance
 Fix is PASS only if t_push ≤ t_px1 on next live HIT. Files existing ≠ PASS. See MEMORY_V1/LADDER/ACCEPTANCE.md.
+
+## 工种卡 · Muse = 外勤执行员（合同工种，非治理）
+生效：2026-09-27  Owner选A
+层级：Capability / Agent（最底层）
+地位：外部执行能力。Capability ≠ Permission。Execution ≠ Verification。
+不授予：productionAuthority、治理权、买点权、8080/live-5 写权。
+
+### 能做（白名单）
+- 订行程 / 查价 / 填公开表单
+- 催客服、砍订阅、整理预约
+- 把 Owner 已点名的长目标拆成待办并回进度（行政/材料/日程类）
+- 连接第三方服务：每次单独授权，可随时撤
+
+### 不能做（红线）
+- 买股票、改 live-5、碰 8080 / Replit 生产、改治理规则
+- External Eyes 入库、3H 大图、井层/阶段/买点四门判断
+- 自批付款、自批不可逆操作、自扩权限
+- 与 Venture Lab / AICEO 治理层混仓
+
+### 运行路径（默认）
+Owner 一句话 → Grok 出可粘贴给 Muse 的原话 → Owner 丢进 Muse App/WhatsApp
+关掉 App 后允许其后台跑白名单任务
+不可逆动作（发信、下单、付款）必须停在 Owner 确认
+
+### 接入升级
+合同工种 ≠ 真接入。
+把 Muse 邮箱/支付/电脑权接到 AICEO 运行时 = Triad，须 Owner 本人另批。
+未批前禁止建重复 bot、禁止双通道同时执行同一单。
+
+### 验收
+一次无付款试跑算纳入。
+失败只报「卡在哪一页」，不编造成功。
