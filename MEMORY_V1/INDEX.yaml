@@ -28,6 +28,16 @@
   domain: eyes
   state: active
   ref: EXTERNAL_EYES/GROK_INGEST.md
+- id: PERSIST-GATE
+  type: procedure
+  domain: aiceo
+  state: active
+  ref: MEMORY_V1/PERSIST_GATE.md
+- id: LEARN-PASS
+  type: procedure
+  domain: learning
+  state: active
+  ref: repo://jielin5103329569-a11y/new-company/NEW_COMPANY/MEMORY/LEARNING/PASS.md
 - id: MEM-ai-pool-live-source-isolation
   type: memory
   domain: aiceo
@@ -238,6 +248,7 @@ task_maps:
   AICEO继续:
     - GOV-OWNER-MODE
     - GOV-EXEC-CHAIN
+    - PERSIST-GATE
     - MEM-memory
     - MEM-context-authority-continuity
     - MEM-owner-brain-execution-protocol
@@ -272,6 +283,7 @@ task_maps:
     - GOV-OWNER-MODE
     - GOV-EXEC-CHAIN
     - GOV-ALPHA-ROADMAP
+    - PERSIST-GATE
   readonly-dump:
     - MEM-memory
     - MEM-memory-foundation-scope
@@ -281,3 +293,21 @@ task_maps:
     - EYES-INGEST
   External-Eyes-PACK:
     - EYES-INGEST
+  学习资料:
+    - PERSIST-GATE
+    - LEARN-PASS
+  打开学习资料:
+    - PERSIST-GATE
+    - LEARN-PASS
+  口令集:
+    - PERSIST-GATE
+    - LEARN-PASS
+  打开口令集:
+    - PERSIST-GATE
+    - LEARN-PASS
+  进仓:
+    - PERSIST-GATE
+  保存:
+    - PERSIST-GATE
+  落盘:
+    - PERSIST-GATE
