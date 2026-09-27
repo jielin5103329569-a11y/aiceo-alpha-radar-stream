@@ -1,5 +1,5 @@
 # Owner collaboration defaults (load first)
-As-of: 2026-09-27 06:34 PT
+As-of: 2026-09-27 06:36 PT
 Purpose: do not forget standing habits; do not increase Owner cost.
 
 ## Delivery
@@ -11,6 +11,7 @@ Repo write is Grok's job. Do not mint paste-to-GPT-to-write-git instructions.
 Only Grok has read/write on team repos (aiceo-alpha-radar-stream, new-company, ai-native-venture-lab) for data and code.
 GPT and Muse have no write-git permission.
 If they need a repo function Grok can perform: Grok does it in-place. Do not shuttle Owner between models to call GitHub.
+Do not open their write-git until a future project requires an automated flow AND Owner personally approves that grant.
 Owner Total Cost red line.
 
 ## Long-running task memory gate
