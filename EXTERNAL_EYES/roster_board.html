@@ -13,6 +13,8 @@
   .top { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; flex-wrap:wrap; }
   h1 { margin:0; font-size: 30px; letter-spacing: .04em; }
   .meta { color:#9bb0c7; margin: 6px 0 10px; font-size: 13px; }
+  .weather { background:#122033; border:1px solid #2a4663; border-radius:10px; padding:10px 12px; margin: 8px 0 10px; font-size:14px; line-height:1.55; }
+  .weather b { color:#ffd27a; }
   .alert { display:inline-block; background:#b42318; color:#fff; border-radius:8px; padding:7px 11px; font-weight:700; }
   .btn { border:0; cursor:pointer; background:#1e4f8a; color:#fff; font-weight:700; border-radius:10px; padding:10px 14px; font-size:15px; }
   .btn:active { transform: scale(.98); }
@@ -36,7 +38,12 @@
   <div class="top">
     <div>
       <h1>外部雷达 票池总览</h1>
-      <div class="meta">2026-09-26 07:00 PT　不买　不接实盘　一键整池大图已冻</div>
+      <div class="meta">2026-09-28 03:56 PT　不买　不接实盘　天气已挂表顶</div>
+      <div class="weather">
+        <div><b>天气：变丑</b> · 不改票阶段 · 不写买不买</div>
+        <div>利率：十年期约 5.20，接近周五高位 · 油：海峡方案被拒，布伦特再上 · 机房：本窗无新财报砍单 · 范围：盘前芯片弱于大盘</div>
+        <div>因果：牛市变丑，还没到转向要复查档。</div>
+      </div>
       <div class="alert">本窗口提醒：VICR　AMKR　COHR　AXTI　AAOI　POET　AESI　CIFR　SEI　FRMI　NUAI　ULS　ONEN</div>
     </div>
     <button class="btn" id="bigBtn" type="button">打开整池大图</button>
@@ -68,7 +75,7 @@
       <tr><td>AMCI</td><td>1</td><td class="risk">8</td><td>25%</td><td>2</td><td>低</td><td class="flat">中性</td><td>周边观察</td></tr>
     </tbody>
   </table>
-  <div class="foot">点右上「打开整池大图」=全屏一屏看全池。力度=下一份发行人原件还能推预期差多远。不是买卖信号。本窗无新8-K推进阶段。AESI 8-K https://www.sec.gov/Archives/edgar/data/1984060/000119312526401582/aesi-20260925.htm 申报 2026-09-25 04:00 PT。CIFR 8-K https://www.sec.gov/Archives/edgar/data/1819989/000181998926000043/cifr-20260924.htm 申报 2026-09-25 05:04 PT。不混算 283MW 与 328MW。DG Matrix SST 为私人工程原件，无干净美股必经壳。</div>
+  <div class="foot">点右上「打开整池大图」=全屏一屏看全池。天气不改阶段。力度=下一份发行人原件还能推预期差多远。不是买卖信号。本窗无新8-K推进阶段。AESI 8-K https://www.sec.gov/Archives/edgar/data/1984060/000119312526401582/aesi-20260925.htm 申报 2026-09-25 04:00 PT。CIFR 8-K https://www.sec.gov/Archives/edgar/data/1819989/000181998926000043/cifr-20260924.htm 申报 2026-09-25 05:04 PT。不混算 283MW 与 328MW。DG Matrix SST 为私人工程原件，无干净美股必经壳。</div>
 </div>
 <script>
 const btn = document.getElementById('bigBtn');
