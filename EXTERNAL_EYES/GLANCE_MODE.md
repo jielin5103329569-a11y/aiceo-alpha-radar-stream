@@ -1,14 +1,15 @@
 # 外部雷达一览模式
 锁定: 2026-09-25 Owner 屏幕确认
-Cadence: 3 hours America/Los_Angeles
+Cadence: 一日一次 04:00 America/Los_Angeles（盘前）
 浏览: ONE_CLICK_BOARD 一键整池大图
 不买。不接实盘。不改旧扫描包。
 
 ## 推任务默认交付
-1. 每 3 小时一推整池大图
+1. 每日盘前 04:00 PT 一推整池大图
 2. 顶行提醒=本窗口阶段2/3；否则无
 3. 表顶天气三行（WEATHER.md）：档 + 四格短语。不改票阶段。不写买不买。
 4. 同时更新 roster_board.html（含「打开整池大图」全屏按钮） + ROSTER_SYNC.md
 5. 发K简介仅当期报告推进阶段才写
 6. 简体；不买；票池不丢直到燃尽
 7. 票的浏览方式冻结为一键看整体图，见 ONE_CLICK_BOARD.md
+8. 07/10/13/16 不再推。非 04 点档只 SKIP。
