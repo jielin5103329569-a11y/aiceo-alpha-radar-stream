@@ -1,3 +1,4 @@
+- EVERY_TURN first: read this file + MEMORY_V1/INDEX.yaml + task_maps.DEFAULT (PERSIST-GATE + GOV-EXEC-CHAIN). Reply GATE stamp or the turn is void.
 - Persistent State is truth; project memory is repo only; Chat is temporary; Grok long memory is not archive
 - productionAuthority stays false
 - current resume (read, do not write): external-agent-contract-v1-ready-for-independent-validation
