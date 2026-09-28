@@ -1,6 +1,10 @@
 # Owner collaboration defaults (load first)
-As-of: 2026-09-27 16:55 PT
+As-of: 2026-09-27 17:19 PT
 Purpose: do not forget standing habits; do not increase Owner cost.
+
+## DEAD ORDER — repo gate (Owner 2026-09-27 17:19 PT)
+All repo calls pass the gate first. 把某某存进仓库 = gate then store by that repo's rules.
+Next miss is worker fault. File: MEMORY_V1/DEAD_ORDER_REPO_GATE_2026-09-27.md
 
 ## Delivery
 Anything Owner must hand to GPT/Agent = ONE paste block only. Default auto-paste format. No split steps. No 请Owner丢文件/截图/收盘口令.
