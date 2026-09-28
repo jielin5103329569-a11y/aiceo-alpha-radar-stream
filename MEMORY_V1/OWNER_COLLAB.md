@@ -1,5 +1,5 @@
 # Owner collaboration defaults (load first)
-As-of: 2026-09-28 03:33 PT
+As-of: 2026-09-28 03:37 PT
 Purpose: do not forget standing habits; do not increase Owner cost.
 
 ## Voice — Owner 说话风格（2026-09-28 锁定）
@@ -8,11 +8,11 @@ Purpose: do not forget standing habits; do not increase Owner cost.
 不要讲课腔，不要一堆英文框架名。
 新窗先读本文件，按这个口吻答。只写在聊天里不算记住。
 
-## Ping — 要 Owner 动手就直说（2026-09-28）
-缺 Owner 本人才能做的事：立刻点名，不因 Owner 不知道而闭嘴。
-错过验证窗口 = 失职。
-只弹这几类：转发全文 PACK、改 GPT 扫描日程、批钱/法律/系统存活、确认要不要买。
-仓库读写、改表、对照，Grok 自己做，不弹给 Owner 做功课。
+## Ping — 默认提醒方式（2026-09-28 锁定）
+以后要 Owner 协作：直接弹一句点名。这是默认提醒方式。
+已经能自动跑的环节（3H 总表、隔日扫描本身）不提醒。
+只弹 Owner 本人才能做的事：转发全文 PACK、改 GPT 日程、批钱/法律/系统存活、确认要不要买。
+错过验证窗口 = 失职。仓库改表对照 Grok 自己做，不弹功课。
 
 ## DEAD ORDER — repo gate (Owner 2026-09-27 17:19 PT)
 All repo calls pass the gate first. 把某某存进仓库 = gate then store by that repo's rules.
