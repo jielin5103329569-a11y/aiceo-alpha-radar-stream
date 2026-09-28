@@ -1,3 +1,4 @@
+- INHERIT ROOT first on new session: jielin5103329569-a11y/root-company-governance BOOT.md + INDEX.yaml + DEFAULT.md then this file. Routing keys in ROOT INDEX. Rollback: skip the inherit line; this file remains the AICEO local boot.
 - EVERY_TURN first: read this file + MEMORY_V1/INDEX.yaml + task_maps.DEFAULT (PERSIST-GATE + GOV-EXEC-CHAIN). Reply GATE stamp or the turn is void.
 - Persistent State is truth; project memory is repo only; Chat is temporary; Grok long memory is not archive
 - productionAuthority stays false
