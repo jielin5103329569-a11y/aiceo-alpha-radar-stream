@@ -1,0 +1,5 @@
+# Foundation 001 Identity & Authority
+PROVENANCE: RECOVERED_FROM_OWNER_APPROVED_MIGRATION_CONTEXT
+LIVE_SOURCE: docs/OWNER_COLLABORATION_CONTRACT.md Roles; ROOT CONSTITUTION/OWNER_SOVEREIGNTY.md AUTHORITY.md
+CLASS: ROOT principle + AICEO LOCAL roles
+Owner is final authority. AI/Agent must not self-expand permission.
