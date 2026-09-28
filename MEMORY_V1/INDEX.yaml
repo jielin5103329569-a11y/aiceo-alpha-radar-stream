@@ -33,6 +33,11 @@
   domain: aiceo
   state: active
   ref: MEMORY_V1/PERSIST_GATE.md
+- id: EVERY-TURN
+  type: procedure
+  domain: aiceo
+  state: active
+  ref: MEMORY_V1/EVERY_TURN.md
 - id: LEARN-PASS
   type: procedure
   domain: learning
@@ -245,7 +250,16 @@
   ref: .agents/memory/validation-persistence-isolation.md
 ---
 task_maps:
+  DEFAULT:
+    - EVERY-TURN
+    - PERSIST-GATE
+    - GOV-EXEC-CHAIN
+  新任务:
+    - EVERY-TURN
+    - PERSIST-GATE
+    - GOV-EXEC-CHAIN
   AICEO继续:
+    - EVERY-TURN
     - GOV-OWNER-MODE
     - GOV-EXEC-CHAIN
     - PERSIST-GATE
@@ -257,6 +271,7 @@ task_maps:
     - MEM-closure-integrity-gates
     - MEM-memory-foundation-scope
   alpha:
+    - EVERY-TURN
     - ALPHA-CORE
     - GOV-ALPHA-ROADMAP
     - MEM-research-sidecar-authority
@@ -270,6 +285,7 @@ task_maps:
     - MEM-protected-scan-health
     - MEM-radar-status-contract-propagation
   alpha-radar:
+    - EVERY-TURN
     - GOV-OWNER-MODE
     - GOV-ALPHA-ROADMAP
     - MEM-sector-first-priority
@@ -280,6 +296,7 @@ task_maps:
     - MEM-protected-scan-health
     - MEM-radar-status-contract-propagation
   owner-mode:
+    - EVERY-TURN
     - GOV-OWNER-MODE
     - GOV-EXEC-CHAIN
     - GOV-ALPHA-ROADMAP
@@ -288,26 +305,36 @@ task_maps:
     - MEM-memory
     - MEM-memory-foundation-scope
   入库:
+    - EVERY-TURN
     - EYES-INGEST
   存包:
+    - EVERY-TURN
     - EYES-INGEST
   External-Eyes-PACK:
+    - EVERY-TURN
     - EYES-INGEST
   学习资料:
+    - EVERY-TURN
     - PERSIST-GATE
     - LEARN-PASS
   打开学习资料:
+    - EVERY-TURN
     - PERSIST-GATE
     - LEARN-PASS
   口令集:
+    - EVERY-TURN
     - PERSIST-GATE
     - LEARN-PASS
   打开口令集:
+    - EVERY-TURN
     - PERSIST-GATE
     - LEARN-PASS
   进仓:
+    - EVERY-TURN
     - PERSIST-GATE
   保存:
+    - EVERY-TURN
     - PERSIST-GATE
   落盘:
+    - EVERY-TURN
     - PERSIST-GATE
