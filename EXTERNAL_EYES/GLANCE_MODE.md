@@ -7,7 +7,8 @@ Cadence: 3 hours America/Los_Angeles
 ## 推任务默认交付
 1. 每 3 小时一推整池大图
 2. 顶行提醒=本窗口阶段2/3；否则无
-3. 同时更新 roster_board.html（含「打开整池大图」全屏按钮） + ROSTER_SYNC.md
-4. 发K简介仅当期报告推进阶段才写
-5. 简体；不买；票池不丢直到燃尽
-6. 票的浏览方式冻结为一键看整体图，见 ONE_CLICK_BOARD.md
+3. 表顶天气三行（WEATHER.md）：档 + 四格短语。不改票阶段。不写买不买。
+4. 同时更新 roster_board.html（含「打开整池大图」全屏按钮） + ROSTER_SYNC.md
+5. 发K简介仅当期报告推进阶段才写
+6. 简体；不买；票池不丢直到燃尽
+7. 票的浏览方式冻结为一键看整体图，见 ONE_CLICK_BOARD.md
