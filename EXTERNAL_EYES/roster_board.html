@@ -28,12 +28,37 @@
   .foot { margin-top:12px; color:#7f96ad; font-size:12px; line-height:1.55; }
   body.big { background:#050c14; }
   body.big .wrap { max-width: none; padding: 10px 12px; }
-  body.big h1 { font-size: 26px; }
-  body.big table { font-size: 13px; }
-  body.big th, body.big td { padding: 6px 6px; }
+  #pop {
+    position:fixed; inset:0; z-index:9999;
+    background:rgba(4,10,18,.88);
+    display:flex; align-items:center; justify-content:center;
+    padding:18px;
+  }
+  #pop.hide { display:none; }
+  .pop-card {
+    width:min(520px,100%);
+    background:#122033; border:1px solid #3a5d82; border-radius:14px;
+    padding:18px 16px 16px; box-shadow:0 12px 40px rgba(0,0,0,.45);
+  }
+  .pop-card h2 { margin:0 0 8px; font-size:22px; }
+  .pop-card p { margin:0 0 10px; color:#c5d4e4; font-size:15px; line-height:1.5; }
+  .pop-card .warn { color:#ffd27a; font-weight:700; }
+  .pop-actions { display:flex; gap:8px; flex-wrap:wrap; margin-top:12px; }
 </style>
 </head>
 <body>
+<div id="pop" role="dialog" aria-modal="true">
+  <div class="pop-card">
+    <h2>盘前整池大图已到</h2>
+    <p class="warn">天气：要复查 · 不买 · 不改阶段</p>
+    <p>提醒：VICR AMKR COHR AXTI AAOI POET AESI CIFR SEI FRMI NUAI ULS ONEN</p>
+    <p>2026-09-29 04:07 PT。点下面关掉弹窗看全表。</p>
+    <div class="pop-actions">
+      <button class="btn" id="popOk" type="button">看板</button>
+      <button class="btn" id="popNote" type="button">允许系统通知</button>
+    </div>
+  </div>
+</div>
 <div class="wrap">
   <div class="top">
     <div>
@@ -75,10 +100,25 @@
       <tr><td>AMCI</td><td>1</td><td class="risk">8</td><td>25%</td><td>2</td><td>低</td><td class="flat">中性</td><td>周边观察</td></tr>
     </tbody>
   </table>
-  <div class="foot">点右上「打开整池大图」=全屏一屏看全池。天气不改阶段。力度=下一份发行人原件还能推预期差多远。不是买卖信号。本窗无新8-K推进阶段。最新PACK 2026-09-28_04h 不增删票。AESI 8-K https://www.sec.gov/Archives/edgar/data/1984060/000119312526401582/aesi-20260925.htm 申报 2026-09-25 04:00 PT。CIFR 8-K https://www.sec.gov/Archives/edgar/data/1819989/000181998926000043/cifr-20260924.htm 申报 2026-09-25 05:04 PT。不混算 283MW 与 328MW。DG Matrix SST 为私人工程原件，无干净美股必经壳。BE 仅映射不入池。</div>
+  <div class="foot">打开即弹窗。点右上「打开整池大图」=全屏。天气不改阶段。不买。最新PACK 2026-09-28_04h。</div>
 </div>
 <script>
+const pop = document.getElementById('pop');
+const popOk = document.getElementById('popOk');
+const popNote = document.getElementById('popNote');
 const btn = document.getElementById('bigBtn');
+function closePop(){ pop.classList.add('hide'); }
+popOk.addEventListener('click', closePop);
+popNote.addEventListener('click', async () => {
+  try {
+    if (!('Notification' in window)) { closePop(); return; }
+    const perm = await Notification.requestPermission();
+    if (perm === 'granted') {
+      new Notification('盘前整池大图已到', { body: '天气要复查 · 不买 · VICR AMKR COHR AXTI' });
+    }
+  } catch (e) {}
+  closePop();
+});
 function sync() {
   const on = !!document.fullscreenElement;
   document.body.classList.toggle('big', on);
