@@ -1,11 +1,12 @@
 # 外部雷达 — 票池一览
-更新: 2026-10-06 04:58 PT
-模式: 8-K 门重推
-不买。不接实盘。最新PACK: 2026-10-06_MANUAL。票池不增删。阶段不改。
+更新: 2026-10-07 04:02 PT
+模式: 盘前一日一推
+不买。不接实盘。最新PACK: 2026-10-07_0300PT。票池不增删。阶段不改。CEG 不入池。
 
 天气：要复查
-利率：十年期盘前约 5.27 · 油：WTI 约 87.5–87.8 · 机房：无新财报砍开支 · 范围：不是一起破
+利率：十年期沿用约 5.27，本窗未再取新点 · 油：WTI 约 89.6，布伦特约 101.4 · 机房：无新财报砍开支 · 范围：不是一起破
+因果：油又回 100 上方。今晨包 POWER-GRID 现实命中，壳仍空。
 
-已核只改状态句：AXTI 8-K 07-26 Lumentum 订金；AAOI 8-K 09-15 宁波租约；AESI 8-K 09-25；CIFR 8-K 09-25；NUAI 8-K 09-24 许可暂停；NRGV 8-K 09-22；AMCI 8-K 09-21。
-未核：VICR AMKR COHR POET CAT ETN VRT SEI FRMI HOST ULS ONEN ALIS。
-不写新發K。不升阶段。
+已核：VICR 8-K 09-10 董事条款；AXTI 07-26；AAOI 09-15；AESI 09-25；CIFR 09-25；FRMI 08-31；NUAI 09-24；VRT 附件 09-24 KES；NRGV 09-22；AMCI 09-21。
+未核：COHR AMKR POET SEI ULS ONEN CAT ETN HOST ALIS。
+不写新發K。
