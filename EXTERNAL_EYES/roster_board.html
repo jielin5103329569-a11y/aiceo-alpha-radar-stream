@@ -12,6 +12,7 @@
   .wrap { max-width: 1360px; margin: 0 auto; padding: 16px 14px 28px; }
   .top { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; flex-wrap:wrap; }
   h1 { margin:0; font-size: 30px; letter-spacing: .04em; }
+  h2 { margin: 18px 0 8px; font-size: 20px; color:#ffd27a; }
   .meta { color:#9bb0c7; margin: 6px 0 10px; font-size: 13px; }
   .weather { background:#122033; border:1px solid #2a4663; border-radius:10px; padding:10px 12px; margin: 8px 0 10px; font-size:14px; line-height:1.55; }
   .weather b { color:#ffd27a; }
@@ -22,6 +23,7 @@
   th, td { padding:7px 7px; border-bottom:1px solid #1d3046; text-align:left; vertical-align:top; }
   th { color:#9bb0c7; font-weight:600; background:#0c1a2a; position:sticky; top:0; }
   .main td:first-child { box-shadow: inset 4px 0 0 #d4a017; }
+  .soft td:first-child { box-shadow: inset 4px 0 0 #3ddc84; }
   .up { color:#3ddc84; font-weight:700; }
   .flat { color:#9bb0c7; }
   .risk { color:#ff6b6b; font-weight:700; }
@@ -73,6 +75,8 @@
     </div>
     <button class="btn" id="bigBtn" type="button">打开整池大图</button>
   </div>
+
+  <h2>上半：瓶颈节点票</h2>
   <table>
     <thead>
       <tr><th>票</th><th>阶段</th><th>风险</th><th>成功率</th><th>催化力度</th><th>偏好</th><th>方向</th><th>状态</th><th>预期差</th></tr>
@@ -100,7 +104,24 @@
       <tr><td>AMCI</td><td>1</td><td class="risk">8</td><td>25%</td><td>2</td><td>低</td><td class="flat">中性</td><td>周边观察</td><td></td></tr>
     </tbody>
   </table>
-  <div class="foot">打开即弹窗。点右上「打开整池大图」=全屏。天气不改阶段。不买。最新PACK 2026-10-09_0300PT。顶行只标阶段2/3。CEG 不入池。无新8-K，不增删票，不写新發K。预期差只标已落纸票：价格还没反应物理进展标差大，已涨过标差小，无新原件不标。</div>
+
+  <h2>下半：非瓶颈软件观察池</h2>
+  <table>
+    <thead>
+      <tr><th>票</th><th>层级</th><th>预期差</th><th>AI 延伸</th><th>穿越档</th><th>状态</th></tr>
+    </thead>
+    <tbody>
+      <tr class="soft"><td>BRZE</td><td>观察·确认</td><td>差大（-19.8%）</td><td>介于有/早期延伸</td><td>穿越档</td><td>留存不降，cRPO 接近营收</td></tr>
+      <tr class="soft"><td>MDB</td><td>观察·确认</td><td>差大（-12.4%）</td><td>早期延伸</td><td>穿越档</td><td>留存不降，cRPO 快过营收</td></tr>
+      <tr class="soft"><td>MNDY</td><td>观察·确认</td><td>差大（-3.2%）</td><td>有延伸</td><td>待补</td><td>留存不降，cRPO 快过营收</td></tr>
+      <tr class="soft"><td>BOX</td><td>观察·确认</td><td>差大（+4.5%）</td><td>早期延伸</td><td>穿越档</td><td>留存不降，RPO 快过营收</td></tr>
+      <tr class="soft"><td>ESTC</td><td>观察·确认</td><td>差大（+7.6%，贴近）</td><td>早期延伸</td><td>待补</td><td>留存不降，cRPO 快过营收</td></tr>
+      <tr class="soft"><td>PATH</td><td>观察·确认（总 RPO 代用）</td><td>暂标差大（-24.1%）</td><td>早期延伸（偏弱）</td><td>穿越档</td><td>留存不降，总 RPO 快过营收</td></tr>
+      <tr class="soft"><td>GTLB</td><td>观察·确认</td><td>不标（+9.5%）</td><td>早期延伸</td><td>成长延伸档</td><td>留存不降，cRPO 接近营收</td></tr>
+    </tbody>
+  </table>
+
+  <div class="foot">打开即弹窗。点右上「打开整池大图」=全屏。天气不改阶段。不买。最新PACK 2026-10-09_0300PT。顶行只标阶段2/3。CEG 不入池。无新8-K，不增删票，不写新發K。预期差只标已落纸票：价格还没反应物理进展标差大，已涨过标差小，无新原件不标。下半软件观察池与瓶颈节点分开。扫描方式一致。</div>
 </div>
 <script>
 const pop = document.getElementById('pop');
