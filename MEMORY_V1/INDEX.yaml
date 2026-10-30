@@ -28,6 +28,11 @@
   domain: eyes
   state: active
   ref: EXTERNAL_EYES/GROK_INGEST.md
+- id: EYES-COUNTEREVIDENCE-INGEST
+  type: procedure
+  domain: eyes
+  state: active
+  ref: EXTERNAL_EYES/COUNTEREVIDENCE_INGEST.md
 - id: PERSIST-GATE
   type: procedure
   domain: aiceo
@@ -359,3 +364,19 @@ task_maps:
   进展:
     - EVERY-TURN
     - PLAN-PROFIT-PROGRESS
+  反证包:
+    - EVERY-TURN
+    - PERSIST-GATE
+    - EYES-COUNTEREVIDENCE-INGEST
+  每日反证包:
+    - EVERY-TURN
+    - PERSIST-GATE
+    - EYES-COUNTEREVIDENCE-INGEST
+  反振包:
+    - EVERY-TURN
+    - PERSIST-GATE
+    - EYES-COUNTEREVIDENCE-INGEST
+  反阵包:
+    - EVERY-TURN
+    - PERSIST-GATE
+    - EYES-COUNTEREVIDENCE-INGEST

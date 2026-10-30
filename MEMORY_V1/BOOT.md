@@ -14,6 +14,7 @@
 - Alpha master roadmap (not a queue): docs/ALPHA_MASTER_ROADMAP.md
 - On AICEO / Alpha task: read those three after this BOOT + INDEX + STATE pointer
 - On Alpha / well task also load: MEMORY_V1/STATE/alpha.current.yaml, MEMORY_V1/BOTTLENECK/WELLS.yaml, MEMORY_V1/OBJECTS/REGISTRY.yaml, MEMORY_V1/CARDS/alpha/MAP.md
+- Owner 2026-10-30 daily 反证包 / 反振包 / 反阵包: BEFORE generic 入库 routing, load INDEX id EYES-COUNTEREVIDENCE-INGEST = EXTERNAL_EYES/COUNTEREVIDENCE_INGEST.md and OWNER_COLLAB.md scoped grant. GPT may archive only these Owner-supplied supplemental packets under EXTERNAL_EYES/SUPPLEMENTS/COUNTEREVIDENCE/; no profit-model/progress/score/stage writes. This is not a Frozen PACK ingest.
 - Frozen Eyes packs: EXTERNAL_EYES/PACKS/ (verbatim, no rewrite)
 - On 入库 / 存包 / External Eyes PACK forward: load only INDEX id EYES-INGEST = EXTERNAL_EYES/GROK_INGEST.md; write three new files; do not list PACKS; do not load full memory
 - On 进仓 / 保存 / 学习资料 / 口令集: load INDEX id PERSIST-GATE = MEMORY_V1/PERSIST_GATE.md then the mapped LEARNING files; no chat-artifact save; no saved without HEAD verify

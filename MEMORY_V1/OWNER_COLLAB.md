@@ -98,3 +98,20 @@ Fix is PASS only if t_push ≤ t_px1 on next live HIT. Files existing ≠ PASS. 
 ### 验收
 一次无付款试跑算纳入（2026-09-27 Frontier/United 查价试跑已过）。
 失败只报「卡在哪一页」，不编造成功。
+
+## 每日反证包资料入库专项授权（Owner 2026-10-30）
+Owner 本轮原话：“以后这个反振包每天都会出一份，都会交给你来存，交给你来入库，OK吗？”
+上下文：“你”指 GPT/Bro，“反振包”指本对话的每日股市情报与反证资料包。
+
+这是 Owner 对该资料归档流程的新指令：GPT 接收 Owner 转交的每日反证包，负责保存、去重、追加复核附记、提交资料仓库并回读给回执。仅在此事项上覆盖上文 2026-09-27 的 GPT 不得写仓限制；其他事项仍按原分工。Muse 不获新权限。
+本次记录 Owner 指令及加入 BOOT/INDEX 加载入口，不视为 GPT 可自行修改其他治理文件。
+
+授权仓库：jielin5103329569-a11y/aiceo-alpha-radar-stream。
+日常归档写入范围：EXTERNAL_EYES/SUPPLEMENTS/COUNTEREVIDENCE/；日常仅维护该目录下的资料、复核附记及索引。
+加载入口：MEMORY_V1/BOOT.md → MEMORY_V1/INDEX.yaml 的 EYES-COUNTEREVIDENCE-INGEST → EXTERNAL_EYES/COUNTEREVIDENCE_INGEST.md。
+
+收到资料时执行，不自动编造或补发未收到的包，不新增定时任务。原文与复核分开，历史追加保存。
+仅归档资料：不改盈利模型 PLAN/PROGRESS、不计作 S2 验证通过、不推进周进展、不改井/票池/评分/可买状态。
+productionAuthority=false；不写代码、不触碰 8080/live-5/交易权限，不写 ROOT 或其他公司仓库。
+提交后回读 HEAD，确认正文在仓才报已入库；只有文件副本或写入失败均不得报仓库入库完成。
+详细执行规则：EXTERNAL_EYES/COUNTEREVIDENCE_INGEST.md。
